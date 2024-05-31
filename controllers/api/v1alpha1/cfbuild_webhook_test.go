@@ -2,8 +2,8 @@ package v1alpha1_test
 
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -24,9 +24,9 @@ var _ = Describe("CFBuildMutatingWebhook", func() {
 	)
 
 	BeforeEach(func() {
-		cfAppGUID = GenerateGUID()
-		cfPackageGUID = GenerateGUID()
-		cfBuildGUID = GenerateGUID()
+		cfAppGUID = uuid.NewString()
+		cfPackageGUID = uuid.NewString()
+		cfBuildGUID = uuid.NewString()
 
 		cfBuild = &korifiv1alpha1.CFBuild{
 			ObjectMeta: metav1.ObjectMeta{

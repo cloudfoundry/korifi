@@ -4,9 +4,9 @@ import (
 	"context"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tools"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -27,8 +27,8 @@ var _ = Describe("CFProcessMutatingWebhook", func() {
 	)
 
 	BeforeEach(func() {
-		cfAppGUID = GenerateGUID()
-		cfProcessGUID = GenerateGUID()
+		cfAppGUID = uuid.NewString()
+		cfProcessGUID = uuid.NewString()
 		cfProcess = &korifiv1alpha1.CFProcess{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cfProcessGUID,

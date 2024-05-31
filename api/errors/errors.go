@@ -7,8 +7,7 @@ import (
 	"reflect"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
-
+	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -372,7 +371,7 @@ func NewRollingDeployNotSupportedError(runnerName string) RollingDeployNotSuppor
 }
 
 func FromK8sError(err error, resourceType string) error {
-	if webhookValidationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
+	if webhookValidationError, ok := validation.WebhookErrorToValidationError(err); ok {
 		return NewUnprocessableEntityError(err, webhookValidationError.GetMessage())
 	}
 

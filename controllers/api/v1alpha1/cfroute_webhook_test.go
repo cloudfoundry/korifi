@@ -2,7 +2,6 @@ package v1alpha1_test
 
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -26,7 +25,7 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 		BeforeEach(func() {
 			cfDomain = &korifiv1alpha1.CFDomain{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      GenerateGUID(),
+					Name:      uuid.NewString(),
 					Namespace: namespace,
 				},
 				Spec: korifiv1alpha1.CFDomainSpec{
@@ -37,7 +36,7 @@ var _ = Describe("CFRouteMutatingWebhook Integration Tests", func() {
 
 			cfRoute = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      GenerateGUID(),
+					Name:      uuid.NewString(),
 					Namespace: namespace,
 					Labels:    map[string]string{"foo": "bar"},
 				},

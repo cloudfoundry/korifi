@@ -8,7 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads"
+	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/tasks"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
@@ -273,7 +273,7 @@ func taskToRecord(task *korifiv1alpha1.CFTask) TaskRecord {
 	if failedCond != nil && failedCond.Status == metav1.ConditionTrue {
 		taskRecord.FailureReason = failedCond.Message
 
-		if failedCond.Reason == workloads.TaskCanceledReason {
+		if failedCond.Reason == tasks.TaskCanceledReason {
 			taskRecord.FailureReason = "task was cancelled"
 		}
 	}

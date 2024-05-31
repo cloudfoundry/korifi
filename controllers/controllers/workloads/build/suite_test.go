@@ -11,16 +11,11 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/build"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/build/fake"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-	"code.cloudfoundry.org/korifi/controllers/coordination"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap/zapcore"
@@ -69,9 +64,6 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "crds"),
 		},
-		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "manifests.yaml")},
-		},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -83,21 +75,9 @@ var _ = BeforeSuite(func() {
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
-	uncachedClient := helpers.NewUncachedClient(k8sManager.GetConfig())
-	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
-	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
-	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
-	Expect(workloads.NewCFAppValidator(
-		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.AppEntityType)),
-	).SetupWebhookWithManager(k8sManager)).To(Succeed())
-	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
-	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
-
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	testNamespace = testutils.PrefixedGUID("test-namespace")
-
-	delegateReconciler := new(fake.BuildReconciler)
+	delegateReconciler := new(fake.DelegateReconciler)
 	delegateReconciler.SetupWithManagerStub = func(mgr ctrl.Manager) *builder.Builder {
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&korifiv1alpha1.CFBuild{})
@@ -140,7 +120,7 @@ var _ = BeforeSuite(func() {
 	Expect(k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild](
 		ctrl.Log.WithName("controllers").WithName("CFBuild"),
 		k8sManager.GetClient(),
-		build.NewCFBuildReconciler(
+		build.NewReconciler(
 			ctrl.Log.WithName("controllers").WithName("CFBuild"),
 			k8sManager.GetClient(),
 			scheme.Scheme,
@@ -150,8 +130,15 @@ var _ = BeforeSuite(func() {
 	).SetupWithManager(k8sManager)).To(Succeed())
 
 	stopManager = helpers.StartK8sManager(k8sManager)
+})
 
-	createNamespace(testNamespace)
+var _ = BeforeEach(func() {
+	testNamespace = uuid.NewString()
+	Expect(adminClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNamespace,
+		},
+	})).To(Succeed())
 })
 
 var _ = AfterSuite(func() {
@@ -159,14 +146,3 @@ var _ = AfterSuite(func() {
 	stopClientCache()
 	Expect(testEnv.Stop()).To(Succeed())
 })
-
-func createNamespace(name string) *corev1.Namespace {
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-	}
-	Expect(
-		adminClient.Create(ctx, ns)).To(Succeed())
-	return ns
-}

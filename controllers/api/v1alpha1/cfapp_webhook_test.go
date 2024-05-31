@@ -2,8 +2,8 @@ package v1alpha1_test
 
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +20,7 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 	BeforeEach(func() {
 		cfApp = &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      GenerateGUID(),
+				Name:      uuid.NewString(),
 				Namespace: namespace,
 				Labels: map[string]string{
 					"anotherLabel": "app-label",
@@ -30,7 +30,7 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 				},
 			},
 			Spec: korifiv1alpha1.CFAppSpec{
-				DisplayName:  GenerateGUID(),
+				DisplayName:  uuid.NewString(),
 				DesiredState: "STARTED",
 				Lifecycle: korifiv1alpha1.Lifecycle{
 					Type: "buildpack",

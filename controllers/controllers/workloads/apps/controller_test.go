@@ -2,7 +2,6 @@ package apps_test
 
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -461,7 +460,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 			cfServiceBinding := korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      PrefixedGUID("service-binding"),
+					Name:      uuid.NewString(),
 					Namespace: testNamespace,
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{

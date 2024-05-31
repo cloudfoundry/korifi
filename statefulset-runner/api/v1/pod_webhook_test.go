@@ -1,8 +1,7 @@
 package v1_test
 
 import (
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
-
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -17,7 +16,7 @@ var _ = Describe("StatefulSet Runner Pod Mutating Webhook", func() {
 	)
 
 	BeforeEach(func() {
-		namespace = testutils.PrefixedGUID("ns")
+		namespace = uuid.NewString()
 		err := adminClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
@@ -27,7 +26,7 @@ var _ = Describe("StatefulSet Runner Pod Mutating Webhook", func() {
 
 		stsPod = &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      testutils.PrefixedGUID("pod") + "-1",
+				Name:      uuid.NewString() + "-1",
 				Namespace: namespace,
 			},
 			Spec: corev1.PodSpec{

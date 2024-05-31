@@ -12,7 +12,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
@@ -247,8 +247,8 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 	cfApp := appCreateMessage.toCFApp()
 	err = userClient.Create(ctx, &cfApp)
 	if err != nil {
-		if validationError, ok := webhooks.WebhookErrorToValidationError(err); ok {
-			if validationError.Type == webhooks.DuplicateNameErrorType {
+		if validationError, ok := validation.WebhookErrorToValidationError(err); ok {
+			if validationError.Type == validation.DuplicateNameErrorType {
 				return AppRecord{}, apierrors.NewUniquenessError(err, validationError.GetMessage())
 			}
 		}

@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools/image"
@@ -872,7 +871,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 			source2 := source
 			source2.Registry.Image += "2"
-			buildWorkload2 = buildWorkloadObject(testutils.GenerateGUID(), namespaceGUID, source2, env, services, reconcilerName, buildpacks)
+			buildWorkload2 = buildWorkloadObject(uuid.NewString(), namespaceGUID, source2, env, services, reconcilerName, buildpacks)
 			Expect(adminClient.Create(ctx, buildWorkload2)).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload2), buildWorkload2)).To(Succeed())
@@ -906,7 +905,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			BeforeEach(func() {
 				Expect(adminClient.Create(ctx, &buildv1alpha2.Build{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      testutils.GenerateGUID(),
+						Name:      uuid.NewString(),
 						Namespace: namespaceGUID,
 						Labels: map[string]string{
 							buildv1alpha2.ImageLabel:           appGUID,
@@ -954,7 +953,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			BeforeEach(func() {
 				source3 := source
 				source3.Registry.Image += "3"
-				buildWorkload3 = buildWorkloadObject(testutils.GenerateGUID(), namespaceGUID, source3, env, services, reconcilerName, buildpacks)
+				buildWorkload3 = buildWorkloadObject(uuid.NewString(), namespaceGUID, source3, env, services, reconcilerName, buildpacks)
 				Expect(adminClient.Create(ctx, buildWorkload3)).To(Succeed())
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload3), buildWorkload3)).To(Succeed())
@@ -988,7 +987,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 				g.Expect(buildWorkload.Labels).To(HaveKey(controllers.ImageGenerationKey))
 			}).Should(Succeed())
 
-			buildWorkload2 = buildWorkloadObject(testutils.GenerateGUID(), namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			buildWorkload2 = buildWorkloadObject(uuid.NewString(), namespaceGUID, source, env, services, reconcilerName, buildpacks)
 			Expect(adminClient.Create(ctx, buildWorkload2)).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload2), buildWorkload2)).To(Succeed())
@@ -1132,7 +1131,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 		When("there is another BuildWorkload referring to the kpack.Build", func() {
 			BeforeEach(func() {
-				otherBuildWorkload := buildWorkloadObject(testutils.GenerateGUID(), namespaceGUID, source, env, services, reconcilerName, buildpacks)
+				otherBuildWorkload := buildWorkloadObject(uuid.NewString(), namespaceGUID, source, env, services, reconcilerName, buildpacks)
 				otherBuildWorkload.Labels[controllers.ImageGenerationKey] = "1"
 				Expect(adminClient.Create(ctx, otherBuildWorkload)).To(Succeed())
 			})

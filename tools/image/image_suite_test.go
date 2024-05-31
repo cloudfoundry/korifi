@@ -5,10 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/tests/helpers/oci"
 	"code.cloudfoundry.org/korifi/tools/dockercfg"
 	"code.cloudfoundry.org/korifi/tools/image"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
@@ -75,7 +75,7 @@ var _ = BeforeSuite(func() {
 
 	containerRegistry = oci.NewContainerRegistry("user", "password")
 
-	secretName = testutils.GenerateGUID()
+	secretName = uuid.NewString()
 
 	dockerConfigs := []dockercfg.DockerServerConfig{}
 	for _, reg := range registries {
@@ -100,7 +100,7 @@ var _ = BeforeSuite(func() {
 		g.Expect(getErr).NotTo(HaveOccurred())
 	}).Should(Succeed())
 
-	serviceAccountName = testutils.GenerateGUID()
+	serviceAccountName = uuid.NewString()
 	Expect(k8sClient.Create(ctx, &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",

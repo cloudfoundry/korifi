@@ -9,7 +9,7 @@ import (
 	k8sclient "k8s.io/client-go/kubernetes"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -83,7 +83,7 @@ func isForbidden(err error) bool {
 		return false
 	}
 
-	if _, isValidationErr := webhooks.WebhookErrorToValidationError(err); isValidationErr {
+	if _, isValidationErr := validation.WebhookErrorToValidationError(err); isValidationErr {
 		return false
 	}
 

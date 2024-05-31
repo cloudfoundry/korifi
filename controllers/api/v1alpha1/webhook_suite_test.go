@@ -25,15 +25,19 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
-	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
-	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/networking"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/apps"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/orgs"
+	packageswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/packages"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/spaces"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -83,7 +87,7 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	namespace = testutils.PrefixedGUID("webhooks-test-ns")
+	namespace = uuid.NewString()
 
 	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
@@ -100,18 +104,18 @@ var _ = BeforeSuite(func() {
 
 	uncachedClient := helpers.NewUncachedClient(k8sManager.GetConfig())
 	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
-	Expect(workloads.NewCFAppValidator(
-		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.AppEntityType)),
+	Expect(apps.NewValidator(
+		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, apps.AppEntityType)),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect((&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
-	Expect(networking.NewCFRouteValidator(
-		webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, networking.RouteEntityType)),
+	Expect(routes.NewValidator(
+		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, routes.RouteEntityType)),
 		namespace,
 		uncachedClient,
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	Expect(networking.NewCFDomainValidator(uncachedClient).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(domains.NewValidator(uncachedClient).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
@@ -120,16 +124,16 @@ var _ = BeforeSuite(func() {
 
 	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	orgNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.CFOrgEntityType))
-	orgPlacementValidator := webhooks.NewPlacementValidator(uncachedClient, namespace)
-	Expect(workloads.NewCFOrgValidator(orgNameDuplicateValidator, orgPlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	orgNameDuplicateValidator := validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, orgs.CFOrgEntityType))
+	orgPlacementValidator := validation.NewPlacementValidator(uncachedClient, namespace)
+	Expect(orgs.NewValidator(orgNameDuplicateValidator, orgPlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	spaceNameDuplicateValidator := webhooks.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, workloads.CFSpaceEntityType))
-	spacePlacementValidator := webhooks.NewPlacementValidator(uncachedClient, namespace)
-	Expect(workloads.NewCFSpaceValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	spaceNameDuplicateValidator := validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, spaces.CFSpaceEntityType))
+	spacePlacementValidator := validation.NewPlacementValidator(uncachedClient, namespace)
+	Expect(spaces.NewValidator(spaceNameDuplicateValidator, spacePlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
-	Expect(workloads.NewCFPackageValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(packageswebhook.NewValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect(adminClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
