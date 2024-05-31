@@ -381,8 +381,8 @@ github.com/opencontainers/image-spec v1.1.0 h1:8SG7/vwALn54lVB/0yZ/MMwhFrPYtpEHQ
 github.com/opencontainers/image-spec v1.1.0/go.mod h1:W4s4sFTMaBeK1BQLXbG4AdM2szdn85PY75RI83NrTrM=
 github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=
 github.com/pelletier/go-toml v1.9.5/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=
-github.com/pivotal/kpack v0.13.3 h1:hBp8HLjfZ2XmhzXMqLheALJ4K8WDCqh4ukPWGw9CXwA=
-github.com/pivotal/kpack v0.13.3/go.mod h1:0Hn3wheXTOrXgFoP620D08JocOvKJHaNzOzzHgkRNjQ=
+github.com/pivotal/kpack v0.14.0 h1:HZoiIAmC1WVrgSFhNXtaduwVv69aMPzr5xnnFmweaOA=
+github.com/pivotal/kpack v0.14.0/go.mod h1:xjQQITcrAuErpGPWiV0sHDaR6oWCm+BouHCfmIU3V9E=
 github.com/pjbgf/sha1cd v0.3.0 h1:4D5XXmUUBUl/xQ6IjCkEAbqXskkq/4O7LmGn0AqMDs4=
 github.com/pjbgf/sha1cd v0.3.0/go.mod h1:nZ1rrWOcGJ5uZgEEVL1VUM9iRQiZvWdbZjkKyFzPPsI=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
