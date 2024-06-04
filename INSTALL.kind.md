@@ -25,10 +25,10 @@ containerdConfigPatches:
 nodes:
 - role: control-plane
   extraPortMappings:
-  - containerPort: 80
+  - containerPort: 32080
     hostPort: 80
     protocol: TCP
-  - containerPort: 443
+  - containerPort: 32443
     hostPort: 443
     protocol: TCP
   - containerPort: 30050
