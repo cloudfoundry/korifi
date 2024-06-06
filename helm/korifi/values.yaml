@@ -10,6 +10,8 @@ eksContainerRegistryRoleARN: ""
 containerRegistryCACertSecret:
 systemImagePullSecrets: []
 
+experimentalManagedServicesEnabled: false
+
 reconcilers:
   build: kpack-image-builder
   run: statefulset-runner
@@ -23,7 +25,7 @@ api:
   include: true
 
   image: cloudfoundry/korifi-api:latest
-  
+
   nodeSelector: {}
   tolerations: []
   replicas: 1
@@ -66,7 +68,7 @@ api:
 
 controllers:
   image: cloudfoundry/korifi-controllers:latest
-  
+
   nodeSelector: {}
   tolerations: []
   replicas: 1
@@ -138,3 +140,7 @@ helm:
 
 networking:
   gatewayClass:
+
+experimental:
+  managedServices:
+    include: false

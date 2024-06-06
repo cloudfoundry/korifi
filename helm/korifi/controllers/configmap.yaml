@@ -61,4 +61,5 @@ data:
     networking:
       gatewayNamespace: {{ .Release.Namespace }}-gateway
       gatewayName: korifi
+    experimentalManagedServicesEnabled: {{ .Values.experimental.managedServices.include }}
 
