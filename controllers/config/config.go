@@ -43,6 +43,8 @@ type ControllerConfig struct {
 	ContainerRepositoryPrefix string     `yaml:"containerRepositoryPrefix"`
 	ContainerRegistryType     string     `yaml:"containerRegistryType"`
 	Networking                Networking `yaml:"networking"`
+
+	ExperimentalManagedServicesEnabled bool `yaml:"experimentalManagedServicesEnabled"`
 }
 
 type CFProcessDefaults struct {

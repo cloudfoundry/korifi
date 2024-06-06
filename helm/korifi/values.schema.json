@@ -224,7 +224,14 @@
               "type": "string"
             }
           },
-          "required": ["description", "name", "minCLIVersion", "recommendedCLIVersion", "custom", "supportAddress"]
+          "required": [
+            "description",
+            "name",
+            "minCLIVersion",
+            "recommendedCLIVersion",
+            "custom",
+            "supportAddress"
+          ]
         },
         "lifecycle": {
           "type": "object",
@@ -578,6 +585,21 @@
           "type": "string"
         }
       },
+      "type": "object"
+    },
+    "experimental": {
+      "properties": {
+        "managedServices": {
+          "properties": {
+            "include": {
+              "description": "Enable managed services support",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "description": "Experimental features. Make sure you do not enable those on production. No guarantee provided! Backwards incompatible changes in future are quite probable!",
       "type": "object"
     }
   },

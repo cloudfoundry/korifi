@@ -52,6 +52,7 @@ var _ = Describe("LoadFromPath", func() {
 				GatewayName:      "gw-name",
 				GatewayNamespace: "gw-ns",
 			},
+			ExperimentalManagedServicesEnabled: true,
 		}
 	})
 
@@ -94,6 +95,7 @@ var _ = Describe("LoadFromPath", func() {
 				GatewayName:      "gw-name",
 				GatewayNamespace: "gw-ns",
 			},
+			ExperimentalManagedServicesEnabled: true,
 		}))
 	})
 

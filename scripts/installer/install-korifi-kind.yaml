@@ -111,6 +111,7 @@ spec:
             --set=kpackImageBuilder.clusterStackRunImage="paketobuildpacks/run-jammy-base" \
             --set=kpackImageBuilder.builderRepository="localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder" \
             --set=networking.gatewayClass="contour" \
+            --set=experimental.managedServices.include="true" \
             --wait
 
           kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m

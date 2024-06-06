@@ -47,6 +47,8 @@ type (
 		AuthProxyHost   string        `yaml:"authProxyHost"`
 		AuthProxyCACert string        `yaml:"authProxyCACert"`
 		LogLevel        zapcore.Level `yaml:"logLevel"`
+
+		ExperimentalManagedServicesEnabled bool `yaml:"experimentalManagedServicesEnabled"`
 	}
 
 	RoleLevel string

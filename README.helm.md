@@ -74,6 +74,9 @@ Here are all the values that can be set for the chart:
 - `debug` (_Boolean_): Enables remote debugging with [Delve](https://github.com/go-delve/delve).
 - `defaultAppDomainName` (_String_): Base domain name for application URLs.
 - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
+- `experimental`: Experimental features. Make sure you do not enable those on production. No guarantee provided! Backwards incompatible changes in future are quite probable!
+  - `managedServices`:
+    - `include` (_Boolean_): Enable managed services support
 - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
 - `helm`:
   - `hooksImage` (_String_): Image for the helm hooks containing kubectl
