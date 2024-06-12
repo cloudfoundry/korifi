@@ -14,7 +14,7 @@
   </a>
 </p>
 
-This repository contains an experimental implementation of the [Cloud Foundry V3 API](http://v3-apidocs.cloudfoundry.org) that is backed entirely by Kubernetes [custom resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/).
+This repository contains an implementation of the [Cloud Foundry V3 API](http://v3-apidocs.cloudfoundry.org) that is backed entirely by Kubernetes [custom resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/).
 
 For more information about what we're building, check out the [_Vision for CF on Kubernetes_](https://docs.google.com/document/d/1rG814raI5UfGUsF_Ycrr8hKQMo1RH9TRMxuvkgHSdLg/edit) document.
 
