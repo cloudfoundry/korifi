@@ -170,7 +170,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apiextensions-apiserver v0.30.1 // indirect
 	k8s.io/component-base v0.30.1 // indirect
-	k8s.io/klog/v2 v2.120.1
+	k8s.io/klog/v2 v2.130.0
 	k8s.io/kube-openapi v0.0.0-20240521025948-451ce29f5b89 // indirect
 	knative.dev/pkg v0.0.0-20230821102121-81e4ee140363 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
