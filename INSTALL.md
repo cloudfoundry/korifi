@@ -100,9 +100,11 @@ Follow the dynamic provisioning [instructions](https://projectcontour.io/docs/1.
 We use the [Kubernetes Metrics Server](https://github.com/kubernetes-sigs/metrics-server) to implement [process stats](https://v3-apidocs.cloudfoundry.org/#get-stats-for-a-process).
 Most Kubernetes distributions will come with `metrics-server` already installed. If yours does not, you should follow the [instructions](https://github.com/kubernetes-sigs/metrics-server#installation) to install it.
 
-### Optional: Service Bindings Controller
+### Service Bindings Controller
 
 We use the [Service Binding Specification for Kubernetes](https://github.com/servicebinding/spec) and its [controller reference implementation](https://github.com/servicebinding/runtime) to implement [Cloud Foundry service bindings](https://docs.cloudfoundry.org/devguide/services/application-binding.html) ([see this issue](https://github.com/cloudfoundry/cf-k8s-controllers/issues/462)). Follow the [instructions](https://github.com/servicebinding/runtime/releases/latest) to install the latest version.
+
+At minimum, you need to install servicemanager.io runtimes: https://github.com/servicebinding/runtime/releases/download/latest/servicebinding-runtime-v<version>.yaml
 
 ## Pre-install configuration
 
