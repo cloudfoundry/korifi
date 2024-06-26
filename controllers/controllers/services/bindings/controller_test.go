@@ -268,6 +268,13 @@ var _ = Describe("CFServiceBinding", func() {
 		When("the servicebinding.io binding ready status is outdated", func() {
 			BeforeEach(func() {
 				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionTrue)),
+					)))
+				}).Should(Succeed())
+				Eventually(func(g Gomega) {
 					sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: testNamespace,
