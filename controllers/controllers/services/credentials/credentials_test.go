@@ -130,4 +130,27 @@ var _ = Describe("Credentials", func() {
 			})
 		})
 	})
+
+	Describe("ToCredentialsSecretData", func() {
+		var creds any
+
+		BeforeEach(func() {
+			creds = struct {
+				Str string
+				Num int
+			}{
+				Str: "abc",
+				Num: 5,
+			}
+		})
+
+		It("converts credentials map to a k8s secret data", func() {
+			secretData, err := credentials.ToCredentialsSecretData(creds)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secretData).To(SatisfyAll(
+				HaveLen(1),
+				HaveKeyWithValue(korifiv1alpha1.CredentialsSecretKey, MatchJSON(`{"Str":"abc", "Num":5}`)),
+			))
+		})
+	})
 })

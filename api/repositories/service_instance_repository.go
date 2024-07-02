@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
@@ -201,7 +201,7 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 	ctx context.Context,
 	userClient client.Client,
 	cfServiceInstance *korifiv1alpha1.CFServiceInstance,
-	credentials map[string]any,
+	creds map[string]any,
 ) error {
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -217,7 +217,7 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 		credentialsSecret.Labels[CFServiceInstanceGUIDLabel] = cfServiceInstance.Name
 
 		var err error
-		credentialsSecret.Data, err = toSecretData(credentials)
+		credentialsSecret.Data, err = credentials.ToCredentialsSecretData(creds)
 		if err != nil {
 			return errors.New("failed to marshal credentials for service instance")
 		}
@@ -225,18 +225,6 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 		return controllerutil.SetOwnerReference(cfServiceInstance, credentialsSecret, scheme.Scheme)
 	})
 	return err
-}
-
-func toSecretData(credentials map[string]any) (map[string][]byte, error) {
-	var credentialBytes []byte
-	credentialBytes, err := json.Marshal(credentials)
-	if err != nil {
-		return nil, errors.New("failed to marshal credentials for service instance")
-	}
-
-	return map[string][]byte{
-		korifiv1alpha1.CredentialsSecretKey: credentialBytes,
-	}, nil
 }
 
 // nolint:dupl

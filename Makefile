@@ -25,12 +25,21 @@ help: ## Display this help.
 CONTROLLERS=controllers job-task-runner kpack-image-builder statefulset-runner
 COMPONENTS=api $(CONTROLLERS)
 
-manifests:
+manifests: install-controller-gen
+	$(CONTROLLER_GEN) \
+		paths="./model/..." \
+		crd \
+		output:crd:artifacts:config=helm/korifi/controllers/crds
 	@for comp in $(COMPONENTS); do make -C $$comp manifests; done
 
-generate:
+generate: install-controller-gen
+	$(CONTROLLER_GEN) object:headerFile="controllers/hack/boilerplate.go.txt" paths="./model/..."
 	@for comp in $(CONTROLLERS); do make -C $$comp generate; done
 	go run ./scripts/helmdoc/main.go > README.helm.md
+
+CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+install-controller-gen:
+	GOBIN=$(shell pwd)/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen
 
 generate-fakes:
 	go generate ./...

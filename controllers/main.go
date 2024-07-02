@@ -30,6 +30,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/domains"
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/routes"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/apps"
@@ -47,6 +48,7 @@ import (
 	domainswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
 	bindingswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
+	brokerswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/brokers"
 	instanceswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	versionwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/version"
@@ -298,6 +300,18 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
 			os.Exit(1)
 		}
+
+		if controllerConfig.ExperimentalManagedServicesEnabled {
+			if err = brokers.NewReconciler(
+				mgr.GetClient(),
+				mgr.GetScheme(),
+				ctrl.Log.WithName("controllers").WithName("CFServiceBroker"),
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "CFServiceBroker")
+				os.Exit(1)
+			}
+		}
+
 		//+kubebuilder:scaffold:builder
 
 		// Setup Index with Manager
@@ -497,6 +511,13 @@ func main() {
 			validation.NewPlacementValidator(uncachedClient, controllerConfig.CFRootNamespace),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFSpace")
+			os.Exit(1)
+		}
+
+		if err = brokerswebhook.NewValidator(
+			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, brokerswebhook.ServiceBrokerEntityType)),
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBroker")
 			os.Exit(1)
 		}
 

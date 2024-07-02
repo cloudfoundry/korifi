@@ -12,18 +12,20 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/routing"
+	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tools/logger"
 )
 
 const (
-	JobPath             = "/v3/jobs/{guid}"
-	syncSpaceJobType    = "space.apply_manifest"
-	AppDeleteJobType    = "app.delete"
-	OrgDeleteJobType    = "org.delete"
-	RouteDeleteJobType  = "route.delete"
-	SpaceDeleteJobType  = "space.delete"
-	DomainDeleteJobType = "domain.delete"
-	RoleDeleteJobType   = "role.delete"
+	JobPath                    = "/v3/jobs/{guid}"
+	syncSpaceJobType           = "space.apply_manifest"
+	AppDeleteJobType           = "app.delete"
+	OrgDeleteJobType           = "org.delete"
+	RouteDeleteJobType         = "route.delete"
+	SpaceDeleteJobType         = "space.delete"
+	DomainDeleteJobType        = "domain.delete"
+	RoleDeleteJobType          = "role.delete"
+	ServiceBrokerCreateJobType = "service_broker.create"
 
 	JobTimeoutDuration = 120.0
 )
@@ -35,17 +37,29 @@ type DeletionRepository interface {
 	GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
 }
 
-type Job struct {
-	serverURL       url.URL
-	repositories    map[string]DeletionRepository
-	pollingInterval time.Duration
+//counterfeiter:generate -o fake -fake-name StateRepository . StateRepository
+type StateRepository interface {
+	GetState(context.Context, authorization.Info, string) (model.CFResourceState, error)
 }
 
-func NewJob(serverURL url.URL, repositories map[string]DeletionRepository, pollingInterval time.Duration) *Job {
+type Job struct {
+	serverURL            url.URL
+	deletionRepositories map[string]DeletionRepository
+	stateRepositories    map[string]StateRepository
+	pollingInterval      time.Duration
+}
+
+func NewJob(
+	serverURL url.URL,
+	deletionRepositories map[string]DeletionRepository,
+	stateRepositories map[string]StateRepository,
+	pollingInterval time.Duration,
+) *Job {
 	return &Job{
-		serverURL:       serverURL,
-		repositories:    repositories,
-		pollingInterval: pollingInterval,
+		serverURL:            serverURL,
+		deletionRepositories: deletionRepositories,
+		stateRepositories:    stateRepositories,
+		pollingInterval:      pollingInterval,
 	}
 }
 
@@ -63,25 +77,37 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 		)
 	}
 
-	if job.Type == syncSpaceJobType {
+	switch job.Type {
+	case syncSpaceJobType:
 		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForManifestApplyJob(job, h.serverURL)), nil
-	}
+	default:
+		deletionRepository, ok := h.deletionRepositories[job.Type]
+		if ok {
+			jobResponse, err := h.handleDeleteJob(ctx, deletionRepository, job)
+			if err != nil {
+				return nil, err
+			}
 
-	repository, ok := h.repositories[job.Type]
-	if !ok {
+			return routing.NewResponse(http.StatusOK).WithBody(jobResponse), nil
+		}
+
+		stateRepository, ok := h.stateRepositories[job.Type]
+		if ok {
+			jobResponse, err := h.handleStateJob(ctx, stateRepository, job)
+			if err != nil {
+				return nil, err
+			}
+
+			return routing.NewResponse(http.StatusOK).WithBody(jobResponse), nil
+		}
+
 		return nil, apierrors.LogAndReturn(
 			log,
 			apierrors.NewNotFoundError(fmt.Errorf("invalid job type: %s", job.Type), JobResourceType),
 			fmt.Sprintf("Invalid Job type: %s", job.Type),
 		)
-	}
 
-	jobResponse, err := h.handleDeleteJob(ctx, repository, job)
-	if err != nil {
-		return nil, err
 	}
-
-	return routing.NewResponse(http.StatusOK).WithBody(jobResponse), nil
 }
 
 func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository, job presenter.Job) (presenter.JobResponse, error) {
@@ -133,6 +159,43 @@ func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository
 		presenter.StateFailed,
 		h.serverURL,
 	), nil
+}
+
+func (h *Job) handleStateJob(ctx context.Context, repository StateRepository, job presenter.Job) (presenter.JobResponse, error) {
+	ctx, log := logger.FromContext(ctx, "handleStateJob")
+	authInfo, _ := authorization.InfoFromContext(ctx)
+	state, err := repository.GetState(ctx, authInfo, job.ResourceGUID)
+	if err != nil {
+		if errors.As(err, &apierrors.ForbiddenError{}) {
+			return presenter.ForJob(job,
+				[]presenter.JobResponseError{},
+				presenter.StateComplete,
+				h.serverURL,
+			), nil
+		}
+		return presenter.JobResponse{}, apierrors.LogAndReturn(
+			log,
+			err,
+			"failed to get "+job.ResourceType+" state from Kubernetes",
+			job.ResourceType+"GUID", job.ResourceGUID,
+		)
+	}
+
+	switch state.Status {
+	case model.CFResourceStatusReady:
+		return presenter.ForJob(job,
+			[]presenter.JobResponseError{},
+			presenter.StateComplete,
+			h.serverURL,
+		), nil
+
+	default:
+		return presenter.ForJob(job,
+			[]presenter.JobResponseError{},
+			presenter.StateProcessing,
+			h.serverURL,
+		), nil
+	}
 }
 
 func (h *Job) retryGetDeletedAt(ctx context.Context, repository DeletionRepository, job presenter.Job) (*time.Time, error) {

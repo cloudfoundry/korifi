@@ -396,6 +396,26 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - cfservicebrokers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfservicebrokers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - cfserviceinstances
   verbs:
   - create

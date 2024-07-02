@@ -24,8 +24,7 @@ import (
 )
 
 const (
-	UserProvidedType     = "user-provided"
-	CredentialsSecretKey = "credentials"
+	UserProvidedType = "user-provided"
 )
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
