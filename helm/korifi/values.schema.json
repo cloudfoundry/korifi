@@ -599,7 +599,7 @@
           "type": "object"
         }
       },
-      "description": "Experimental features. Make sure you do not enable those on production. No guarantee provided! Backwards incompatible changes in future are quite probable!",
+      "description": "Experimental features. No guarantees are provided and breaking/backwards incompatible changes should be expected. These features are not recommended for use in production environments.",
       "type": "object"
     }
   },

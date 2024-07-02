@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -8,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/model"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -19,16 +21,18 @@ var _ = Describe("Job", func() {
 	var (
 		handler       *handlers.Job
 		deletionRepos map[string]handlers.DeletionRepository
+		stateRepos    map[string]handlers.StateRepository
 		jobGUID       string
 		req           *http.Request
 	)
 
 	BeforeEach(func() {
 		deletionRepos = map[string]handlers.DeletionRepository{}
+		stateRepos = map[string]handlers.StateRepository{}
 	})
 
 	JustBeforeEach(func() {
-		handler = handlers.NewJob(*serverURL, deletionRepos, 0)
+		handler = handlers.NewJob(*serverURL, deletionRepos, stateRepos, 0)
 		routerBuilder.LoadRoutes(handler)
 
 		var err error
@@ -56,7 +60,7 @@ var _ = Describe("Job", func() {
 		})
 	})
 
-	Describe("GET /v3/jobs/*", func() {
+	Describe("GET /v3/jobs/*delete*", func() {
 		var deletionRepo *fake.DeletionRepository
 
 		BeforeEach(func() {
@@ -144,25 +148,91 @@ var _ = Describe("Job", func() {
 				)))
 			})
 		})
+	})
 
-		When("the job guid is invalid", func() {
+	Describe("GET /v3/jobs/*state*", func() {
+		var stateRepo *fake.StateRepository
+
+		BeforeEach(func() {
+			stateRepo = new(fake.StateRepository)
+			stateRepo.GetStateReturns(model.CFResourceState{}, nil)
+			stateRepos["testing.state"] = stateRepo
+
+			jobGUID = "testing.state~my-resource-guid"
+		})
+
+		It("returns a processing status", func() {
+			Expect(stateRepo.GetStateCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualResourceGUID := stateRepo.GetStateArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualResourceGUID).To(Equal("my-resource-guid"))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", jobGUID),
+				MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+				MatchJSONPath("$.operation", "testing.state"),
+				MatchJSONPath("$.state", "PROCESSING"),
+				MatchJSONPath("$.errors", BeEmpty()),
+			)))
+		})
+
+		When("the resource state is Ready", func() {
 			BeforeEach(func() {
-				jobGUID = "job.operation;some-resource-guid"
+				stateRepo.GetStateReturns(model.CFResourceState{
+					Status: model.CFResourceStatusReady,
+				}, nil)
 			})
 
-			It("returns an error", func() {
-				expectNotFoundError("Job")
+			It("returns a complete status", func() {
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.state", "COMPLETE"),
+					MatchJSONPath("$.errors", BeEmpty()),
+				)))
 			})
 		})
 
-		When("there is no deletion repository registered for the operation", func() {
+		When("the user does not have permission to see the resource", func() {
 			BeforeEach(func() {
-				deletionRepos = map[string]handlers.DeletionRepository{}
+				stateRepo.GetStateReturns(model.CFResourceState{}, fmt.Errorf("wrapped err: %w", apierrors.NewForbiddenError(nil, "foo")))
+			})
+
+			It("returns a complete status", func() {
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.state", "COMPLETE"),
+					MatchJSONPath("$.errors", BeEmpty()),
+				)))
+			})
+		})
+
+		When("getting the state fails", func() {
+			BeforeEach(func() {
+				stateRepo.GetStateReturns(model.CFResourceState{}, errors.New("get-state-error"))
 			})
 
 			It("returns an error", func() {
-				expectNotFoundError("Job")
+				expectUnknownError()
 			})
+		})
+	})
+
+	When("the job type is unknown", func() {
+		BeforeEach(func() {
+			jobGUID = "unknown~guid"
+		})
+
+		It("returns an error", func() {
+			expectNotFoundError("Job")
+		})
+	})
+
+	When("the job guid is invalid", func() {
+		BeforeEach(func() {
+			jobGUID = "job.operation;some-resource-guid"
+		})
+
+		It("returns an error", func() {
+			expectNotFoundError("Job")
 		})
 	})
 })

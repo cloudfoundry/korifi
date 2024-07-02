@@ -2,6 +2,7 @@ package credentials
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -69,4 +70,16 @@ func GetCredentials(credentialsSecret *corev1.Secret) (map[string]any, error) {
 	}
 
 	return credentialsObject, nil
+}
+
+func ToCredentialsSecretData(credentials any) (map[string][]byte, error) {
+	var credentialBytes []byte
+	credentialBytes, err := json.Marshal(credentials)
+	if err != nil {
+		return nil, errors.New("failed to marshal credentials for service instance")
+	}
+
+	return map[string][]byte{
+		korifiv1alpha1.CredentialsSecretKey: credentialBytes,
+	}, nil
 }

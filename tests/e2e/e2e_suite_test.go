@@ -227,6 +227,17 @@ type serviceInstanceResource struct {
 	InstanceType string         `json:"type"`
 }
 
+type serviceBrokerResource struct {
+	resource       `json:",inline"`
+	URL            string                              `json:"url"`
+	Authentication serviceBrokerAuthenticationResource `json:"authentication"`
+}
+
+type serviceBrokerAuthenticationResource struct {
+	Type        string         `json:"type"`
+	Credentials map[string]any `json:"credentials"`
+}
+
 type appLogResource struct {
 	Envelopes appLogResourceEnvelopes `json:"envelopes"`
 }

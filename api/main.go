@@ -226,6 +226,7 @@ func main() {
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](conditionTimeout),
 	)
 	metricsRepo := repositories.NewMetricsRepo(userClientFactory)
+	serviceBrokerRepo := repositories.NewServiceBrokerRepo(userClientFactory, cfg.RootNamespace)
 
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(
@@ -341,6 +342,9 @@ func main() {
 				handlers.DomainDeleteJobType: domainRepo,
 				handlers.RoleDeleteJobType:   roleRepo,
 			},
+			map[string]handlers.StateRepository{
+				handlers.ServiceBrokerCreateJobType: serviceBrokerRepo,
+			},
 			500*time.Millisecond,
 		),
 		handlers.NewLogCache(
@@ -401,6 +405,12 @@ func main() {
 		),
 		handlers.NewOAuth(
 			*serverURL,
+		),
+		handlers.NewServiceBroker(
+			*serverURL,
+			serviceBrokerRepo,
+			requestValidator,
+			cfg.ExperimentalManagedServicesEnabled,
 		),
 	}
 	for _, handler := range apiHandlers {
