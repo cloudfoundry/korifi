@@ -5,3 +5,4 @@
 ~/.*
 *.test
 tests/assets/dorifi/dorifi
+tests/assets/multi-process/dorifi

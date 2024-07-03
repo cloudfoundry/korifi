@@ -8,12 +8,26 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const ServiceBindingRootEnv = "SERVICE_BINDING_ROOT"
 
 func main() {
-	http.HandleFunc("/", helloWorldHandler)
+	arg := ""
+	if len(os.Args) > 1 {
+		arg = os.Args[1]
+	}
+
+	if arg != "" && arg != "web" {
+		for range time.Tick(time.Second * 1) {
+			fmt.Printf("Hello from %q\n", arg)
+		}
+
+		return
+	}
+
+	http.HandleFunc("/", helloWorldHandler(arg))
 	http.HandleFunc("/env.json", envJsonHandler)
 	http.HandleFunc("/servicebindingroot", serviceBindingRootHandler)
 	http.HandleFunc("/servicebindings", serviceBindingsHandler)
@@ -50,8 +64,14 @@ func exitHandler(w http.ResponseWriter, r *http.Request) {
 	os.Exit(exitCode)
 }
 
-func helloWorldHandler(w http.ResponseWriter, _ *http.Request) {
-	fmt.Fprintln(w, "Hi, I'm Dorifi!")
+func helloWorldHandler(arg string) func(w http.ResponseWriter, _ *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		if arg == "" {
+			fmt.Fprintln(w, "Hi, I'm Dorifi!")
+		} else {
+			fmt.Fprintf(w, "Hi, I'm Dorifi (%s)!\n", arg)
+		}
+	}
 }
 
 func envJsonHandler(w http.ResponseWriter, _ *http.Request) {
