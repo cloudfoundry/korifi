@@ -451,6 +451,62 @@ var _ = Describe("ProcessRepo", func() {
 		})
 	})
 
+	Describe("GetAppRevisionForProcess", func() {
+		var (
+			appRevision string
+			getErr      error
+		)
+		BeforeEach(func() {
+			app := &korifiv1alpha1.CFApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      app1GUID,
+					Namespace: space.Name,
+					Annotations: map[string]string{
+						"korifi.cloudfoundry.org/app-rev": "revision",
+					},
+				},
+				Spec: korifiv1alpha1.CFAppSpec{
+					DesiredState: "STOPPED",
+					DisplayName:  "app1",
+					Lifecycle: korifiv1alpha1.Lifecycle{
+						Type: "buildpack",
+						Data: korifiv1alpha1.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, app)).To(Succeed())
+		})
+		JustBeforeEach(func() {
+			appRevision, getErr = processRepo.GetAppRevision(ctx, authInfo, app1GUID)
+		})
+
+		It("returns a forbidden error", func() {
+			Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user has permission to get the process", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("returns the App Revision", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(appRevision).To(ContainSubstring("revision"))
+			})
+		})
+		When("there is no matching app", func() {
+			BeforeEach(func() {
+				app1GUID = "i don't exist"
+			})
+
+			It("returns a not found error", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+	})
 	Describe("PatchProcess", func() {
 		When("the app already has a process with the given type", func() {
 			var (

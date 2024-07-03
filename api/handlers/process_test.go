@@ -23,18 +23,21 @@ var _ = Describe("Process", func() {
 		processRepo      *fake.CFProcessRepository
 		processStats     *fake.ProcessStats
 		requestValidator *fake.RequestValidator
+		podRepo          *fake.PodRepository
 	)
 
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
 		processStats = new(fake.ProcessStats)
 		requestValidator = new(fake.RequestValidator)
+		podRepo = new(fake.PodRepository)
 
 		apiHandler := NewProcess(
 			*serverURL,
 			processRepo,
 			processStats,
 			requestValidator,
+			podRepo,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -451,6 +454,54 @@ var _ = Describe("Process", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("DELETE /v3/processes/:guid/instances/:instance", func() {
+		var instance string
+		BeforeEach(func() {
+			processRepo.GetProcessReturns(repositories.ProcessRecord{
+				GUID:             "process-guid",
+				AppGUID:          "app-guid",
+				SpaceGUID:        "space-guid",
+				DesiredInstances: 2,
+				Type:             "web",
+			}, nil)
+			processRepo.GetAppRevisionReturns("0", nil)
+			instance = "0"
+		})
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "DELETE", "/v3/processes/process-guid/instances/"+instance, strings.NewReader("the-json-body"))
+			Expect(err).NotTo(HaveOccurred())
+			routerBuilder.Build().ServeHTTP(rr, req)
+
+		})
+		It("restarts the instance", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
+			Expect(podRepo.DeletePodCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualAppRevision, actualProcess, actualInstanceID := podRepo.DeletePodArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualAppRevision).To(Equal("0"))
+			Expect(actualProcess.AppGUID).To(Equal("app-guid"))
+			Expect(actualProcess.SpaceGUID).To(Equal("space-guid"))
+			Expect(actualProcess.Type).To(Equal("web"))
+			Expect(actualInstanceID).To(Equal("0"))
+		})
+		When("the instance is not found", func() {
+			BeforeEach(func() {
+				instance = "5"
+			})
+			It("returns an error", func() {
+				expectNotFoundError("Instance 5 of process web")
+			})
+		})
+		When("the process is not found", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(errors.New("access denied or something"), repositories.ProcessResourceType))
+			})
+			It("returns a not found error", func() {
+				expectNotFoundError("Process")
 			})
 		})
 	})

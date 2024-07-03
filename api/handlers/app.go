@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -38,6 +39,7 @@ const (
 	AppFeaturePath                    = "/v3/apps/{guid}/features/{name}"
 	AppPackagesPath                   = "/v3/apps/{guid}/packages"
 	AppSSHEnabledPath                 = "/v3/apps/{guid}/ssh_enabled"
+	AppInstanceRestartPath            = "/v3/apps/{guid}/processes/{processType}/instances/{instance}"
 	invalidDropletMsg                 = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 
 	AppStartedState = "STARTED"
@@ -58,6 +60,11 @@ type CFAppRepository interface {
 	PatchApp(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
 }
 
+//counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
+type PodRepository interface {
+	DeletePod(context.Context, authorization.Info, string, repositories.ProcessRecord, string) error
+}
+
 type App struct {
 	serverURL        url.URL
 	appRepo          CFAppRepository
@@ -69,6 +76,7 @@ type App struct {
 	spaceRepo        CFSpaceRepository
 	packageRepo      CFPackageRepository
 	requestValidator RequestValidator
+	podRepo          PodRepository
 }
 
 func NewApp(
@@ -82,6 +90,7 @@ func NewApp(
 	spaceRepo CFSpaceRepository,
 	packageRepo CFPackageRepository,
 	requestValidator RequestValidator,
+	podRepo PodRepository,
 ) *App {
 	return &App{
 		serverURL:        serverURL,
@@ -94,6 +103,7 @@ func NewApp(
 		spaceRepo:        spaceRepo,
 		packageRepo:      packageRepo,
 		requestValidator: requestValidator,
+		podRepo:          podRepo,
 	}
 }
 
@@ -657,6 +667,52 @@ func (h *App) getAppFeature(r *http.Request) (*routing.Response, error) {
 	}
 }
 
+func (h *App) restartInstance(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.restart-instance")
+	appGUID := routing.URLParam(r, "guid")
+	instanceID := routing.URLParam(r, "instance")
+	processType := routing.URLParam(r, "processType")
+
+	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewNotFoundError(nil, repositories.AppResourceType), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+	}
+	appProcesses, err := h.processRepo.ListProcesses(r.Context(), authInfo, repositories.ListProcessesMessage{
+		AppGUIDs:  []string{appGUID},
+		SpaceGUID: app.SpaceGUID,
+	})
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list processes for app")
+	}
+
+	process, hasProcessType := findProcessType(appProcesses, processType)
+	if !hasProcessType {
+		return nil, apierrors.LogAndReturn(logger,
+			apierrors.NewNotFoundError(nil, repositories.ProcessResourceType),
+			"app does not have required process type",
+		)
+	}
+	instance, err := strconv.Atoi(instanceID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(err, "Invalid Instance ID. Instance ID is not a valid Integer.", apierrors.NotFoundError{}, apierrors.ForbiddenError{}),
+			"InstanceID", instanceID,
+		)
+	}
+	if process.DesiredInstances <= instance {
+		return nil, apierrors.LogAndReturn(logger,
+			apierrors.NewNotFoundError(nil, fmt.Sprintf("Instance %d of process %s", instance, processType)), "Instance not found", "AppGUID", appGUID, "InstanceID", instanceID, "Process", process)
+	}
+	err = h.podRepo.DeletePod(r.Context(), authInfo, app.Revision, process, instanceID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to restart instance", "AppGUID", appGUID, "InstanceID", instanceID, "Process", process)
+	}
+
+	return routing.NewResponse(http.StatusNoContent), nil
+}
+
 func (h *App) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -683,5 +739,6 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: AppFeaturePath, Handler: h.getAppFeature},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
 		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSSHEnabled},
+		{Method: "DELETE", Pattern: AppInstanceRestartPath, Handler: h.restartInstance},
 	}
 }

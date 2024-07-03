@@ -110,7 +110,7 @@ func (r *Reconciler) enqueueCFOrgRequests(ctx context.Context, object client.Obj
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders,verbs=get;list;watch
 //+kubebuilder:rbac:groups=kpack.io,resources=clusterbuilders/status,verbs=get
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;update
-//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;patch
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;patch;delete
 //+kubebuilder:rbac:groups="",resources=pods/log,verbs=get
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=create;delete
 //+kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=create;patch

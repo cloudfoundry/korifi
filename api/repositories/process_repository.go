@@ -241,6 +241,31 @@ func (r *ProcessRepo) GetProcessByAppTypeAndSpace(ctx context.Context, authInfo 
 	return returnProcess(matches)
 }
 
+func (r *ProcessRepo) GetAppRevision(ctx context.Context, authInfo authorization.Info, appGUID string) (string, error) {
+	var appRevision string
+	ns, err := r.namespaceRetriever.NamespaceFor(ctx, appGUID, AppResourceType)
+	if err != nil {
+		return appRevision, fmt.Errorf("get-apprevision-for-process: failed to get namespace: %w", apierrors.FromK8sError(err, ProcessResourceType))
+	}
+
+	userClient, err := r.clientFactory.BuildClient(authInfo)
+	if err != nil {
+		return appRevision, fmt.Errorf("get-apprevision-for-process: failed to build user k8s client: %w", err)
+	}
+	app := korifiv1alpha1.CFApp{}
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: appGUID}, &app)
+	if err != nil {
+		return appRevision, fmt.Errorf("get-apprevision-for-process: failed to get app from kubernetes: %w", apierrors.FromK8sError(err, ProcessResourceType))
+	}
+
+	appRevision = app.ObjectMeta.Annotations["korifi.cloudfoundry.org/app-rev"]
+	if appRevision == "" {
+		return appRevision, fmt.Errorf("get-apprevision-for-process: cannot find app revision")
+	}
+
+	return appRevision, nil
+}
+
 func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.Info, message PatchProcessMessage) (ProcessRecord, error) {
 	userClient, err := r.clientFactory.BuildClient(authInfo)
 	if err != nil {
