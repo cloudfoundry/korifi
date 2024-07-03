@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -18,11 +19,12 @@ import (
 )
 
 const (
-	ProcessPath         = "/v3/processes/{guid}"
-	ProcessSidecarsPath = "/v3/processes/{guid}/sidecars"
-	ProcessScalePath    = "/v3/processes/{guid}/actions/scale"
-	ProcessStatsPath    = "/v3/processes/{guid}/stats"
-	ProcessesPath       = "/v3/processes"
+	ProcessPath                = "/v3/processes/{guid}"
+	ProcessSidecarsPath        = "/v3/processes/{guid}/sidecars"
+	ProcessScalePath           = "/v3/processes/{guid}/actions/scale"
+	ProcessStatsPath           = "/v3/processes/{guid}/stats"
+	ProcessesPath              = "/v3/processes"
+	ProcessInstanceRestartPath = "/v3/processes/{guid}/instances/{instanceID}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
@@ -30,6 +32,7 @@ type CFProcessRepository interface {
 	GetProcess(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
 	ListProcesses(context.Context, authorization.Info, repositories.ListProcessesMessage) ([]repositories.ProcessRecord, error)
 	GetProcessByAppTypeAndSpace(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)
+	GetAppRevision(ctx context.Context, authInfo authorization.Info, appGUID string) (string, error)
 	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 	CreateProcess(context.Context, authorization.Info, repositories.CreateProcessMessage) error
 	ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
@@ -45,6 +48,7 @@ type Process struct {
 	processRepo      CFProcessRepository
 	processStats     ProcessStats
 	requestValidator RequestValidator
+	podRepo          PodRepository
 }
 
 func NewProcess(
@@ -52,12 +56,14 @@ func NewProcess(
 	processRepo CFProcessRepository,
 	processStatsFetcher ProcessStats,
 	requestValidator RequestValidator,
+	podRepo PodRepository,
 ) *Process {
 	return &Process{
 		serverURL:        serverURL,
 		processRepo:      processRepo,
 		processStats:     processStatsFetcher,
 		requestValidator: requestValidator,
+		podRepo:          podRepo,
 	}
 }
 
@@ -73,6 +79,52 @@ func (h *Process) get(r *http.Request) (*routing.Response, error) {
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
+}
+
+func (h *Process) restartProcessInstance(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.process.delete")
+	processGUID := routing.URLParam(r, "guid")
+	instanceID := routing.URLParam(r, "instanceID")
+
+	process, err := h.processRepo.GetProcess(r.Context(), authInfo, processGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewNotFoundError(nil, repositories.ProcessResourceType), "Failed to fetch process", "ProcessGUID", processGUID)
+	}
+	if process.AppGUID == "" {
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewNotFoundError(nil, repositories.ProcessResourceType), "Failed to fetch appGUID via process", "ProcessGUID", processGUID)
+	}
+
+	appRevision, err := h.processRepo.GetAppRevision(r.Context(), authInfo, process.AppGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(err, "Cannot get App Revision. Ensure that the process exists and you have access to it.", apierrors.NotFoundError{}, apierrors.ForbiddenError{}),
+			"Process GUID", processGUID,
+			"AppGUID", process.AppGUID,
+		)
+	}
+
+	instance, err := strconv.Atoi(instanceID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.AsUnprocessableEntity(err, "Invalid Instance ID. Instance ID is not a valid Integer.", apierrors.NotFoundError{}, apierrors.ForbiddenError{}),
+			"InstanceID", instanceID,
+		)
+	}
+	if process.DesiredInstances <= instance {
+		return nil, apierrors.LogAndReturn(logger,
+			apierrors.NewNotFoundError(nil, fmt.Sprintf("Instance %d of process %s", instance, process.Type)), "Instance not found", "AppGUID", process.AppGUID, "InstanceID", instanceID, "Process", process.Type)
+	}
+
+	err = h.podRepo.DeletePod(r.Context(), authInfo, appRevision, process, instanceID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to restart instance", "AppGUID", process.AppGUID, "InstanceID", instanceID, "Process", process.Type)
+	}
+
+	return routing.NewResponse(http.StatusNoContent), nil
+
 }
 
 func (h *Process) getSidecars(r *http.Request) (*routing.Response, error) {
@@ -199,5 +251,6 @@ func (h *Process) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: ProcessStatsPath, Handler: h.getStats},
 		{Method: "GET", Pattern: ProcessesPath, Handler: h.list},
 		{Method: "PATCH", Pattern: ProcessPath, Handler: h.update},
+		{Method: "DELETE", Pattern: ProcessInstanceRestartPath, Handler: h.restartProcessInstance},
 	}
 }
