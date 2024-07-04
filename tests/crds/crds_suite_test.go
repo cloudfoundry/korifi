@@ -3,9 +3,7 @@ package crds_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
-	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/helpers"
@@ -133,7 +131,7 @@ var _ = BeforeEach(func() {
 			Name:      uuid.NewString(),
 		},
 		Spec: korifiv1alpha1.CFOrgSpec{
-			DisplayName: fmt.Sprintf("org-%d", time.Now().UnixMicro()),
+			DisplayName: uuid.NewString(),
 		},
 	}
 
@@ -149,7 +147,7 @@ var _ = BeforeEach(func() {
 			Name:      uuid.NewString(),
 		},
 		Spec: korifiv1alpha1.CFSpaceSpec{
-			DisplayName: fmt.Sprintf("space-%d", time.Now().UnixMicro()),
+			DisplayName: uuid.NewString(),
 		},
 	}
 
