@@ -23,7 +23,7 @@ var _ = Describe("Multi Process", func() {
 		appGUID, _ = pushTestApp(spaceGUID, multiProcessAppBitsFile)
 		workerProcessGUID = getProcess(appGUID, "worker").GUID
 		body := curlApp(appGUID, "")
-		Expect(body).To(ContainSubstring("Hello from a multi-process app!"))
+		Expect(body).To(ContainSubstring("Hi, I'm Dorifi (web)!"))
 	})
 
 	AfterEach(func() {

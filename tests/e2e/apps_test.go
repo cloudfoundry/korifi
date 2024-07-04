@@ -544,7 +544,7 @@ var _ = Describe("Apps", func() {
 			})
 
 			It("returns a different endpoint result", func() {
-				Eventually(func() []byte { return curlApp(appGUID, "") }).Should(ContainSubstring("Hello from a multi-process app!"))
+				Eventually(func() []byte { return curlApp(appGUID, "") }).Should(ContainSubstring("Hi, I'm Dorifi (web)!"))
 			})
 		})
 

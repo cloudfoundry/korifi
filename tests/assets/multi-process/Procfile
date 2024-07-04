@@ -1,2 +1,2 @@
-web: node server.js
-worker: node server.js worker
+web: ./dorifi web
+worker: ./dorifi worker
