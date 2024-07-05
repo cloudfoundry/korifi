@@ -33,7 +33,7 @@ var _ = Describe("Service Brokers", func() {
 					resource: resource{
 						Name: uuid.NewString(),
 					},
-					URL: "https://my.broker.com",
+					URL: serviceBrokerURL,
 					Authentication: serviceBrokerAuthenticationResource{
 						Type: "basic",
 						Credentials: map[string]any{

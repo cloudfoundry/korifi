@@ -23,7 +23,10 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -36,22 +39,29 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+type CatalogClient interface {
+	GetCatalog(context.Context, *korifiv1alpha1.CFServiceBroker) (*osbapi.Catalog, error)
+}
+
 type Reconciler struct {
-	k8sClient client.Client
-	scheme    *runtime.Scheme
-	log       logr.Logger
+	k8sClient     client.Client
+	catalogClient CatalogClient
+	scheme        *runtime.Scheme
+	log           logr.Logger
 }
 
 func NewReconciler(
 	client client.Client,
+	catalogClient CatalogClient,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBroker, *korifiv1alpha1.CFServiceBroker] {
-	serviceInstanceReconciler := Reconciler{k8sClient: client, scheme: scheme, log: log}
+	serviceInstanceReconciler := Reconciler{k8sClient: client, catalogClient: catalogClient, scheme: scheme, log: log}
 	return k8s.NewPatchingReconciler(log, client, &serviceInstanceReconciler)
 }
 
@@ -89,6 +99,8 @@ func (r *Reconciler) secretToServiceBroker(ctx context.Context, o client.Object)
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebrokers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebrokers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceofferings,verbs=get;list;watch;create;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceofferings/status,verbs=get;update;patch
 
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
@@ -125,6 +137,19 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBroker *kor
 	log.V(1).Info("credentials secret", "name", credentialsSecret.Name, "version", credentialsSecret.ResourceVersion)
 	cfServiceBroker.Status.CredentialsObservedVersion = credentialsSecret.ResourceVersion
 
+	catalog, err := r.catalogClient.GetCatalog(ctx, cfServiceBroker)
+	if err != nil {
+		log.Error(err, "failed to get catalog from broker", "broker", cfServiceBroker.Name)
+		readyConditionBuilder.WithReason("GetCatalogFailed")
+		return ctrl.Result{}, err
+	}
+
+	err = r.reconcileCatalog(ctx, cfServiceBroker, catalog)
+	if err != nil {
+		log.Error(err, "failed to reconcile catalog")
+		return ctrl.Result{}, fmt.Errorf("failed to reconcile catalog: %v", err)
+	}
+
 	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
@@ -143,4 +168,78 @@ func (r *Reconciler) validateCredentials(credentialsSecret *corev1.Secret) error
 	}
 
 	return nil
+}
+
+func (r *Reconciler) reconcileCatalog(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker, catalog *osbapi.Catalog) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("reconcile-catalog")
+
+	for _, service := range catalog.Services {
+		err := r.reconcileCatalogService(ctx, cfServiceBroker, service)
+		if err != nil {
+			log.Error(err, "failed to reconcile service offering")
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Reconciler) reconcileCatalogService(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker, catalogService osbapi.Service) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("reconcile-offering").WithValues("broker", cfServiceBroker.Name, "service-offering", catalogService.Name)
+	serviceOffering := &korifiv1alpha1.CFServiceOffering{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      generateBrokerObjectUid(cfServiceBroker, catalogService.ID),
+			Namespace: cfServiceBroker.Namespace,
+		},
+	}
+
+	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, serviceOffering, func() error {
+		if serviceOffering.Labels == nil {
+			serviceOffering.Labels = map[string]string{}
+		}
+		serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerLabel] = cfServiceBroker.Name
+
+		var err error
+		serviceOffering.Spec.ServiceOffering, err = toSpecServiceOffering(catalogService)
+		return err
+	})
+	if err != nil {
+		log.Error(err, "failed to reconcile service offering")
+		return err
+	}
+
+	return nil
+}
+
+func generateBrokerObjectUid(broker *korifiv1alpha1.CFServiceBroker, objectId string) string {
+	return tools.UUID(fmt.Sprintf("%s::%s", broker.Name, objectId))
+}
+
+func toSpecServiceOffering(catalogService osbapi.Service) (services.ServiceOffering, error) {
+	offering := services.ServiceOffering{
+		Name:        catalogService.Name,
+		Description: catalogService.Description,
+		Tags:        catalogService.Tags,
+		Requires:    catalogService.Requires,
+		BrokerCatalog: services.ServiceBrokerCatalog{
+			Id:       catalogService.ID,
+			Features: catalogService.BrokerCatalogFeatures,
+		},
+	}
+
+	if catalogService.Metadata != nil {
+		if u, ok := catalogService.Metadata["documentationUrl"]; ok {
+			offering.DocumentationURL = tools.PtrTo(u.(string))
+		}
+
+		rawMd, err := json.Marshal(catalogService.Metadata)
+		if err != nil {
+			return services.ServiceOffering{}, err
+		}
+		offering.BrokerCatalog.Metadata = &runtime.RawExtension{
+			Raw: rawMd,
+		}
+
+	}
+
+	return offering, nil
 }

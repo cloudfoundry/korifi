@@ -5,6 +5,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -91,11 +92,11 @@ var _ = Describe("VCAP_APPLICATION env value builder", func() {
 					},
 				}
 
-				ensureCreate(appRoute)
+				helpers.EnsureCreate(controllersClient, appRoute)
 
 				routeUri = cfApp.Name + ".mydomain.platform.com"
 
-				ensurePatch(appRoute, func(appRoute *korifiv1alpha1.CFRoute) {
+				helpers.EnsurePatch(controllersClient, appRoute, func(appRoute *korifiv1alpha1.CFRoute) {
 					appRoute.Status.URI = routeUri
 				})
 			})

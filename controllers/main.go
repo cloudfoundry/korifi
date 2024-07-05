@@ -31,6 +31,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/routes"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/apps"
@@ -304,6 +305,7 @@ func main() {
 		if controllerConfig.ExperimentalManagedServicesEnabled {
 			if err = brokers.NewReconciler(
 				mgr.GetClient(),
+				osbapi.NewClient(mgr.GetClient(), controllerConfig.TrustInsecureServiceBrokers),
 				mgr.GetScheme(),
 				ctrl.Log.WithName("controllers").WithName("CFServiceBroker"),
 			).SetupWithManager(mgr); err != nil {

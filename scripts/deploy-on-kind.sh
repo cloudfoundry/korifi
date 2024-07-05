@@ -212,6 +212,7 @@ function deploy_korifi() {
       --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
       --set=networking.gatewayClass="contour" \
       --set=experimental.managedServices.include="true" \
+      --set=experimental.managedServices.trustInsecureBrokers="true" \
       --wait
   }
   popd >/dev/null

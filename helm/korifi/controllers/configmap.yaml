@@ -62,4 +62,5 @@ data:
       gatewayNamespace: {{ .Release.Namespace }}-gateway
       gatewayName: korifi
     experimentalManagedServicesEnabled: {{ .Values.experimental.managedServices.include }}
+    trustInsecureServiceBrokers: {{ .Values.experimental.managedServices.trustInsecureBrokers }}
 

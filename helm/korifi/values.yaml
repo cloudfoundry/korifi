@@ -144,3 +144,4 @@ networking:
 experimental:
   managedServices:
     include: false
+    trustInsecureBrokers: false

@@ -77,6 +77,7 @@ Here are all the values that can be set for the chart:
 - `experimental`: Experimental features. No guarantees are provided and breaking/backwards incompatible changes should be expected. These features are not recommended for use in production environments.
   - `managedServices`:
     - `include` (_Boolean_): Enable managed services support
+    - `trustInsecureBrokers` (_Boolean_): Disable service broker certificate validation. Not recommended to be set to 'true' in production environments
 - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
 - `helm`:
   - `hooksImage` (_String_): Image for the helm hooks containing kubectl

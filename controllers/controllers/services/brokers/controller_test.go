@@ -5,10 +5,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers/osbapi"
+	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,8 +20,9 @@ import (
 
 var _ = Describe("CFServiceBroker", func() {
 	var (
-		testNamespace string
-		broker        *korifiv1alpha1.CFServiceBroker
+		testNamespace     string
+		serviceBroker     *korifiv1alpha1.CFServiceBroker
+		credentialsSecret *corev1.Secret
 	)
 
 	BeforeEach(func() {
@@ -28,31 +33,167 @@ var _ = Describe("CFServiceBroker", func() {
 			},
 		})).To(Succeed())
 
-		broker = &korifiv1alpha1.CFServiceBroker{
+		brokerServer := broker.NewServer().WithCatalog(&osbapi.Catalog{
+			Services: []osbapi.Service{{
+				ID:          "service-id",
+				Name:        "service-name",
+				Description: "service description",
+				BrokerCatalogFeatures: services.BrokerCatalogFeatures{
+					Bindable:             true,
+					InstancesRetrievable: true,
+					BindingsRetrievable:  true,
+					PlanUpdateable:       true,
+					AllowContextUpdates:  true,
+				},
+				Tags:     []string{"t1"},
+				Requires: []string{"r1"},
+				Metadata: map[string]any{
+					"foo":              "bar",
+					"documentationUrl": "https://doc.url",
+				},
+			}},
+		}).Start()
+
+		DeferCleanup(func() {
+			brokerServer.Stop()
+		})
+
+		credentialsSecret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      uuid.NewString(),
+				Namespace: testNamespace,
+			},
+			Data: map[string][]byte{
+				korifiv1alpha1.CredentialsSecretKey: []byte(`{"username": "broker-user", "password": "broker-password"}`),
+			},
+		}
+		Expect(adminClient.Create(ctx, credentialsSecret)).To(Succeed())
+
+		serviceBroker = &korifiv1alpha1.CFServiceBroker{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: testNamespace,
 				Name:      uuid.NewString(),
 			},
+			Spec: korifiv1alpha1.CFServiceBrokerSpec{
+				ServiceBroker: services.ServiceBroker{
+					URL: brokerServer.URL(),
+				},
+				Credentials: corev1.LocalObjectReference{
+					Name: credentialsSecret.Name,
+				},
+			},
 		}
-		Expect(adminClient.Create(ctx, broker)).To(Succeed())
+		Expect(adminClient.Create(ctx, serviceBroker)).To(Succeed())
 	})
 
-	It("sets the ObservedGeneration status field", func() {
+	It("sets the Ready condition to true", func() {
 		Eventually(func(g Gomega) {
-			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
-			g.Expect(broker.Status.ObservedGeneration).To(Equal(broker.Generation))
-		}).Should(Succeed())
-	})
-
-	It("sets the Ready condition to false", func() {
-		Eventually(func(g Gomega) {
-			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
-			g.Expect(broker.Status.Conditions).To(ContainElement(SatisfyAll(
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+			g.Expect(serviceBroker.Status.Conditions).To(ContainElement(SatisfyAll(
 				HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-				HasStatus(Equal(metav1.ConditionFalse)),
-				HasReason(Equal("CredentialsSecretNotAvailable")),
+				HasStatus(Equal(metav1.ConditionTrue)),
 			)))
 		}).Should(Succeed())
+	})
+	It("sets the ObservedGeneration status field", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+			g.Expect(serviceBroker.Status.ObservedGeneration).To(Equal(serviceBroker.Generation))
+		}).Should(Succeed())
+	})
+
+	It("creates CFServiceOfferings to reflect the catalog offerings", func() {
+		Eventually(func(g Gomega) {
+			offerings := &korifiv1alpha1.CFServiceOfferingList{}
+			g.Expect(adminClient.List(ctx, offerings, client.InNamespace(serviceBroker.Namespace))).To(Succeed())
+			g.Expect(offerings.Items).To(HaveLen(1))
+
+			offering := offerings.Items[0]
+			g.Expect(offering.Labels).To(HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, serviceBroker.Name))
+			g.Expect(offering.Spec).To(MatchAllFields(Fields{
+				"ServiceOffering": MatchAllFields(Fields{
+					"Name":             Equal("service-name"),
+					"Description":      Equal("service description"),
+					"Tags":             ConsistOf("t1"),
+					"Requires":         ConsistOf("r1"),
+					"DocumentationURL": PointTo(Equal("https://doc.url")),
+					"BrokerCatalog": MatchAllFields(Fields{
+						"Id": Equal("service-id"),
+						"Features": MatchAllFields(Fields{
+							"PlanUpdateable":       BeTrue(),
+							"Bindable":             BeTrue(),
+							"InstancesRetrievable": BeTrue(),
+							"BindingsRetrievable":  BeTrue(),
+							"AllowContextUpdates":  BeTrue(),
+						}),
+						"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
+							"Raw": MatchJSON(`{
+								"documentationUrl": "https://doc.url",
+								"foo": "bar"
+							}`),
+						})),
+					}),
+				}),
+			}))
+		}).Should(Succeed())
+	})
+
+	When("getting the catalog fails", func() {
+		BeforeEach(func() {
+			Expect(k8s.PatchResource(ctx, adminClient, serviceBroker, func() {
+				serviceBroker.Spec.URL = "https://must.not.exist"
+			})).To(Succeed())
+		})
+
+		It("sets the ready condition to False", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+				g.Expect(serviceBroker.Status.Conditions).To(ContainElement(SatisfyAll(
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+					HasStatus(Equal(metav1.ConditionFalse)),
+					HasReason(Equal("GetCatalogFailed")),
+				)))
+			}).Should(Succeed())
+		})
+	})
+
+	When("there are multiple brokers serving the same catalog", func() {
+		var anotherServiceBroker *korifiv1alpha1.CFServiceBroker
+
+		BeforeEach(func() {
+			anotherServiceBroker = &korifiv1alpha1.CFServiceBroker{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: testNamespace,
+					Name:      uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.CFServiceBrokerSpec{
+					ServiceBroker: services.ServiceBroker{
+						URL: serviceBroker.Spec.URL,
+					},
+					Credentials: corev1.LocalObjectReference{
+						Name: credentialsSecret.Name,
+					},
+				},
+			}
+			Expect(adminClient.Create(ctx, anotherServiceBroker)).To(Succeed())
+		})
+
+		It("creates an offering per broker", func() {
+			Eventually(func(g Gomega) {
+				offerings := &korifiv1alpha1.CFServiceOfferingList{}
+				g.Expect(adminClient.List(ctx, offerings, client.InNamespace(testNamespace))).To(Succeed())
+				g.Expect(offerings.Items).To(HaveLen(2))
+
+				brokerGUIDs := []string{
+					offerings.Items[0].Labels[korifiv1alpha1.RelServiceBrokerLabel],
+					offerings.Items[1].Labels[korifiv1alpha1.RelServiceBrokerLabel],
+				}
+				g.Expect(brokerGUIDs).To(ConsistOf(serviceBroker.Name, anotherServiceBroker.Name))
+
+				g.Expect(offerings.Items[0].Spec.BrokerCatalog.Id).To(Equal("service-id"))
+				g.Expect(offerings.Items[1].Spec.BrokerCatalog.Id).To(Equal("service-id"))
+			}).Should(Succeed())
+		})
 	})
 
 	Describe("credentials secret", func() {
@@ -69,15 +210,15 @@ var _ = Describe("CFServiceBroker", func() {
 				},
 			}
 			Expect(adminClient.Create(ctx, credentialsSecret)).To(Succeed())
-			Expect(k8s.PatchResource(ctx, adminClient, broker, func() {
-				broker.Spec.Credentials.Name = credentialsSecret.Name
+			Expect(k8s.PatchResource(ctx, adminClient, serviceBroker, func() {
+				serviceBroker.Spec.Credentials.Name = credentialsSecret.Name
 			})).To(Succeed())
 		})
 
 		It("sets the Ready condition to true", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
-				g.Expect(broker.Status.Conditions).To(ContainElement(SatisfyAll(
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+				g.Expect(serviceBroker.Status.Conditions).To(ContainElement(SatisfyAll(
 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 					HasStatus(Equal(metav1.ConditionTrue)),
 				)))
@@ -86,8 +227,8 @@ var _ = Describe("CFServiceBroker", func() {
 
 		It("sets the credentials secret observed version", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
-				g.Expect(broker.Status.CredentialsObservedVersion).NotTo(BeEmpty())
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+				g.Expect(serviceBroker.Status.CredentialsObservedVersion).NotTo(BeEmpty())
 			}).Should(Succeed())
 		})
 
@@ -100,8 +241,8 @@ var _ = Describe("CFServiceBroker", func() {
 
 			It("sets the ready condition to false", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
-					g.Expect(broker.Status.Conditions).To(ContainElement(SatisfyAll(
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+					g.Expect(serviceBroker.Status.Conditions).To(ContainElement(SatisfyAll(
 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
 						HasReason(Equal("SecretInvalid")),
@@ -121,8 +262,8 @@ var _ = Describe("CFServiceBroker", func() {
 
 			It("sets the ready condition to false", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
-					g.Expect(broker.Status.Conditions).To(ContainElement(SatisfyAll(
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+					g.Expect(serviceBroker.Status.Conditions).To(ContainElement(SatisfyAll(
 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
 						HasReason(Equal("SecretInvalid")),
@@ -142,11 +283,28 @@ var _ = Describe("CFServiceBroker", func() {
 
 			It("sets the ready condition to false", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
-					g.Expect(broker.Status.Conditions).To(ContainElement(SatisfyAll(
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+					g.Expect(serviceBroker.Status.Conditions).To(ContainElement(SatisfyAll(
 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
 						HasReason(Equal("SecretInvalid")),
+					)))
+				}).Should(Succeed())
+			})
+		})
+
+		When("the credentials secret does not exist", func() {
+			BeforeEach(func() {
+				Expect(adminClient.Delete(ctx, credentialsSecret)).To(Succeed())
+			})
+
+			It("sets the Ready condition to false", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+					g.Expect(serviceBroker.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("CredentialsSecretNotAvailable")),
 					)))
 				}).Should(Succeed())
 			})
@@ -157,10 +315,10 @@ var _ = Describe("CFServiceBroker", func() {
 
 			BeforeEach(func() {
 				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
-					g.Expect(meta.IsStatusConditionTrue(broker.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(serviceBroker.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 				}).Should(Succeed())
-				credentialsObservedVersion = broker.Status.CredentialsObservedVersion
+				credentialsObservedVersion = serviceBroker.Status.CredentialsObservedVersion
 			})
 
 			When("the credentials secret changes", func() {
@@ -172,21 +330,8 @@ var _ = Describe("CFServiceBroker", func() {
 
 				It("updates the credentials secret observed version", func() {
 					Eventually(func(g Gomega) {
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
-						g.Expect(broker.Status.CredentialsObservedVersion).NotTo(Equal(credentialsObservedVersion))
-					}).Should(Succeed())
-				})
-			})
-
-			When("the credentials secret gets deleted", func() {
-				BeforeEach(func() {
-					Expect(adminClient.Delete(ctx, credentialsSecret)).To(Succeed())
-				})
-
-				It("does not change the credentials secret observed version", func() {
-					Consistently(func(g Gomega) {
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
-						g.Expect(broker.Status.CredentialsObservedVersion).To(Equal(credentialsObservedVersion))
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+						g.Expect(serviceBroker.Status.CredentialsObservedVersion).NotTo(Equal(credentialsObservedVersion))
 					}).Should(Succeed())
 				})
 			})

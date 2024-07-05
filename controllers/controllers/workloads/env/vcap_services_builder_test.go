@@ -5,6 +5,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,7 +40,7 @@ var _ = Describe("Builder", func() {
 				Type:        "user-provided",
 			},
 		}
-		ensureCreate(serviceInstance)
+		helpers.EnsureCreate(controllersClient, serviceInstance)
 
 		credentialsData, err := json.Marshal(map[string]any{
 			"foo": "bar",
@@ -55,7 +56,7 @@ var _ = Describe("Builder", func() {
 				korifiv1alpha1.CredentialsSecretKey: credentialsData,
 			},
 		}
-		ensureCreate(credentialsSecret)
+		helpers.EnsureCreate(controllersClient, credentialsSecret)
 
 		serviceBindingName := "my-service-binding"
 		serviceBinding = &korifiv1alpha1.CFServiceBinding{
@@ -73,8 +74,8 @@ var _ = Describe("Builder", func() {
 				},
 			},
 		}
-		ensureCreate(serviceBinding)
-		ensurePatch(serviceBinding, func(sb *korifiv1alpha1.CFServiceBinding) {
+		helpers.EnsureCreate(controllersClient, serviceBinding)
+		helpers.EnsurePatch(controllersClient, serviceBinding, func(sb *korifiv1alpha1.CFServiceBinding) {
 			sb.Status = korifiv1alpha1.CFServiceBindingStatus{
 				Credentials: corev1.LocalObjectReference{
 					Name: credentialsSecret.Name,
@@ -82,7 +83,7 @@ var _ = Describe("Builder", func() {
 			}
 		})
 
-		ensureCreate(&korifiv1alpha1.CFServiceInstance{
+		helpers.EnsureCreate(controllersClient, &korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfSpace.Status.GUID,
 				Name:      "my-service-instance-guid-2",
@@ -111,8 +112,8 @@ var _ = Describe("Builder", func() {
 				},
 			},
 		}
-		ensureCreate(serviceBinding2)
-		ensurePatch(serviceBinding2, func(sb *korifiv1alpha1.CFServiceBinding) {
+		helpers.EnsureCreate(controllersClient, serviceBinding2)
+		helpers.EnsurePatch(controllersClient, serviceBinding2, func(sb *korifiv1alpha1.CFServiceBinding) {
 			sb.Status = korifiv1alpha1.CFServiceBindingStatus{
 				Credentials: corev1.LocalObjectReference{
 					Name: credentialsSecret.Name,
@@ -127,7 +128,7 @@ var _ = Describe("Builder", func() {
 			},
 			Data: map[string][]byte{"VCAP_SERVICES": []byte("{}")},
 		}
-		ensureCreate(vcapServicesSecret)
+		helpers.EnsureCreate(controllersClient, vcapServicesSecret)
 	})
 
 	Describe("BuildVCAPServicesEnvValue", func() {
@@ -177,7 +178,7 @@ var _ = Describe("Builder", func() {
 
 		When("the service binding has no name", func() {
 			BeforeEach(func() {
-				ensurePatch(serviceBinding, func(s *korifiv1alpha1.CFServiceBinding) {
+				helpers.EnsurePatch(controllersClient, serviceBinding, func(s *korifiv1alpha1.CFServiceBinding) {
 					s.Spec.DisplayName = nil
 				})
 			})
@@ -201,7 +202,7 @@ var _ = Describe("Builder", func() {
 
 		When("service instance tags are nil", func() {
 			BeforeEach(func() {
-				ensurePatch(serviceInstance, func(s *korifiv1alpha1.CFServiceInstance) {
+				helpers.EnsurePatch(controllersClient, serviceInstance, func(s *korifiv1alpha1.CFServiceInstance) {
 					s.Spec.Tags = nil
 				})
 			})
@@ -217,7 +218,7 @@ var _ = Describe("Builder", func() {
 
 		When("serviceLabel is set but blank", func() {
 			BeforeEach(func() {
-				ensurePatch(serviceInstance, func(s *korifiv1alpha1.CFServiceInstance) {
+				helpers.EnsurePatch(controllersClient, serviceInstance, func(s *korifiv1alpha1.CFServiceInstance) {
 					s.Spec.ServiceLabel = tools.PtrTo("")
 				})
 			})
@@ -231,7 +232,7 @@ var _ = Describe("Builder", func() {
 
 		When("both services use the same serviceLabel", func() {
 			BeforeEach(func() {
-				ensurePatch(serviceInstance, func(s *korifiv1alpha1.CFServiceInstance) {
+				helpers.EnsurePatch(controllersClient, serviceInstance, func(s *korifiv1alpha1.CFServiceInstance) {
 					s.Spec.ServiceLabel = tools.PtrTo("custom-service-2")
 				})
 			})
@@ -260,7 +261,7 @@ var _ = Describe("Builder", func() {
 
 		When("getting the service binding secret fails", func() {
 			BeforeEach(func() {
-				ensureDelete(credentialsSecret)
+				helpers.EnsureDelete(controllersClient, credentialsSecret)
 			})
 
 			It("returns an error", func() {

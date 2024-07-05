@@ -53,6 +53,7 @@ var _ = Describe("LoadFromPath", func() {
 				GatewayNamespace: "gw-ns",
 			},
 			ExperimentalManagedServicesEnabled: true,
+			TrustInsecureServiceBrokers:        true,
 		}
 	})
 
@@ -96,6 +97,7 @@ var _ = Describe("LoadFromPath", func() {
 				GatewayNamespace: "gw-ns",
 			},
 			ExperimentalManagedServicesEnabled: true,
+			TrustInsecureServiceBrokers:        true,
 		}))
 	})
 
