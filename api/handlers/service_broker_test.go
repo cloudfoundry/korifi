@@ -32,7 +32,6 @@ var _ = Describe("ServiceBroker", func() {
 			*serverURL,
 			serviceBrokerRepo,
 			requestValidator,
-			true,
 		)
 	})
 
@@ -94,21 +93,6 @@ var _ = Describe("ServiceBroker", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
-			})
-		})
-
-		When("managed services are not enabled", func() {
-			BeforeEach(func() {
-				handler = handlers.NewServiceBroker(
-					*serverURL,
-					serviceBrokerRepo,
-					requestValidator,
-					false,
-				)
-			})
-
-			It("returns unprocessable entity error", func() {
-				expectUnprocessableEntityError("Managed services are not enabled")
 			})
 		})
 	})
