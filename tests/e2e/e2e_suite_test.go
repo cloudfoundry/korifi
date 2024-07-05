@@ -19,15 +19,20 @@ import (
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
 	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	controllerruntime "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -47,6 +52,8 @@ var (
 	commonTestOrgName       string
 	defaultAppBitsFile      string
 	multiProcessAppBitsFile string
+	serviceBrokerGUID       string
+	serviceBrokerURL        string
 )
 
 type resource struct {
@@ -316,6 +323,8 @@ type sharedSetupData struct {
 	CommonOrgName            string `json:"commonOrgName"`
 	CommonOrgGUID            string `json:"commonOrgGuid"`
 	DefaultAppBitsFile       string `json:"defaultAppBitsFile"`
+	ServiceBrokerGUID        string `json:"service_broker_guid"`
+	ServiceBrokerURL         string `json:"service_broker_url"`
 	MultiProcessAppBitsFile  string `json:"multiProcessAppBitsFile"`
 	AdminServiceAccount      string `json:"admin_service_account"`
 	AdminServiceAccountToken string `json:"admin_service_account_token"`
@@ -332,12 +341,17 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestOrgName = generateGUID("common-test-org")
 	commonTestOrgGUID = createOrg(commonTestOrgName)
 
+	brokerGUID, brokerURL := createSampleBroker(helpers.ZipDirectory(
+		helpers.GetDefaultedEnvVar("DEFAULT_SERVICE_BROKER_BITS_PATH", "../assets/sample-broker"),
+	))
 	sharedData := sharedSetupData{
 		CommonOrgName: commonTestOrgName,
 		CommonOrgGUID: commonTestOrgGUID,
 		DefaultAppBitsFile: helpers.ZipDirectory(
 			helpers.GetDefaultedEnvVar("DEFAULT_APP_BITS_PATH", "../assets/dorifi"),
 		),
+		ServiceBrokerGUID:        brokerGUID,
+		ServiceBrokerURL:         brokerURL,
 		MultiProcessAppBitsFile:  helpers.ZipDirectory("../assets/multi-process"),
 		AdminServiceAccount:      adminServiceAccount,
 		AdminServiceAccountToken: adminServiceAccountToken,
@@ -357,12 +371,11 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestOrgGUID = sharedSetup.CommonOrgGUID
 	commonTestOrgName = sharedSetup.CommonOrgName
 	defaultAppBitsFile = sharedSetup.DefaultAppBitsFile
+	serviceBrokerGUID = sharedSetup.ServiceBrokerGUID
+	serviceBrokerURL = sharedSetup.ServiceBrokerURL
 	multiProcessAppBitsFile = sharedSetup.MultiProcessAppBitsFile
 	adminServiceAccount = sharedSetup.AdminServiceAccount
 	adminClient = makeTokenClient(sharedSetup.AdminServiceAccountToken)
-
-	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
-	SetDefaultEventuallyPollingInterval(helpers.EventuallyPollingInterval())
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 })
@@ -370,6 +383,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = SynchronizedAfterSuite(func() {
 }, func() {
 	deleteOrg(commonTestOrgGUID)
+	cleanupBrokers()
 	serviceAccountFactory.DeleteServiceAccount(adminServiceAccount)
 })
 
@@ -1060,6 +1074,11 @@ func addDestinationForRoute(appGUID, routeGUID string) []string {
 }
 
 func commonTestSetup() {
+	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
+	SetDefaultEventuallyPollingInterval(helpers.EventuallyPollingInterval())
+
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+
 	apiServerRoot = helpers.GetRequiredEnvVar("API_SERVER_ROOT")
 	rootNamespace = helpers.GetRequiredEnvVar("ROOT_NAMESPACE")
 
@@ -1119,4 +1138,79 @@ func printAllRoleBindings(config *rest.Config) {
 		}
 	}
 	fmt.Fprint(GinkgoWriter, "\n\n========== Expected 404 debug log (end) ==========\n\n")
+}
+
+func createSampleBroker(brokerBitsFile string) (string, string) {
+	spaceGUID := createSpace(uuid.NewString(), commonTestOrgGUID)
+	brokerAppGUID, _ := pushTestApp(spaceGUID, brokerBitsFile)
+	body := curlApp(brokerAppGUID, "")
+	Expect(body).To(ContainSubstring("Hi, I'm the sample broker!"))
+	brokerURL := getBrokerInClusterURL(brokerAppGUID)
+	return createBroker(brokerURL), brokerURL
+}
+
+func getBrokerInClusterURL(brokerAppGUID string) string {
+	config, err := controllerruntime.GetConfig()
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
+
+	services := &corev1.ServiceList{}
+	Expect(k8sClient.List(context.Background(), services, client.MatchingLabels{
+		korifiv1alpha1.CFAppGUIDLabelKey: brokerAppGUID,
+	})).To(Succeed())
+	Expect(services.Items).To(HaveLen(1))
+
+	brokerService := services.Items[0]
+	return fmt.Sprintf("http://%s.%s:8080", brokerService.Name, brokerService.Namespace)
+}
+
+func createBroker(brokerURL string) string {
+	resp, err := adminClient.R().
+		SetBody(serviceBrokerResource{
+			resource: resource{
+				Name: uuid.NewString(),
+			},
+			URL: brokerURL,
+			Authentication: serviceBrokerAuthenticationResource{
+				Type: "basic",
+				Credentials: map[string]any{
+					"username": "broker-user",
+					"password": "broker-password",
+				},
+			},
+		}).
+		Post("/v3/service_brokers")
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(resp).To(SatisfyAll(
+		HaveRestyStatusCode(http.StatusAccepted),
+		HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/service_broker.create~")),
+	))
+
+	jobURL := resp.Header().Get("Location")
+	Eventually(func(g Gomega) {
+		resp, err = adminClient.R().Get(jobURL)
+		g.Expect(err).NotTo(HaveOccurred())
+		jobRespBody := string(resp.Body())
+		g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
+	}).Should(Succeed())
+
+	jobURLSplit := strings.Split(jobURL, "~")
+	Expect(jobURLSplit).To(HaveLen(2))
+	brokerGUID := jobURLSplit[1]
+	return brokerGUID
+}
+
+func cleanupBrokers() {
+	config, err := controllerruntime.GetConfig()
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
+
+	ctx := context.Background()
+	Expect(k8sClient.DeleteAllOf(ctx, &korifiv1alpha1.CFServiceBroker{}, client.InNamespace(rootNamespace))).To(Succeed())
+	Expect(k8sClient.DeleteAllOf(ctx, &korifiv1alpha1.CFServiceOffering{}, client.InNamespace(rootNamespace))).To(Succeed())
 }

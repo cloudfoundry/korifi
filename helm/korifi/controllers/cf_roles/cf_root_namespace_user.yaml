@@ -38,3 +38,10 @@ rules:
   - get
   - list
   - watch
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceofferings
+  verbs:
+  - list

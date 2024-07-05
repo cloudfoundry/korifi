@@ -594,6 +594,10 @@
             "include": {
               "description": "Enable managed services support",
               "type": "boolean"
+            },
+            "trustInsecureBrokers": {
+              "description": "Disable service broker certificate validation. Not recommended to be set to 'true' in production environments",
+              "type": "boolean"
             }
           },
           "type": "object"

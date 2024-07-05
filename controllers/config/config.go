@@ -45,6 +45,7 @@ type ControllerConfig struct {
 	Networking                Networking `yaml:"networking"`
 
 	ExperimentalManagedServicesEnabled bool `yaml:"experimentalManagedServicesEnabled"`
+	TrustInsecureServiceBrokers        bool `yaml:"trustInsecureServiceBrokers"`
 }
 
 type CFProcessDefaults struct {

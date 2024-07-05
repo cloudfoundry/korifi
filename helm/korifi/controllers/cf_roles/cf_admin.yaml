@@ -195,6 +195,13 @@ rules:
   - get
 
 - apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceofferings
+  verbs:
+  - list
+
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - rolebindings

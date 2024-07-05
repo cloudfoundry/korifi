@@ -24,6 +24,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
@@ -77,6 +78,7 @@ var _ = BeforeSuite(func() {
 
 	err = (brokers.NewReconciler(
 		k8sManager.GetClient(),
+		osbapi.NewClient(k8sManager.GetClient(), true),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFServiceBroker"),
 	)).SetupWithManager(k8sManager)

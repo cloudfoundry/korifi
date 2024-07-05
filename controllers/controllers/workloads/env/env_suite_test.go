@@ -8,10 +8,8 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/helpers"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -19,7 +17,6 @@ import (
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -96,9 +93,9 @@ var _ = BeforeEach(func() {
 			DisplayName: uuid.NewString(),
 		},
 	}
-	ensureCreate(cfOrg)
+	helpers.EnsureCreate(controllersClient, cfOrg)
 	orgNSName := uuid.NewString()
-	ensurePatch(cfOrg, func(cfOrg *korifiv1alpha1.CFOrg) {
+	helpers.EnsurePatch(controllersClient, cfOrg, func(cfOrg *korifiv1alpha1.CFOrg) {
 		cfOrg.Status.GUID = orgNSName
 	})
 	createNamespace(cfOrg.Status.GUID)
@@ -112,9 +109,9 @@ var _ = BeforeEach(func() {
 			DisplayName: uuid.NewString(),
 		},
 	}
-	ensureCreate(cfSpace)
+	helpers.EnsureCreate(controllersClient, cfSpace)
 	cfNSName := uuid.NewString()
-	ensurePatch(cfSpace, func(cfSpace *korifiv1alpha1.CFSpace) {
+	helpers.EnsurePatch(controllersClient, cfSpace, func(cfSpace *korifiv1alpha1.CFSpace) {
 		cfSpace.Status.GUID = cfNSName
 	})
 	createNamespace(cfSpace.Status.GUID)
@@ -133,8 +130,8 @@ var _ = BeforeEach(func() {
 			},
 		},
 	}
-	ensureCreate(cfApp)
-	ensurePatch(cfApp, func(app *korifiv1alpha1.CFApp) {
+	helpers.EnsureCreate(controllersClient, cfApp)
+	helpers.EnsurePatch(controllersClient, cfApp, func(app *korifiv1alpha1.CFApp) {
 		app.Status = korifiv1alpha1.CFAppStatus{
 			VCAPServicesSecretName:    "app-guid-vcap-services",
 			VCAPApplicationSecretName: "app-guid-vcap-application",
@@ -156,31 +153,4 @@ func createNamespace(name string) *corev1.Namespace {
 	}
 	Expect(adminClient.Create(ctx, ns)).To(Succeed())
 	return ns
-}
-
-func ensureCreate(obj client.Object) {
-	Expect(controllersClient.Create(ctx, obj)).To(Succeed())
-	Eventually(func(g Gomega) {
-		g.Expect(controllersClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
-	}).Should(Succeed())
-}
-
-func ensurePatch[T any, PT k8s.ObjectWithDeepCopy[T]](obj PT, modifyFunc func(PT)) {
-	Expect(k8s.Patch(ctx, controllersClient, obj, func() {
-		modifyFunc(obj)
-	})).To(Succeed())
-	Eventually(func(g Gomega) {
-		g.Expect(controllersClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
-		objCopy := obj.DeepCopy()
-		modifyFunc(objCopy)
-		g.Expect(equality.Semantic.DeepEqual(objCopy, obj)).To(BeTrue())
-	}).Should(Succeed())
-}
-
-func ensureDelete(obj client.Object) {
-	Expect(controllersClient.Delete(ctx, obj)).To(Succeed())
-	Eventually(func(g Gomega) {
-		err := controllersClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
-		g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
-	}).Should(Succeed())
 }
