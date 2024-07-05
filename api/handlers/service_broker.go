@@ -24,31 +24,24 @@ type CFServiceBrokerRepository interface {
 }
 
 type ServiceBroker struct {
-	serverURL              url.URL
-	serviceBrokerRepo      CFServiceBrokerRepository
-	requestValidator       RequestValidator
-	managedServicesEnabled bool
+	serverURL         url.URL
+	serviceBrokerRepo CFServiceBrokerRepository
+	requestValidator  RequestValidator
 }
 
 func NewServiceBroker(
 	serverURL url.URL,
 	serviceBrokerRepo CFServiceBrokerRepository,
 	requestValidator RequestValidator,
-	managedServicesEnabled bool,
 ) *ServiceBroker {
 	return &ServiceBroker{
-		serverURL:              serverURL,
-		serviceBrokerRepo:      serviceBrokerRepo,
-		requestValidator:       requestValidator,
-		managedServicesEnabled: managedServicesEnabled,
+		serverURL:         serverURL,
+		serviceBrokerRepo: serviceBrokerRepo,
+		requestValidator:  requestValidator,
 	}
 }
 
 func (h *ServiceBroker) create(r *http.Request) (*routing.Response, error) {
-	if !h.managedServicesEnabled {
-		return nil, apierrors.NewUnprocessableEntityError(nil, "Managed services are not enabled")
-	}
-
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-broker.create")
 

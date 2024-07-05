@@ -249,6 +249,10 @@ func main() {
 		chiMiddlewares.StripSlashes,
 	)
 
+	if !cfg.ExperimentalManagedServicesEnabled {
+		routerBuilder.UseMiddleware(middleware.DisableManagedServices)
+	}
+
 	authInfoParser := authorization.NewInfoParser()
 	routerBuilder.UseAuthMiddleware(
 		middleware.Authentication(
@@ -411,7 +415,6 @@ func main() {
 			*serverURL,
 			serviceBrokerRepo,
 			requestValidator,
-			cfg.ExperimentalManagedServicesEnabled,
 		),
 		handlers.NewServiceOffering(
 			*serverURL,
