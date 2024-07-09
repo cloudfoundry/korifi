@@ -51,6 +51,14 @@ var _ = Describe("Service Offering", func() {
 				GUID:      "resource-guid",
 				CreatedAt: time.UnixMilli(1000),
 				UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
+				Metadata: model.Metadata{
+					Labels: map[string]string{
+						"label": "label-foo",
+					},
+					Annotations: map[string]string{
+						"annotation": "annotation-bar",
+					},
+				},
 			},
 			Relationships: repositories.ServiceOfferingRelationships{
 				ServiceBroker: model.ToOneRelationship{
@@ -99,6 +107,14 @@ var _ = Describe("Service Offering", func() {
 			"state": {
 			  "Status": 0,
 			  "Details": ""
+			},
+			"metadata": {
+				"labels": {
+					"label": "label-foo"
+				},
+				"annotations": {
+					"annotation": "annotation-bar"
+				}
 			},
 			"relationships": {
 			  "service_broker": {

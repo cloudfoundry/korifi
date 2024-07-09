@@ -29,6 +29,7 @@ const (
 
 	RelationshipsLabelPrefix = "korifi.cloudfoundry.org/rel-"
 	RelServiceBrokerLabel    = RelationshipsLabelPrefix + "service_broker"
+	RelServiceOfferingLabel  = RelationshipsLabelPrefix + "service_offering"
 )
 
 type Lifecycle struct {

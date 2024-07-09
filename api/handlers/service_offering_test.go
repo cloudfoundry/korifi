@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"errors"
 	"net/http"
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
@@ -66,6 +67,16 @@ var _ = Describe("ServiceOffering", func() {
 				MatchJSONPath("$.resources[0].links.service_plans.href", "https://api.example.org/v3/service_plans?service_offering_guids=offering-guid"),
 				MatchJSONPath("$.resources[0].links.service_broker.href", "https://api.example.org/v3/service_brokers/broker-guid"),
 			)))
+		})
+
+		When("listing the offerings fails", func() {
+			BeforeEach(func() {
+				serviceOfferingRepo.ListOfferingsReturns(nil, errors.New("list-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
 		})
 	})
 })

@@ -228,6 +228,7 @@ func main() {
 	metricsRepo := repositories.NewMetricsRepo(userClientFactory)
 	serviceBrokerRepo := repositories.NewServiceBrokerRepo(userClientFactory, cfg.RootNamespace)
 	serviceOfferingRepo := repositories.NewServiceOfferingRepo(userClientFactory, cfg.RootNamespace)
+	servicePlanRepo := repositories.NewServicePlanRepo(userClientFactory, cfg.RootNamespace)
 
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(
@@ -419,6 +420,10 @@ func main() {
 		handlers.NewServiceOffering(
 			*serverURL,
 			serviceOfferingRepo,
+		),
+		handlers.NewServicePlan(
+			*serverURL,
+			servicePlanRepo,
 		),
 	}
 	for _, handler := range apiHandlers {

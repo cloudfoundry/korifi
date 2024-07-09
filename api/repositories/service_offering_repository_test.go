@@ -38,6 +38,9 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Labels: map[string]string{
 						korifiv1alpha1.RelServiceBrokerLabel: "broker-guid",
 					},
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceOfferingSpec{
 					ServiceOffering: services.ServiceOffering{
@@ -96,6 +99,10 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					"GUID":      Equal(offeringGUID),
 					"CreatedAt": Not(BeZero()),
 					"UpdatedAt": BeNil(),
+					"Metadata": MatchAllFields(Fields{
+						"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, "broker-guid"),
+						"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
+					}),
 				}),
 				"Relationships": Equal(repositories.ServiceOfferingRelationships{
 					ServiceBroker: model.ToOneRelationship{

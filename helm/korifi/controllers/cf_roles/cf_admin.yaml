@@ -198,6 +198,7 @@ rules:
   - korifi.cloudfoundry.org
   resources:
   - cfserviceofferings
+  - cfserviceplans
   verbs:
   - list
 

@@ -8,6 +8,6 @@ import (
 
 var korifiNs = uuid.NewV5(uuid.NamespaceDNS, "korifi.cloudfoundry.org")
 
-func UUID(input string) string {
-	return uuid.NewV5(korifiNs, strings.TrimSpace(input)).String()
+func NamespacedUUID(segments ...string) string {
+	return uuid.NewV5(korifiNs, strings.TrimSpace(strings.Join(segments, "::"))).String()
 }

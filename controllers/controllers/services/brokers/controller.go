@@ -100,10 +100,10 @@ func (r *Reconciler) secretToServiceBroker(ctx context.Context, o client.Object)
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebrokers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebrokers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceofferings,verbs=get;list;watch;create;update;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceofferings/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceplans,verbs=get;list;watch;create;update;patch
 
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker) (ctrl.Result, error) {
-	log := logr.FromContextOrDiscard(ctx)
+	log := logr.FromContextOrDiscard(ctx).WithValues("broker-id", cfServiceBroker.Name)
 
 	cfServiceBroker.Status.ObservedGeneration = cfServiceBroker.Generation
 	log.V(1).Info("set observed generation", "generation", cfServiceBroker.Status.ObservedGeneration)
@@ -171,23 +171,20 @@ func (r *Reconciler) validateCredentials(credentialsSecret *corev1.Secret) error
 }
 
 func (r *Reconciler) reconcileCatalog(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker, catalog *osbapi.Catalog) error {
-	log := logr.FromContextOrDiscard(ctx).WithName("reconcile-catalog")
-
 	for _, service := range catalog.Services {
 		err := r.reconcileCatalogService(ctx, cfServiceBroker, service)
 		if err != nil {
-			log.Error(err, "failed to reconcile service offering")
 			return err
 		}
+
 	}
 	return nil
 }
 
 func (r *Reconciler) reconcileCatalogService(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker, catalogService osbapi.Service) error {
-	log := logr.FromContextOrDiscard(ctx).WithName("reconcile-offering").WithValues("broker", cfServiceBroker.Name, "service-offering", catalogService.Name)
 	serviceOffering := &korifiv1alpha1.CFServiceOffering{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateBrokerObjectUid(cfServiceBroker, catalogService.ID),
+			Name:      tools.NamespacedUUID(cfServiceBroker.Name, catalogService.ID),
 			Namespace: cfServiceBroker.Namespace,
 		},
 	}
@@ -203,15 +200,64 @@ func (r *Reconciler) reconcileCatalogService(ctx context.Context, cfServiceBroke
 		return err
 	})
 	if err != nil {
-		log.Error(err, "failed to reconcile service offering")
-		return err
+		return fmt.Errorf("failed to reconcile service offering %q : %w", catalogService.ID, err)
+	}
+
+	for _, catalogPlan := range catalogService.Plans {
+		err = r.reconcileCatalogPlan(ctx, serviceOffering, catalogPlan)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile service plan %q for service offering %q: %w", catalogPlan.ID, catalogService.ID, err)
+		}
 	}
 
 	return nil
 }
 
-func generateBrokerObjectUid(broker *korifiv1alpha1.CFServiceBroker, objectId string) string {
-	return tools.UUID(fmt.Sprintf("%s::%s", broker.Name, objectId))
+func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *korifiv1alpha1.CFServiceOffering, catalogPlan osbapi.Plan) error {
+	servicePlan := &korifiv1alpha1.CFServicePlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      tools.NamespacedUUID(serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerLabel], catalogPlan.ID),
+			Namespace: serviceOffering.Namespace,
+		},
+	}
+
+	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, servicePlan, func() error {
+		if servicePlan.Labels == nil {
+			servicePlan.Labels = map[string]string{}
+		}
+		servicePlan.Labels[korifiv1alpha1.RelServiceBrokerLabel] = serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerLabel]
+		servicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel] = serviceOffering.Name
+
+		rawMetadata, err := json.Marshal(catalogPlan.Metadata)
+		if err != nil {
+			return fmt.Errorf("failed to marshal service plan %q metadata: %w", catalogPlan.ID, err)
+		}
+
+		servicePlan.Spec = korifiv1alpha1.CFServicePlanSpec{
+			ServicePlan: services.ServicePlan{
+				BrokerServicePlan: services.BrokerServicePlan{
+					Name:        catalogPlan.Name,
+					Free:        catalogPlan.Free,
+					Description: catalogPlan.Description,
+					BrokerCatalog: services.ServicePlanBrokerCatalog{
+						ID: catalogPlan.ID,
+						Metadata: &runtime.RawExtension{
+							Raw: rawMetadata,
+						},
+						Features: services.ServicePlanFeatures{
+							PlanUpdateable: catalogPlan.PlanUpdateable,
+							Bindable:       catalogPlan.Bindable,
+						},
+					},
+					Schemas: catalogPlan.Schemas,
+				},
+			},
+		}
+
+		return nil
+	})
+
+	return err
 }
 
 func toSpecServiceOffering(catalogService osbapi.Service) (services.ServiceOffering, error) {
