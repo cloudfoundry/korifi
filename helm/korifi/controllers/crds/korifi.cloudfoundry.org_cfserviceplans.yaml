@@ -4,25 +4,25 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
-  name: cfserviceofferings.korifi.cloudfoundry.org
+  name: cfserviceplans.korifi.cloudfoundry.org
 spec:
   group: korifi.cloudfoundry.org
   names:
-    kind: CFServiceOffering
-    listKind: CFServiceOfferingList
-    plural: cfserviceofferings
-    singular: cfserviceoffering
+    kind: CFServicePlan
+    listKind: CFServicePlanList
+    plural: cfserviceplans
+    singular: cfserviceplan
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.name
-      name: Offering
-      type: string
-    - jsonPath: .spec.description
-      name: Description
+      name: Plan
       type: string
     - jsonPath: .spec.available
       name: Available
+      type: string
+    - jsonPath: .spec.free
+      name: Free
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -30,7 +30,6 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: CFServiceOffering is the Schema for the cfserviceofferings API
         properties:
           apiVersion:
             description: |-
@@ -50,27 +49,17 @@ spec:
           metadata:
             type: object
           spec:
-            description: CFServiceOfferingSpec defines the desired state of CFServiceOffering
             properties:
               broker_catalog:
                 properties:
                   features:
                     properties:
-                      allow_context_updates:
-                        type: boolean
                       bindable:
-                        type: boolean
-                      bindings_retrievable:
-                        type: boolean
-                      instances_retrievable:
                         type: boolean
                       plan_updateable:
                         type: boolean
                     required:
-                    - allow_context_updates
                     - bindable
-                    - bindings_retrievable
-                    - instances_retrievable
                     - plan_updateable
                     type: object
                   id:
@@ -79,27 +68,54 @@ spec:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                 required:
-                - features
                 - id
                 type: object
               description:
                 type: string
-              documentation_url:
-                type: string
+              free:
+                type: boolean
               name:
                 type: string
-              required:
-                items:
-                  type: string
-                type: array
-              tags:
-                items:
-                  type: string
-                type: array
+              schemas:
+                properties:
+                  service_binding:
+                    properties:
+                      create:
+                        properties:
+                          parameters:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                    required:
+                    - create
+                    type: object
+                  service_instance:
+                    properties:
+                      create:
+                        properties:
+                          parameters:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      update:
+                        properties:
+                          parameters:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                    required:
+                    - create
+                    - update
+                    type: object
+                required:
+                - service_binding
+                - service_instance
+                type: object
             required:
             - broker_catalog
-            - description
+            - free
             - name
+            - schemas
             type: object
         type: object
     served: true

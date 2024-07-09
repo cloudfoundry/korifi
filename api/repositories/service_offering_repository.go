@@ -65,6 +65,10 @@ func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo author
 			CFResource: model.CFResource{
 				GUID:      offering.Name,
 				CreatedAt: offering.CreationTimestamp.Time,
+				Metadata: model.Metadata{
+					Labels:      offering.Labels,
+					Annotations: offering.Annotations,
+				},
 			},
 			Relationships: ServiceOfferingRelationships{
 				ServiceBroker: model.ToOneRelationship{

@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ = Describe("CFServiceBroker", func() {
@@ -51,6 +52,39 @@ var _ = Describe("CFServiceBroker", func() {
 					"foo":              "bar",
 					"documentationUrl": "https://doc.url",
 				},
+				Plans: []osbapi.Plan{{
+					ID:          "plan-id",
+					Name:        "plan-name",
+					Description: "plan description",
+					Metadata: map[string]any{
+						"plan-md": "plan-md-value",
+					},
+					Free:             true,
+					Bindable:         true,
+					BindingRotatable: true,
+					PlanUpdateable:   true,
+					Schemas: services.ServicePlanSchemas{
+						ServiceInstance: services.ServiceInstanceSchema{
+							Create: services.InputParameterSchema{
+								Parameters: &runtime.RawExtension{
+									Raw: []byte(`{"create-param":"create-value"}`),
+								},
+							},
+							Update: services.InputParameterSchema{
+								Parameters: &runtime.RawExtension{
+									Raw: []byte(`{"update-param":"update-value"}`),
+								},
+							},
+						},
+						ServiceBinding: services.ServiceBindingSchema{
+							Create: services.InputParameterSchema{
+								Parameters: &runtime.RawExtension{
+									Raw: []byte(`{"binding-create-param":"binding-create-value"}`),
+								},
+							},
+						},
+					},
+				}},
 			}},
 		}).Start()
 
@@ -138,6 +172,65 @@ var _ = Describe("CFServiceBroker", func() {
 		}).Should(Succeed())
 	})
 
+	It("creates CFServicePlans to reflect catalog plans", func() {
+		Eventually(func(g Gomega) {
+			offerings := &korifiv1alpha1.CFServiceOfferingList{}
+			g.Expect(adminClient.List(ctx, offerings, client.InNamespace(serviceBroker.Namespace))).To(Succeed())
+			g.Expect(offerings.Items).To(HaveLen(1))
+
+			plans := &korifiv1alpha1.CFServicePlanList{}
+			g.Expect(adminClient.List(ctx, plans, client.InNamespace(serviceBroker.Namespace))).To(Succeed())
+			g.Expect(plans.Items).To(HaveLen(1))
+
+			plan := plans.Items[0]
+
+			g.Expect(plan.Labels).To(SatisfyAll(
+				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, serviceBroker.Name),
+				HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingLabel, offerings.Items[0].Name),
+			))
+			g.Expect(plan.Spec).To(MatchAllFields(Fields{
+				"ServicePlan": MatchAllFields(Fields{
+					"BrokerServicePlan": MatchAllFields(Fields{
+						"Name":        Equal("plan-name"),
+						"Free":        BeTrue(),
+						"Description": Equal("plan description"),
+						"BrokerCatalog": MatchAllFields(Fields{
+							"ID": Equal("plan-id"),
+							"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
+								"Raw": MatchJSON(`{"plan-md": "plan-md-value"}`),
+							})),
+							"Features": Equal(services.ServicePlanFeatures{
+								PlanUpdateable: true,
+								Bindable:       true,
+							}),
+						}),
+						"Schemas": MatchFields(IgnoreExtras, Fields{
+							"ServiceInstance": MatchFields(IgnoreExtras, Fields{
+								"Create": MatchFields(IgnoreExtras, Fields{
+									"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
+										"Raw": MatchJSON(`{"create-param":"create-value"}`),
+									})),
+								}),
+								"Update": MatchFields(IgnoreExtras, Fields{
+									"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
+										"Raw": MatchJSON(`{"update-param":"update-value"}`),
+									})),
+								}),
+							}),
+							"ServiceBinding": MatchFields(IgnoreExtras, Fields{
+								"Create": MatchFields(IgnoreExtras, Fields{
+									"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
+										"Raw": MatchJSON(`{"binding-create-param": "binding-create-value"}`),
+									})),
+								}),
+							}),
+						}),
+					}),
+				}),
+			}))
+		}).Should(Succeed())
+	})
+
 	When("getting the catalog fails", func() {
 		BeforeEach(func() {
 			Expect(k8s.PatchResource(ctx, adminClient, serviceBroker, func() {
@@ -192,6 +285,23 @@ var _ = Describe("CFServiceBroker", func() {
 
 				g.Expect(offerings.Items[0].Spec.BrokerCatalog.Id).To(Equal("service-id"))
 				g.Expect(offerings.Items[1].Spec.BrokerCatalog.Id).To(Equal("service-id"))
+			}).Should(Succeed())
+		})
+
+		It("creates a plan per broker", func() {
+			Eventually(func(g Gomega) {
+				plans := &korifiv1alpha1.CFServicePlanList{}
+				g.Expect(adminClient.List(ctx, plans, client.InNamespace(testNamespace))).To(Succeed())
+				g.Expect(plans.Items).To(HaveLen(2))
+
+				brokerGUIDs := []string{
+					plans.Items[0].Labels[korifiv1alpha1.RelServiceBrokerLabel],
+					plans.Items[1].Labels[korifiv1alpha1.RelServiceBrokerLabel],
+				}
+				g.Expect(brokerGUIDs).To(ConsistOf(serviceBroker.Name, anotherServiceBroker.Name))
+
+				g.Expect(plans.Items[0].Spec.BrokerCatalog.ID).To(Equal("plan-id"))
+				g.Expect(plans.Items[1].Spec.BrokerCatalog.ID).To(Equal("plan-id"))
 			}).Should(Succeed())
 		})
 	})

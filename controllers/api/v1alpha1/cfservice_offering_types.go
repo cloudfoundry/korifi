@@ -10,14 +10,7 @@ type CFServiceOfferingSpec struct {
 	services.ServiceOffering `json:",inline"`
 }
 
-// CFServiceOfferingStatus defines the observed state of CFServiceOffering
-type CFServiceOfferingStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-}
-
 //+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Offering",type=string,JSONPath=`.spec.name`
 //+kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 //+kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.spec.available`
@@ -28,8 +21,7 @@ type CFServiceOffering struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CFServiceOfferingSpec   `json:"spec,omitempty"`
-	Status CFServiceOfferingStatus `json:"status,omitempty"`
+	Spec CFServiceOfferingSpec `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true

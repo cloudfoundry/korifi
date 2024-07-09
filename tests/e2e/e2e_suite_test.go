@@ -1211,6 +1211,28 @@ func cleanupBrokers() {
 	Expect(err).NotTo(HaveOccurred())
 
 	ctx := context.Background()
-	Expect(k8sClient.DeleteAllOf(ctx, &korifiv1alpha1.CFServiceBroker{}, client.InNamespace(rootNamespace))).To(Succeed())
-	Expect(k8sClient.DeleteAllOf(ctx, &korifiv1alpha1.CFServiceOffering{}, client.InNamespace(rootNamespace))).To(Succeed())
+	Expect(k8sClient.Delete(ctx, &korifiv1alpha1.CFServiceBroker{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: rootNamespace,
+			Name:      serviceBrokerGUID,
+		},
+	})).To(Succeed())
+
+	Expect(k8sClient.DeleteAllOf(
+		ctx,
+		&korifiv1alpha1.CFServiceOffering{},
+		client.InNamespace(rootNamespace),
+		client.MatchingLabels{
+			korifiv1alpha1.RelServiceBrokerLabel: serviceBrokerGUID,
+		},
+	)).To(Succeed())
+
+	Expect(k8sClient.DeleteAllOf(
+		ctx,
+		&korifiv1alpha1.CFServicePlan{},
+		client.InNamespace(rootNamespace),
+		client.MatchingLabels{
+			korifiv1alpha1.RelServiceBrokerLabel: serviceBrokerGUID,
+		},
+	)).To(Succeed())
 }

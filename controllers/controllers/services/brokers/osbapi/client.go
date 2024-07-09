@@ -41,7 +41,17 @@ type Service struct {
 	Plans []Plan `json:"plans"`
 }
 
-type Plan struct{}
+type Plan struct {
+	ID               string                      `json:"id"`
+	Name             string                      `json:"name"`
+	Description      string                      `json:"description"`
+	Metadata         map[string]any              `json:"metadata"`
+	Free             bool                        `json:"free"`
+	Bindable         bool                        `json:"bindable"`
+	BindingRotatable bool                        `json:"binding_rotatable"`
+	PlanUpdateable   bool                        `json:"plan_updateable"`
+	Schemas          services.ServicePlanSchemas `json:"schemas"`
+}
 
 type Client struct {
 	k8sClient client.Client
