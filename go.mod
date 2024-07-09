@@ -21,7 +21,7 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/go-resty/resty/v2 v2.13.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/google/go-containerregistry v0.19.2
+	github.com/google/go-containerregistry v0.20.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jellydator/validation v1.1.0
