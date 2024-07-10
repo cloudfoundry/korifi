@@ -21,6 +21,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFServiceBrokerRepository . CFServiceBrokerRepository
 type CFServiceBrokerRepository interface {
 	CreateServiceBroker(context.Context, authorization.Info, repositories.CreateServiceBrokerMessage) (repositories.ServiceBrokerResource, error)
+	ListServiceBrokers(context.Context, authorization.Info) ([]repositories.ServiceBrokerResource, error)
 }
 
 type ServiceBroker struct {
@@ -59,6 +60,17 @@ func (h *ServiceBroker) create(r *http.Request) (*routing.Response, error) {
 		WithHeader("Location", presenter.JobURLForRedirects(broker.GUID, presenter.ServiceBrokerCreateOperation, h.serverURL)), nil
 }
 
+func (h *ServiceBroker) list(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-broker.list")
+
+	brokers, err := h.serviceBrokerRepo.ListServiceBrokers(r.Context(), authInfo)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list service brokers")
+	}
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceBroker, brokers, h.serverURL, *r.URL)), nil
+}
+
 func (h *ServiceBroker) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -66,5 +78,6 @@ func (h *ServiceBroker) UnauthenticatedRoutes() []routing.Route {
 func (h *ServiceBroker) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "POST", Pattern: ServiceBrokersPath, Handler: h.create},
+		{Method: "GET", Pattern: ServiceBrokersPath, Handler: h.list},
 	}
 }

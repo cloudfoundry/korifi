@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -89,6 +90,47 @@ var _ = Describe("ServiceBroker", func() {
 		When("creating the service broker fails", func() {
 			BeforeEach(func() {
 				serviceBrokerRepo.CreateServiceBrokerReturns(repositories.ServiceBrokerResource{}, errors.New("create-service-broker-error"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("GET /v3/service_brokers", func() {
+		BeforeEach(func() {
+			serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerResource{
+				{
+					CFResource: model.CFResource{
+						GUID: "broker-guid",
+					},
+				},
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/service_brokers", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("lists the service brokers", func() {
+			Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
+			_, actualAuthInfo := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+
+			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_brokers"),
+				MatchJSONPath("$.resources[0].guid", "broker-guid"),
+				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/service_brokers/broker-guid"),
+			)))
+		})
+
+		When("listing service brokers fails", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.ListServiceBrokersReturns(nil, errors.New("list-brokers-error"))
 			})
 
 			It("returns an error", func() {

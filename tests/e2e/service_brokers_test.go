@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -18,11 +19,12 @@ import (
 )
 
 var _ = Describe("Service Brokers", func() {
-	var resp *resty.Response
+	var (
+		resp *resty.Response
+		err  error
+	)
 
 	Describe("Create", func() {
-		var err error
-
 		BeforeEach(func() {
 			Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 		})
@@ -85,6 +87,22 @@ var _ = Describe("Service Brokers", func() {
 				jobRespBody := string(resp.Body())
 				g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
 			}).Should(Succeed())
+		})
+	})
+
+	Describe("List", func() {
+		var result resourceList[resource]
+
+		JustBeforeEach(func() {
+			resp, err = adminClient.R().SetResult(&result).Get("/v3/service_brokers")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns a list of brokers", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Resources).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"GUID": Equal(serviceBrokerGUID),
+			})))
 		})
 	})
 })
