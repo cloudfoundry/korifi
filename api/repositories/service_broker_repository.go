@@ -34,7 +34,6 @@ type ServiceBrokerRepo struct {
 
 type ServiceBrokerResource struct {
 	services.ServiceBroker
-	model.Metadata
 	model.CFResource
 }
 
@@ -94,17 +93,21 @@ func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo au
 		return ServiceBrokerResource{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
+	return toServiceBrokerResource(cfServiceBroker), nil
+}
+
+func toServiceBrokerResource(cfServiceBroker *korifiv1alpha1.CFServiceBroker) ServiceBrokerResource {
 	return ServiceBrokerResource{
 		ServiceBroker: cfServiceBroker.Spec.ServiceBroker,
-		Metadata: model.Metadata{
-			Labels:      cfServiceBroker.Labels,
-			Annotations: cfServiceBroker.Annotations,
-		},
 		CFResource: model.CFResource{
 			GUID:      cfServiceBroker.Name,
 			CreatedAt: cfServiceBroker.CreationTimestamp.Time,
+			Metadata: model.Metadata{
+				Labels:      cfServiceBroker.Labels,
+				Annotations: cfServiceBroker.Annotations,
+			},
 		},
-	}, nil
+	}
 }
 
 func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization.Info, brokerGUID string) (model.CFResourceState, error) {
@@ -131,4 +134,27 @@ func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization
 	}
 
 	return model.CFResourceState{}, nil
+}
+
+func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info) ([]ServiceBrokerResource, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	brokersList := &korifiv1alpha1.CFServiceBrokerList{}
+	err = userClient.List(ctx, brokersList, client.InNamespace(r.rootNamespace))
+	if err != nil {
+		// All authenticated users are allowed to list brokers. Therefore, the
+		// usual pattern of checking for forbidden error and return an empty
+		// list does not make sense here
+		return nil, apierrors.FromK8sError(err, ServiceBrokerResourceType)
+	}
+
+	result := []ServiceBrokerResource{}
+	for _, broker := range brokersList.Items {
+		result = append(result, toServiceBrokerResource(&broker))
+	}
+
+	return result, nil
 }

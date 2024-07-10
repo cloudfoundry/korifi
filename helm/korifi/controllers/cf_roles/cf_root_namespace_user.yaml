@@ -44,5 +44,6 @@ rules:
   resources:
   - cfserviceofferings
   - cfserviceplans
+  - cfservicebrokers
   verbs:
   - list

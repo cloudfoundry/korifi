@@ -226,4 +226,81 @@ var _ = Describe("ServiceBrokerRepo", func() {
 			})
 		})
 	})
+
+	Describe("ListServiceBrokers", func() {
+		var brokers []repositories.ServiceBrokerResource
+
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceBroker{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      "broker-1",
+					Labels: map[string]string{
+						"broker-label": "broker-label-value",
+					},
+					Annotations: map[string]string{
+						"broker-annotation": "broker-annotation-value",
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceBrokerSpec{
+					ServiceBroker: services.ServiceBroker{
+						Name: "first-broker",
+						URL:  "https://first.broker",
+					},
+				},
+			})).To(Succeed())
+
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceBroker{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      "broker-2",
+				},
+				Spec: korifiv1alpha1.CFServiceBrokerSpec{
+					ServiceBroker: services.ServiceBroker{
+						Name: "second-broker",
+						URL:  "https://second.broker",
+					},
+				},
+			})).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			brokers, err = repo.ListServiceBrokers(ctx, authInfo)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns a list of brokers", func() {
+			Expect(brokers).To(ConsistOf(
+				MatchAllFields(Fields{
+					"ServiceBroker": MatchAllFields(Fields{
+						"Name": Equal("first-broker"),
+						"URL":  Equal("https://first.broker"),
+					}),
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"GUID":      Equal("broker-1"),
+						"CreatedAt": Not(BeZero()),
+						"Metadata": MatchAllFields(Fields{
+							"Labels":      HaveKeyWithValue("broker-label", "broker-label-value"),
+							"Annotations": HaveKeyWithValue("broker-annotation", "broker-annotation-value"),
+						}),
+					}),
+				}),
+				MatchAllFields(Fields{
+					"ServiceBroker": MatchAllFields(Fields{
+						"Name": Equal("second-broker"),
+						"URL":  Equal("https://second.broker"),
+					}),
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"GUID":      Equal("broker-2"),
+						"CreatedAt": Not(BeZero()),
+						"Metadata": MatchAllFields(Fields{
+							"Labels":      BeEmpty(),
+							"Annotations": BeEmpty(),
+						}),
+					}),
+				}),
+			))
+		})
+	})
 })

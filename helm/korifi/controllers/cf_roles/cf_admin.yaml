@@ -193,6 +193,7 @@ rules:
   verbs:
   - create
   - get
+  - list
 
 - apiGroups:
   - korifi.cloudfoundry.org
