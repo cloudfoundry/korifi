@@ -26,11 +26,12 @@ type CFServiceBrokerRepository struct {
 		result1 repositories.ServiceBrokerResource
 		result2 error
 	}
-	ListServiceBrokersStub        func(context.Context, authorization.Info) ([]repositories.ServiceBrokerResource, error)
+	ListServiceBrokersStub        func(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerResource, error)
 	listServiceBrokersMutex       sync.RWMutex
 	listServiceBrokersArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
+		arg3 repositories.ListServiceBrokerMessage
 	}
 	listServiceBrokersReturns struct {
 		result1 []repositories.ServiceBrokerResource
@@ -110,19 +111,20 @@ func (fake *CFServiceBrokerRepository) CreateServiceBrokerReturnsOnCall(i int, r
 	}{result1, result2}
 }
 
-func (fake *CFServiceBrokerRepository) ListServiceBrokers(arg1 context.Context, arg2 authorization.Info) ([]repositories.ServiceBrokerResource, error) {
+func (fake *CFServiceBrokerRepository) ListServiceBrokers(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerResource, error) {
 	fake.listServiceBrokersMutex.Lock()
 	ret, specificReturn := fake.listServiceBrokersReturnsOnCall[len(fake.listServiceBrokersArgsForCall)]
 	fake.listServiceBrokersArgsForCall = append(fake.listServiceBrokersArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-	}{arg1, arg2})
+		arg3 repositories.ListServiceBrokerMessage
+	}{arg1, arg2, arg3})
 	stub := fake.ListServiceBrokersStub
 	fakeReturns := fake.listServiceBrokersReturns
-	fake.recordInvocation("ListServiceBrokers", []interface{}{arg1, arg2})
+	fake.recordInvocation("ListServiceBrokers", []interface{}{arg1, arg2, arg3})
 	fake.listServiceBrokersMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -136,17 +138,17 @@ func (fake *CFServiceBrokerRepository) ListServiceBrokersCallCount() int {
 	return len(fake.listServiceBrokersArgsForCall)
 }
 
-func (fake *CFServiceBrokerRepository) ListServiceBrokersCalls(stub func(context.Context, authorization.Info) ([]repositories.ServiceBrokerResource, error)) {
+func (fake *CFServiceBrokerRepository) ListServiceBrokersCalls(stub func(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerResource, error)) {
 	fake.listServiceBrokersMutex.Lock()
 	defer fake.listServiceBrokersMutex.Unlock()
 	fake.ListServiceBrokersStub = stub
 }
 
-func (fake *CFServiceBrokerRepository) ListServiceBrokersArgsForCall(i int) (context.Context, authorization.Info) {
+func (fake *CFServiceBrokerRepository) ListServiceBrokersArgsForCall(i int) (context.Context, authorization.Info, repositories.ListServiceBrokerMessage) {
 	fake.listServiceBrokersMutex.RLock()
 	defer fake.listServiceBrokersMutex.RUnlock()
 	argsForCall := fake.listServiceBrokersArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFServiceBrokerRepository) ListServiceBrokersReturns(result1 []repositories.ServiceBrokerResource, result2 error) {

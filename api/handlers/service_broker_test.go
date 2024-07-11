@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	. "github.com/onsi/gomega/gstruct"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -115,8 +116,11 @@ var _ = Describe("ServiceBroker", func() {
 
 		It("lists the service brokers", func() {
 			Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
-			_, actualAuthInfo := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
+			_, actualAuthInfo, actualListMsg := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualListMsg).To(MatchAllFields(Fields{
+				"Names": BeEmpty(),
+			}))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -126,6 +130,31 @@ var _ = Describe("ServiceBroker", func() {
 				MatchJSONPath("$.resources[0].guid", "broker-guid"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/service_brokers/broker-guid"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceBrokerList{
+					Names: "b1,b2",
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
+				_, _, message := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
+
+				Expect(message.Names).To(ConsistOf("b1", "b2"))
+			})
+		})
+
+		When("decoding query parameters fails", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("decode-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
 		})
 
 		When("listing service brokers fails", func() {

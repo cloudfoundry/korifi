@@ -228,9 +228,14 @@ var _ = Describe("ServiceBrokerRepo", func() {
 	})
 
 	Describe("ListServiceBrokers", func() {
-		var brokers []repositories.ServiceBrokerResource
+		var (
+			brokers []repositories.ServiceBrokerResource
+			message repositories.ListServiceBrokerMessage
+		)
 
 		BeforeEach(func() {
+			message = repositories.ListServiceBrokerMessage{}
+
 			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceBroker{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: rootNamespace,
@@ -266,7 +271,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			brokers, err = repo.ListServiceBrokers(ctx, authInfo)
+			brokers, err = repo.ListServiceBrokers(ctx, authInfo, message)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -301,6 +306,32 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					}),
 				}),
 			))
+		})
+
+		When("a name filter is applied", func() {
+			BeforeEach(func() {
+				message.Names = []string{"second-broker"}
+			})
+
+			It("only returns the matching brokers", func() {
+				Expect(brokers).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"ServiceBroker": MatchFields(IgnoreExtras, Fields{
+							"Name": Equal("second-broker"),
+						}),
+					}),
+				))
+			})
+		})
+
+		When("a nonexistent name filter is applied", func() {
+			BeforeEach(func() {
+				message.Names = []string{"no-such-broker"}
+			})
+
+			It("returns an empty list", func() {
+				Expect(brokers).To(BeEmpty())
+			})
 		})
 	})
 })

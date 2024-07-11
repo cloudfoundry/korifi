@@ -21,7 +21,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFServiceBrokerRepository . CFServiceBrokerRepository
 type CFServiceBrokerRepository interface {
 	CreateServiceBroker(context.Context, authorization.Info, repositories.CreateServiceBrokerMessage) (repositories.ServiceBrokerResource, error)
-	ListServiceBrokers(context.Context, authorization.Info) ([]repositories.ServiceBrokerResource, error)
+	ListServiceBrokers(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerResource, error)
 }
 
 type ServiceBroker struct {
@@ -64,7 +64,12 @@ func (h *ServiceBroker) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-broker.list")
 
-	brokers, err := h.serviceBrokerRepo.ListServiceBrokers(r.Context(), authInfo)
+	var serviceBrokerListFilter payloads.ServiceBrokerList
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, &serviceBrokerListFilter); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode request values")
+	}
+
+	brokers, err := h.serviceBrokerRepo.ListServiceBrokers(r.Context(), authInfo, serviceBrokerListFilter.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list service brokers")
 	}

@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -10,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
+	"github.com/BooleanCat/go-functional/iter"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -25,6 +27,18 @@ type CreateServiceBrokerMessage struct {
 	Metadata    model.Metadata
 	Broker      services.ServiceBroker
 	Credentials services.BrokerCredentials
+}
+
+type ListServiceBrokerMessage struct {
+	Names []string
+}
+
+func (l ListServiceBrokerMessage) matches(b korifiv1alpha1.CFServiceBroker) bool {
+	if len(l.Names) == 0 {
+		return true
+	}
+
+	return slices.Contains(l.Names, b.Spec.Name)
 }
 
 type ServiceBrokerRepo struct {
@@ -93,10 +107,10 @@ func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo au
 		return ServiceBrokerResource{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
-	return toServiceBrokerResource(cfServiceBroker), nil
+	return toServiceBrokerResource(*cfServiceBroker), nil
 }
 
-func toServiceBrokerResource(cfServiceBroker *korifiv1alpha1.CFServiceBroker) ServiceBrokerResource {
+func toServiceBrokerResource(cfServiceBroker korifiv1alpha1.CFServiceBroker) ServiceBrokerResource {
 	return ServiceBrokerResource{
 		ServiceBroker: cfServiceBroker.Spec.ServiceBroker,
 		CFResource: model.CFResource{
@@ -136,7 +150,7 @@ func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization
 	return model.CFResourceState{}, nil
 }
 
-func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info) ([]ServiceBrokerResource, error) {
+func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info, message ListServiceBrokerMessage) ([]ServiceBrokerResource, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
@@ -148,13 +162,10 @@ func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo aut
 		// All authenticated users are allowed to list brokers. Therefore, the
 		// usual pattern of checking for forbidden error and return an empty
 		// list does not make sense here
-		return nil, apierrors.FromK8sError(err, ServiceBrokerResourceType)
+		return nil, fmt.Errorf("failed to list brokers: %w", apierrors.FromK8sError(err, ServiceBrokerResourceType))
 	}
 
-	result := []ServiceBrokerResource{}
-	for _, broker := range brokersList.Items {
-		result = append(result, toServiceBrokerResource(&broker))
-	}
+	brokers := iter.Filter(iter.Lift(brokersList.Items), message.matches)
 
-	return result, nil
+	return iter.Collect(iter.Map(brokers, toServiceBrokerResource)), nil
 }
