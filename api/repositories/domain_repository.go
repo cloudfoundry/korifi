@@ -78,7 +78,7 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 	domain := &korifiv1alpha1.CFDomain{}
 	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: domainGUID}, domain)
 	if err != nil {
-		return DomainRecord{}, apierrors.NewForbiddenError(err, DomainResourceType)
+		return DomainRecord{}, fmt.Errorf("get-domain failed: %w", apierrors.FromK8sError(err, DomainResourceType))
 	}
 
 	return cfDomainToDomainRecord(domain), nil
