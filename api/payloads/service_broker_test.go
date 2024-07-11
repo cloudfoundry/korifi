@@ -1,6 +1,8 @@
 package payloads_test
 
 import (
+	"net/http"
+
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
@@ -107,6 +109,35 @@ var _ = Describe("ServiceBrokerCreate", func() {
 					Username: "broker-user",
 					Password: "broker-password",
 				},
+			}))
+		})
+	})
+})
+
+var _ = Describe("ServiceBrokerList", func() {
+	var serviceBrokerList payloads.ServiceBrokerList
+
+	BeforeEach(func() {
+		serviceBrokerList = payloads.ServiceBrokerList{
+			Names: "b1, b2",
+		}
+	})
+
+	Describe("decodes from url values", func() {
+		It("succeeds", func() {
+			req, err := http.NewRequest("GET", "http://foo.com/bar?names=foo,bar", nil)
+			Expect(err).NotTo(HaveOccurred())
+			err = validator.DecodeAndValidateURLValues(req, &serviceBrokerList)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(serviceBrokerList.Names).To(Equal("foo,bar"))
+		})
+	})
+
+	Describe("ToMessage", func() {
+		It("converts to repo message correctly", func() {
+			Expect(serviceBrokerList.ToMessage()).To(Equal(repositories.ListServiceBrokerMessage{
+				Names: []string{"b1", "b2"},
 			}))
 		})
 	})
