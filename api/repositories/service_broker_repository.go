@@ -165,7 +165,7 @@ func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo aut
 		return nil, fmt.Errorf("failed to list brokers: %w", apierrors.FromK8sError(err, ServiceBrokerResourceType))
 	}
 
-	brokers := iter.Filter(iter.Lift(brokersList.Items), message.matches)
+	brokers := iter.Lift(brokersList.Items).Filter(message.matches)
 
-	return iter.Collect(iter.Map(brokers, toServiceBrokerResource)), nil
+	return iter.Map(brokers, toServiceBrokerResource).Collect(), nil
 }
