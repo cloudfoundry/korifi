@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -168,4 +169,60 @@ func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo aut
 	brokers := iter.Lift(brokersList.Items).Filter(message.matches)
 
 	return iter.Map(brokers, toServiceBrokerResource).Collect(), nil
+}
+
+func (r *ServiceBrokerRepo) GetServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) (ServiceBrokerResource, error) {
+	serviceBroker, err := r.getServiceBroker(ctx, authInfo, guid)
+	if err != nil {
+		return ServiceBrokerResource{}, err
+	}
+	return toServiceBrokerResource(*serviceBroker), nil
+}
+
+func (r *ServiceBrokerRepo) getServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) (*korifiv1alpha1.CFServiceBroker, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	serviceBroker := &korifiv1alpha1.CFServiceBroker{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      guid,
+		},
+	}
+
+	if err := userClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker); err != nil {
+		return nil, apierrors.FromK8sError(err, ServiceBrokerResourceType)
+	}
+
+	return serviceBroker, nil
+}
+
+func (r *ServiceBrokerRepo) DeleteServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) error {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	serviceBroker := &korifiv1alpha1.CFServiceBroker{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      guid,
+			Namespace: r.rootNamespace,
+		},
+	}
+
+	return apierrors.FromK8sError(
+		userClient.Delete(ctx, serviceBroker),
+		ServiceBrokerResourceType,
+	)
+}
+
+func (r *ServiceBrokerRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, guid string) (*time.Time, error) {
+	serviceBroker, err := r.getServiceBroker(ctx, authInfo, guid)
+	if err != nil {
+		return nil, err
+	}
+
+	return golangTime(serviceBroker.GetDeletionTimestamp()), nil
 }

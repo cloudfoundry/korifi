@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -160,6 +161,65 @@ var _ = Describe("ServiceBroker", func() {
 		When("listing service brokers fails", func() {
 			BeforeEach(func() {
 				serviceBrokerRepo.ListServiceBrokersReturns(nil, errors.New("list-brokers-error"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("DELETE /v3/service_brokers/guid", func() {
+		BeforeEach(func() {
+			serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerResource{
+				CFResource: model.CFResource{
+					GUID: "broker-guid",
+				},
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "DELETE", "/v3/service_brokers/broker-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("deletes the service broker", func() {
+			Expect(serviceBrokerRepo.GetServiceBrokerCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualBrokerGUID := serviceBrokerRepo.GetServiceBrokerArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualBrokerGUID).To(Equal("broker-guid"))
+
+			Expect(serviceBrokerRepo.DeleteServiceBrokerCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualBrokerGUID = serviceBrokerRepo.DeleteServiceBrokerArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualBrokerGUID).To(Equal("broker-guid"))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/service_broker.delete~broker-guid"))
+		})
+
+		When("getting the service broker is not allowed", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerResource{}, apierrors.NewForbiddenError(nil, repositories.ServiceBrokerResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.ServiceBrokerResourceType)
+			})
+		})
+
+		When("getting the service broker fails", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerResource{}, errors.New("get-broker-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("getting the service broker fails", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.DeleteServiceBrokerReturns(errors.New("delete-broker-err"))
 			})
 
 			It("returns an error", func() {

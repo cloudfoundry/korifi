@@ -26,6 +26,7 @@ const (
 	DomainDeleteJobType        = "domain.delete"
 	RoleDeleteJobType          = "role.delete"
 	ServiceBrokerCreateJobType = "service_broker.create"
+	ServiceBrokerDeleteJobType = "service_broker.delete"
 
 	JobTimeoutDuration = 120.0
 )

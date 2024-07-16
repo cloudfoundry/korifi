@@ -383,7 +383,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = SynchronizedAfterSuite(func() {
 }, func() {
 	deleteOrg(commonTestOrgGUID)
-	cleanupBrokers()
+	cleanupBroker(serviceBrokerGUID)
 	serviceAccountFactory.DeleteServiceAccount(adminServiceAccount)
 })
 
@@ -1203,27 +1203,28 @@ func createBroker(brokerURL string) string {
 	return brokerGUID
 }
 
-func cleanupBrokers() {
+func cleanupBroker(brokerGUID string) {
+	GinkgoHelper()
+
+	Expect(brokerGUID).NotTo(BeEmpty())
+	_, err := adminClient.R().
+		Delete("/v3/service_brokers/" + brokerGUID)
+	Expect(err).NotTo(HaveOccurred())
+
+	ctx := context.Background()
+
 	config, err := controllerruntime.GetConfig()
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 
-	ctx := context.Background()
-	Expect(k8sClient.Delete(ctx, &korifiv1alpha1.CFServiceBroker{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: rootNamespace,
-			Name:      serviceBrokerGUID,
-		},
-	})).To(Succeed())
-
 	Expect(k8sClient.DeleteAllOf(
 		ctx,
 		&korifiv1alpha1.CFServiceOffering{},
 		client.InNamespace(rootNamespace),
 		client.MatchingLabels{
-			korifiv1alpha1.RelServiceBrokerLabel: serviceBrokerGUID,
+			korifiv1alpha1.RelServiceBrokerLabel: brokerGUID,
 		},
 	)).To(Succeed())
 
@@ -1232,7 +1233,7 @@ func cleanupBrokers() {
 		&korifiv1alpha1.CFServicePlan{},
 		client.InNamespace(rootNamespace),
 		client.MatchingLabels{
-			korifiv1alpha1.RelServiceBrokerLabel: serviceBrokerGUID,
+			korifiv1alpha1.RelServiceBrokerLabel: brokerGUID,
 		},
 	)).To(Succeed())
 }
