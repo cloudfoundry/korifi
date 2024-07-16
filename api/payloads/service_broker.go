@@ -54,7 +54,7 @@ func (b *ServiceBrokerList) DecodeFromURLValues(values url.Values) error {
 }
 
 func (b *ServiceBrokerList) SupportedKeys() []string {
-	return []string{"names"}
+	return []string{"names", "page", "per_page"}
 }
 
 func (b *ServiceBrokerList) ToMessage() repositories.ListServiceBrokerMessage {

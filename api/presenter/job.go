@@ -24,6 +24,7 @@ const (
 	DomainDeleteOperation        = "domain.delete"
 	RoleDeleteOperation          = "role.delete"
 	ServiceBrokerCreateOperation = "service_broker.create"
+	ServiceBrokerDeleteOperation = "service_broker.delete"
 )
 
 var (

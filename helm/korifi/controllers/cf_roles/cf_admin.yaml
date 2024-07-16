@@ -194,6 +194,7 @@ rules:
   - create
   - get
   - list
+  - delete
 
 - apiGroups:
   - korifi.cloudfoundry.org

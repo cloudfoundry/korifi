@@ -1,11 +1,14 @@
 package repositories_test
 
 import (
+	"time"
+
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -331,6 +334,165 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 			It("returns an empty list", func() {
 				Expect(brokers).To(BeEmpty())
+			})
+		})
+	})
+
+	Describe("GetServiceBroker", func() {
+		var (
+			serviceBroker repositories.ServiceBrokerResource
+			getErr        error
+		)
+
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceBroker{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      "broker-1",
+					Labels: map[string]string{
+						"broker-label": "broker-label-value",
+					},
+					Annotations: map[string]string{
+						"broker-annotation": "broker-annotation-value",
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceBrokerSpec{
+					ServiceBroker: services.ServiceBroker{
+						Name: "first-broker",
+						URL:  "https://first.broker",
+					},
+				},
+			})).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			serviceBroker, getErr = repo.GetServiceBroker(ctx, authInfo, "broker-1")
+		})
+
+		It("returns a forbidden error", func() {
+			Expect(getErr).To(SatisfyAll(
+				BeAssignableToTypeOf(apierrors.ForbiddenError{}),
+				MatchError(ContainSubstring(`cfservicebrokers.korifi.cloudfoundry.org "broker-1" is forbidden`)),
+			))
+		})
+
+		When("the user can get CFServiceBrokers", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+			})
+
+			It("returns the broker", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(serviceBroker).To(MatchAllFields(Fields{
+					"ServiceBroker": MatchAllFields(Fields{
+						"Name": Equal("first-broker"),
+						"URL":  Equal("https://first.broker"),
+					}),
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"GUID":      Equal("broker-1"),
+						"CreatedAt": Not(BeZero()),
+						"Metadata": MatchAllFields(Fields{
+							"Labels":      HaveKeyWithValue("broker-label", "broker-label-value"),
+							"Annotations": HaveKeyWithValue("broker-annotation", "broker-annotation-value"),
+						}),
+					}),
+				}))
+			})
+		})
+	})
+
+	Describe("DeleteServiceBroker", func() {
+		var (
+			deleteErr  error
+			brokerGUID string
+		)
+
+		BeforeEach(func() {
+			createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+
+			brokerGUID = uuid.NewString()
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceBroker{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      brokerGUID,
+				},
+			})).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			deleteErr = repo.DeleteServiceBroker(ctx, authInfo, brokerGUID)
+		})
+
+		It("deletes the CFServiceBroker resource", func() {
+			Expect(deleteErr).NotTo(HaveOccurred())
+
+			brokers := &korifiv1alpha1.CFServiceBrokerList{}
+			Expect(k8sClient.List(ctx, brokers, client.InNamespace(rootNamespace))).To(Succeed())
+			Expect(brokers.Items).To(BeEmpty())
+		})
+
+		When("the broker doesn't exist", func() {
+			BeforeEach(func() {
+				brokerGUID = "no-such-broker"
+			})
+
+			It("errors", func() {
+				Expect(deleteErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+	})
+
+	Describe("GetDeletedAt", func() {
+		var (
+			broker    *korifiv1alpha1.CFServiceBroker
+			deletedAt *time.Time
+			getErr    error
+		)
+
+		BeforeEach(func() {
+			createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+
+			broker = &korifiv1alpha1.CFServiceBroker{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      uuid.NewString(),
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, broker)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			deletedAt, getErr = repo.GetDeletedAt(ctx, authInfo, broker.Name)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletedAt).To(BeNil())
+		})
+
+		When("the broker is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, broker, func() {
+					broker.Finalizers = append(broker.Finalizers, "kubernetes")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, broker)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletedAt).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the broker isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, broker)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})
