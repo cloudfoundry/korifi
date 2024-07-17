@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -155,11 +155,11 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info,
 		cfSpaces = append(cfSpaces, cfSpaceList.Items...)
 	}
 
-	filteredSpaces := iter.Lift(cfSpaces).Filter(func(s korifiv1alpha1.CFSpace) bool {
+	filteredSpaces := itx.FromSlice(cfSpaces).Filter(func(s korifiv1alpha1.CFSpace) bool {
 		return authorizedSpaceNamespaces[s.Name] && message.matches(s)
 	})
 
-	return iter.Map(filteredSpaces, cfSpaceToSpaceRecord).Collect(), nil
+	return itx.Map(filteredSpaces, cfSpaceToSpaceRecord).Collect(), nil
 }
 
 func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGUID string) (SpaceRecord, error) {

@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -57,7 +57,7 @@ var _ = Describe("Service Plans", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp).To(HaveRestyStatusCode(http.StatusOK))
 
-			brokerPlans := iter.Lift(plans.Resources).Filter(func(r resource) bool {
+			brokerPlans := itx.FromSlice(plans.Resources).Filter(func(r resource) bool {
 				return r.Metadata.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] == brokerGUID
 			}).Collect()
 

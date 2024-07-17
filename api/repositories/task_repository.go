@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/tasks"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -191,8 +191,8 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 		tasks = append(tasks, taskList.Items...)
 	}
 
-	filteredTasks := iter.Lift(tasks).Filter(msg.matches)
-	return iter.Map(filteredTasks, taskToRecord).Collect(), nil
+	filteredTasks := itx.FromSlice(tasks).Filter(msg.matches)
+	return itx.Map(filteredTasks, taskToRecord).Collect(), nil
 }
 
 func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, taskGUID string) (TaskRecord, error) {

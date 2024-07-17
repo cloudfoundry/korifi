@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"time"
 
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
-	"golang.org/x/exp/maps"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -238,7 +238,7 @@ func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info) (
 		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
-	nsList := iter.Chain(authorisedSpaceNamespaces, authorizedOrgNamespaces).Collect()
+	nsList := authorisedSpaceNamespaces.Chain(authorizedOrgNamespaces).Collect()
 	roleBindings := []rbacv1.RoleBinding{}
 	for _, ns := range nsList {
 		roleBindingsList := &rbacv1.RoleBindingList{}
@@ -252,8 +252,8 @@ func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info) (
 		roleBindings = append(roleBindings, roleBindingsList.Items...)
 	}
 
-	cfRoleBindings := iter.Lift(roleBindings).Filter(r.isCFRole)
-	return iter.Map(cfRoleBindings, r.toRoleRecord).Collect(), nil
+	cfRoleBindings := itx.FromSlice(roleBindings).Filter(r.isCFRole)
+	return itx.Map(cfRoleBindings, r.toRoleRecord).Collect(), nil
 }
 
 func (r *RoleRepo) isCFRole(rb rbacv1.RoleBinding) bool {
@@ -271,7 +271,7 @@ func (r *RoleRepo) getCFRoleName(k8sRoleName string) string {
 }
 
 func (r *RoleRepo) getCFRoleNames() []string {
-	return iter.Map(iter.Lift(maps.Values(r.roleMappings)), func(r config.Role) string {
+	return itx.Map(maps.Values(r.roleMappings), func(r config.Role) string {
 		return r.Name
 	}).Collect()
 }

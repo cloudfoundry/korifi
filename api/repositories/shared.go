@@ -3,11 +3,12 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"github.com/BooleanCat/go-functional/iter"
-	"golang.org/x/exp/maps"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -71,20 +72,28 @@ func getLabelOrAnnotation(mapObj map[string]string, key string) string {
 	return mapObj[key]
 }
 
-func authorizedSpaceNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) (*iter.LiftIter[string], error) {
+func emptyOrContains[S ~[]E, E comparable](elements S, e E) bool {
+	if len(elements) == 0 {
+		return true
+	}
+
+	return slices.Contains(elements, e)
+}
+
+func authorizedSpaceNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) (itx.Iterator[string], error) {
 	nsList, err := namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
-	return iter.Lift(maps.Keys(nsList)), nil
+	return itx.From(maps.Keys(nsList)), nil
 }
 
-func authorizedOrgNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) (*iter.LiftIter[string], error) {
+func authorizedOrgNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) (itx.Iterator[string], error) {
 	nsList, err := namespacePermissions.GetAuthorizedOrgNamespaces(ctx, authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for orgs with user role bindings: %w", err)
 	}
 
-	return iter.Lift(maps.Keys(nsList)), nil
+	return itx.From(maps.Keys(nsList)), nil
 }

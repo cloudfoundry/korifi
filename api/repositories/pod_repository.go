@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -13,7 +14,8 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	k8sclient "k8s.io/client-go/kubernetes"
 
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -63,7 +65,7 @@ func (r *PodRepo) DeletePod(ctx context.Context, authInfo authorization.Info, ap
 		return fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
 	}
 
-	podsToDelete := iter.Lift(podList.Items).Filter(func(pod corev1.Pod) bool {
+	podsToDelete := itx.FromSlice(podList.Items).Filter(func(pod corev1.Pod) bool {
 		return strings.HasSuffix(pod.Name, instanceID)
 	}).Collect()
 
@@ -107,24 +109,24 @@ func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, logger logr.Logger, 
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	logRecords := iter.Map(iter.Lift(podList.Items), func(pod corev1.Pod) iter.Iterator[LogRecord] {
+	logRecords := itx.Map(slices.Values(podList.Items), func(pod corev1.Pod) func(func(LogRecord) bool) {
 		return r.getPodLogs(ctx, logClient, logger, pod, message.Limit)
 	}).Collect()
 
-	return iter.Chain(logRecords...).Collect(), nil
+	return slices.Collect(it.Chain(logRecords...)), nil
 }
 
-func (r *PodRepo) getPodLogs(ctx context.Context, k8sClient k8sclient.Interface, logger logr.Logger, pod corev1.Pod, limit int64) iter.Iterator[LogRecord] {
+func (r *PodRepo) getPodLogs(ctx context.Context, k8sClient k8sclient.Interface, logger logr.Logger, pod corev1.Pod, limit int64) itx.Iterator[LogRecord] {
 	logReadCloser, err := k8sClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Timestamps: true, TailLines: &limit}).Stream(ctx)
 	if err != nil {
 		logger.Info("failed to fetch logs", "pod", pod.Name, "reason", err)
-		return iter.Exhausted[LogRecord]()
+		return itx.Exhausted[LogRecord]()
 	}
 
 	defer logReadCloser.Close()
 
 	logLines := readLines(logReadCloser, logger.WithValues("pod", pod.Name))
-	return iter.Map(iter.Lift(logLines), logLineToLogRecord)
+	return itx.Map(slices.Values(logLines), logLineToLogRecord)
 }
 
 func readLines(r io.Reader, logger logr.Logger) []string {

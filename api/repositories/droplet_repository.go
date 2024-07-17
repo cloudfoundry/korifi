@@ -7,7 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -170,8 +170,8 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 		allBuilds = append(allBuilds, buildList.Items...)
 	}
 
-	filteredBuilds := iter.Lift(allBuilds).Filter(message.matches)
-	return iter.Map(filteredBuilds, cfBuildToDropletRecord).Collect(), nil
+	filteredBuilds := itx.FromSlice(allBuilds).Filter(message.matches)
+	return itx.Map(filteredBuilds, cfBuildToDropletRecord).Collect(), nil
 }
 
 type UpdateDropletMessage struct {
