@@ -1438,16 +1438,13 @@ metadata:
   annotations:
     kbld.k14s.io/images: |
       - origins:
-        - resolved:
-            tag: v0.11.0
-            url: gcr.io/kubebuilder/kube-rbac-proxy:v0.11.0
         - preresolved:
-            url: ghcr.io/servicebinding/runtime/bundle@sha256:0df4ae70e3bd0feffcec8f5cdb428f4abe666b667af991269ec5cb0bbda65869
-        url: ghcr.io/servicebinding/runtime/bundle@sha256:0df4ae70e3bd0feffcec8f5cdb428f4abe666b667af991269ec5cb0bbda65869
+            url: ghcr.io/servicebinding/runtime/bundle@sha256:2389ffe76c5fe22fdee5aac3ddf56c50de67eab2ccf5da7c79fc7317b5baf6ed
+        url: ghcr.io/servicebinding/runtime/bundle@sha256:2389ffe76c5fe22fdee5aac3ddf56c50de67eab2ccf5da7c79fc7317b5baf6ed
       - origins:
         - preresolved:
-            url: ghcr.io/servicebinding/runtime/bundle@sha256:2723d68d49f941094afcf560b18ee886de71c13a4b0f3e9a9b2f4a9d2fc60baf
-        url: ghcr.io/servicebinding/runtime/bundle@sha256:2723d68d49f941094afcf560b18ee886de71c13a4b0f3e9a9b2f4a9d2fc60baf
+            url: ghcr.io/servicebinding/runtime/bundle@sha256:cce54dd49197fb943e0de058e4f261a236bdce8c78be27d6005262f8747dff65
+        url: ghcr.io/servicebinding/runtime/bundle@sha256:cce54dd49197fb943e0de058e4f261a236bdce8c78be27d6005262f8747dff65
   labels:
     control-plane: controller-manager
   name: servicebinding-controller-manager
@@ -1469,7 +1466,7 @@ spec:
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
-        image: ghcr.io/servicebinding/runtime/bundle@sha256:2723d68d49f941094afcf560b18ee886de71c13a4b0f3e9a9b2f4a9d2fc60baf
+        image: ghcr.io/servicebinding/runtime/bundle@sha256:2389ffe76c5fe22fdee5aac3ddf56c50de67eab2ccf5da7c79fc7317b5baf6ed
         livenessProbe:
           httpGet:
             path: /healthz
@@ -1505,7 +1502,7 @@ spec:
         - --upstream=http://127.0.0.1:8080/
         - --logtostderr=true
         - --v=0
-        image: ghcr.io/servicebinding/runtime/bundle@sha256:0df4ae70e3bd0feffcec8f5cdb428f4abe666b667af991269ec5cb0bbda65869
+        image: ghcr.io/servicebinding/runtime/bundle@sha256:cce54dd49197fb943e0de058e4f261a236bdce8c78be27d6005262f8747dff65
         name: kube-rbac-proxy
         ports:
         - containerPort: 8443
