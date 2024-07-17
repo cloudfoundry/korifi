@@ -12,7 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -267,8 +267,8 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		serviceInstances = append(serviceInstances, serviceInstanceList.Items...)
 	}
 
-	filteredServiceInstances := iter.Lift(serviceInstances).Filter(message.matches)
-	return iter.Map(filteredServiceInstances, cfServiceInstanceToRecord).Collect(), nil
+	filteredServiceInstances := itx.FromSlice(serviceInstances).Filter(message.matches)
+	return itx.Map(filteredServiceInstances, cfServiceInstanceToRecord).Collect(), nil
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {
