@@ -11,7 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -189,8 +189,9 @@ func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo aut
 		return nil, fmt.Errorf("failed to list brokers: %w", apierrors.FromK8sError(err, ServiceBrokerResourceType))
 	}
 
-	brokers := iter.Lift(brokersList.Items).Filter(message.matches)
-	return iter.Map(brokers, toServiceBrokerRecord).Collect(), nil
+	brokers := itx.FromSlice(brokersList.Items).Filter(message.matches)
+
+	return itx.Map(brokers, toServiceBrokerRecord).Collect(), nil
 }
 
 func (r *ServiceBrokerRepo) GetServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) (ServiceBrokerRecord, error) {

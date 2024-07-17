@@ -11,7 +11,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -163,8 +163,8 @@ func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Inf
 		return []DomainRecord{}, fmt.Errorf("failed to list domains in namespace %s: %w", r.rootNamespace, apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	domainRecords := iter.Map(
-		iter.Lift(cfdomainList.Items).Filter(message.matches),
+	domainRecords := itx.Map(
+		itx.FromSlice(cfdomainList.Items).Filter(message.matches),
 		cfDomainToDomainRecord,
 	).Collect()
 	sort.Slice(domainRecords, func(i, j int) bool {

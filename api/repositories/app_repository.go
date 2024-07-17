@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,7 +16,8 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -191,20 +192,6 @@ func (m *ListAppsMessage) matches(cfApp korifiv1alpha1.CFApp) bool {
 		tools.EmptyOrContains(m.Guids, cfApp.Name)
 }
 
-type byName []AppRecord
-
-func (a byName) Len() int {
-	return len(a)
-}
-
-func (a byName) Less(i, j int) bool {
-	return a[i].Name < a[j].Name
-}
-
-func (a byName) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
 func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGUID string) (AppRecord, error) {
 	ns, err := f.namespaceRetriever.NamespaceFor(ctx, appGUID, AppResourceType)
 	if err != nil {
@@ -340,11 +327,13 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		apps = append(apps, appList.Items...)
 	}
 
-	filteredApps := iter.Lift(apps).Filter(message.matches)
-	appRecords := iter.Map(filteredApps, cfAppToAppRecord).Collect()
-
 	// By default sort it by App.DisplayName
-	sort.Sort(byName(appRecords))
+	appRecords := slices.SortedFunc(
+		it.Map(itx.FromSlice(apps).Filter(message.matches), cfAppToAppRecord),
+		func(a, b AppRecord) int {
+			return strings.Compare(a.Name, b.Name)
+		},
+	)
 
 	return appRecords, nil
 }

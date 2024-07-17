@@ -10,7 +10,8 @@ import (
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -118,7 +119,7 @@ func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.
 		return nil, apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
-	filteredPlans := iter.Lift(cfServicePlans.Items).Filter(message.matches).Collect()
+	filteredPlans := itx.FromSlice(cfServicePlans.Items).Filter(message.matches).Collect()
 
 	planRecords := []ServicePlanRecord{}
 	for _, plan := range filteredPlans {
@@ -224,10 +225,10 @@ func (r *ServicePlanRepo) toVisibilityOrganizations(ctx context.Context, authInf
 		return nil, fmt.Errorf("failed to list orgs for plan visibility: %w", err)
 	}
 
-	return iter.Map(iter.Lift(orgs), func(o OrgRecord) services.VisibilityOrganization {
+	return slices.Collect(it.Map(slices.Values(orgs), func(o OrgRecord) services.VisibilityOrganization {
 		return services.VisibilityOrganization{
 			GUID: o.GUID,
 			Name: o.Name,
 		}
-	}).Collect(), nil
+	})), nil
 }

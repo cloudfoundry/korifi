@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
@@ -13,7 +14,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
 	jellidation "github.com/jellydator/validation"
 )
 
@@ -109,9 +110,9 @@ func (p *ServicePlanVisibility) ToApplyMessage(planGUID string) repositories.App
 	return repositories.ApplyServicePlanVisibilityMessage{
 		PlanGUID: planGUID,
 		Type:     p.Type,
-		Organizations: iter.Map(iter.Lift(p.Organizations), func(v services.VisibilityOrganization) string {
+		Organizations: slices.Collect(it.Map(slices.Values(p.Organizations), func(v services.VisibilityOrganization) string {
 			return v.GUID
-		}).Collect(),
+		})),
 	}
 }
 
@@ -119,8 +120,8 @@ func (p *ServicePlanVisibility) ToUpdateMessage(planGUID string) repositories.Up
 	return repositories.UpdateServicePlanVisibilityMessage{
 		PlanGUID: planGUID,
 		Type:     p.Type,
-		Organizations: iter.Map(iter.Lift(p.Organizations), func(v services.VisibilityOrganization) string {
+		Organizations: slices.Collect(it.Map(slices.Values(p.Organizations), func(v services.VisibilityOrganization) string {
 			return v.GUID
-		}).Collect(),
+		})),
 	}
 }
