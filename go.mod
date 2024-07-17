@@ -30,9 +30,9 @@ require (
 	github.com/mileusna/useragent v1.3.4
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
-	github.com/pivotal/kpack v0.14.1
+	github.com/pivotal/kpack v0.15.0
 	github.com/satori/go.uuid v1.2.0
-	github.com/servicebinding/runtime v0.9.0
+	github.com/servicebinding/runtime v1.0.0
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
 	golang.org/x/text v0.16.0
 	gopkg.in/square/go-jose.v2 v2.6.0
