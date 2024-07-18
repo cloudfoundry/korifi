@@ -103,7 +103,7 @@ install-gosec:
 
 STATICCHECK = $(shell go env GOPATH)/bin/staticcheck
 install-staticcheck:
-	go install honnef.co/go/tools/cmd/staticcheck@latest
+	go install honnef.co/go/tools/cmd/staticcheck@2024.1rc1
 
 GOLANGCILINT = $(shell go env GOPATH)/bin/golangci-lint
 install-golangci-lint:
