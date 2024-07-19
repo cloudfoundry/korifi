@@ -79,6 +79,10 @@ type AppRecord struct {
 	vcapAppSecretName     string
 }
 
+func (a AppRecord) GetResourceType() string {
+	return AppResourceType
+}
+
 type DesiredState string
 
 type Lifecycle struct {
@@ -172,12 +176,12 @@ type SetAppDesiredStateMessage struct {
 type ListAppsMessage struct {
 	Names         []string
 	Guids         []string
-	SpaceGuids    []string
+	SpaceGUIDs    []string
 	LabelSelector string
 }
 
 func (m *ListAppsMessage) matchesNamespace(ns string) bool {
-	return emptyOrContains(m.SpaceGuids, ns)
+	return emptyOrContains(m.SpaceGUIDs, ns)
 }
 
 func (m *ListAppsMessage) matches(cfApp korifiv1alpha1.CFApp) bool {
@@ -222,33 +226,6 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 	}
 
 	return cfAppToAppRecord(*app), nil
-}
-
-func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorization.Info, appName string, spaceGUID string) (AppRecord, error) {
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return AppRecord{}, fmt.Errorf("get-app failed to build user client: %w", err)
-	}
-
-	appList := new(korifiv1alpha1.CFAppList)
-	err = userClient.List(ctx, appList, client.InNamespace(spaceGUID))
-	if err != nil {
-		return AppRecord{}, apierrors.FromK8sError(fmt.Errorf("get app: failed to list apps: %w", err), SpaceResourceType)
-	}
-
-	filteredApps := iter.Lift(appList.Items).Filter(func(cfApp korifiv1alpha1.CFApp) bool {
-		return cfApp.Spec.DisplayName == appName
-	})
-	appRecords := iter.Map(filteredApps, cfAppToAppRecord).Collect()
-
-	if len(appRecords) == 0 {
-		return AppRecord{}, apierrors.NewNotFoundError(fmt.Errorf("app %q in space %q not found", appName, spaceGUID), AppResourceType)
-	}
-	if len(appRecords) > 1 {
-		return AppRecord{}, fmt.Errorf("duplicate instances of app %q in space %q", appName, spaceGUID)
-	}
-
-	return appRecords[0], nil
 }
 
 func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, appCreateMessage CreateAppMessage) (AppRecord, error) {

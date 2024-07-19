@@ -434,10 +434,10 @@ var _ = Describe("Org", func() {
 
 	Describe("Get the default domain", func() {
 		BeforeEach(func() {
-			domainRepo.GetDomainByNameReturns(repositories.DomainRecord{
+			domainRepo.ListDomainsReturns([]repositories.DomainRecord{{
 				GUID: "the-default-domain-guid",
 				Name: "the-default.domain",
-			}, nil)
+			}}, nil)
 		})
 
 		JustBeforeEach(func() {
@@ -452,10 +452,10 @@ var _ = Describe("Org", func() {
 			Expect(info).To(Equal(authInfo))
 			Expect(orgGUID).To(Equal("org-guid"))
 
-			Expect(domainRepo.GetDomainByNameCallCount()).To(Equal(1))
-			_, info, defaultDomainName := domainRepo.GetDomainByNameArgsForCall(0)
+			Expect(domainRepo.ListDomainsCallCount()).To(Equal(1))
+			_, info, listMessage := domainRepo.ListDomainsArgsForCall(0)
 			Expect(info).To(Equal(authInfo))
-			Expect(defaultDomainName).To(Equal("the-default.domain"))
+			Expect(listMessage.Names).To(ConsistOf(Equal("the-default.domain")))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -488,7 +488,7 @@ var _ = Describe("Org", func() {
 
 		When("getting the Domain fails", func() {
 			BeforeEach(func() {
-				domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("failed to get domain"))
+				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, errors.New("failed to get domain"))
 			})
 
 			It("returns an unknown error", func() {
@@ -498,7 +498,7 @@ var _ = Describe("Org", func() {
 
 		When("getting the Domain is forbidden", func() {
 			BeforeEach(func() {
-				domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, apierrors.NewForbiddenError(errors.New("boom"), repositories.DomainResourceType))
+				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, apierrors.NewForbiddenError(errors.New("boom"), repositories.DomainResourceType))
 			})
 
 			It("returns an NotFound error", func() {

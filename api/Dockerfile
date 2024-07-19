@@ -22,6 +22,7 @@ COPY api/payloads api/payloads
 COPY api/presenter api/presenter
 COPY api/repositories api/repositories
 COPY api/routing api/routing
+COPY api/tools api/tools
 COPY controllers/api controllers/api
 COPY controllers/config controllers/config
 COPY controllers/controllers/shared controllers/controllers/shared

@@ -31,7 +31,6 @@ const (
 type CFProcessRepository interface {
 	GetProcess(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
 	ListProcesses(context.Context, authorization.Info, repositories.ListProcessesMessage) ([]repositories.ProcessRecord, error)
-	GetProcessByAppTypeAndSpace(context.Context, authorization.Info, string, string, string) (repositories.ProcessRecord, error)
 	GetAppRevision(ctx context.Context, authInfo authorization.Info, appGUID string) (string, error)
 	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 	CreateProcess(context.Context, authorization.Info, repositories.CreateProcessMessage) error
@@ -124,7 +123,6 @@ func (h *Process) restartProcessInstance(r *http.Request) (*routing.Response, er
 	}
 
 	return routing.NewResponse(http.StatusNoContent), nil
-
 }
 
 func (h *Process) getSidecars(r *http.Request) (*routing.Response, error) {
