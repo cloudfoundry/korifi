@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/actions/manifest"
 	"code.cloudfoundry.org/korifi/api/actions/shared/fake"
 	"code.cloudfoundry.org/korifi/api/authorization"
-	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
@@ -50,12 +49,12 @@ var _ = Describe("StateCollector", func() {
 
 	Describe("app", func() {
 		BeforeEach(func() {
-			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{
+			appRepo.ListAppsReturns([]repositories.AppRecord{{
 				Name:      "bob",
 				GUID:      "app-guid",
 				EtcdUID:   "etcd-guid",
 				SpaceGUID: "space-guid",
-			}, nil)
+			}}, nil)
 		})
 
 		It("sets the app record in the state", func() {
@@ -68,7 +67,7 @@ var _ = Describe("StateCollector", func() {
 
 		When("the app does not exist", func() {
 			BeforeEach(func() {
-				appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewNotFoundError(nil, repositories.AppResourceType))
+				appRepo.ListAppsReturns([]repositories.AppRecord{}, nil)
 			})
 
 			It("returns an empty app", func() {
@@ -81,28 +80,18 @@ var _ = Describe("StateCollector", func() {
 
 		When("getting the app fails", func() {
 			BeforeEach(func() {
-				appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, errors.New("get-app-err"))
+				appRepo.ListAppsReturns([]repositories.AppRecord{}, errors.New("get-app-err"))
 			})
 
 			It("returns the error", func() {
 				Expect(collectStateErr).To(MatchError("get-app-err"))
-			})
-
-			When("it is a forbidden error", func() {
-				BeforeEach(func() {
-					appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, "CFApp"))
-				})
-
-				It("returns a not found error", func() {
-					Expect(collectStateErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
-				})
 			})
 		})
 	})
 
 	Describe("processes", func() {
 		BeforeEach(func() {
-			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{GUID: "app-guid"}, nil)
+			appRepo.ListAppsReturns([]repositories.AppRecord{{GUID: "app-guid"}}, nil)
 		})
 
 		It("lists processes", func() {
@@ -149,7 +138,7 @@ var _ = Describe("StateCollector", func() {
 		var routes []repositories.RouteRecord
 
 		BeforeEach(func() {
-			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{GUID: "app-guid"}, nil)
+			appRepo.ListAppsReturns([]repositories.AppRecord{{GUID: "app-guid"}}, nil)
 			routes = []repositories.RouteRecord{
 				{
 					Domain: repositories.DomainRecord{
@@ -198,7 +187,7 @@ var _ = Describe("StateCollector", func() {
 		var serviceBindings []repositories.ServiceBindingRecord
 
 		BeforeEach(func() {
-			appRepo.GetAppByNameAndSpaceReturns(repositories.AppRecord{GUID: "app-guid"}, nil)
+			appRepo.ListAppsReturns([]repositories.AppRecord{{GUID: "app-guid"}}, nil)
 			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{{Name: "service-name", GUID: "s-guid"}}, nil)
 			serviceBindings = []repositories.ServiceBindingRecord{
 				{GUID: "sb1-guid", ServiceInstanceGUID: "s-guid"},

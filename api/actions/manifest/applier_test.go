@@ -271,11 +271,11 @@ var _ = Describe("Applier", func() {
 			appInfo.Routes = []payloads.ManifestRoute{
 				{Route: tools.PtrTo("r1.my.domain/my-path")},
 			}
-			domainRepo.GetDomainByNameReturns(repositories.DomainRecord{
+			domainRepo.ListDomainsReturns([]repositories.DomainRecord{{
 				Namespace: "domain-namespace",
 				Name:      "domain-name",
 				GUID:      "domain-guid",
-			}, nil)
+			}}, nil)
 
 			routeRepo.GetOrCreateRouteReturns(repositories.RouteRecord{
 				GUID:      "route-guid",
@@ -287,9 +287,9 @@ var _ = Describe("Applier", func() {
 		})
 
 		It("creates the route", func() {
-			Expect(domainRepo.GetDomainByNameCallCount()).To(Equal(1))
-			_, _, domainName := domainRepo.GetDomainByNameArgsForCall(0)
-			Expect(domainName).To(Equal("my.domain"))
+			Expect(domainRepo.ListDomainsCallCount()).To(Equal(1))
+			_, _, listMessage := domainRepo.ListDomainsArgsForCall(0)
+			Expect(listMessage.Names).To(ConsistOf(Equal("my.domain")))
 
 			Expect(routeRepo.GetOrCreateRouteCallCount()).To(Equal(1))
 			_, _, createRouteMessage := routeRepo.GetOrCreateRouteArgsForCall(0)
@@ -326,9 +326,9 @@ var _ = Describe("Applier", func() {
 			})
 		})
 
-		When("getting the domain fails", func() {
+		When("listing domains fails", func() {
 			BeforeEach(func() {
-				domainRepo.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("get-domain-err"))
+				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, errors.New("get-domain-err"))
 			})
 
 			It("returns the error", func() {
@@ -362,7 +362,6 @@ var _ = Describe("Applier", func() {
 			})
 
 			It("doesn't do any route creation", func() {
-				Expect(domainRepo.GetDomainByNameCallCount()).To(BeZero())
 				Expect(routeRepo.GetOrCreateRouteCallCount()).To(BeZero())
 			})
 		})

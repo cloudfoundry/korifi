@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/tools/singleton"
 	"golang.org/x/exp/maps"
 )
 
@@ -48,12 +49,20 @@ func NewStateCollector(
 }
 
 func (s StateCollector) CollectState(ctx context.Context, authInfo authorization.Info, appName, spaceGUID string) (AppState, error) {
-	appRecord, err := s.appRepo.GetAppByNameAndSpace(ctx, authInfo, appName, spaceGUID)
+	appRecords, err := s.appRepo.ListApps(ctx, authInfo, repositories.ListAppsMessage{
+		Names:      []string{appName},
+		SpaceGUIDs: []string{spaceGUID},
+	})
+	if err != nil {
+		return AppState{}, apierrors.FromK8sError(err, repositories.AppResourceType)
+	}
+
+	appRecord, err := singleton.Get(appRecords)
 	if err != nil {
 		if errors.As(err, new(apierrors.NotFoundError)) {
 			return AppState{}, nil
 		}
-		return AppState{}, apierrors.ForbiddenAsNotFound(err)
+		return AppState{}, err
 	}
 
 	existingProcesses, err := s.collectProcesses(ctx, authInfo, appRecord.GUID, spaceGUID)

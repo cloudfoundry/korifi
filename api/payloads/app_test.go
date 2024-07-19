@@ -21,7 +21,7 @@ var _ = Describe("AppList", func() {
 
 			Entry("names", "names=name", payloads.AppList{Names: "name"}),
 			Entry("guids", "guids=guid", payloads.AppList{GUIDs: "guid"}),
-			Entry("space_guids", "space_guids=space_guid", payloads.AppList{SpaceGuids: "space_guid"}),
+			Entry("space_guids", "space_guids=space_guid", payloads.AppList{SpaceGUIDs: "space_guid"}),
 			Entry("order_by created_at", "order_by=created_at", payloads.AppList{OrderBy: "created_at"}),
 			Entry("order_by -created_at", "order_by=-created_at", payloads.AppList{OrderBy: "-created_at"}),
 			Entry("order_by updated_at", "order_by=updated_at", payloads.AppList{OrderBy: "updated_at"}),
@@ -47,14 +47,14 @@ var _ = Describe("AppList", func() {
 			appList := payloads.AppList{
 				Names:         "n1,n2",
 				GUIDs:         "g1,g2",
-				SpaceGuids:    "s1,s2",
+				SpaceGUIDs:    "s1,s2",
 				OrderBy:       "created_at",
 				LabelSelector: "foo=bar",
 			}
 			Expect(appList.ToMessage()).To(Equal(repositories.ListAppsMessage{
 				Names:         []string{"n1", "n2"},
 				Guids:         []string{"g1", "g2"},
-				SpaceGuids:    []string{"s1", "s2"},
+				SpaceGUIDs:    []string{"s1", "s2"},
 				LabelSelector: "foo=bar",
 			}))
 		})

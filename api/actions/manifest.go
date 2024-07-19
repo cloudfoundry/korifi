@@ -9,6 +9,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/tools/singleton"
 )
 
 //counterfeiter:generate -o fake -fake-name StateCollector . StateCollector
@@ -67,7 +69,14 @@ func (a *Manifest) Apply(ctx context.Context, authInfo authorization.Info, space
 }
 
 func (a *Manifest) ensureDefaultDomainConfigured(ctx context.Context, authInfo authorization.Info) error {
-	_, err := a.domainRepo.GetDomainByName(ctx, authInfo, a.defaultDomainName)
+	domains, err := a.domainRepo.ListDomains(ctx, authInfo, repositories.ListDomainsMessage{
+		Names: []string{a.defaultDomainName},
+	})
+	if err != nil {
+		return apierrors.FromK8sError(err, repositories.DomainResourceType)
+	}
+
+	_, err = singleton.Get(domains)
 	if err != nil {
 		return apierrors.AsUnprocessableEntity(
 			err,

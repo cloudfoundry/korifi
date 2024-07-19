@@ -300,50 +300,6 @@ var _ = Describe("DomainRepository", func() {
 		})
 	})
 
-	Describe("GetDomainByName", func() {
-		var (
-			searchName  string
-			foundDomain DomainRecord
-			getErr      error
-		)
-
-		BeforeEach(func() {
-			searchName = domainName
-		})
-
-		JustBeforeEach(func() {
-			foundDomain, getErr = domainRepo.GetDomainByName(context.Background(), authInfo, searchName)
-		})
-
-		It("returns a domainRecord that matches the specified domain name, and no error", func() {
-			Expect(getErr).NotTo(HaveOccurred())
-			Expect(foundDomain.GUID).To(Equal(domainGUID))
-			Expect(foundDomain.Name).To(Equal(domainName))
-		})
-
-		When("the user has no permission to list domains in the root namespace", func() {
-			BeforeEach(func() {
-				userName = uuid.NewString()
-				cert, key := testhelpers.ObtainClientCert(testEnv, userName)
-				authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
-			})
-
-			It("returns a not found error", func() {
-				Expect(getErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
-			})
-		})
-
-		When("No matches exist for the provided name", func() {
-			BeforeEach(func() {
-				searchName = "fubar"
-			})
-
-			It("returns not found err", func() {
-				Expect(getErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
-			})
-		})
-	})
-
 	Describe("Delete Domain", func() {
 		var (
 			deleteGUID string

@@ -371,7 +371,7 @@ var _ = Describe("App", func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.AppList{
 					Names:      "a1,a2",
 					GUIDs:      "g1,g2",
-					SpaceGuids: "s1,s2",
+					SpaceGUIDs: "s1,s2",
 				})
 			})
 
@@ -380,7 +380,7 @@ var _ = Describe("App", func() {
 				_, _, message := appRepo.ListAppsArgsForCall(0)
 
 				Expect(message.Names).To(ConsistOf("a1", "a2"))
-				Expect(message.SpaceGuids).To(ConsistOf("s1", "s2"))
+				Expect(message.SpaceGUIDs).To(ConsistOf("s1", "s2"))
 				Expect(message.Guids).To(ConsistOf("g1", "g2"))
 			})
 		})
@@ -942,17 +942,17 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps/:guid/processes/{type}", func() {
 		BeforeEach(func() {
-			processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{
+			processRepo.ListProcessesReturns([]repositories.ProcessRecord{{
 				GUID:    "process-1-guid",
 				Command: "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-			}, nil)
+			}}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes/web", nil)
 		})
 
 		It("returns a process", func() {
-			Expect(processRepo.GetProcessByAppTypeAndSpaceCallCount()).To(Equal(1))
-			_, actualAuthInfo, _, _, _ := processRepo.GetProcessByAppTypeAndSpaceArgsForCall(0)
+			Expect(processRepo.ListProcessesCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := processRepo.ListProcessesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
@@ -986,7 +986,7 @@ var _ = Describe("App", func() {
 
 		When("there is an error fetching processes", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, errors.New("some-error"))
+				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("some-error"))
 			})
 
 			It("return a process unknown error", func() {
@@ -997,6 +997,7 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps/:guid/processes/{type}/stats", func() {
 		BeforeEach(func() {
+			processRepo.ListProcessesReturns([]repositories.ProcessRecord{{}}, nil)
 			processStats.FetchStatsReturns([]actions.PodStatsRecord{
 				{
 					Type:     "web",
@@ -1042,7 +1043,7 @@ var _ = Describe("App", func() {
 
 		When("there is an error fetching the process", func() {
 			BeforeEach(func() {
-				processRepo.GetProcessByAppTypeAndSpaceReturns(repositories.ProcessRecord{}, errors.New("some-error"))
+				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("some-error"))
 			})
 
 			It("return a process unknown error", func() {

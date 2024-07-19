@@ -51,6 +51,10 @@ type DomainRecord struct {
 	DeletedAt   *time.Time
 }
 
+func (r DomainRecord) GetResourceType() string {
+	return DomainResourceType
+}
+
 type CreateDomainMessage struct {
 	Name     string
 	Metadata Metadata
@@ -167,21 +171,6 @@ func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Inf
 	})
 
 	return domainRecords, nil
-}
-
-func (r *DomainRepo) GetDomainByName(ctx context.Context, authInfo authorization.Info, domainName string) (DomainRecord, error) {
-	domainRecords, err := r.ListDomains(ctx, authInfo, ListDomainsMessage{
-		Names: []string{domainName},
-	})
-	if err != nil {
-		return DomainRecord{}, err
-	}
-
-	if len(domainRecords) == 0 {
-		return DomainRecord{}, apierrors.NewNotFoundError(fmt.Errorf("domain %q not found", domainName), DomainResourceType)
-	}
-
-	return domainRecords[0], nil
 }
 
 func (r *DomainRepo) DeleteDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) error {

@@ -17,6 +17,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+	"code.cloudfoundry.org/korifi/api/tools/singleton"
 )
 
 const (
@@ -173,9 +174,16 @@ func (h *Org) defaultDomain(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
 	}
 
-	domain, err := h.domainRepo.GetDomainByName(r.Context(), authInfo, h.defaultDomainName)
+	domains, err := h.domainRepo.ListDomains(r.Context(), authInfo, repositories.ListDomainsMessage{
+		Names: []string{h.defaultDomainName},
+	})
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get domain")
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to list domains")
+	}
+
+	domain, err := singleton.Get(domains)
+	if err != nil {
+		return nil, err
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDomain(domain, h.apiBaseURL)), nil

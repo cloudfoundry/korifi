@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+	"code.cloudfoundry.org/korifi/api/tools/singleton"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/go-logr/logr"
@@ -560,12 +561,25 @@ func (h *App) getProcess(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	process, err := h.processRepo.GetProcessByAppTypeAndSpace(r.Context(), authInfo, appGUID, processType, app.SpaceGUID)
+	process, err := h.getSingleProcess(r.Context(), authInfo, repositories.ListProcessesMessage{
+		AppGUIDs:     []string{appGUID},
+		ProcessTypes: []string{processType},
+		SpaceGUID:    app.SpaceGUID,
+	})
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch process from Kubernetes", "AppGUID", appGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to get process", "AppGUID", appGUID)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcess(process, h.serverURL)), nil
+}
+
+func (h *App) getSingleProcess(ctx context.Context, authInfo authorization.Info, listMessage repositories.ListProcessesMessage) (repositories.ProcessRecord, error) {
+	processes, err := h.processRepo.ListProcesses(ctx, authInfo, listMessage)
+	if err != nil {
+		return repositories.ProcessRecord{}, err
+	}
+
+	return singleton.Get(processes)
 }
 
 func (h *App) getProcessStats(r *http.Request) (*routing.Response, error) {
@@ -579,9 +593,13 @@ func (h *App) getProcessStats(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	process, err := h.processRepo.GetProcessByAppTypeAndSpace(r.Context(), authInfo, appGUID, processType, app.SpaceGUID)
+	process, err := h.getSingleProcess(r.Context(), authInfo, repositories.ListProcessesMessage{
+		AppGUIDs:     []string{appGUID},
+		ProcessTypes: []string{processType},
+		SpaceGUID:    app.SpaceGUID,
+	})
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch process from Kubernetes", "AppGUID", appGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to get process", "AppGUID", appGUID)
 	}
 
 	processGUID := process.GUID

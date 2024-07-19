@@ -11,37 +11,37 @@ import (
 )
 
 type CFDomainRepository struct {
-	GetDomainByNameStub        func(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
-	getDomainByNameMutex       sync.RWMutex
-	getDomainByNameArgsForCall []struct {
+	ListDomainsStub        func(context.Context, authorization.Info, repositories.ListDomainsMessage) ([]repositories.DomainRecord, error)
+	listDomainsMutex       sync.RWMutex
+	listDomainsArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
+		arg3 repositories.ListDomainsMessage
 	}
-	getDomainByNameReturns struct {
-		result1 repositories.DomainRecord
+	listDomainsReturns struct {
+		result1 []repositories.DomainRecord
 		result2 error
 	}
-	getDomainByNameReturnsOnCall map[int]struct {
-		result1 repositories.DomainRecord
+	listDomainsReturnsOnCall map[int]struct {
+		result1 []repositories.DomainRecord
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFDomainRepository) GetDomainByName(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.DomainRecord, error) {
-	fake.getDomainByNameMutex.Lock()
-	ret, specificReturn := fake.getDomainByNameReturnsOnCall[len(fake.getDomainByNameArgsForCall)]
-	fake.getDomainByNameArgsForCall = append(fake.getDomainByNameArgsForCall, struct {
+func (fake *CFDomainRepository) ListDomains(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListDomainsMessage) ([]repositories.DomainRecord, error) {
+	fake.listDomainsMutex.Lock()
+	ret, specificReturn := fake.listDomainsReturnsOnCall[len(fake.listDomainsArgsForCall)]
+	fake.listDomainsArgsForCall = append(fake.listDomainsArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
+		arg3 repositories.ListDomainsMessage
 	}{arg1, arg2, arg3})
-	stub := fake.GetDomainByNameStub
-	fakeReturns := fake.getDomainByNameReturns
-	fake.recordInvocation("GetDomainByName", []interface{}{arg1, arg2, arg3})
-	fake.getDomainByNameMutex.Unlock()
+	stub := fake.ListDomainsStub
+	fakeReturns := fake.listDomainsReturns
+	fake.recordInvocation("ListDomains", []interface{}{arg1, arg2, arg3})
+	fake.listDomainsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -51,47 +51,47 @@ func (fake *CFDomainRepository) GetDomainByName(arg1 context.Context, arg2 autho
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFDomainRepository) GetDomainByNameCallCount() int {
-	fake.getDomainByNameMutex.RLock()
-	defer fake.getDomainByNameMutex.RUnlock()
-	return len(fake.getDomainByNameArgsForCall)
+func (fake *CFDomainRepository) ListDomainsCallCount() int {
+	fake.listDomainsMutex.RLock()
+	defer fake.listDomainsMutex.RUnlock()
+	return len(fake.listDomainsArgsForCall)
 }
 
-func (fake *CFDomainRepository) GetDomainByNameCalls(stub func(context.Context, authorization.Info, string) (repositories.DomainRecord, error)) {
-	fake.getDomainByNameMutex.Lock()
-	defer fake.getDomainByNameMutex.Unlock()
-	fake.GetDomainByNameStub = stub
+func (fake *CFDomainRepository) ListDomainsCalls(stub func(context.Context, authorization.Info, repositories.ListDomainsMessage) ([]repositories.DomainRecord, error)) {
+	fake.listDomainsMutex.Lock()
+	defer fake.listDomainsMutex.Unlock()
+	fake.ListDomainsStub = stub
 }
 
-func (fake *CFDomainRepository) GetDomainByNameArgsForCall(i int) (context.Context, authorization.Info, string) {
-	fake.getDomainByNameMutex.RLock()
-	defer fake.getDomainByNameMutex.RUnlock()
-	argsForCall := fake.getDomainByNameArgsForCall[i]
+func (fake *CFDomainRepository) ListDomainsArgsForCall(i int) (context.Context, authorization.Info, repositories.ListDomainsMessage) {
+	fake.listDomainsMutex.RLock()
+	defer fake.listDomainsMutex.RUnlock()
+	argsForCall := fake.listDomainsArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFDomainRepository) GetDomainByNameReturns(result1 repositories.DomainRecord, result2 error) {
-	fake.getDomainByNameMutex.Lock()
-	defer fake.getDomainByNameMutex.Unlock()
-	fake.GetDomainByNameStub = nil
-	fake.getDomainByNameReturns = struct {
-		result1 repositories.DomainRecord
+func (fake *CFDomainRepository) ListDomainsReturns(result1 []repositories.DomainRecord, result2 error) {
+	fake.listDomainsMutex.Lock()
+	defer fake.listDomainsMutex.Unlock()
+	fake.ListDomainsStub = nil
+	fake.listDomainsReturns = struct {
+		result1 []repositories.DomainRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFDomainRepository) GetDomainByNameReturnsOnCall(i int, result1 repositories.DomainRecord, result2 error) {
-	fake.getDomainByNameMutex.Lock()
-	defer fake.getDomainByNameMutex.Unlock()
-	fake.GetDomainByNameStub = nil
-	if fake.getDomainByNameReturnsOnCall == nil {
-		fake.getDomainByNameReturnsOnCall = make(map[int]struct {
-			result1 repositories.DomainRecord
+func (fake *CFDomainRepository) ListDomainsReturnsOnCall(i int, result1 []repositories.DomainRecord, result2 error) {
+	fake.listDomainsMutex.Lock()
+	defer fake.listDomainsMutex.Unlock()
+	fake.ListDomainsStub = nil
+	if fake.listDomainsReturnsOnCall == nil {
+		fake.listDomainsReturnsOnCall = make(map[int]struct {
+			result1 []repositories.DomainRecord
 			result2 error
 		})
 	}
-	fake.getDomainByNameReturnsOnCall[i] = struct {
-		result1 repositories.DomainRecord
+	fake.listDomainsReturnsOnCall[i] = struct {
+		result1 []repositories.DomainRecord
 		result2 error
 	}{result1, result2}
 }
@@ -99,8 +99,8 @@ func (fake *CFDomainRepository) GetDomainByNameReturnsOnCall(i int, result1 repo
 func (fake *CFDomainRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getDomainByNameMutex.RLock()
-	defer fake.getDomainByNameMutex.RUnlock()
+	fake.listDomainsMutex.RLock()
+	defer fake.listDomainsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

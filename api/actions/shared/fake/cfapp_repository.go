@@ -56,20 +56,19 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
-	GetAppByNameAndSpaceStub        func(context.Context, authorization.Info, string, string) (repositories.AppRecord, error)
-	getAppByNameAndSpaceMutex       sync.RWMutex
-	getAppByNameAndSpaceArgsForCall []struct {
+	ListAppsStub        func(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
+	listAppsMutex       sync.RWMutex
+	listAppsArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
-		arg4 string
+		arg3 repositories.ListAppsMessage
 	}
-	getAppByNameAndSpaceReturns struct {
-		result1 repositories.AppRecord
+	listAppsReturns struct {
+		result1 []repositories.AppRecord
 		result2 error
 	}
-	getAppByNameAndSpaceReturnsOnCall map[int]struct {
-		result1 repositories.AppRecord
+	listAppsReturnsOnCall map[int]struct {
+		result1 []repositories.AppRecord
 		result2 error
 	}
 	PatchAppStub        func(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
@@ -289,21 +288,20 @@ func (fake *CFAppRepository) GetAppReturnsOnCall(i int, result1 repositories.App
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) GetAppByNameAndSpace(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string) (repositories.AppRecord, error) {
-	fake.getAppByNameAndSpaceMutex.Lock()
-	ret, specificReturn := fake.getAppByNameAndSpaceReturnsOnCall[len(fake.getAppByNameAndSpaceArgsForCall)]
-	fake.getAppByNameAndSpaceArgsForCall = append(fake.getAppByNameAndSpaceArgsForCall, struct {
+func (fake *CFAppRepository) ListApps(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListAppsMessage) ([]repositories.AppRecord, error) {
+	fake.listAppsMutex.Lock()
+	ret, specificReturn := fake.listAppsReturnsOnCall[len(fake.listAppsArgsForCall)]
+	fake.listAppsArgsForCall = append(fake.listAppsArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
-		arg4 string
-	}{arg1, arg2, arg3, arg4})
-	stub := fake.GetAppByNameAndSpaceStub
-	fakeReturns := fake.getAppByNameAndSpaceReturns
-	fake.recordInvocation("GetAppByNameAndSpace", []interface{}{arg1, arg2, arg3, arg4})
-	fake.getAppByNameAndSpaceMutex.Unlock()
+		arg3 repositories.ListAppsMessage
+	}{arg1, arg2, arg3})
+	stub := fake.ListAppsStub
+	fakeReturns := fake.listAppsReturns
+	fake.recordInvocation("ListApps", []interface{}{arg1, arg2, arg3})
+	fake.listAppsMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -311,47 +309,47 @@ func (fake *CFAppRepository) GetAppByNameAndSpace(arg1 context.Context, arg2 aut
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFAppRepository) GetAppByNameAndSpaceCallCount() int {
-	fake.getAppByNameAndSpaceMutex.RLock()
-	defer fake.getAppByNameAndSpaceMutex.RUnlock()
-	return len(fake.getAppByNameAndSpaceArgsForCall)
+func (fake *CFAppRepository) ListAppsCallCount() int {
+	fake.listAppsMutex.RLock()
+	defer fake.listAppsMutex.RUnlock()
+	return len(fake.listAppsArgsForCall)
 }
 
-func (fake *CFAppRepository) GetAppByNameAndSpaceCalls(stub func(context.Context, authorization.Info, string, string) (repositories.AppRecord, error)) {
-	fake.getAppByNameAndSpaceMutex.Lock()
-	defer fake.getAppByNameAndSpaceMutex.Unlock()
-	fake.GetAppByNameAndSpaceStub = stub
+func (fake *CFAppRepository) ListAppsCalls(stub func(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)) {
+	fake.listAppsMutex.Lock()
+	defer fake.listAppsMutex.Unlock()
+	fake.ListAppsStub = stub
 }
 
-func (fake *CFAppRepository) GetAppByNameAndSpaceArgsForCall(i int) (context.Context, authorization.Info, string, string) {
-	fake.getAppByNameAndSpaceMutex.RLock()
-	defer fake.getAppByNameAndSpaceMutex.RUnlock()
-	argsForCall := fake.getAppByNameAndSpaceArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+func (fake *CFAppRepository) ListAppsArgsForCall(i int) (context.Context, authorization.Info, repositories.ListAppsMessage) {
+	fake.listAppsMutex.RLock()
+	defer fake.listAppsMutex.RUnlock()
+	argsForCall := fake.listAppsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFAppRepository) GetAppByNameAndSpaceReturns(result1 repositories.AppRecord, result2 error) {
-	fake.getAppByNameAndSpaceMutex.Lock()
-	defer fake.getAppByNameAndSpaceMutex.Unlock()
-	fake.GetAppByNameAndSpaceStub = nil
-	fake.getAppByNameAndSpaceReturns = struct {
-		result1 repositories.AppRecord
+func (fake *CFAppRepository) ListAppsReturns(result1 []repositories.AppRecord, result2 error) {
+	fake.listAppsMutex.Lock()
+	defer fake.listAppsMutex.Unlock()
+	fake.ListAppsStub = nil
+	fake.listAppsReturns = struct {
+		result1 []repositories.AppRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) GetAppByNameAndSpaceReturnsOnCall(i int, result1 repositories.AppRecord, result2 error) {
-	fake.getAppByNameAndSpaceMutex.Lock()
-	defer fake.getAppByNameAndSpaceMutex.Unlock()
-	fake.GetAppByNameAndSpaceStub = nil
-	if fake.getAppByNameAndSpaceReturnsOnCall == nil {
-		fake.getAppByNameAndSpaceReturnsOnCall = make(map[int]struct {
-			result1 repositories.AppRecord
+func (fake *CFAppRepository) ListAppsReturnsOnCall(i int, result1 []repositories.AppRecord, result2 error) {
+	fake.listAppsMutex.Lock()
+	defer fake.listAppsMutex.Unlock()
+	fake.ListAppsStub = nil
+	if fake.listAppsReturnsOnCall == nil {
+		fake.listAppsReturnsOnCall = make(map[int]struct {
+			result1 []repositories.AppRecord
 			result2 error
 		})
 	}
-	fake.getAppByNameAndSpaceReturnsOnCall[i] = struct {
-		result1 repositories.AppRecord
+	fake.listAppsReturnsOnCall[i] = struct {
+		result1 []repositories.AppRecord
 		result2 error
 	}{result1, result2}
 }
@@ -431,8 +429,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
 	fake.getAppMutex.RLock()
 	defer fake.getAppMutex.RUnlock()
-	fake.getAppByNameAndSpaceMutex.RLock()
-	defer fake.getAppByNameAndSpaceMutex.RUnlock()
+	fake.listAppsMutex.RLock()
+	defer fake.listAppsMutex.RUnlock()
 	fake.patchAppMutex.RLock()
 	defer fake.patchAppMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

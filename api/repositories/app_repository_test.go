@@ -179,58 +179,6 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 
-	Describe("GetAppByNameAndSpace", func() {
-		var (
-			appRecord      AppRecord
-			getErr         error
-			querySpaceName string
-		)
-
-		BeforeEach(func() {
-			querySpaceName = cfSpace.Name
-		})
-
-		JustBeforeEach(func() {
-			appRecord, getErr = appRepo.GetAppByNameAndSpace(ctx, authInfo, cfApp.Spec.DisplayName, querySpaceName)
-		})
-
-		When("the user is able to get apps in the space", func() {
-			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceManagerRole.Name, querySpaceName)
-			})
-
-			It("returns the record", func() {
-				Expect(getErr).NotTo(HaveOccurred())
-
-				Expect(appRecord.Name).To(Equal(cfApp.Spec.DisplayName))
-				Expect(appRecord.GUID).To(Equal(cfApp.Name))
-				Expect(appRecord.EtcdUID).To(Equal(cfApp.UID))
-				Expect(appRecord.SpaceGUID).To(Equal(cfSpace.Name))
-				Expect(appRecord.State).To(BeEquivalentTo(cfApp.Spec.DesiredState))
-				Expect(appRecord.Lifecycle.Type).To(BeEquivalentTo(cfApp.Spec.Lifecycle.Type))
-			})
-		})
-
-		When("the user is not authorized in the space at all", func() {
-			It("returns a forbidden error", func() {
-				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
-				Expect(getErr.(apierrors.ForbiddenError).ResourceType()).To(Equal(SpaceResourceType))
-			})
-		})
-
-		When("the App doesn't exist in the Space (but is in another Space)", func() {
-			BeforeEach(func() {
-				space2 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space2"))
-				querySpaceName = space2.Name
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, querySpaceName)
-			})
-
-			It("returns a NotFoundError", func() {
-				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
-			})
-		})
-	})
-
 	Describe("ListApps", func() {
 		var (
 			message ListAppsMessage
@@ -354,7 +302,7 @@ var _ = Describe("AppRepository", func() {
 			Describe("filtering by space", func() {
 				When("no Apps exist that match the filter", func() {
 					BeforeEach(func() {
-						message = ListAppsMessage{SpaceGuids: []string{"some-other-space-guid"}}
+						message = ListAppsMessage{SpaceGUIDs: []string{"some-other-space-guid"}}
 					})
 
 					It("returns an empty list of apps", func() {
@@ -365,7 +313,7 @@ var _ = Describe("AppRepository", func() {
 
 				When("some Apps match the filter", func() {
 					BeforeEach(func() {
-						message = ListAppsMessage{SpaceGuids: []string{cfSpace.Name}}
+						message = ListAppsMessage{SpaceGUIDs: []string{cfSpace.Name}}
 					})
 
 					It("returns the matching apps", func() {
@@ -381,7 +329,7 @@ var _ = Describe("AppRepository", func() {
 			Describe("filtering by both name and space", func() {
 				When("no Apps exist that match the union of the filters", func() {
 					BeforeEach(func() {
-						message = ListAppsMessage{Names: []string{cfApp.Spec.DisplayName}, SpaceGuids: []string{"some-other-space-guid"}}
+						message = ListAppsMessage{Names: []string{cfApp.Spec.DisplayName}, SpaceGUIDs: []string{"some-other-space-guid"}}
 					})
 
 					When("an App matches by Name but not by Space", func() {
@@ -393,7 +341,7 @@ var _ = Describe("AppRepository", func() {
 
 					When("an App matches by Space but not by Name", func() {
 						BeforeEach(func() {
-							message = ListAppsMessage{Names: []string{"fake-app-name"}, SpaceGuids: []string{cfSpace.Name}}
+							message = ListAppsMessage{Names: []string{"fake-app-name"}, SpaceGUIDs: []string{cfSpace.Name}}
 						})
 
 						It("returns an empty list of apps", func() {
@@ -405,7 +353,7 @@ var _ = Describe("AppRepository", func() {
 
 				When("some Apps match the union of the filters", func() {
 					BeforeEach(func() {
-						message = ListAppsMessage{Names: []string{cfApp12.Spec.DisplayName}, SpaceGuids: []string{cfSpace.Name}}
+						message = ListAppsMessage{Names: []string{cfApp12.Spec.DisplayName}, SpaceGUIDs: []string{cfSpace.Name}}
 					})
 
 					It("returns the matching apps", func() {

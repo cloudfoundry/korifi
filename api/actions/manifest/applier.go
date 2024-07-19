@@ -10,6 +10,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/tools/singleton"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"golang.org/x/exp/maps"
 )
@@ -123,9 +124,16 @@ func (a *Applier) createOrUpdateRoute(ctx context.Context, authInfo authorizatio
 
 	hostName, domainName, path := splitRoute(routeString)
 
-	domainRecord, err := a.domainRepo.GetDomainByName(ctx, authInfo, domainName)
+	domains, err := a.domainRepo.ListDomains(ctx, authInfo, repositories.ListDomainsMessage{
+		Names: []string{domainName},
+	})
 	if err != nil {
-		return fmt.Errorf("getDomainByName: %w", err)
+		return fmt.Errorf("failed to list domains: %w", err)
+	}
+
+	domain, err := singleton.Get(domains)
+	if err != nil {
+		return err
 	}
 
 	routeRecord, err := a.routeRepo.GetOrCreateRoute(
@@ -135,9 +143,9 @@ func (a *Applier) createOrUpdateRoute(ctx context.Context, authInfo authorizatio
 			Host:            hostName,
 			Path:            path,
 			SpaceGUID:       appState.App.SpaceGUID,
-			DomainGUID:      domainRecord.GUID,
-			DomainNamespace: domainRecord.Namespace,
-			DomainName:      domainRecord.Name,
+			DomainGUID:      domain.GUID,
+			DomainNamespace: domain.Namespace,
+			DomainName:      domain.Name,
 		})
 	if err != nil {
 		return fmt.Errorf("getOrCreateRoute: %w", err)

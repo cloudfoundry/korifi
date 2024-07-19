@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -50,6 +49,10 @@ type ProcessRecord struct {
 	Annotations      map[string]string
 	CreatedAt        time.Time
 	UpdatedAt        *time.Time
+}
+
+func (r ProcessRecord) GetResourceType() string {
+	return ProcessResourceType
 }
 
 type HealthCheck struct {
@@ -224,26 +227,6 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 	process.SetStableName(message.AppGUID)
 	err = userClient.Create(ctx, process)
 	return apierrors.FromK8sError(err, ProcessResourceType)
-}
-
-func (r *ProcessRepo) GetProcessByAppTypeAndSpace(ctx context.Context, authInfo authorization.Info, appGUID, processType, spaceGUID string) (ProcessRecord, error) {
-	foundProcesses, err := r.ListProcesses(ctx, authInfo, ListProcessesMessage{
-		AppGUIDs:     []string{appGUID},
-		ProcessTypes: []string{processType},
-		SpaceGUID:    spaceGUID,
-	})
-	if err != nil {
-		return ProcessRecord{}, err
-	}
-
-	if len(foundProcesses) == 0 {
-		return ProcessRecord{}, apierrors.NewNotFoundError(nil, ProcessResourceType)
-	}
-	if len(foundProcesses) > 1 {
-		return ProcessRecord{}, errors.New("duplicate processes exist")
-	}
-
-	return foundProcesses[0], nil
 }
 
 func (r *ProcessRepo) GetAppRevision(ctx context.Context, authInfo authorization.Info, appGUID string) (string, error) {

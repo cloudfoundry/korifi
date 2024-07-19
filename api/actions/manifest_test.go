@@ -35,6 +35,7 @@ var _ = Describe("ApplyManifest", func() {
 		normalizer = new(fake.Normalizer)
 		applier = new(fake.Applier)
 
+		domainRepository.ListDomainsReturns([]repositories.DomainRecord{{}}, nil)
 		stateCollector.CollectStateReturnsOnCall(0, manifest.AppState{
 			App: repositories.AppRecord{
 				GUID: "app1-guid",
@@ -73,9 +74,9 @@ var _ = Describe("ApplyManifest", func() {
 	It("normalizes the manifest and then applies it", func() {
 		Expect(applyErr).NotTo(HaveOccurred())
 
-		Expect(domainRepository.GetDomainByNameCallCount()).To(Equal(1))
-		_, _, actualDomain := domainRepository.GetDomainByNameArgsForCall(0)
-		Expect(actualDomain).To(Equal("my.domain"))
+		Expect(domainRepository.ListDomainsCallCount()).To(Equal(1))
+		_, _, actualListMessage := domainRepository.ListDomainsArgsForCall(0)
+		Expect(actualListMessage.Names).To(ConsistOf(Equal("my.domain")))
 
 		Expect(stateCollector.CollectStateCallCount()).To(Equal(2))
 		_, _, actualAppName, actualSpaceGUID := stateCollector.CollectStateArgsForCall(0)
@@ -106,7 +107,7 @@ var _ = Describe("ApplyManifest", func() {
 
 	When("the default domain does not exist", func() {
 		BeforeEach(func() {
-			domainRepository.GetDomainByNameReturns(repositories.DomainRecord{}, apierrors.NewNotFoundError(nil, "domain"))
+			domainRepository.ListDomainsReturns([]repositories.DomainRecord{}, nil)
 		})
 
 		It("returns an unprocessable entity error", func() {
@@ -116,7 +117,7 @@ var _ = Describe("ApplyManifest", func() {
 
 	When("getting the default domain fails", func() {
 		BeforeEach(func() {
-			domainRepository.GetDomainByNameReturns(repositories.DomainRecord{}, errors.New("get-domain-err"))
+			domainRepository.ListDomainsReturns(nil, errors.New("get-domain-err"))
 		})
 
 		It("returns the error", func() {

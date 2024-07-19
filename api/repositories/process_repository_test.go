@@ -388,69 +388,6 @@ var _ = Describe("ProcessRepo", func() {
 		})
 	})
 
-	Describe("GetProcessByAppTypeAndSpace", func() {
-		const (
-			processType = "web"
-		)
-
-		var (
-			processRecord repositories.ProcessRecord
-			getErr        error
-		)
-
-		JustBeforeEach(func() {
-			processRecord, getErr = processRepo.GetProcessByAppTypeAndSpace(ctx, authInfo, app1GUID, processType, space.Name)
-		})
-
-		When("the user is not authorized in the space", func() {
-			It("returns a not found error", func() {
-				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
-			})
-		})
-
-		When("the user has permission to get the process", func() {
-			BeforeEach(func() {
-				createProcessCR(context.Background(), k8sClient, process1GUID, space.Name, app1GUID)
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-			})
-
-			It("returns a Process record with the specified app type and space", func() {
-				Expect(getErr).NotTo(HaveOccurred())
-				Expect(processRecord).To(MatchAllFields(Fields{
-					"GUID":             Equal(process1GUID),
-					"SpaceGUID":        Equal(space.Name),
-					"AppGUID":          Equal(app1GUID),
-					"Type":             Equal(processType),
-					"Command":          Equal(""),
-					"DesiredInstances": Equal(1),
-					"MemoryMB":         BeEquivalentTo(500),
-					"DiskQuotaMB":      BeEquivalentTo(512),
-					"HealthCheck": Equal(repositories.HealthCheck{
-						Type: "process",
-						Data: repositories.HealthCheckData{
-							InvocationTimeoutSeconds: 0,
-							TimeoutSeconds:           0,
-						},
-					}),
-					"Labels":      HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, app1GUID),
-					"Annotations": BeEmpty(),
-					"CreatedAt":   BeTemporally("~", time.Now(), timeCheckThreshold),
-					"UpdatedAt":   PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)),
-				}))
-			})
-
-			When("there is no matching process", func() {
-				BeforeEach(func() {
-					app1GUID = "i don't exist"
-				})
-
-				It("returns a not found error", func() {
-					Expect(getErr).To(MatchError(apierrors.NewNotFoundError(nil, repositories.ProcessResourceType)))
-				})
-			})
-		})
-	})
-
 	Describe("GetAppRevisionForProcess", func() {
 		var (
 			appRevision string
