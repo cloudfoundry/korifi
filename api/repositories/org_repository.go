@@ -10,6 +10,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/iter"
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +32,12 @@ type CreateOrgMessage struct {
 type ListOrgsMessage struct {
 	Names []string
 	GUIDs []string
+}
+
+func (m *ListOrgsMessage) matches(org korifiv1alpha1.CFOrg) bool {
+	return emptyOrContains(m.GUIDs, org.Name) &&
+		emptyOrContains(m.Names, org.Spec.DisplayName) &&
+		meta.IsStatusConditionTrue(org.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 }
 
 type DeleteOrgMessage struct {
@@ -108,7 +115,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 	return cfOrgToOrgRecord(*cfOrg), nil
 }
 
-func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter ListOrgsMessage) ([]OrgRecord, error) {
+func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, message ListOrgsMessage) ([]OrgRecord, error) {
 	authorizedNamespaces, err := r.nsPerms.GetAuthorizedOrgNamespaces(ctx, info)
 	if err != nil {
 		return nil, err
@@ -125,23 +132,10 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, filter 
 		return nil, apierrors.FromK8sError(err, OrgResourceType)
 	}
 
-	preds := []func(korifiv1alpha1.CFOrg) bool{
-		func(o korifiv1alpha1.CFOrg) bool {
-			return authorizedNamespaces[o.Name]
-		},
-		func(o korifiv1alpha1.CFOrg) bool {
-			return meta.IsStatusConditionTrue(o.Status.Conditions, korifiv1alpha1.StatusConditionReady)
-		},
-		SetPredicate(filter.GUIDs, func(s korifiv1alpha1.CFOrg) string { return s.Name }),
-		SetPredicate(filter.Names, func(s korifiv1alpha1.CFOrg) string { return s.Spec.DisplayName }),
-	}
-
-	var records []OrgRecord
-	for _, o := range Filter(cfOrgList.Items, preds...) {
-		records = append(records, cfOrgToOrgRecord(o))
-	}
-
-	return records, nil
+	filteredOrgs := iter.Lift(cfOrgList.Items).Filter(func(org korifiv1alpha1.CFOrg) bool {
+		return authorizedNamespaces[org.Name] && message.matches(org)
+	})
+	return iter.Map(filteredOrgs, cfOrgToOrgRecord).Collect(), nil
 }
 
 func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID string) (OrgRecord, error) {

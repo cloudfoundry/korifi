@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/iter"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -88,6 +89,15 @@ type ListServiceInstanceMessage struct {
 	LabelSelector string
 }
 
+func (m *ListServiceInstanceMessage) matches(serviceInstance korifiv1alpha1.CFServiceInstance) bool {
+	return emptyOrContains(m.Names, serviceInstance.Spec.DisplayName) &&
+		emptyOrContains(m.GUIDs, serviceInstance.Name)
+}
+
+func (m *ListServiceInstanceMessage) matchesNamespace(ns string) bool {
+	return emptyOrContains(m.SpaceGUIDs, ns)
+}
+
 type DeleteServiceInstanceMessage struct {
 	GUID      string
 	SpaceGUID string
@@ -109,7 +119,6 @@ type ServiceInstanceRecord struct {
 func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateServiceInstanceMessage) (ServiceInstanceRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		// untested
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
@@ -124,7 +133,7 @@ func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInf
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
-	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance), nil
+	return cfServiceInstanceToRecord(*cfServiceInstance), nil
 }
 
 func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo authorization.Info, message PatchServiceInstanceMessage) (ServiceInstanceRecord, error) {
@@ -158,7 +167,7 @@ func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo
 		}
 	}
 
-	return cfServiceInstanceToServiceInstanceRecord(cfServiceInstance), nil
+	return cfServiceInstanceToRecord(*cfServiceInstance), nil
 }
 
 func (r *ServiceInstanceRepo) migrateLegacyCredentials(ctx context.Context, userClient client.WithWatch, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (*korifiv1alpha1.CFServiceInstance, error) {
@@ -229,20 +238,14 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 
 // nolint:dupl
 func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo authorization.Info, message ListServiceInstanceMessage) ([]ServiceInstanceRecord, error) {
-	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
-	if err != nil {
-		// untested
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
-
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	preds := []func(korifiv1alpha1.CFServiceInstance) bool{
-		SetPredicate(message.Names, func(s korifiv1alpha1.CFServiceInstance) string { return s.Spec.DisplayName }),
-		SetPredicate(message.GUIDs, func(s korifiv1alpha1.CFServiceInstance) string { return s.Name }),
+	authorizedSpaceNamespacesIter, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
 	labelSelector, err := labels.Parse(message.LabelSelector)
@@ -250,13 +253,9 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		return []ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
 	}
 
-	spaceGUIDSet := NewSet(message.SpaceGUIDs...)
-	var filteredServiceInstances []korifiv1alpha1.CFServiceInstance
-	for ns := range nsList {
-		if len(spaceGUIDSet) > 0 && !spaceGUIDSet.Includes(ns) {
-			continue
-		}
-
+	nsList := authorizedSpaceNamespacesIter.Filter(message.matchesNamespace).Collect()
+	var serviceInstances []korifiv1alpha1.CFServiceInstance
+	for _, ns := range nsList {
 		serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
 		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
 		if k8serrors.IsForbidden(err) {
@@ -268,10 +267,11 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 				apierrors.FromK8sError(err, ServiceInstanceResourceType),
 			)
 		}
-		filteredServiceInstances = append(filteredServiceInstances, Filter(serviceInstanceList.Items, preds...)...)
+		serviceInstances = append(serviceInstances, serviceInstanceList.Items...)
 	}
 
-	return returnServiceInstanceList(filteredServiceInstances), nil
+	filteredServiceInstances := iter.Lift(serviceInstances).Filter(message.matches)
+	return iter.Map(filteredServiceInstances, cfServiceInstanceToRecord).Collect(), nil
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {
@@ -290,7 +290,7 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
-	return cfServiceInstanceToServiceInstanceRecord(serviceInstance), nil
+	return cfServiceInstanceToRecord(*serviceInstance), nil
 }
 
 func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInfo authorization.Info, message DeleteServiceInstanceMessage) error {
@@ -331,7 +331,7 @@ func (m CreateServiceInstanceMessage) toCFServiceInstance() *korifiv1alpha1.CFSe
 	}
 }
 
-func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance *korifiv1alpha1.CFServiceInstance) ServiceInstanceRecord {
+func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) ServiceInstanceRecord {
 	return ServiceInstanceRecord{
 		Name:        cfServiceInstance.Spec.DisplayName,
 		GUID:        cfServiceInstance.Name,
@@ -342,15 +342,6 @@ func cfServiceInstanceToServiceInstanceRecord(cfServiceInstance *korifiv1alpha1.
 		Labels:      cfServiceInstance.Labels,
 		Annotations: cfServiceInstance.Annotations,
 		CreatedAt:   cfServiceInstance.CreationTimestamp.Time,
-		UpdatedAt:   getLastUpdatedTime(cfServiceInstance),
+		UpdatedAt:   getLastUpdatedTime(&cfServiceInstance),
 	}
-}
-
-func returnServiceInstanceList(serviceInstanceList []korifiv1alpha1.CFServiceInstance) []ServiceInstanceRecord {
-	serviceInstanceRecords := make([]ServiceInstanceRecord, 0, len(serviceInstanceList))
-
-	for i := range serviceInstanceList {
-		serviceInstanceRecords = append(serviceInstanceRecords, cfServiceInstanceToServiceInstanceRecord(&serviceInstanceList[i]))
-	}
-	return serviceInstanceRecords
 }

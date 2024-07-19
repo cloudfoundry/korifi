@@ -147,22 +147,22 @@ func (p DestinationAppProcess) Validate() error {
 	)
 }
 
-func (dc RouteDestinationCreate) ToMessage(routeRecord repositories.RouteRecord) repositories.AddDestinationsToRouteMessage {
-	addDestinations := make([]repositories.DestinationMessage, 0, len(dc.Destinations))
+func (dc RouteDestinationCreate) ToMessage(routeRecord repositories.RouteRecord) repositories.AddDestinationsMessage {
+	addDestinations := make([]repositories.DesiredDestination, 0, len(dc.Destinations))
 	for _, destination := range dc.Destinations {
 		processType := korifiv1alpha1.ProcessTypeWeb
 		if destination.App.Process != nil {
 			processType = destination.App.Process.Type
 		}
 
-		addDestinations = append(addDestinations, repositories.DestinationMessage{
+		addDestinations = append(addDestinations, repositories.DesiredDestination{
 			AppGUID:     destination.App.GUID,
 			ProcessType: processType,
 			Port:        destination.Port,
 			Protocol:    destination.Protocol,
 		})
 	}
-	return repositories.AddDestinationsToRouteMessage{
+	return repositories.AddDestinationsMessage{
 		RouteGUID:            routeRecord.GUID,
 		SpaceGUID:            routeRecord.SpaceGUID,
 		ExistingDestinations: routeRecord.Destinations,

@@ -38,18 +38,11 @@ var _ = Describe("LogCache", func() {
 				g.Expect(result.Envelopes.Batch).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{
 						"Tags": HaveKeyWithValue("source_type", "STG"),
-					})))
-			}).Should(Succeed())
-
-			Eventually(func(g Gomega) {
-				httpResp, httpError = adminClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
-				g.Expect(httpError).NotTo(HaveOccurred())
-				g.Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-				g.Expect(result.Envelopes.Batch).NotTo(BeEmpty())
-				g.Expect(result.Envelopes.Batch).To(ContainElements(
+					}),
 					MatchFields(IgnoreExtras, Fields{
 						"Tags": HaveKeyWithValue("source_type", "APP"),
-					})))
+					}),
+				))
 			}).Should(Succeed())
 		})
 	})

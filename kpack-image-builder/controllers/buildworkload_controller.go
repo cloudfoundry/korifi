@@ -875,7 +875,6 @@ func (r *BuildWorkloadReconciler) finalize(ctx context.Context, log logr.Logger,
 			return ctrl.Result{}, err
 		}
 
-		// This retry code is untested, because there isn't an obvious way to test it with TestEnv
 		hasRemainingBuilds, err := r.hasRemainingBuilds(ctx, buildWorkload)
 		if err != nil {
 			log.Info("failed to check for remaining builds for build workload", "reason", err)

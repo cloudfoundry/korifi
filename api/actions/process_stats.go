@@ -21,7 +21,6 @@ const (
 	ApplicationContainerName = "application"
 	EnvCFInstanceIndex       = "CF_INSTANCE_INDEX"
 	LabelGUID                = "korifi.cloudfoundry.org/guid"
-	LabelVersion             = "korifi.cloudfoundry.org/version"
 	stateStarting            = "STARTING"
 	stateRunning             = "RUNNING"
 	stateDown                = "DOWN"
@@ -89,7 +88,7 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 
 	metrics, err := a.metricsRepo.GetMetrics(ctx, authInfo, appRecord.SpaceGUID, client.MatchingLabels{
 		korifiv1alpha1.CFAppGUIDLabelKey: appRecord.GUID,
-		LabelVersion:                     appRecord.Revision,
+		korifiv1alpha1.VersionLabelKey:   appRecord.Revision,
 		LabelGUID:                        processGUID,
 	})
 	if err != nil {

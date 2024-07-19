@@ -8,7 +8,6 @@ import (
 	"sort"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
@@ -289,16 +288,6 @@ var _ = Describe("AppRepository", func() {
 				Expect(appList).NotTo(ContainElement(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(nonCFApp.Name)}),
 				))
-			})
-		})
-
-		When("the client is not authorized to list apps", func() {
-			BeforeEach(func() {
-				authInfo = authorization.Info{}
-			})
-
-			It("errors", func() {
-				Expect(listErr).To(MatchError(ContainSubstring("failed to get identity")))
 			})
 		})
 

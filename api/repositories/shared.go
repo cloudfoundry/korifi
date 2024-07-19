@@ -2,8 +2,13 @@ package repositories
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
+	"github.com/BooleanCat/go-functional/iter"
+	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,45 +72,28 @@ func getLabelOrAnnotation(mapObj map[string]string, key string) string {
 	return mapObj[key]
 }
 
-type Set[T comparable] map[T]struct{}
-
-func (s Set[T]) Includes(element T) bool {
-	_, ok := s[element]
-	return ok
-}
-
-func NewSet[T comparable](elements ...T) Set[T] {
-	set := Set[T]{}
-	for _, e := range elements {
-		set[e] = struct{}{}
-	}
-	return set
-}
-
-func Filter[T any](resources []T, predicate ...func(T) bool) []T {
-	var res []T
-outer:
-	for _, r := range resources {
-		for _, p := range predicate {
-			if !p(r) {
-				continue outer
-			}
-		}
-		res = append(res, r)
-	}
-
-	return res
-}
-
-func SetPredicate[T comparable, S any](elements []T, mapFn func(S) T) func(S) bool {
+func emptyOrContains[S ~[]E, E comparable](elements S, e E) bool {
 	if len(elements) == 0 {
-		return AlwaysTrue[S]
+		return true
 	}
 
-	set := NewSet(elements...)
-	return func(e S) bool {
-		return set.Includes(mapFn(e))
-	}
+	return slices.Contains(elements, e)
 }
 
-func AlwaysTrue[T any](_ T) bool { return true }
+func authorizedSpaceNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) (*iter.LiftIter[string], error) {
+	nsList, err := namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+
+	return iter.Lift(maps.Keys(nsList)), nil
+}
+
+func authorizedOrgNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) (*iter.LiftIter[string], error) {
+	nsList, err := namespacePermissions.GetAuthorizedOrgNamespaces(ctx, authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for orgs with user role bindings: %w", err)
+	}
+
+	return iter.Lift(maps.Keys(nsList)), nil
+}

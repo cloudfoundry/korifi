@@ -94,13 +94,13 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 
 func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
 	userClient, err := b.userClientFactory.BuildClient(authInfo)
-	if err != nil { // Untested
+	if err != nil {
 		return BuildRecord{}, err
 	}
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
 	})
-	if err != nil { // Untested
+	if err != nil {
 		return BuildRecord{}, err
 	}
 
@@ -116,12 +116,10 @@ func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo author
 		return BuildRecord{}, apierrors.NewNotFoundError(fmt.Errorf("builds for app %q in space %q not found", appGUID, spaceGUID), BuildResourceType)
 	}
 
-	sortedBuilds := orderBuilds(buildList.Items)
-
-	return b.cfBuildToBuildRecord(sortedBuilds[0]), nil
+	return b.cfBuildToBuildRecord(sortByAge(buildList.Items)[0]), nil
 }
 
-func orderBuilds(builds []korifiv1alpha1.CFBuild) []korifiv1alpha1.CFBuild {
+func sortByAge(builds []korifiv1alpha1.CFBuild) []korifiv1alpha1.CFBuild {
 	sort.Slice(builds, func(i, j int) bool {
 		return !builds[i].CreationTimestamp.Before(&builds[j].CreationTimestamp)
 	})
@@ -130,7 +128,7 @@ func orderBuilds(builds []korifiv1alpha1.CFBuild) []korifiv1alpha1.CFBuild {
 
 func (b *BuildRepo) GetBuildLogs(ctx context.Context, authInfo authorization.Info, spaceGUID string, buildGUID string) ([]LogRecord, error) {
 	userClient, err := b.userClientFactory.BuildK8sClient(authInfo)
-	if err != nil { // Untested
+	if err != nil {
 		return []LogRecord{}, err
 	}
 	logWriter := new(strings.Builder)

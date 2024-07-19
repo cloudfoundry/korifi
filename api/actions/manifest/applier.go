@@ -143,11 +143,11 @@ func (a *Applier) createOrUpdateRoute(ctx context.Context, authInfo authorizatio
 		return fmt.Errorf("getOrCreateRoute: %w", err)
 	}
 
-	_, err = a.routeRepo.AddDestinationsToRoute(ctx, authInfo, repositories.AddDestinationsToRouteMessage{
+	_, err = a.routeRepo.AddDestinationsToRoute(ctx, authInfo, repositories.AddDestinationsMessage{
 		RouteGUID:            routeRecord.GUID,
 		SpaceGUID:            routeRecord.SpaceGUID,
 		ExistingDestinations: routeRecord.Destinations,
-		NewDestinations: []repositories.DestinationMessage{{
+		NewDestinations: []repositories.DesiredDestination{{
 			AppGUID:     appState.App.GUID,
 			ProcessType: korifiv1alpha1.ProcessTypeWeb,
 		}},
@@ -184,10 +184,10 @@ func (a *Applier) deleteAppDestinations(
 }
 
 func (a *Applier) deleteAppDestination(ctx context.Context, authInfo authorization.Info, route repositories.RouteRecord, destinationGUID string, existingDestinations []repositories.DestinationRecord) ([]repositories.DestinationRecord, error) {
-	route, err := a.routeRepo.RemoveDestinationFromRoute(ctx, authInfo, repositories.RemoveDestinationFromRouteMessage{
-		RouteGUID:       route.GUID,
-		SpaceGUID:       route.SpaceGUID,
-		DestinationGuid: destinationGUID,
+	route, err := a.routeRepo.RemoveDestinationFromRoute(ctx, authInfo, repositories.RemoveDestinationMessage{
+		RouteGUID: route.GUID,
+		SpaceGUID: route.SpaceGUID,
+		GUID:      destinationGUID,
 	})
 	if err != nil {
 		return nil, err

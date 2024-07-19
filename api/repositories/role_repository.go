@@ -4,10 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
+	"github.com/BooleanCat/go-functional/iter"
 	"github.com/google/uuid"
+	"golang.org/x/exp/maps"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,7 +66,6 @@ type RoleRecord struct {
 type RoleRepo struct {
 	rootNamespace        string
 	roleMappings         map[string]config.Role
-	inverseRoleMappings  map[string]string
 	authorizedInChecker  AuthorizedInChecker
 	namespacePermissions *authorization.NamespacePermissions
 	userClientFactory    authorization.UserK8sClientFactory
@@ -80,15 +82,9 @@ func NewRoleRepo(
 	roleMappings map[string]config.Role,
 	namespaceRetriever NamespaceRetriever,
 ) *RoleRepo {
-	inverseRoleMappings := map[string]string{}
-	for k, v := range roleMappings {
-		inverseRoleMappings[v.Name] = k
-	}
-
 	return &RoleRepo{
 		rootNamespace:        rootNamespace,
 		roleMappings:         roleMappings,
-		inverseRoleMappings:  inverseRoleMappings,
 		authorizedInChecker:  authorizedInChecker,
 		namespacePermissions: namespacePermissions,
 		userClientFactory:    userClientFactory,
@@ -228,54 +224,82 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleServiceAccou
 }
 
 func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info) ([]RoleRecord, error) {
-	spaceList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
-	orgList, err := r.namespacePermissions.GetAuthorizedOrgNamespaces(ctx, authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
-
-	var nsList []string
-	for k := range spaceList {
-		nsList = append(nsList, k)
-	}
-	for k := range orgList {
-		nsList = append(nsList, k)
-	}
-
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var roles []RoleRecord
+	authorisedSpaceNamespaces, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+	authorizedOrgNamespaces, err := authorizedOrgNamespaces(ctx, authInfo, r.namespacePermissions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+	}
+
+	nsList := iter.Chain(authorisedSpaceNamespaces, authorizedOrgNamespaces).Collect()
+	roleBindings := []rbacv1.RoleBinding{}
 	for _, ns := range nsList {
-		roleBindings := &rbacv1.RoleBindingList{}
-		err := userClient.List(ctx, roleBindings, client.InNamespace(ns))
+		roleBindingsList := &rbacv1.RoleBindingList{}
+		err := userClient.List(ctx, roleBindingsList, client.InNamespace(ns))
 		if err != nil {
 			if k8serrors.IsForbidden(err) {
 				continue
 			}
 			return nil, fmt.Errorf("failed to list roles in namespace %s: %w", ns, apierrors.FromK8sError(err, RoleResourceType))
 		}
-
-		for _, roleBinding := range roleBindings.Items {
-			if roleBinding.Labels[korifiv1alpha1.PropagatedFromLabel] != "" {
-				continue
-			}
-
-			cfRoleName := r.inverseRoleMappings[roleBinding.RoleRef.Name]
-			if cfRoleName == "" {
-				continue
-			}
-
-			roles = append(roles, r.toRoleRecord(roleBinding, cfRoleName))
-		}
+		roleBindings = append(roleBindings, roleBindingsList.Items...)
 	}
 
-	return roles, nil
+	cfRoleBindings := iter.Lift(roleBindings).Filter(r.isCFRole)
+	return iter.Map(cfRoleBindings, r.toRoleRecord).Collect(), nil
+}
+
+func (r *RoleRepo) isCFRole(rb rbacv1.RoleBinding) bool {
+	return rb.Labels[korifiv1alpha1.PropagatedFromLabel] == "" &&
+		slices.Contains(r.getCFRoleNames(), rb.RoleRef.Name)
+}
+
+func (r *RoleRepo) getCFRoleName(k8sRoleName string) string {
+	for cfRole, k8sRole := range r.roleMappings {
+		if k8sRole.Name == k8sRoleName {
+			return cfRole
+		}
+	}
+	return ""
+}
+
+func (r *RoleRepo) getCFRoleNames() []string {
+	return iter.Map(iter.Lift(maps.Values(r.roleMappings)), func(r config.Role) string {
+		return r.Name
+	}).Collect()
+}
+
+func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding) RoleRecord {
+	cfRoleName := r.getCFRoleName(roleBinding.RoleRef.Name)
+	record := RoleRecord{
+		GUID:      roleBinding.Labels[RoleGuidLabel],
+		CreatedAt: roleBinding.CreationTimestamp.Time,
+		UpdatedAt: getLastUpdatedTime(&roleBinding),
+		DeletedAt: golangTime(roleBinding.DeletionTimestamp),
+		Type:      cfRoleName,
+		User:      roleBinding.Subjects[0].Name,
+		Kind:      roleBinding.Subjects[0].Kind,
+	}
+
+	if record.Kind == rbacv1.ServiceAccountKind {
+		record.User = fmt.Sprintf("system:serviceaccount:%s:%s", roleBinding.Subjects[0].Namespace, roleBinding.Subjects[0].Name)
+	}
+
+	switch r.roleMappings[cfRoleName].Level {
+	case config.OrgRole:
+		record.Org = roleBinding.Namespace
+	case config.SpaceRole:
+		record.Space = roleBinding.Namespace
+	}
+
+	return record
 }
 
 func (r *RoleRepo) GetRole(ctx context.Context, authInfo authorization.Info, roleGUID string) (RoleRecord, error) {
@@ -334,31 +358,6 @@ func (r *RoleRepo) DeleteRole(ctx context.Context, authInfo authorization.Info, 
 	}
 
 	return nil
-}
-
-func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding, cfRoleName string) RoleRecord {
-	record := RoleRecord{
-		GUID:      roleBinding.Labels[RoleGuidLabel],
-		CreatedAt: roleBinding.CreationTimestamp.Time,
-		UpdatedAt: getLastUpdatedTime(&roleBinding),
-		DeletedAt: golangTime(roleBinding.DeletionTimestamp),
-		Type:      cfRoleName,
-		User:      roleBinding.Subjects[0].Name,
-		Kind:      roleBinding.Subjects[0].Kind,
-	}
-
-	if record.Kind == rbacv1.ServiceAccountKind {
-		record.User = fmt.Sprintf("system:serviceaccount:%s:%s", roleBinding.Subjects[0].Namespace, roleBinding.Subjects[0].Name)
-	}
-
-	switch r.roleMappings[cfRoleName].Level {
-	case config.OrgRole:
-		record.Org = roleBinding.Namespace
-	case config.SpaceRole:
-		record.Space = roleBinding.Namespace
-	}
-
-	return record
 }
 
 func (r *RoleRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, roleGUID string) (*time.Time, error) {

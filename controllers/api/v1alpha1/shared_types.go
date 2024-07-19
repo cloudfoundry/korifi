@@ -5,6 +5,8 @@ import (
 )
 
 const (
+	VersionLabelKey = "korifi.cloudfoundry.org/version"
+
 	CFAppGUIDLabelKey        = "korifi.cloudfoundry.org/app-guid"
 	CFAppRevisionKey         = "korifi.cloudfoundry.org/app-rev"
 	CFAppLastStopRevisionKey = "korifi.cloudfoundry.org/last-stop-app-rev"
