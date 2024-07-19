@@ -2,10 +2,10 @@ package credentials
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -55,12 +55,12 @@ func toBytes(value any) ([]byte, error) {
 }
 
 func GetCredentials(credentialsSecret *corev1.Secret) (map[string]any, error) {
-	credentials, ok := credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey]
+	credentials, ok := credentialsSecret.Data[tools.CredentialsSecretKey]
 	if !ok {
 		return nil, fmt.Errorf(
 			"data of secret %q does not contain the %q key",
 			credentialsSecret.Name,
-			korifiv1alpha1.CredentialsSecretKey,
+			tools.CredentialsSecretKey,
 		)
 	}
 	credentialsObject := map[string]any{}
@@ -70,16 +70,4 @@ func GetCredentials(credentialsSecret *corev1.Secret) (map[string]any, error) {
 	}
 
 	return credentialsObject, nil
-}
-
-func ToCredentialsSecretData(credentials any) (map[string][]byte, error) {
-	var credentialBytes []byte
-	credentialBytes, err := json.Marshal(credentials)
-	if err != nil {
-		return nil, errors.New("failed to marshal credentials for service instance")
-	}
-
-	return map[string][]byte{
-		korifiv1alpha1.CredentialsSecretKey: credentialBytes,
-	}, nil
 }

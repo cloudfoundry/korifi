@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -133,7 +134,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
 				Expect(credentialsSecret.Data).To(SatisfyAll(
 					HaveLen(1),
-					HaveKeyWithValue(korifiv1alpha1.CredentialsSecretKey,
+					HaveKeyWithValue(tools.CredentialsSecretKey,
 						MatchJSON(`{"username" : "broker-user", "password": "broker-password"}`),
 					),
 				))

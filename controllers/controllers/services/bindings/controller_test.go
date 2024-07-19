@@ -67,7 +67,7 @@ var _ = Describe("CFServiceBinding", func() {
 				Namespace: testNamespace,
 			},
 			Data: map[string][]byte{
-				korifiv1alpha1.CredentialsSecretKey: credentialsBytes,
+				tools.CredentialsSecretKey: credentialsBytes,
 			},
 		}
 
@@ -375,7 +375,7 @@ var _ = Describe("CFServiceBinding", func() {
 					Namespace: testNamespace,
 				},
 				Data: map[string][]byte{
-					korifiv1alpha1.CredentialsSecretKey: credentialsBytes,
+					tools.CredentialsSecretKey: credentialsBytes,
 				},
 			}
 
@@ -431,7 +431,7 @@ var _ = Describe("CFServiceBinding", func() {
 					Namespace: testNamespace,
 				},
 				Data: map[string][]byte{
-					korifiv1alpha1.CredentialsSecretKey: credentialsBytes,
+					tools.CredentialsSecretKey: credentialsBytes,
 				},
 			}
 

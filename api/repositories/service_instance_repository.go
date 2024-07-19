@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/iter"
@@ -226,7 +226,7 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 		credentialsSecret.Labels[CFServiceInstanceGUIDLabel] = cfServiceInstance.Name
 
 		var err error
-		credentialsSecret.Data, err = credentials.ToCredentialsSecretData(creds)
+		credentialsSecret.Data, err = tools.ToCredentialsSecretData(creds)
 		if err != nil {
 			return errors.New("failed to marshal credentials for service instance")
 		}

@@ -340,7 +340,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					Namespace: cfApp.Namespace,
 				},
 				Data: map[string][]byte{
-					korifiv1alpha1.CredentialsSecretKey: []byte("{}"),
+					tools.CredentialsSecretKey: []byte("{}"),
 				},
 			}
 			Expect(adminClient.Create(ctx, secret)).To(Succeed())

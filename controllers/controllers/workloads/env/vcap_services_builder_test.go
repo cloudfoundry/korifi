@@ -53,7 +53,7 @@ var _ = Describe("Builder", func() {
 				Name:      uuid.NewString(),
 			},
 			Data: map[string][]byte{
-				korifiv1alpha1.CredentialsSecretKey: credentialsData,
+				tools.CredentialsSecretKey: credentialsData,
 			},
 		}
 		helpers.EnsureCreate(controllersClient, credentialsSecret)
