@@ -9,6 +9,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
+	"github.com/BooleanCat/go-functional/iter"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -50,27 +51,26 @@ func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.
 		return nil, apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
-	var result []ServicePlanResource
-	for _, plan := range cfServicePlans.Items {
-		result = append(result, ServicePlanResource{
-			ServicePlan: plan.Spec.ServicePlan,
-			CFResource: model.CFResource{
-				GUID:      plan.Name,
-				CreatedAt: plan.CreationTimestamp.Time,
-				Metadata: model.Metadata{
-					Labels:      plan.Labels,
-					Annotations: plan.Annotations,
-				},
-			},
-			Relationships: ServicePlanRelationships{
-				ServiceOffering: model.ToOneRelationship{
-					Data: model.Relationship{
-						GUID: plan.Labels[korifiv1alpha1.RelServiceOfferingLabel],
-					},
-				},
-			},
-		})
-	}
+	return iter.Map(iter.Lift(cfServicePlans.Items), planToResource).Collect(), nil
+}
 
-	return result, nil
+func planToResource(plan korifiv1alpha1.CFServicePlan) ServicePlanResource {
+	return ServicePlanResource{
+		ServicePlan: plan.Spec.ServicePlan,
+		CFResource: model.CFResource{
+			GUID:      plan.Name,
+			CreatedAt: plan.CreationTimestamp.Time,
+			Metadata: model.Metadata{
+				Labels:      plan.Labels,
+				Annotations: plan.Annotations,
+			},
+		},
+		Relationships: ServicePlanRelationships{
+			ServiceOffering: model.ToOneRelationship{
+				Data: model.Relationship{
+					GUID: plan.Labels[korifiv1alpha1.RelServiceOfferingLabel],
+				},
+			},
+		},
+	}
 }

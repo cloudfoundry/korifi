@@ -30,8 +30,8 @@ type CFRouteRepository interface {
 	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	DeleteRoute(context.Context, authorization.Info, repositories.DeleteRouteMessage) error
-	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
-	RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message repositories.RemoveDestinationFromRouteMessage) (repositories.RouteRecord, error)
+	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsMessage) (repositories.RouteRecord, error)
+	RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message repositories.RemoveDestinationMessage) (repositories.RouteRecord, error)
 	PatchRouteMetadata(context.Context, authorization.Info, repositories.PatchRouteMetadataMessage) (repositories.RouteRecord, error)
 }
 
@@ -195,10 +195,10 @@ func (h *Route) deleteDestination(r *http.Request) (*routing.Response, error) {
 		return nil, err
 	}
 
-	message := repositories.RemoveDestinationFromRouteMessage{
-		DestinationGuid: destinationGUID,
-		RouteGUID:       routeGUID,
-		SpaceGUID:       routeRecord.SpaceGUID,
+	message := repositories.RemoveDestinationMessage{
+		GUID:      destinationGUID,
+		RouteGUID: routeGUID,
+		SpaceGUID: routeRecord.SpaceGUID,
 	}
 
 	_, err = h.routeRepo.RemoveDestinationFromRoute(r.Context(), authInfo, message)

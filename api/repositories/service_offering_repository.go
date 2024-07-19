@@ -9,6 +9,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
+	"github.com/BooleanCat/go-functional/iter"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -58,27 +59,26 @@ func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo author
 		)
 	}
 
-	offeringResources := []ServiceOfferingResource{}
-	for _, offering := range offeringsList.Items {
-		offeringResources = append(offeringResources, ServiceOfferingResource{
-			ServiceOffering: offering.Spec.ServiceOffering,
-			CFResource: model.CFResource{
-				GUID:      offering.Name,
-				CreatedAt: offering.CreationTimestamp.Time,
-				Metadata: model.Metadata{
-					Labels:      offering.Labels,
-					Annotations: offering.Annotations,
-				},
-			},
-			Relationships: ServiceOfferingRelationships{
-				ServiceBroker: model.ToOneRelationship{
-					Data: model.Relationship{
-						GUID: offering.Labels[korifiv1alpha1.RelServiceBrokerLabel],
-					},
-				},
-			},
-		})
-	}
+	return iter.Map(iter.Lift(offeringsList.Items), offeringToResource).Collect(), nil
+}
 
-	return offeringResources, nil
+func offeringToResource(offering korifiv1alpha1.CFServiceOffering) ServiceOfferingResource {
+	return ServiceOfferingResource{
+		ServiceOffering: offering.Spec.ServiceOffering,
+		CFResource: model.CFResource{
+			GUID:      offering.Name,
+			CreatedAt: offering.CreationTimestamp.Time,
+			Metadata: model.Metadata{
+				Labels:      offering.Labels,
+				Annotations: offering.Annotations,
+			},
+		},
+		Relationships: ServiceOfferingRelationships{
+			ServiceBroker: model.ToOneRelationship{
+				Data: model.Relationship{
+					GUID: offering.Labels[korifiv1alpha1.RelServiceBrokerLabel],
+				},
+			},
+		},
+	}
 }

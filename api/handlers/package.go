@@ -175,7 +175,7 @@ func (h Package) upload(r *http.Request) (*routing.Response, error) {
 
 	packageGUID := routing.URLParam(r, "guid")
 	err := r.ParseForm()
-	if err != nil { // untested - couldn't find a way to trigger this branch
+	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.NewInvalidRequestError(err, "Unable to parse body as multipart form"), "Error parsing multipart form")
 	}
 

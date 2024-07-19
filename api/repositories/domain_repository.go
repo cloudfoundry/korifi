@@ -10,6 +10,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"github.com/BooleanCat/go-functional/iter"
 	"github.com/google/uuid"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -64,6 +65,10 @@ type ListDomainsMessage struct {
 	Names []string
 }
 
+func (m *ListDomainsMessage) matches(d korifiv1alpha1.CFDomain) bool {
+	return emptyOrContains(m.Names, d.Spec.Name)
+}
+
 func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {
 	ns, err := r.namespaceRetriever.NamespaceFor(ctx, domainGUID, DomainResourceType)
 	if err != nil {
@@ -81,7 +86,7 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 		return DomainRecord{}, fmt.Errorf("get-domain failed: %w", apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	return cfDomainToDomainRecord(domain), nil
+	return cfDomainToDomainRecord(*domain), nil
 }
 
 func (r *DomainRepo) CreateDomain(ctx context.Context, authInfo authorization.Info, message CreateDomainMessage) (DomainRecord, error) {
@@ -107,7 +112,7 @@ func (r *DomainRepo) CreateDomain(ctx context.Context, authInfo authorization.In
 		return DomainRecord{}, fmt.Errorf("create-domain failed: %w", apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	return cfDomainToDomainRecord(cfDomain), nil
+	return cfDomainToDomainRecord(*cfDomain), nil
 }
 
 func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.Info, message UpdateDomainMessage) (DomainRecord, error) {
@@ -135,7 +140,7 @@ func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.In
 		return DomainRecord{}, fmt.Errorf("failed to patch domain metadata: %w", apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	return cfDomainToDomainRecord(domain), nil
+	return cfDomainToDomainRecord(*domain), nil
 }
 
 func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) ([]DomainRecord, error) {
@@ -150,17 +155,18 @@ func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Inf
 		if k8serrors.IsForbidden(err) {
 			return []DomainRecord{}, nil
 		}
-		// untested
 		return []DomainRecord{}, fmt.Errorf("failed to list domains in namespace %s: %w", r.rootNamespace, apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	filtered := Filter(cfdomainList.Items, SetPredicate(message.Names, func(s korifiv1alpha1.CFDomain) string { return s.Spec.Name }))
-
-	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].CreationTimestamp.Before(&filtered[j].CreationTimestamp)
+	domainRecords := iter.Map(
+		iter.Lift(cfdomainList.Items).Filter(message.matches),
+		cfDomainToDomainRecord,
+	).Collect()
+	sort.Slice(domainRecords, func(i, j int) bool {
+		return domainRecords[i].CreatedAt.Before(domainRecords[j].CreatedAt)
 	})
 
-	return returnDomainList(filtered), nil
+	return domainRecords, nil
 }
 
 func (r *DomainRepo) GetDomainByName(ctx context.Context, authInfo authorization.Info, domainName string) (DomainRecord, error) {
@@ -204,22 +210,13 @@ func (r *DomainRepo) GetDeletedAt(ctx context.Context, authInfo authorization.In
 	return domain.DeletedAt, err
 }
 
-func returnDomainList(domainList []korifiv1alpha1.CFDomain) []DomainRecord {
-	domainRecords := make([]DomainRecord, 0, len(domainList))
-
-	for i := range domainList {
-		domainRecords = append(domainRecords, cfDomainToDomainRecord(&domainList[i]))
-	}
-	return domainRecords
-}
-
-func cfDomainToDomainRecord(cfDomain *korifiv1alpha1.CFDomain) DomainRecord {
+func cfDomainToDomainRecord(cfDomain korifiv1alpha1.CFDomain) DomainRecord {
 	return DomainRecord{
 		Name:        cfDomain.Spec.Name,
 		GUID:        cfDomain.Name,
 		Namespace:   cfDomain.Namespace,
 		CreatedAt:   cfDomain.CreationTimestamp.Time,
-		UpdatedAt:   getLastUpdatedTime(cfDomain),
+		UpdatedAt:   getLastUpdatedTime(&cfDomain),
 		DeletedAt:   golangTime(cfDomain.DeletionTimestamp),
 		Labels:      cfDomain.Labels,
 		Annotations: cfDomain.Annotations,

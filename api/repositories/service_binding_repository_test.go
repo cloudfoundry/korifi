@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
@@ -488,16 +487,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 			It("returns an empty list and no error", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(responseServiceBindings).To(BeEmpty())
-			})
-		})
-
-		When("fetching authorized namespaces fails", func() {
-			BeforeEach(func() {
-				authInfo = authorization.Info{}
-			})
-
-			It("returns the error", func() {
-				Expect(listErr).To(MatchError(ContainSubstring("failed to get identity")))
 			})
 		})
 	})

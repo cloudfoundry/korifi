@@ -241,7 +241,7 @@ func (r *Reconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifi
 
 	var desiredAppWorkload *korifiv1alpha1.AppWorkload
 	desiredAppWorkload, err = r.generateAppWorkload(actualAppWorkload, cfApp, cfProcess, cfBuild, appPorts, envVars, cfAppRev, cfLastStopAppRev)
-	if err != nil { // untested
+	if err != nil {
 		log.Info("error when initializing AppWorkload", "reason", err)
 		return err
 	}

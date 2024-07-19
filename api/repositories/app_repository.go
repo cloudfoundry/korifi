@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/iter"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -175,6 +176,15 @@ type ListAppsMessage struct {
 	LabelSelector string
 }
 
+func (m *ListAppsMessage) matchesNamespace(ns string) bool {
+	return emptyOrContains(m.SpaceGuids, ns)
+}
+
+func (m *ListAppsMessage) matches(cfApp korifiv1alpha1.CFApp) bool {
+	return emptyOrContains(m.Names, cfApp.Spec.DisplayName) &&
+		emptyOrContains(m.Guids, cfApp.Name)
+}
+
 type byName []AppRecord
 
 func (a byName) Len() int {
@@ -200,13 +210,18 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 		return AppRecord{}, fmt.Errorf("get-app failed to build user client: %w", err)
 	}
 
-	app := korifiv1alpha1.CFApp{}
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: appGUID}, &app)
+	app := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      appGUID,
+		},
+	}
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(app), app)
 	if err != nil {
 		return AppRecord{}, fmt.Errorf("failed to get app: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	return cfAppToAppRecord(app), nil
+	return cfAppToAppRecord(*app), nil
 }
 
 func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorization.Info, appName string, spaceGUID string) (AppRecord, error) {
@@ -221,21 +236,19 @@ func (f *AppRepo) GetAppByNameAndSpace(ctx context.Context, authInfo authorizati
 		return AppRecord{}, apierrors.FromK8sError(fmt.Errorf("get app: failed to list apps: %w", err), SpaceResourceType)
 	}
 
-	var matchingApps []korifiv1alpha1.CFApp
-	for _, app := range appList.Items {
-		if app.Spec.DisplayName == appName {
-			matchingApps = append(matchingApps, app)
-		}
-	}
+	filteredApps := iter.Lift(appList.Items).Filter(func(cfApp korifiv1alpha1.CFApp) bool {
+		return cfApp.Spec.DisplayName == appName
+	})
+	appRecords := iter.Map(filteredApps, cfAppToAppRecord).Collect()
 
-	if len(matchingApps) == 0 {
+	if len(appRecords) == 0 {
 		return AppRecord{}, apierrors.NewNotFoundError(fmt.Errorf("app %q in space %q not found", appName, spaceGUID), AppResourceType)
 	}
-	if len(matchingApps) > 1 {
+	if len(appRecords) > 1 {
 		return AppRecord{}, fmt.Errorf("duplicate instances of app %q in space %q", appName, spaceGUID)
 	}
 
-	return cfAppToAppRecord(matchingApps[0]), nil
+	return appRecords[0], nil
 }
 
 func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, appCreateMessage CreateAppMessage) (AppRecord, error) {
@@ -302,19 +315,9 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
-	nsList, err := f.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
-
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return []AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	preds := []func(korifiv1alpha1.CFApp) bool{
-		SetPredicate(message.Names, func(s korifiv1alpha1.CFApp) string { return s.Spec.DisplayName }),
-		SetPredicate(message.Guids, func(s korifiv1alpha1.CFApp) string { return s.Name }),
 	}
 
 	labelSelector, err := labels.Parse(message.LabelSelector)
@@ -322,13 +325,14 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		return []AppRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
 	}
 
-	var filteredApps []korifiv1alpha1.CFApp
-	spaceGUIDSet := NewSet(message.SpaceGuids...)
-	for ns := range nsList {
-		if len(spaceGUIDSet) > 0 && !spaceGUIDSet.Includes(ns) {
-			continue
-		}
+	authorisedSpaceNamespacesIter, err := authorizedSpaceNamespaces(ctx, authInfo, f.namespacePermissions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get namespaces for spaces with user role bindings: %w", err)
+	}
 
+	nsList := authorisedSpaceNamespacesIter.Filter(message.matchesNamespace).Collect()
+	var apps []korifiv1alpha1.CFApp
+	for _, ns := range nsList {
 		appList := &korifiv1alpha1.CFAppList{}
 		err := userClient.List(ctx, appList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
 
@@ -339,24 +343,16 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns, apierrors.FromK8sError(err, AppResourceType))
 		}
 
-		filteredApps = append(filteredApps, Filter(appList.Items, preds...)...)
+		apps = append(apps, appList.Items...)
 	}
 
-	appRecords := returnAppList(filteredApps)
+	filteredApps := iter.Lift(apps).Filter(message.matches)
+	appRecords := iter.Map(filteredApps, cfAppToAppRecord).Collect()
 
 	// By default sort it by App.DisplayName
 	sort.Sort(byName(appRecords))
 
 	return appRecords, nil
-}
-
-func returnAppList(appList []korifiv1alpha1.CFApp) []AppRecord {
-	appRecords := make([]AppRecord, 0, len(appList))
-
-	for _, app := range appList {
-		appRecords = append(appRecords, cfAppToAppRecord(app))
-	}
-	return appRecords
 }
 
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {

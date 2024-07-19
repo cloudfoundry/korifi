@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"github.com/BooleanCat/go-functional/iter"
 	corev1 "k8s.io/api/core/v1"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,16 +44,9 @@ func (r *MetricsRepo) GetMetrics(ctx context.Context, authInfo authorization.Inf
 		return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
 	}
 
-	var res []PodMetrics
-	for _, pod := range podList.Items {
-		metrics := &metricsv1beta1.PodMetrics{}
-		_ = userClient.Get(ctx, client.ObjectKey{
-			Name:      pod.Name,
-			Namespace: namespace,
-		}, metrics)
-
-		res = append(res, PodMetrics{Pod: pod, Metrics: *metrics})
-	}
-
-	return res, nil
+	return iter.Map(iter.Lift(podList.Items), func(pod corev1.Pod) PodMetrics {
+		metrics := metricsv1beta1.PodMetrics{}
+		_ = userClient.Get(ctx, client.ObjectKeyFromObject(&pod), &metrics)
+		return PodMetrics{Pod: pod, Metrics: metrics}
+	}).Collect(), nil
 }

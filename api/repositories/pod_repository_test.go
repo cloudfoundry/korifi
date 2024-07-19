@@ -23,10 +23,10 @@ var _ = Describe("PodRepository", func() {
 		pod         *corev1.Pod
 		appGUID     string
 		appRevision string
-		err         error
 		instance    string
 		process     repositories.ProcessRecord
 	)
+
 	BeforeEach(func() {
 		instance = "2"
 		appRevision = "1"
@@ -48,7 +48,8 @@ var _ = Describe("PodRepository", func() {
 					"korifi.cloudfoundry.org/app-guid":     appGUID,
 					"korifi.cloudfoundry.org/version":      "1",
 					"korifi.cloudfoundry.org/process-type": process.Type,
-				}},
+				},
+			},
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
@@ -59,18 +60,20 @@ var _ = Describe("PodRepository", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, pod)).To(Succeed())
-
-	})
-
-	JustBeforeEach(func() {
-		err = podRepo.DeletePod(ctx, authInfo, appRevision, process, instance)
 	})
 
 	Describe("DeletePod", func() {
+		var err error
+
+		JustBeforeEach(func() {
+			err = podRepo.DeletePod(ctx, authInfo, appRevision, process, instance)
+		})
+
 		It("fails to delete the pod", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 		})
+
 		When("the user is a SpaceDeveloper", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
@@ -89,32 +92,68 @@ var _ = Describe("PodRepository", func() {
 					instance = "3"
 				})
 
-				It("fails to delete instance", func() {
-					Expect(err).To(MatchError(ContainSubstring("instance not found")))
+				It("returns a not found error", func() {
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
 			})
-			When("the process does not exist", func() {
+
+			When("there are no pods referencing the app", func() {
 				BeforeEach(func() {
-					process = repositories.ProcessRecord{
-						SpaceGUID: space.Name,
-					}
+					process.AppGUID = "app-does-not-exist"
 				})
 
-				It("fails to delete process instance", func() {
-					Expect(err).To(MatchError(ContainSubstring("no pods found for app and process")))
+				It("returns a not found error", func() {
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
 			})
-			When("the appGUID does not exist", func() {
+
+			When("there are no pod for the app version specified", func() {
 				BeforeEach(func() {
-					process.AppGUID = "does-not-exist"
+					appRevision = "rev-does-not-exist"
 				})
 
-				It("fails to delete app instance", func() {
-					Expect(err).To(MatchError(ContainSubstring("no pods found for app and process")))
+				It("returns a not found error", func() {
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+
+			When("there are no pods matching the process type", func() {
+				BeforeEach(func() {
+					process.Type = "type-does-not-exist"
+				})
+
+				It("returns a not found error", func() {
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+
+			When("there are multiple matching pods", func() {
+				BeforeEach(func() {
+					Expect(k8sClient.Create(ctx, &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "anotherpodname-2",
+							Namespace: space.Name,
+							Labels: map[string]string{
+								"korifi.cloudfoundry.org/app-guid":     appGUID,
+								"korifi.cloudfoundry.org/version":      "1",
+								"korifi.cloudfoundry.org/process-type": process.Type,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "web",
+									Image: "nginx",
+								},
+							},
+						},
+					})).To(Succeed())
+				})
+
+				It("returns an unprocessable entity error", func() {
+					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 				})
 			})
 		})
-
 	})
-
 })

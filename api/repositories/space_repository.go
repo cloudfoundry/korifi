@@ -10,6 +10,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/iter"
 	"github.com/google/uuid"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -31,6 +32,16 @@ type ListSpacesMessage struct {
 	Names             []string
 	GUIDs             []string
 	OrganizationGUIDs []string
+}
+
+func (m *ListSpacesMessage) matches(space korifiv1alpha1.CFSpace) bool {
+	return meta.IsStatusConditionTrue(space.Status.Conditions, korifiv1alpha1.StatusConditionReady) &&
+		emptyOrContains(m.GUIDs, space.Name) &&
+		emptyOrContains(m.Names, space.Spec.DisplayName)
+}
+
+func (m *ListSpacesMessage) matchesNamespace(ns string) bool {
+	return emptyOrContains(m.OrganizationGUIDs, ns)
 }
 
 type DeleteSpaceMessage struct {
@@ -109,44 +120,29 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
-	return cfSpaceToSpaceRecord(cfSpace), nil
+	return cfSpaceToSpaceRecord(*cfSpace), nil
 }
 
-func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, message ListSpacesMessage) ([]SpaceRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(info)
+func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info, message ListSpacesMessage) ([]SpaceRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return []SpaceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	authorizedOrgNamespaces, err := r.nsPerms.GetAuthorizedOrgNamespaces(ctx, info)
+	authorizedOrgNamespaces, err := authorizedOrgNamespaces(ctx, authInfo, r.nsPerms)
 	if err != nil {
 		return nil, err
 	}
 
+	authorizedSpaceNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, authInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	orgNsList := authorizedOrgNamespaces.Filter(message.matchesNamespace).Collect()
 	cfSpaces := []korifiv1alpha1.CFSpace{}
-
-	authorizedSpaceNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, info)
-	if err != nil {
-		return nil, err
-	}
-
-	preds := []func(korifiv1alpha1.CFSpace) bool{
-		func(s korifiv1alpha1.CFSpace) bool { return authorizedSpaceNamespaces[s.Name] },
-		func(s korifiv1alpha1.CFSpace) bool {
-			return meta.IsStatusConditionTrue(s.Status.Conditions, korifiv1alpha1.StatusConditionReady)
-		},
-		SetPredicate(message.GUIDs, func(s korifiv1alpha1.CFSpace) string { return s.Name }),
-		SetPredicate(message.Names, func(s korifiv1alpha1.CFSpace) string { return s.Spec.DisplayName }),
-	}
-
-	orgGUIDs := NewSet(message.OrganizationGUIDs...)
-	for org := range authorizedOrgNamespaces {
-		if len(orgGUIDs) > 0 && !orgGUIDs.Includes(org) {
-			continue
-		}
-
+	for _, org := range orgNsList {
 		cfSpaceList := new(korifiv1alpha1.CFSpaceList)
-
 		err = userClient.List(ctx, cfSpaceList, client.InNamespace(org))
 		if k8serrors.IsForbidden(err) {
 			continue
@@ -155,15 +151,14 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, info authorization.Info, mes
 			return nil, apierrors.FromK8sError(err, SpaceResourceType)
 		}
 
-		cfSpaces = append(cfSpaces, Filter(cfSpaceList.Items, preds...)...)
+		cfSpaces = append(cfSpaces, cfSpaceList.Items...)
 	}
 
-	var records []SpaceRecord
-	for i := range cfSpaces {
-		records = append(records, cfSpaceToSpaceRecord(&cfSpaces[i]))
-	}
+	filteredSpaces := iter.Lift(cfSpaces).Filter(func(s korifiv1alpha1.CFSpace) bool {
+		return authorizedSpaceNamespaces[s.Name] && message.matches(s)
+	})
 
-	return records, nil
+	return iter.Map(filteredSpaces, cfSpaceToSpaceRecord).Collect(), nil
 }
 
 func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGUID string) (SpaceRecord, error) {
@@ -183,10 +178,10 @@ func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, space
 		return SpaceRecord{}, fmt.Errorf("failed to get space: %w", apierrors.FromK8sError(err, SpaceResourceType))
 	}
 
-	return cfSpaceToSpaceRecord(cfSpace), nil
+	return cfSpaceToSpaceRecord(*cfSpace), nil
 }
 
-func cfSpaceToSpaceRecord(cfSpace *korifiv1alpha1.CFSpace) SpaceRecord {
+func cfSpaceToSpaceRecord(cfSpace korifiv1alpha1.CFSpace) SpaceRecord {
 	return SpaceRecord{
 		Name:             cfSpace.Spec.DisplayName,
 		GUID:             cfSpace.Name,
@@ -194,7 +189,7 @@ func cfSpaceToSpaceRecord(cfSpace *korifiv1alpha1.CFSpace) SpaceRecord {
 		Annotations:      cfSpace.Annotations,
 		Labels:           cfSpace.Labels,
 		CreatedAt:        cfSpace.CreationTimestamp.Time,
-		UpdatedAt:        getLastUpdatedTime(cfSpace),
+		UpdatedAt:        getLastUpdatedTime(&cfSpace),
 		DeletedAt:        golangTime(cfSpace.DeletionTimestamp),
 	}
 }
@@ -234,7 +229,7 @@ func (r *SpaceRepo) PatchSpaceMetadata(ctx context.Context, authInfo authorizati
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
-	return cfSpaceToSpaceRecord(cfSpace), nil
+	return cfSpaceToSpaceRecord(*cfSpace), nil
 }
 
 func (r *SpaceRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, spaceGUID string) (*time.Time, error) {

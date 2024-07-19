@@ -102,7 +102,7 @@ var _ = Describe("ProcessStats", func() {
 		Expect(spaceGUID).To(Equal("the-space-guid"))
 		Expect(labelMatcher).To(Equal(client.MatchingLabels{
 			korifiv1alpha1.CFAppGUIDLabelKey: "the-app-guid",
-			LabelVersion:                     "1",
+			korifiv1alpha1.VersionLabelKey:   "1",
 			LabelGUID:                        "the-process-guid",
 		}))
 

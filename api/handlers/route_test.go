@@ -698,7 +698,7 @@ var _ = Describe("Route", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(message.RouteGUID).To(Equal("test-route-guid"))
 			Expect(message.SpaceGUID).To(Equal("test-space-guid"))
-			Expect(message.DestinationGuid).To(Equal("test-destination-guid"))
+			Expect(message.GUID).To(Equal("test-destination-guid"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
 			Expect(rr).To(HaveHTTPBody(BeEmpty()))

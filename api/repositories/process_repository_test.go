@@ -403,8 +403,8 @@ var _ = Describe("ProcessRepo", func() {
 		})
 
 		When("the user is not authorized in the space", func() {
-			It("returns a forbidden error", func() {
-				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			It("returns a not found error", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 

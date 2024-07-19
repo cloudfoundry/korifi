@@ -306,11 +306,11 @@ var _ = Describe("Applier", func() {
 		It("adds a destination for the web process to the route without port", func() {
 			Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
 			_, _, addDestinationMessage := routeRepo.AddDestinationsToRouteArgsForCall(0)
-			Expect(addDestinationMessage).To(Equal(repositories.AddDestinationsToRouteMessage{
+			Expect(addDestinationMessage).To(Equal(repositories.AddDestinationsMessage{
 				RouteGUID:            "route-guid",
 				SpaceGUID:            "space-guid",
 				ExistingDestinations: []repositories.DestinationRecord{{GUID: "dest-guid"}},
-				NewDestinations: []repositories.DestinationMessage{{
+				NewDestinations: []repositories.DesiredDestination{{
 					AppGUID:     "app-guid",
 					ProcessType: "web",
 				}},
@@ -392,17 +392,17 @@ var _ = Describe("Applier", func() {
 				Expect(routeRepo.RemoveDestinationFromRouteCallCount()).To(Equal(2))
 
 				_, _, removeDest1Msg := routeRepo.RemoveDestinationFromRouteArgsForCall(0)
-				Expect(removeDest1Msg).To(Equal(repositories.RemoveDestinationFromRouteMessage{
-					RouteGUID:       "route-guid",
-					SpaceGUID:       "space-guid",
-					DestinationGuid: "dest1-guid",
+				Expect(removeDest1Msg).To(Equal(repositories.RemoveDestinationMessage{
+					RouteGUID: "route-guid",
+					SpaceGUID: "space-guid",
+					GUID:      "dest1-guid",
 				}))
 
 				_, _, removeDest2Msg := routeRepo.RemoveDestinationFromRouteArgsForCall(1)
-				Expect(removeDest2Msg).To(Equal(repositories.RemoveDestinationFromRouteMessage{
-					RouteGUID:       "route-guid",
-					SpaceGUID:       "space-guid",
-					DestinationGuid: "dest2-guid",
+				Expect(removeDest2Msg).To(Equal(repositories.RemoveDestinationMessage{
+					RouteGUID: "route-guid",
+					SpaceGUID: "space-guid",
+					GUID:      "dest2-guid",
 				}))
 			})
 
@@ -444,8 +444,8 @@ var _ = Describe("Applier", func() {
 					_, _, removeDest2Msg := routeRepo.RemoveDestinationFromRouteArgsForCall(1)
 
 					Expect([]string{
-						removeDest1Msg.DestinationGuid,
-						removeDest2Msg.DestinationGuid,
+						removeDest1Msg.GUID,
+						removeDest2Msg.GUID,
 					}).To(ConsistOf("dest1-guid", "dest2-guid"))
 				})
 			})

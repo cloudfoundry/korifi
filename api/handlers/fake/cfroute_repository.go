@@ -11,12 +11,12 @@ import (
 )
 
 type CFRouteRepository struct {
-	AddDestinationsToRouteStub        func(context.Context, authorization.Info, repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)
+	AddDestinationsToRouteStub        func(context.Context, authorization.Info, repositories.AddDestinationsMessage) (repositories.RouteRecord, error)
 	addDestinationsToRouteMutex       sync.RWMutex
 	addDestinationsToRouteArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.AddDestinationsToRouteMessage
+		arg3 repositories.AddDestinationsMessage
 	}
 	addDestinationsToRouteReturns struct {
 		result1 repositories.RouteRecord
@@ -115,12 +115,12 @@ type CFRouteRepository struct {
 		result1 repositories.RouteRecord
 		result2 error
 	}
-	RemoveDestinationFromRouteStub        func(context.Context, authorization.Info, repositories.RemoveDestinationFromRouteMessage) (repositories.RouteRecord, error)
+	RemoveDestinationFromRouteStub        func(context.Context, authorization.Info, repositories.RemoveDestinationMessage) (repositories.RouteRecord, error)
 	removeDestinationFromRouteMutex       sync.RWMutex
 	removeDestinationFromRouteArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.RemoveDestinationFromRouteMessage
+		arg3 repositories.RemoveDestinationMessage
 	}
 	removeDestinationFromRouteReturns struct {
 		result1 repositories.RouteRecord
@@ -134,13 +134,13 @@ type CFRouteRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFRouteRepository) AddDestinationsToRoute(arg1 context.Context, arg2 authorization.Info, arg3 repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error) {
+func (fake *CFRouteRepository) AddDestinationsToRoute(arg1 context.Context, arg2 authorization.Info, arg3 repositories.AddDestinationsMessage) (repositories.RouteRecord, error) {
 	fake.addDestinationsToRouteMutex.Lock()
 	ret, specificReturn := fake.addDestinationsToRouteReturnsOnCall[len(fake.addDestinationsToRouteArgsForCall)]
 	fake.addDestinationsToRouteArgsForCall = append(fake.addDestinationsToRouteArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.AddDestinationsToRouteMessage
+		arg3 repositories.AddDestinationsMessage
 	}{arg1, arg2, arg3})
 	stub := fake.AddDestinationsToRouteStub
 	fakeReturns := fake.addDestinationsToRouteReturns
@@ -161,13 +161,13 @@ func (fake *CFRouteRepository) AddDestinationsToRouteCallCount() int {
 	return len(fake.addDestinationsToRouteArgsForCall)
 }
 
-func (fake *CFRouteRepository) AddDestinationsToRouteCalls(stub func(context.Context, authorization.Info, repositories.AddDestinationsToRouteMessage) (repositories.RouteRecord, error)) {
+func (fake *CFRouteRepository) AddDestinationsToRouteCalls(stub func(context.Context, authorization.Info, repositories.AddDestinationsMessage) (repositories.RouteRecord, error)) {
 	fake.addDestinationsToRouteMutex.Lock()
 	defer fake.addDestinationsToRouteMutex.Unlock()
 	fake.AddDestinationsToRouteStub = stub
 }
 
-func (fake *CFRouteRepository) AddDestinationsToRouteArgsForCall(i int) (context.Context, authorization.Info, repositories.AddDestinationsToRouteMessage) {
+func (fake *CFRouteRepository) AddDestinationsToRouteArgsForCall(i int) (context.Context, authorization.Info, repositories.AddDestinationsMessage) {
 	fake.addDestinationsToRouteMutex.RLock()
 	defer fake.addDestinationsToRouteMutex.RUnlock()
 	argsForCall := fake.addDestinationsToRouteArgsForCall[i]
@@ -594,13 +594,13 @@ func (fake *CFRouteRepository) PatchRouteMetadataReturnsOnCall(i int, result1 re
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) RemoveDestinationFromRoute(arg1 context.Context, arg2 authorization.Info, arg3 repositories.RemoveDestinationFromRouteMessage) (repositories.RouteRecord, error) {
+func (fake *CFRouteRepository) RemoveDestinationFromRoute(arg1 context.Context, arg2 authorization.Info, arg3 repositories.RemoveDestinationMessage) (repositories.RouteRecord, error) {
 	fake.removeDestinationFromRouteMutex.Lock()
 	ret, specificReturn := fake.removeDestinationFromRouteReturnsOnCall[len(fake.removeDestinationFromRouteArgsForCall)]
 	fake.removeDestinationFromRouteArgsForCall = append(fake.removeDestinationFromRouteArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.RemoveDestinationFromRouteMessage
+		arg3 repositories.RemoveDestinationMessage
 	}{arg1, arg2, arg3})
 	stub := fake.RemoveDestinationFromRouteStub
 	fakeReturns := fake.removeDestinationFromRouteReturns
@@ -621,13 +621,13 @@ func (fake *CFRouteRepository) RemoveDestinationFromRouteCallCount() int {
 	return len(fake.removeDestinationFromRouteArgsForCall)
 }
 
-func (fake *CFRouteRepository) RemoveDestinationFromRouteCalls(stub func(context.Context, authorization.Info, repositories.RemoveDestinationFromRouteMessage) (repositories.RouteRecord, error)) {
+func (fake *CFRouteRepository) RemoveDestinationFromRouteCalls(stub func(context.Context, authorization.Info, repositories.RemoveDestinationMessage) (repositories.RouteRecord, error)) {
 	fake.removeDestinationFromRouteMutex.Lock()
 	defer fake.removeDestinationFromRouteMutex.Unlock()
 	fake.RemoveDestinationFromRouteStub = stub
 }
 
-func (fake *CFRouteRepository) RemoveDestinationFromRouteArgsForCall(i int) (context.Context, authorization.Info, repositories.RemoveDestinationFromRouteMessage) {
+func (fake *CFRouteRepository) RemoveDestinationFromRouteArgsForCall(i int) (context.Context, authorization.Info, repositories.RemoveDestinationMessage) {
 	fake.removeDestinationFromRouteMutex.RLock()
 	defer fake.removeDestinationFromRouteMutex.RUnlock()
 	argsForCall := fake.removeDestinationFromRouteArgsForCall[i]

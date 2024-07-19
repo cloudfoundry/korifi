@@ -413,7 +413,6 @@ var _ = Describe("RouteRepository", func() {
 			cfRoute1     *korifiv1alpha1.CFRoute
 			cfRoute2     *korifiv1alpha1.CFRoute
 			routeRecords []RouteRecord
-			listErr      error
 			queryAppGUID string
 		)
 
@@ -452,11 +451,13 @@ var _ = Describe("RouteRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			routeRecords, listErr = routeRepo.ListRoutesForApp(ctx, authInfo, queryAppGUID, space.Name)
+			var err error
+			routeRecords, err = routeRepo.ListRoutesForApp(ctx, authInfo, queryAppGUID, space.Name)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("returns a forbidden error as the user is not authorized", func() {
-			Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		It("returns en empty list as the user is not authorized", func() {
+			Expect(routeRecords).To(BeEmpty())
 		})
 
 		When("the user is authorized in space", func() {
@@ -485,30 +486,26 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("returns a list of routeRecords for each CFRoute CR", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-
-				By("returning a routeRecord in the list for one of the created CRs", func() {
-					Expect(routeRecords).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-						"GUID":      Equal(cfRoute1.Name),
-						"Host":      Equal(cfRoute1.Spec.Host),
-						"SpaceGUID": Equal(cfRoute1.Namespace),
-						"Path":      Equal(cfRoute1.Spec.Path),
-						"Protocol":  Equal(string(cfRoute1.Spec.Protocol)),
-						"Domain": MatchFields(IgnoreExtras, Fields{
-							"GUID": Equal(cfRoute1.Spec.DomainRef.Name),
-						}),
-						"Destinations": ConsistOf(MatchFields(IgnoreExtras, Fields{
-							"GUID":        Equal(cfRoute1.Spec.Destinations[0].GUID),
-							"AppGUID":     Equal(cfRoute1.Spec.Destinations[0].AppRef.Name),
-							"Port":        Equal(cfRoute1.Spec.Destinations[0].Port),
-							"ProcessType": Equal(cfRoute1.Spec.Destinations[0].ProcessType),
-							"Protocol":    Equal(cfRoute1.Spec.Destinations[0].Protocol),
-						}),
-						),
-						"CreatedAt": BeTemporally("~", time.Now(), timeCheckThreshold),
-						"UpdatedAt": PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)),
-					})))
-				})
+				Expect(routeRecords).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+					"GUID":      Equal(cfRoute1.Name),
+					"Host":      Equal(cfRoute1.Spec.Host),
+					"SpaceGUID": Equal(cfRoute1.Namespace),
+					"Path":      Equal(cfRoute1.Spec.Path),
+					"Protocol":  Equal(string(cfRoute1.Spec.Protocol)),
+					"Domain": MatchFields(IgnoreExtras, Fields{
+						"GUID": Equal(cfRoute1.Spec.DomainRef.Name),
+					}),
+					"Destinations": ConsistOf(MatchFields(IgnoreExtras, Fields{
+						"GUID":        Equal(cfRoute1.Spec.Destinations[0].GUID),
+						"AppGUID":     Equal(cfRoute1.Spec.Destinations[0].AppRef.Name),
+						"Port":        Equal(cfRoute1.Spec.Destinations[0].Port),
+						"ProcessType": Equal(cfRoute1.Spec.Destinations[0].ProcessType),
+						"Protocol":    Equal(cfRoute1.Spec.Destinations[0].Protocol),
+					}),
+					),
+					"CreatedAt": BeTemporally("~", time.Now(), timeCheckThreshold),
+					"UpdatedAt": PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)),
+				})))
 			})
 
 			When("no CFRoutes exist for the app", func() {
@@ -517,7 +514,6 @@ var _ = Describe("RouteRepository", func() {
 				})
 
 				It("returns an empty list and no error", func() {
-					Expect(listErr).ToNot(HaveOccurred())
 					Expect(routeRecords).To(BeEmpty())
 				})
 			})
@@ -763,7 +759,7 @@ var _ = Describe("RouteRepository", func() {
 
 		var (
 			appGUID                string
-			addDestinationsMessage AddDestinationsToRouteMessage
+			addDestinationsMessage AddDestinationsMessage
 			addDestinationErr      error
 			cfRoute                *korifiv1alpha1.CFRoute
 			routeRecord            RouteRecord
@@ -788,10 +784,10 @@ var _ = Describe("RouteRepository", func() {
 
 			appGUID = uuid.NewString()
 
-			addDestinationsMessage = AddDestinationsToRouteMessage{
+			addDestinationsMessage = AddDestinationsMessage{
 				RouteGUID: route1GUID,
 				SpaceGUID: space.Name,
-				NewDestinations: []DestinationMessage{
+				NewDestinations: []DesiredDestination{
 					{
 						AppGUID:     appGUID,
 						ProcessType: "web",
@@ -934,7 +930,7 @@ var _ = Describe("RouteRepository", func() {
 						appGUID1 = uuid.NewString()
 						appGUID2 = uuid.NewString()
 
-						addDestinationsMessage.NewDestinations = []DestinationMessage{
+						addDestinationsMessage.NewDestinations = []DesiredDestination{
 							{
 								AppGUID:     appGUID1,
 								ProcessType: "weba",
@@ -996,7 +992,7 @@ var _ = Describe("RouteRepository", func() {
 					BeforeEach(func() {
 						appGUID2 = uuid.NewString()
 
-						addDestinationsMessage.NewDestinations = []DestinationMessage{
+						addDestinationsMessage.NewDestinations = []DesiredDestination{
 							{
 								AppGUID:     routeDestination.AppRef.Name,
 								ProcessType: routeDestination.ProcessType,
@@ -1087,10 +1083,10 @@ var _ = Describe("RouteRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			_, removeDestinationErr = routeRepo.RemoveDestinationFromRoute(ctx, authInfo, RemoveDestinationFromRouteMessage{
-				RouteGUID:       route1GUID,
-				SpaceGUID:       space.Name,
-				DestinationGuid: destinationGUID,
+			_, removeDestinationErr = routeRepo.RemoveDestinationFromRoute(ctx, authInfo, RemoveDestinationMessage{
+				RouteGUID: route1GUID,
+				SpaceGUID: space.Name,
+				GUID:      destinationGUID,
 			})
 		})
 

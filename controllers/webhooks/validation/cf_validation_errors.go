@@ -31,7 +31,7 @@ func (v ValidationError) GetMessage() string {
 
 func (v ValidationError) ExportJSONError() error {
 	bytes, err := json.Marshal(v)
-	if err != nil { // This (probably) can't fail, untested
+	if err != nil {
 		return err
 	}
 
