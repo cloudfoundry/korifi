@@ -25,6 +25,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -168,7 +169,7 @@ func (r *Reconciler) reconcileCredentials(ctx context.Context, credentialsSecret
 		}
 
 		migratedSecret.Data = map[string][]byte{
-			korifiv1alpha1.CredentialsSecretKey: dataBytes,
+			tools.CredentialsSecretKey: dataBytes,
 		}
 		return controllerutil.SetOwnerReference(cfServiceInstance, migratedSecret, r.scheme)
 	})
@@ -182,7 +183,7 @@ func (r *Reconciler) reconcileCredentials(ctx context.Context, credentialsSecret
 
 func (r *Reconciler) validateCredentials(ctx context.Context, credentialsSecret *corev1.Secret) error {
 	return errors.Wrapf(
-		json.Unmarshal(credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey], &map[string]any{}),
+		json.Unmarshal(credentialsSecret.Data[tools.CredentialsSecretKey], &map[string]any{}),
 		"invalid credentials secret %q",
 		credentialsSecret.Name,
 	)

@@ -27,8 +27,6 @@ const (
 	PropagateDeletionAnnotation       = "cloudfoundry.org/propagate-deletion"
 	PropagatedFromLabel               = "cloudfoundry.org/propagated-from"
 
-	CredentialsSecretKey = "credentials"
-
 	RelationshipsLabelPrefix = "korifi.cloudfoundry.org/rel-"
 	RelServiceBrokerLabel    = RelationshipsLabelPrefix + "service_broker"
 	RelServiceOfferingLabel  = RelationshipsLabelPrefix + "service_offering"

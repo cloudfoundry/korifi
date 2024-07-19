@@ -156,7 +156,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBroker *kor
 
 func (r *Reconciler) validateCredentials(credentialsSecret *corev1.Secret) error {
 	creds := map[string]any{}
-	err := json.Unmarshal(credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey], &creds)
+	err := json.Unmarshal(credentialsSecret.Data[tools.CredentialsSecretKey], &creds)
 	if err != nil {
 		return fmt.Errorf("invalid credentials secret %q: %w", credentialsSecret.Name, err)
 	}

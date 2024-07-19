@@ -9,9 +9,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/iter"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -68,7 +68,7 @@ func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo au
 		return ServiceBrokerResource{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	credsSecretData, err := credentials.ToCredentialsSecretData(message.Credentials)
+	credsSecretData, err := tools.ToCredentialsSecretData(message.Credentials)
 	if err != nil {
 		return ServiceBrokerResource{}, fmt.Errorf("failed to create credentials secret data: %w", err)
 	}

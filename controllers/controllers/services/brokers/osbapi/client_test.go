@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/broker"
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -45,7 +46,7 @@ var _ = Describe("OSBAPI Client", func() {
 				Name:      uuid.NewString(),
 			},
 			Data: map[string][]byte{
-				korifiv1alpha1.CredentialsSecretKey: []byte(`{"username":"broker-user","password":"broker-password"}`),
+				tools.CredentialsSecretKey: []byte(`{"username":"broker-user","password":"broker-password"}`),
 			},
 		}
 		helpers.EnsureCreate(adminClient, creds)

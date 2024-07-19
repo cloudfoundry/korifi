@@ -106,9 +106,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			It("creates the credentials secret", func() {
 				Expect(createdSecret.Type).To(Equal(corev1.SecretTypeOpaque))
-				Expect(createdSecret.Data).To(MatchAllKeys(Keys{korifiv1alpha1.CredentialsSecretKey: Not(BeEmpty())}))
+				Expect(createdSecret.Data).To(MatchAllKeys(Keys{tools.CredentialsSecretKey: Not(BeEmpty())}))
 				credentials := map[string]any{}
-				Expect(json.Unmarshal(createdSecret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
+				Expect(json.Unmarshal(createdSecret.Data[tools.CredentialsSecretKey], &credentials)).To(Succeed())
 				Expect(credentials).To(Equal(serviceInstanceCredentials))
 			})
 		})
@@ -144,7 +144,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Namespace: space.Name,
 				},
 				StringData: map[string]string{
-					korifiv1alpha1.CredentialsSecretKey: `{"a": "b"}`,
+					tools.CredentialsSecretKey: `{"a": "b"}`,
 				},
 			}
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
@@ -236,9 +236,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("does not change the credential secret", func() {
 				Consistently(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-					g.Expect(secret.Data).To(MatchAllKeys(Keys{korifiv1alpha1.CredentialsSecretKey: Not(BeEmpty())}))
+					g.Expect(secret.Data).To(MatchAllKeys(Keys{tools.CredentialsSecretKey: Not(BeEmpty())}))
 					credentials := map[string]any{}
-					g.Expect(json.Unmarshal(secret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
+					g.Expect(json.Unmarshal(secret.Data[tools.CredentialsSecretKey], &credentials)).To(Succeed())
 					g.Expect(credentials).To(MatchAllKeys(Keys{
 						"a": Equal("b"),
 					}))
@@ -264,9 +264,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Eventually(func(g Gomega) {
 						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
-						g.Expect(secret.Data).To(MatchAllKeys(Keys{korifiv1alpha1.CredentialsSecretKey: Not(BeEmpty())}))
+						g.Expect(secret.Data).To(MatchAllKeys(Keys{tools.CredentialsSecretKey: Not(BeEmpty())}))
 						credentials := map[string]any{}
-						Expect(json.Unmarshal(secret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
+						Expect(json.Unmarshal(secret.Data[tools.CredentialsSecretKey], &credentials)).To(Succeed())
 						Expect(credentials).To(MatchAllKeys(Keys{
 							"object": MatchAllKeys(Keys{"c": Equal("d")}),
 						}))
@@ -291,7 +291,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 								Name:      "foo",
 							},
 							Data: map[string][]byte{
-								korifiv1alpha1.CredentialsSecretKey: []byte(`{"type":"database"}`),
+								tools.CredentialsSecretKey: []byte(`{"type":"database"}`),
 							},
 						})).To(Succeed())
 						Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance, func() {

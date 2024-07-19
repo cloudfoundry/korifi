@@ -10,22 +10,11 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-COPY controllers/api controllers/api
-COPY controllers/config/config.go controllers/config/config.go
-COPY controllers/controllers controllers/controllers
-COPY controllers/cleanup controllers/cleanup
-COPY controllers/coordination controllers/coordination
-COPY controllers/main.go controllers/main.go
-COPY controllers/webhooks controllers/webhooks
-
-COPY kpack-image-builder/controllers/ kpack-image-builder/controllers
-
-COPY job-task-runner/api job-task-runner/api
-COPY job-task-runner/controllers job-task-runner/controllers
-
-COPY statefulset-runner/api/ statefulset-runner/api
-COPY statefulset-runner/controllers/ statefulset-runner/controllers
-
+COPY model model
+COPY controllers controllers
+COPY kpack-image-builder kpack-image-builder
+COPY job-task-runner job-task-runner
+COPY statefulset-runner statefulset-runner
 COPY tools tools
 COPY version version
 

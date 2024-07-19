@@ -3,8 +3,8 @@ package credentials_test
 import (
 	"fmt"
 
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -20,7 +20,7 @@ var _ = Describe("Credentials", func() {
 	BeforeEach(func() {
 		credentialsSecret = &corev1.Secret{
 			Data: map[string][]byte{
-				korifiv1alpha1.CredentialsSecretKey: []byte(`{"foo":{"bar": "baz"}}`),
+				tools.CredentialsSecretKey: []byte(`{"foo":{"bar": "baz"}}`),
 			},
 		}
 	})
@@ -43,7 +43,7 @@ var _ = Describe("Credentials", func() {
 
 		When("the credentials cannot be unmarshalled", func() {
 			BeforeEach(func() {
-				credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey] = []byte("invalid")
+				credentialsSecret.Data[tools.CredentialsSecretKey] = []byte("invalid")
 			})
 
 			It("returns an error", func() {
@@ -60,7 +60,7 @@ var _ = Describe("Credentials", func() {
 
 			It("returns an error", func() {
 				Expect(err).To(MatchError(ContainSubstring(
-					fmt.Sprintf("does not contain the %q key", korifiv1alpha1.CredentialsSecretKey),
+					fmt.Sprintf("does not contain the %q key", tools.CredentialsSecretKey),
 				)))
 			})
 		})
@@ -80,7 +80,7 @@ var _ = Describe("Credentials", func() {
 
 		When("the type is specified in the credentials", func() {
 			BeforeEach(func() {
-				credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey] = []byte(`{"type":"my-type"}`)
+				credentialsSecret.Data[tools.CredentialsSecretKey] = []byte(`{"type":"my-type"}`)
 			})
 
 			It("returns the speicified type", func() {
@@ -91,7 +91,7 @@ var _ = Describe("Credentials", func() {
 
 		When("the type is not a plain string", func() {
 			BeforeEach(func() {
-				credentialsSecret.Data[korifiv1alpha1.CredentialsSecretKey] = []byte(`{"type":{"my-type":"is-not-a-string"}}`)
+				credentialsSecret.Data[tools.CredentialsSecretKey] = []byte(`{"type":{"my-type":"is-not-a-string"}}`)
 			})
 
 			It("returns user-provided type", func() {
@@ -119,7 +119,7 @@ var _ = Describe("Credentials", func() {
 		When("the credentials secrets has a 'type' attribute specified", func() {
 			BeforeEach(func() {
 				credentialsSecret.Data = map[string][]byte{
-					korifiv1alpha1.CredentialsSecretKey: []byte(`{"type": "my-type"}`),
+					tools.CredentialsSecretKey: []byte(`{"type": "my-type"}`),
 				}
 			})
 
@@ -145,11 +145,11 @@ var _ = Describe("Credentials", func() {
 		})
 
 		It("converts credentials map to a k8s secret data", func() {
-			secretData, err := credentials.ToCredentialsSecretData(creds)
+			secretData, err := tools.ToCredentialsSecretData(creds)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secretData).To(SatisfyAll(
 				HaveLen(1),
-				HaveKeyWithValue(korifiv1alpha1.CredentialsSecretKey, MatchJSON(`{"Str":"abc", "Num":5}`)),
+				HaveKeyWithValue(tools.CredentialsSecretKey, MatchJSON(`{"Str":"abc", "Num":5}`)),
 			))
 		})
 	})

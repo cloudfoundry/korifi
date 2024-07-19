@@ -9,6 +9,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -72,7 +73,7 @@ var _ = Describe("CFServiceInstance", func() {
 					Namespace: testNamespace,
 				},
 				Data: map[string][]byte{
-					korifiv1alpha1.CredentialsSecretKey: []byte(`{"foo": "bar"}`),
+					tools.CredentialsSecretKey: []byte(`{"foo": "bar"}`),
 				},
 			}
 			Expect(adminClient.Create(ctx, credentialsSecret)).To(Succeed())
@@ -211,11 +212,11 @@ var _ = Describe("CFServiceInstance", func() {
 				migratedSecret := getMigratedSecret()
 				g.Expect(migratedSecret.Type).To(Equal(corev1.SecretTypeOpaque))
 				g.Expect(migratedSecret.Data).To(MatchAllKeys(Keys{
-					korifiv1alpha1.CredentialsSecretKey: Not(BeEmpty()),
+					tools.CredentialsSecretKey: Not(BeEmpty()),
 				}))
 
 				credentials := map[string]any{}
-				g.Expect(json.Unmarshal(migratedSecret.Data[korifiv1alpha1.CredentialsSecretKey], &credentials)).To(Succeed())
+				g.Expect(json.Unmarshal(migratedSecret.Data[tools.CredentialsSecretKey], &credentials)).To(Succeed())
 				g.Expect(credentials).To(MatchAllKeys(Keys{
 					"foo": Equal("bar"),
 				}))

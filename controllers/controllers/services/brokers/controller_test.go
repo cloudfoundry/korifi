@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -98,7 +99,7 @@ var _ = Describe("CFServiceBroker", func() {
 				Namespace: testNamespace,
 			},
 			Data: map[string][]byte{
-				korifiv1alpha1.CredentialsSecretKey: []byte(`{"username": "broker-user", "password": "broker-password"}`),
+				tools.CredentialsSecretKey: []byte(`{"username": "broker-user", "password": "broker-password"}`),
 			},
 		}
 		Expect(adminClient.Create(ctx, credentialsSecret)).To(Succeed())
@@ -316,7 +317,7 @@ var _ = Describe("CFServiceBroker", func() {
 					Namespace: testNamespace,
 				},
 				Data: map[string][]byte{
-					korifiv1alpha1.CredentialsSecretKey: []byte(`{"username": "broker-user", "password": "broker-password"}`),
+					tools.CredentialsSecretKey: []byte(`{"username": "broker-user", "password": "broker-password"}`),
 				},
 			}
 			Expect(adminClient.Create(ctx, credentialsSecret)).To(Succeed())
@@ -365,7 +366,7 @@ var _ = Describe("CFServiceBroker", func() {
 			BeforeEach(func() {
 				Expect(k8s.PatchResource(ctx, adminClient, credentialsSecret, func() {
 					credentialsSecret.Data = map[string][]byte{
-						korifiv1alpha1.CredentialsSecretKey: []byte(`{ "password": "broker-password"}`),
+						tools.CredentialsSecretKey: []byte(`{ "password": "broker-password"}`),
 					}
 				})).To(Succeed())
 			})
@@ -386,7 +387,7 @@ var _ = Describe("CFServiceBroker", func() {
 			BeforeEach(func() {
 				Expect(k8s.PatchResource(ctx, adminClient, credentialsSecret, func() {
 					credentialsSecret.Data = map[string][]byte{
-						korifiv1alpha1.CredentialsSecretKey: []byte(`{ "username": "broker-username"}`),
+						tools.CredentialsSecretKey: []byte(`{ "username": "broker-username"}`),
 					}
 				})).To(Succeed())
 			})
