@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/k8sns"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"golang.org/x/exp/maps"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -165,7 +166,7 @@ var _ = Describe("K8S NS Reconciler Integration Tests", func() {
 			Expect(createdSecret.Type).To(Equal(imageRegistrySecret.Type))
 
 			By("omitting annotations from deployment tools", func() {
-				Expect(maps.Keys(createdSecret.Annotations)).NotTo(ContainElements("kapp.k14s.io/foo", "meta.helm.sh/baz"))
+				Expect(slices.Collect(maps.Keys(createdSecret.Annotations))).NotTo(ContainElements("kapp.k14s.io/foo", "meta.helm.sh/baz"))
 			})
 		})
 

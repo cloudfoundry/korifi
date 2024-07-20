@@ -3,18 +3,19 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
-	"golang.org/x/exp/maps"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
 
 func printDocForSchema(schema map[string]any, indentLevel int) {
 	indentStr := strings.Repeat("  ", indentLevel)
-	names := maps.Keys(schema)
+	names := slices.Collect(maps.Keys(schema))
 	sort.Slice(names, func(a, b int) bool {
 		if names[a] == "global" {
 			return true
