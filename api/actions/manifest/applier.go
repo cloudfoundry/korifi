@@ -3,6 +3,8 @@ package manifest
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/actions/shared"
@@ -12,7 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/tools/singleton"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"golang.org/x/exp/maps"
 )
 
 type Applier struct {
@@ -218,7 +219,7 @@ func (a *Applier) applyServices(ctx context.Context, authInfo authorization.Info
 	}
 
 	serviceInstances, err := a.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, repositories.ListServiceInstanceMessage{
-		Names: maps.Keys(desiredServiceNames),
+		Names: slices.Collect(maps.Keys(desiredServiceNames)),
 	})
 	if err != nil {
 		return err
