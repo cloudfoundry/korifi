@@ -12,7 +12,7 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
 	github.com/aws/aws-sdk-go-v2/config v1.27.27
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.30.3
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.31.0
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.35.0
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
@@ -29,7 +29,7 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.8.1
 	github.com/mileusna/useragent v1.3.4
 	github.com/onsi/ginkgo/v2 v2.19.0
-	github.com/onsi/gomega v1.33.1
+	github.com/onsi/gomega v1.34.0
 	github.com/pivotal/kpack v0.15.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/servicebinding/runtime v1.0.0
