@@ -28,7 +28,7 @@ require (
 	github.com/jellydator/validation v1.1.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.8.1
 	github.com/mileusna/useragent v1.3.4
-	github.com/onsi/ginkgo/v2 v2.19.0
+	github.com/onsi/ginkgo/v2 v2.19.1
 	github.com/onsi/gomega v1.34.0
 	github.com/pivotal/kpack v0.15.0
 	github.com/satori/go.uuid v1.2.0
