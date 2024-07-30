@@ -11,11 +11,12 @@ import (
 )
 
 type CFServicePlanRepository struct {
-	ListPlansStub        func(context.Context, authorization.Info) ([]repositories.ServicePlanRecord, error)
+	ListPlansStub        func(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
 	listPlansMutex       sync.RWMutex
 	listPlansArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
+		arg3 repositories.ListServicePlanMessage
 	}
 	listPlansReturns struct {
 		result1 []repositories.ServicePlanRecord
@@ -29,19 +30,20 @@ type CFServicePlanRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFServicePlanRepository) ListPlans(arg1 context.Context, arg2 authorization.Info) ([]repositories.ServicePlanRecord, error) {
+func (fake *CFServicePlanRepository) ListPlans(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error) {
 	fake.listPlansMutex.Lock()
 	ret, specificReturn := fake.listPlansReturnsOnCall[len(fake.listPlansArgsForCall)]
 	fake.listPlansArgsForCall = append(fake.listPlansArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-	}{arg1, arg2})
+		arg3 repositories.ListServicePlanMessage
+	}{arg1, arg2, arg3})
 	stub := fake.ListPlansStub
 	fakeReturns := fake.listPlansReturns
-	fake.recordInvocation("ListPlans", []interface{}{arg1, arg2})
+	fake.recordInvocation("ListPlans", []interface{}{arg1, arg2, arg3})
 	fake.listPlansMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -55,17 +57,17 @@ func (fake *CFServicePlanRepository) ListPlansCallCount() int {
 	return len(fake.listPlansArgsForCall)
 }
 
-func (fake *CFServicePlanRepository) ListPlansCalls(stub func(context.Context, authorization.Info) ([]repositories.ServicePlanRecord, error)) {
+func (fake *CFServicePlanRepository) ListPlansCalls(stub func(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)) {
 	fake.listPlansMutex.Lock()
 	defer fake.listPlansMutex.Unlock()
 	fake.ListPlansStub = stub
 }
 
-func (fake *CFServicePlanRepository) ListPlansArgsForCall(i int) (context.Context, authorization.Info) {
+func (fake *CFServicePlanRepository) ListPlansArgsForCall(i int) (context.Context, authorization.Info, repositories.ListServicePlanMessage) {
 	fake.listPlansMutex.RLock()
 	defer fake.listPlansMutex.RUnlock()
 	argsForCall := fake.listPlansArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFServicePlanRepository) ListPlansReturns(result1 []repositories.ServicePlanRecord, result2 error) {
