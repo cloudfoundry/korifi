@@ -11,11 +11,12 @@ import (
 )
 
 type CFServiceOfferingRepository struct {
-	ListOfferingsStub        func(context.Context, authorization.Info) ([]repositories.ServiceOfferingRecord, error)
+	ListOfferingsStub        func(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)
 	listOfferingsMutex       sync.RWMutex
 	listOfferingsArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
+		arg3 repositories.ListServiceOfferingMessage
 	}
 	listOfferingsReturns struct {
 		result1 []repositories.ServiceOfferingRecord
@@ -29,19 +30,20 @@ type CFServiceOfferingRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferings(arg1 context.Context, arg2 authorization.Info) ([]repositories.ServiceOfferingRecord, error) {
+func (fake *CFServiceOfferingRepository) ListOfferings(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error) {
 	fake.listOfferingsMutex.Lock()
 	ret, specificReturn := fake.listOfferingsReturnsOnCall[len(fake.listOfferingsArgsForCall)]
 	fake.listOfferingsArgsForCall = append(fake.listOfferingsArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-	}{arg1, arg2})
+		arg3 repositories.ListServiceOfferingMessage
+	}{arg1, arg2, arg3})
 	stub := fake.ListOfferingsStub
 	fakeReturns := fake.listOfferingsReturns
-	fake.recordInvocation("ListOfferings", []interface{}{arg1, arg2})
+	fake.recordInvocation("ListOfferings", []interface{}{arg1, arg2, arg3})
 	fake.listOfferingsMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -55,17 +57,17 @@ func (fake *CFServiceOfferingRepository) ListOfferingsCallCount() int {
 	return len(fake.listOfferingsArgsForCall)
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferingsCalls(stub func(context.Context, authorization.Info) ([]repositories.ServiceOfferingRecord, error)) {
+func (fake *CFServiceOfferingRepository) ListOfferingsCalls(stub func(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)) {
 	fake.listOfferingsMutex.Lock()
 	defer fake.listOfferingsMutex.Unlock()
 	fake.ListOfferingsStub = stub
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferingsArgsForCall(i int) (context.Context, authorization.Info) {
+func (fake *CFServiceOfferingRepository) ListOfferingsArgsForCall(i int) (context.Context, authorization.Info, repositories.ListServiceOfferingMessage) {
 	fake.listOfferingsMutex.RLock()
 	defer fake.listOfferingsMutex.RUnlock()
 	argsForCall := fake.listOfferingsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFServiceOfferingRepository) ListOfferingsReturns(result1 []repositories.ServiceOfferingRecord, result2 error) {

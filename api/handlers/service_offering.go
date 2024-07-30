@@ -8,6 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
@@ -20,20 +21,23 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFServiceOfferingRepository . CFServiceOfferingRepository
 type CFServiceOfferingRepository interface {
-	ListOfferings(context.Context, authorization.Info) ([]repositories.ServiceOfferingRecord, error)
+	ListOfferings(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)
 }
 
 type ServiceOffering struct {
 	serverURL           url.URL
+	requestValidator    RequestValidator
 	serviceOfferingRepo CFServiceOfferingRepository
 }
 
 func NewServiceOffering(
 	serverURL url.URL,
+	requestValidator RequestValidator,
 	serviceOfferingRepo CFServiceOfferingRepository,
 ) *ServiceOffering {
 	return &ServiceOffering{
 		serverURL:           serverURL,
+		requestValidator:    requestValidator,
 		serviceOfferingRepo: serviceOfferingRepo,
 	}
 }
@@ -42,7 +46,12 @@ func (h *ServiceOffering) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-offering.list")
 
-	serviceOfferingList, err := h.serviceOfferingRepo.ListOfferings(r.Context(), authInfo)
+	var payload payloads.ServiceOfferingList
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
+	}
+
+	serviceOfferingList, err := h.serviceOfferingRepo.ListOfferings(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service offerings")
 	}
