@@ -423,6 +423,7 @@ func main() {
 		),
 		handlers.NewServiceOffering(
 			*serverURL,
+			requestValidator,
 			serviceOfferingRepo,
 		),
 		handlers.NewServicePlan(

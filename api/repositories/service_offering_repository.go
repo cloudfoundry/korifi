@@ -31,6 +31,14 @@ type ServiceOfferingRepo struct {
 	rootNamespace     string
 }
 
+type ListServiceOfferingMessage struct {
+	Names []string
+}
+
+func (m *ListServiceOfferingMessage) matches(cfServiceOffering korifiv1alpha1.CFServiceOffering) bool {
+	return emptyOrContains(m.Names, cfServiceOffering.Spec.Name)
+}
+
 func NewServiceOfferingRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	rootNamespace string,
@@ -41,7 +49,7 @@ func NewServiceOfferingRepo(
 	}
 }
 
-func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info) ([]ServiceOfferingRecord, error) {
+func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return []ServiceOfferingRecord{}, fmt.Errorf("failed to build user client: %w", err)
@@ -59,7 +67,7 @@ func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo author
 		)
 	}
 
-	return iter.Map(iter.Lift(offeringsList.Items), offeringToRecord).Collect(), nil
+	return iter.Map(iter.Lift(offeringsList.Items).Filter(message.matches), offeringToRecord).Collect(), nil
 }
 
 func offeringToRecord(offering korifiv1alpha1.CFServiceOffering) ServiceOfferingRecord {

@@ -6,6 +6,7 @@ import (
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
@@ -16,13 +17,18 @@ import (
 )
 
 var _ = Describe("ServiceOffering", func() {
-	var serviceOfferingRepo *fake.CFServiceOfferingRepository
+	var (
+		requestValidator    *fake.RequestValidator
+		serviceOfferingRepo *fake.CFServiceOfferingRepository
+	)
 
 	BeforeEach(func() {
+		requestValidator = new(fake.RequestValidator)
 		serviceOfferingRepo = new(fake.CFServiceOfferingRepository)
 
 		apiHandler := NewServiceOffering(
 			*serverURL,
+			requestValidator,
 			serviceOfferingRepo,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
@@ -54,7 +60,7 @@ var _ = Describe("ServiceOffering", func() {
 
 		It("lists the service offerings", func() {
 			Expect(serviceOfferingRepo.ListOfferingsCallCount()).To(Equal(1))
-			_, actualAuthInfo := serviceOfferingRepo.ListOfferingsArgsForCall(0)
+			_, actualAuthInfo, _ := serviceOfferingRepo.ListOfferingsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
@@ -67,6 +73,30 @@ var _ = Describe("ServiceOffering", func() {
 				MatchJSONPath("$.resources[0].links.service_plans.href", "https://api.example.org/v3/service_plans?service_offering_guids=offering-guid"),
 				MatchJSONPath("$.resources[0].links.service_broker.href", "https://api.example.org/v3/service_brokers/broker-guid"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingList{
+					Names: "a1,a2",
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(serviceOfferingRepo.ListOfferingsCallCount()).To(Equal(1))
+				_, _, message := serviceOfferingRepo.ListOfferingsArgsForCall(0)
+				Expect(message.Names).To(ConsistOf("a1", "a2"))
+			})
+		})
+
+		When("the request is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("invalid-request"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
 		})
 
 		When("listing the offerings fails", func() {

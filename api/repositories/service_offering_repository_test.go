@@ -26,6 +26,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 		var (
 			offeringGUID    string
 			listedOfferings []repositories.ServiceOfferingRecord
+			message         repositories.ListServiceOfferingMessage
 			listErr         error
 		)
 
@@ -65,10 +66,12 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					},
 				},
 			})).To(Succeed())
+
+			message = repositories.ListServiceOfferingMessage{}
 		})
 
 		JustBeforeEach(func() {
-			listedOfferings, listErr = repo.ListOfferings(ctx, authInfo)
+			listedOfferings, listErr = repo.ListOfferings(ctx, authInfo, message)
 		})
 
 		It("lists service offerings", func() {
@@ -112,6 +115,32 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					},
 				}),
 			})))
+		})
+
+		When("filtering by name", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceOffering{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: rootNamespace,
+						Name:      uuid.NewString(),
+					},
+					Spec: korifiv1alpha1.CFServiceOfferingSpec{
+						ServiceOffering: services.ServiceOffering{
+							Name: "my-other-offering",
+						},
+					},
+				})).To(Succeed())
+
+				message.Names = []string{"my-offering"}
+			})
+
+			It("returns the matching offerings", func() {
+				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("my-offering"),
+					}),
+				})))
+			})
 		})
 	})
 })
