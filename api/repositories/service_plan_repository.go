@@ -40,7 +40,15 @@ func NewServicePlanRepo(
 	}
 }
 
-func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info) ([]ServicePlanRecord, error) {
+type ListServicePlanMessage struct {
+	ServiceOfferingGUIDs []string
+}
+
+func (m *ListServicePlanMessage) matches(cfServicePlan korifiv1alpha1.CFServicePlan) bool {
+	return emptyOrContains(m.ServiceOfferingGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel])
+}
+
+func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]ServicePlanRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
@@ -51,7 +59,7 @@ func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.
 		return nil, apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
-	return iter.Map(iter.Lift(cfServicePlans.Items), planToRecord).Collect(), nil
+	return iter.Map(iter.Lift(cfServicePlans.Items).Filter(message.matches), planToRecord).Collect(), nil
 }
 
 func planToRecord(plan korifiv1alpha1.CFServicePlan) ServicePlanRecord {

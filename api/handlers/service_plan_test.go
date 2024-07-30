@@ -6,6 +6,7 @@ import (
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
@@ -15,13 +16,18 @@ import (
 )
 
 var _ = Describe("ServicePlan", func() {
-	var servicePlanRepo *fake.CFServicePlanRepository
+	var (
+		servicePlanRepo  *fake.CFServicePlanRepository
+		requestValidator *fake.RequestValidator
+	)
 
 	BeforeEach(func() {
+		requestValidator = new(fake.RequestValidator)
 		servicePlanRepo = new(fake.CFServicePlanRepository)
 
 		apiHandler := NewServicePlan(
 			*serverURL,
+			requestValidator,
 			servicePlanRepo,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
@@ -52,7 +58,7 @@ var _ = Describe("ServicePlan", func() {
 
 		It("lists the service plans", func() {
 			Expect(servicePlanRepo.ListPlansCallCount()).To(Equal(1))
-			_, actualAuthInfo := servicePlanRepo.ListPlansArgsForCall(0)
+			_, actualAuthInfo, _ := servicePlanRepo.ListPlansArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
@@ -64,6 +70,30 @@ var _ = Describe("ServicePlan", func() {
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/service_plans/plan-guid"),
 				MatchJSONPath("$.resources[0].links.service_offering.href", "https://api.example.org/v3/service_offerings/service-offering-guid"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServicePlanList{
+					ServiceOfferingGUIDs: "a1,a2",
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(servicePlanRepo.ListPlansCallCount()).To(Equal(1))
+				_, _, message := servicePlanRepo.ListPlansArgsForCall(0)
+				Expect(message.ServiceOfferingGUIDs).To(ConsistOf("a1", "a2"))
+			})
+		})
+
+		When("the request is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("invalid-request"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
 		})
 
 		When("listing the plans fails", func() {

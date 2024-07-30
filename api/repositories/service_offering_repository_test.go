@@ -135,6 +135,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			})
 
 			It("returns the matching offerings", func() {
+				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
 					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
 						"Name": Equal("my-offering"),

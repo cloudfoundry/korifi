@@ -8,6 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
@@ -20,21 +21,24 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFServicePlanRepository . CFServicePlanRepository
 type CFServicePlanRepository interface {
-	ListPlans(context.Context, authorization.Info) ([]repositories.ServicePlanRecord, error)
+	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
 }
 
 type ServicePlan struct {
-	serverURL       url.URL
-	servicePlanRepo CFServicePlanRepository
+	serverURL        url.URL
+	requestValidator RequestValidator
+	servicePlanRepo  CFServicePlanRepository
 }
 
 func NewServicePlan(
 	serverURL url.URL,
+	requestValidator RequestValidator,
 	servicePlanRepo CFServicePlanRepository,
 ) *ServicePlan {
 	return &ServicePlan{
-		serverURL:       serverURL,
-		servicePlanRepo: servicePlanRepo,
+		serverURL:        serverURL,
+		requestValidator: requestValidator,
+		servicePlanRepo:  servicePlanRepo,
 	}
 }
 
@@ -42,7 +46,12 @@ func (h *ServicePlan) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.list")
 
-	servicePlanList, err := h.servicePlanRepo.ListPlans(r.Context(), authInfo)
+	var payload payloads.ServicePlanList
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
+	}
+
+	servicePlanList, err := h.servicePlanRepo.ListPlans(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service plans")
 	}

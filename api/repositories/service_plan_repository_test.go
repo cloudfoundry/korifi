@@ -25,6 +25,7 @@ var _ = Describe("ServicePlanRepo", func() {
 		var (
 			planGUID    string
 			listedPlans []repositories.ServicePlanRecord
+			message     repositories.ListServicePlanMessage
 			listErr     error
 		)
 
@@ -82,10 +83,12 @@ var _ = Describe("ServicePlanRepo", func() {
 					},
 				},
 			})).To(Succeed())
+
+			message = repositories.ListServicePlanMessage{}
 		})
 
 		JustBeforeEach(func() {
-			listedPlans, listErr = repo.ListPlans(ctx, authInfo)
+			listedPlans, listErr = repo.ListPlans(ctx, authInfo, message)
 		})
 
 		It("lists service offerings", func() {
@@ -147,6 +150,35 @@ var _ = Describe("ServicePlanRepo", func() {
 					},
 				}),
 			})))
+		})
+
+		When("filtering by service_offering_guid", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServicePlan{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: rootNamespace,
+						Name:      uuid.NewString(),
+						Labels: map[string]string{
+							korifiv1alpha1.RelServiceOfferingLabel: "other-offering-guid",
+						},
+					},
+				})).To(Succeed())
+
+				message.ServiceOfferingGUIDs = []string{"other-offering-guid"}
+			})
+
+			It("returns matching service plans", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"Relationships": Equal(repositories.ServicePlanRelationships{
+						ServiceOffering: model.ToOneRelationship{
+							Data: model.Relationship{
+								GUID: "other-offering-guid",
+							},
+						},
+					}),
+				})))
+			})
 		})
 	})
 })

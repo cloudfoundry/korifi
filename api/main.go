@@ -428,6 +428,7 @@ func main() {
 		),
 		handlers.NewServicePlan(
 			*serverURL,
+			requestValidator,
 			servicePlanRepo,
 		),
 	}
