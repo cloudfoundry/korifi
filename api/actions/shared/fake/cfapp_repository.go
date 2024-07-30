@@ -26,21 +26,6 @@ type CFAppRepository struct {
 		result1 repositories.AppRecord
 		result2 error
 	}
-	CreateOrPatchAppEnvVarsStub        func(context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
-	createOrPatchAppEnvVarsMutex       sync.RWMutex
-	createOrPatchAppEnvVarsArgsForCall []struct {
-		arg1 context.Context
-		arg2 authorization.Info
-		arg3 repositories.CreateOrPatchAppEnvVarsMessage
-	}
-	createOrPatchAppEnvVarsReturns struct {
-		result1 repositories.AppEnvVarsRecord
-		result2 error
-	}
-	createOrPatchAppEnvVarsReturnsOnCall map[int]struct {
-		result1 repositories.AppEnvVarsRecord
-		result2 error
-	}
 	GetAppStub        func(context.Context, authorization.Info, string) (repositories.AppRecord, error)
 	getAppMutex       sync.RWMutex
 	getAppArgsForCall []struct {
@@ -152,72 +137,6 @@ func (fake *CFAppRepository) CreateAppReturnsOnCall(i int, result1 repositories.
 	}
 	fake.createAppReturnsOnCall[i] = struct {
 		result1 repositories.AppRecord
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFAppRepository) CreateOrPatchAppEnvVars(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error) {
-	fake.createOrPatchAppEnvVarsMutex.Lock()
-	ret, specificReturn := fake.createOrPatchAppEnvVarsReturnsOnCall[len(fake.createOrPatchAppEnvVarsArgsForCall)]
-	fake.createOrPatchAppEnvVarsArgsForCall = append(fake.createOrPatchAppEnvVarsArgsForCall, struct {
-		arg1 context.Context
-		arg2 authorization.Info
-		arg3 repositories.CreateOrPatchAppEnvVarsMessage
-	}{arg1, arg2, arg3})
-	stub := fake.CreateOrPatchAppEnvVarsStub
-	fakeReturns := fake.createOrPatchAppEnvVarsReturns
-	fake.recordInvocation("CreateOrPatchAppEnvVars", []interface{}{arg1, arg2, arg3})
-	fake.createOrPatchAppEnvVarsMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2, arg3)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *CFAppRepository) CreateOrPatchAppEnvVarsCallCount() int {
-	fake.createOrPatchAppEnvVarsMutex.RLock()
-	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
-	return len(fake.createOrPatchAppEnvVarsArgsForCall)
-}
-
-func (fake *CFAppRepository) CreateOrPatchAppEnvVarsCalls(stub func(context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)) {
-	fake.createOrPatchAppEnvVarsMutex.Lock()
-	defer fake.createOrPatchAppEnvVarsMutex.Unlock()
-	fake.CreateOrPatchAppEnvVarsStub = stub
-}
-
-func (fake *CFAppRepository) CreateOrPatchAppEnvVarsArgsForCall(i int) (context.Context, authorization.Info, repositories.CreateOrPatchAppEnvVarsMessage) {
-	fake.createOrPatchAppEnvVarsMutex.RLock()
-	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
-	argsForCall := fake.createOrPatchAppEnvVarsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
-}
-
-func (fake *CFAppRepository) CreateOrPatchAppEnvVarsReturns(result1 repositories.AppEnvVarsRecord, result2 error) {
-	fake.createOrPatchAppEnvVarsMutex.Lock()
-	defer fake.createOrPatchAppEnvVarsMutex.Unlock()
-	fake.CreateOrPatchAppEnvVarsStub = nil
-	fake.createOrPatchAppEnvVarsReturns = struct {
-		result1 repositories.AppEnvVarsRecord
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *CFAppRepository) CreateOrPatchAppEnvVarsReturnsOnCall(i int, result1 repositories.AppEnvVarsRecord, result2 error) {
-	fake.createOrPatchAppEnvVarsMutex.Lock()
-	defer fake.createOrPatchAppEnvVarsMutex.Unlock()
-	fake.CreateOrPatchAppEnvVarsStub = nil
-	if fake.createOrPatchAppEnvVarsReturnsOnCall == nil {
-		fake.createOrPatchAppEnvVarsReturnsOnCall = make(map[int]struct {
-			result1 repositories.AppEnvVarsRecord
-			result2 error
-		})
-	}
-	fake.createOrPatchAppEnvVarsReturnsOnCall[i] = struct {
-		result1 repositories.AppEnvVarsRecord
 		result2 error
 	}{result1, result2}
 }
@@ -425,8 +344,6 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.createAppMutex.RLock()
 	defer fake.createAppMutex.RUnlock()
-	fake.createOrPatchAppEnvVarsMutex.RLock()
-	defer fake.createOrPatchAppEnvVarsMutex.RUnlock()
 	fake.getAppMutex.RLock()
 	defer fake.getAppMutex.RUnlock()
 	fake.listAppsMutex.RLock()
