@@ -19,14 +19,14 @@ var _ = Describe("Service Plan", func() {
 	var (
 		baseURL *url.URL
 		output  []byte
-		record  repositories.ServicePlanResource
+		record  repositories.ServicePlanRecord
 	)
 
 	BeforeEach(func() {
 		var err error
 		baseURL, err = url.Parse("https://api.example.org")
 		Expect(err).NotTo(HaveOccurred())
-		record = repositories.ServicePlanResource{
+		record = repositories.ServicePlanRecord{
 			ServicePlan: services.ServicePlan{
 				BrokerServicePlan: services.BrokerServicePlan{
 					Name:        "my-service-plan",
@@ -134,10 +134,6 @@ var _ = Describe("Service Plan", func() {
 			"guid": "resource-guid",
 			"created_at": "1970-01-01T00:00:01Z",
 			"updated_at": "1970-01-01T00:00:02Z",
-			"state": {
-			  "Status": 0,
-			  "Details": ""
-			},
 			"metadata": {
 				"labels": {
 					"label": "label-foo"

@@ -51,7 +51,7 @@ var _ = Describe("Droplets", func() {
 						Type: "docker",
 					},
 				})
-				pkgGUID := createPackage(appGUID, packageResource{
+				pkgGUID := createPackage(packageResource{
 					typedResource: typedResource{
 						Type: "docker",
 						resource: resource{

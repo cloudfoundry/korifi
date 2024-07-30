@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/gomega/gstruct"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -55,7 +56,7 @@ var _ = Describe("ServiceBroker", func() {
 			}
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
 
-			serviceBrokerRepo.CreateServiceBrokerReturns(repositories.ServiceBrokerResource{
+			serviceBrokerRepo.CreateServiceBrokerReturns(repositories.ServiceBrokerRecord{
 				CFResource: model.CFResource{
 					GUID: "service-broker-guid",
 				},
@@ -91,7 +92,7 @@ var _ = Describe("ServiceBroker", func() {
 
 		When("creating the service broker fails", func() {
 			BeforeEach(func() {
-				serviceBrokerRepo.CreateServiceBrokerReturns(repositories.ServiceBrokerResource{}, errors.New("create-service-broker-error"))
+				serviceBrokerRepo.CreateServiceBrokerReturns(repositories.ServiceBrokerRecord{}, errors.New("create-service-broker-error"))
 			})
 
 			It("returns an error", func() {
@@ -102,7 +103,7 @@ var _ = Describe("ServiceBroker", func() {
 
 	Describe("GET /v3/service_brokers", func() {
 		BeforeEach(func() {
-			serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerResource{
+			serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{
 				{
 					CFResource: model.CFResource{
 						GUID: "broker-guid",
@@ -171,7 +172,7 @@ var _ = Describe("ServiceBroker", func() {
 
 	Describe("DELETE /v3/service_brokers/guid", func() {
 		BeforeEach(func() {
-			serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerResource{
+			serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{
 				CFResource: model.CFResource{
 					GUID: "broker-guid",
 				},
@@ -199,7 +200,7 @@ var _ = Describe("ServiceBroker", func() {
 
 		When("getting the service broker is not allowed", func() {
 			BeforeEach(func() {
-				serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerResource{}, apierrors.NewForbiddenError(nil, repositories.ServiceBrokerResourceType))
+				serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBrokerResourceType))
 			})
 
 			It("returns a not found error", func() {
@@ -209,7 +210,7 @@ var _ = Describe("ServiceBroker", func() {
 
 		When("getting the service broker fails", func() {
 			BeforeEach(func() {
-				serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerResource{}, errors.New("get-broker-err"))
+				serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{}, errors.New("get-broker-err"))
 			})
 
 			It("returns an error", func() {
@@ -224,6 +225,121 @@ var _ = Describe("ServiceBroker", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("PATCH /v3/service_brokers", func() {
+		BeforeEach(func() {
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceBrokerUpdate{
+				Name: tools.PtrTo("new-name"),
+			})
+
+			serviceBrokerRepo.UpdateServiceBrokerReturns(repositories.ServiceBrokerRecord{
+				CFResource: model.CFResource{
+					GUID: "service-broker-guid",
+				},
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/service_brokers/service-broker-guid", strings.NewReader("the-json-body"))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("updates the service broker", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
+
+			Expect(serviceBrokerRepo.UpdateServiceBrokerCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualUpdateMesage := serviceBrokerRepo.UpdateServiceBrokerArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualUpdateMesage).To(Equal(repositories.UpdateServiceBrokerMessage{
+				GUID: "service-broker-guid",
+				Name: tools.PtrTo("new-name"),
+			}))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/service_broker.update~service-broker-guid"))
+		})
+
+		When("only metadata is updated", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceBrokerUpdate{
+					Metadata: payloads.MetadataPatch{
+						Labels: map[string]*string{
+							"foo": tools.PtrTo("bar"),
+						},
+					},
+				})
+				serviceBrokerRepo.UpdateServiceBrokerReturns(repositories.ServiceBrokerRecord{
+					CFResource: model.CFResource{
+						GUID: "service-broker-guid",
+						Metadata: model.Metadata{
+							Labels: map[string]string{
+								"foo": "bar",
+							},
+						},
+					},
+				}, nil)
+			})
+
+			It("returns OK response", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.guid", "service-broker-guid"),
+					MatchJSONPath("$.metadata.labels.foo", "bar"),
+					MatchJSONPath("$.links.self.href", "https://api.example.org/v3/service_brokers/service-broker-guid"),
+				)))
+			})
+		})
+
+		When("the user doesn't have permission to get the broker", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBrokerResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.ServiceBrokerResourceType)
+			})
+
+			It("does not call update", func() {
+				Expect(serviceBrokerRepo.UpdateServiceBrokerCallCount()).To(Equal(0))
+			})
+		})
+
+		When("fetching the broker errors", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{}, errors.New("get-broker-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+
+			It("does not call update", func() {
+				Expect(serviceBrokerRepo.UpdateServiceBrokerCallCount()).To(Equal(0))
+			})
+		})
+
+		When("updating the broker fails", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.UpdateServiceBrokerReturns(repositories.ServiceBrokerRecord{}, errors.New("update-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the request body is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(errors.New("validation-err"), "validation error"))
+			})
+
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError("validation error")
 			})
 		})
 	})

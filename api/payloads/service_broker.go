@@ -36,7 +36,7 @@ func (c ServiceBrokerCreate) Validate() error {
 	)
 }
 
-func (c ServiceBrokerCreate) ToCreateServiceBrokerMessage() repositories.CreateServiceBrokerMessage {
+func (c ServiceBrokerCreate) ToMessage() repositories.CreateServiceBrokerMessage {
 	return repositories.CreateServiceBrokerMessage{
 		Broker:      c.ServiceBroker,
 		Metadata:    c.Metadata,
@@ -61,4 +61,41 @@ func (b *ServiceBrokerList) ToMessage() repositories.ListServiceBrokerMessage {
 	return repositories.ListServiceBrokerMessage{
 		Names: parse.ArrayParam(b.Names),
 	}
+}
+
+type ServiceBrokerUpdate struct {
+	Name           *string               `json:"name"`
+	URL            *string               `json:"url"`
+	Authentication *BrokerAuthentication `json:"authentication"`
+	Metadata       MetadataPatch         `json:"metadata"`
+}
+
+func (c ServiceBrokerUpdate) Validate() error {
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Name),
+		jellidation.Field(&c.URL),
+		jellidation.Field(&c.Authentication),
+	)
+}
+
+func (b *ServiceBrokerUpdate) IsAsyncRequest() bool {
+	return b.Name != nil || b.URL != nil || b.Authentication != nil
+}
+
+func (b *ServiceBrokerUpdate) ToMessage(brokerGUID string) repositories.UpdateServiceBrokerMessage {
+	message := repositories.UpdateServiceBrokerMessage{
+		GUID:          brokerGUID,
+		Name:          b.Name,
+		URL:           b.URL,
+		MetadataPatch: repositories.MetadataPatch(b.Metadata),
+	}
+
+	if b.Authentication != nil {
+		message.Credentials = &services.BrokerCredentials{
+			Username: b.Authentication.Credentials.Username,
+			Password: b.Authentication.Credentials.Password,
+		}
+	}
+
+	return message
 }

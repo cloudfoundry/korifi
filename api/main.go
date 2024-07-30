@@ -353,6 +353,7 @@ func main() {
 			},
 			map[string]handlers.StateRepository{
 				handlers.ServiceBrokerCreateJobType: serviceBrokerRepo,
+				handlers.ServiceBrokerUpdateJobType: serviceBrokerRepo,
 			},
 			500*time.Millisecond,
 		),

@@ -155,7 +155,7 @@ var _ = Describe("Job", func() {
 
 		BeforeEach(func() {
 			stateRepo = new(fake.StateRepository)
-			stateRepo.GetStateReturns(model.CFResourceState{}, nil)
+			stateRepo.GetStateReturns(model.CFResourceStateUnknown, nil)
 			stateRepos["testing.state"] = stateRepo
 
 			jobGUID = "testing.state~my-resource-guid"
@@ -179,9 +179,7 @@ var _ = Describe("Job", func() {
 
 		When("the resource state is Ready", func() {
 			BeforeEach(func() {
-				stateRepo.GetStateReturns(model.CFResourceState{
-					Status: model.CFResourceStatusReady,
-				}, nil)
+				stateRepo.GetStateReturns(model.CFResourceStateReady, nil)
 			})
 
 			It("returns a complete status", func() {
@@ -194,7 +192,7 @@ var _ = Describe("Job", func() {
 
 		When("the user does not have permission to see the resource", func() {
 			BeforeEach(func() {
-				stateRepo.GetStateReturns(model.CFResourceState{}, fmt.Errorf("wrapped err: %w", apierrors.NewForbiddenError(nil, "foo")))
+				stateRepo.GetStateReturns(model.CFResourceStateUnknown, fmt.Errorf("wrapped err: %w", apierrors.NewForbiddenError(nil, "foo")))
 			})
 
 			It("returns a complete status", func() {
@@ -207,7 +205,7 @@ var _ = Describe("Job", func() {
 
 		When("getting the state fails", func() {
 			BeforeEach(func() {
-				stateRepo.GetStateReturns(model.CFResourceState{}, errors.New("get-state-error"))
+				stateRepo.GetStateReturns(model.CFResourceStateUnknown, errors.New("get-state-error"))
 			})
 
 			It("returns an error", func() {

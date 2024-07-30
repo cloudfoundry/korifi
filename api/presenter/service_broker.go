@@ -16,19 +16,19 @@ type ServiceBrokerLinks struct {
 }
 
 type ServiceBrokerResponse struct {
-	repositories.ServiceBrokerResource
+	repositories.ServiceBrokerRecord
 	Links ServiceBrokerLinks `json:"links"`
 }
 
-func ForServiceBroker(serviceBrokerResource repositories.ServiceBrokerResource, baseURL url.URL) ServiceBrokerResponse {
+func ForServiceBroker(serviceBrokerRecord repositories.ServiceBrokerRecord, baseURL url.URL) ServiceBrokerResponse {
 	return ServiceBrokerResponse{
-		serviceBrokerResource,
+		serviceBrokerRecord,
 		ServiceBrokerLinks{
 			Self: Link{
-				HRef: buildURL(baseURL).appendPath(serviceBrokersBase, serviceBrokerResource.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(serviceBrokersBase, serviceBrokerRecord.GUID).build(),
 			},
 			ServiceOfferings: Link{
-				HRef: buildURL(baseURL).appendPath(serviceOfferingsBase).setQuery("service_broker_guids=" + serviceBrokerResource.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(serviceOfferingsBase).setQuery("service_broker_guids=" + serviceBrokerRecord.GUID).build(),
 			},
 		},
 	}

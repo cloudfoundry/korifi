@@ -19,14 +19,14 @@ var _ = Describe("Service Offering", func() {
 	var (
 		baseURL *url.URL
 		output  []byte
-		record  repositories.ServiceOfferingResource
+		record  repositories.ServiceOfferingRecord
 	)
 
 	BeforeEach(func() {
 		var err error
 		baseURL, err = url.Parse("https://api.example.org")
 		Expect(err).NotTo(HaveOccurred())
-		record = repositories.ServiceOfferingResource{
+		record = repositories.ServiceOfferingRecord{
 			ServiceOffering: services.ServiceOffering{
 				Name:             "offering-name",
 				Description:      "offering description",
@@ -104,10 +104,6 @@ var _ = Describe("Service Offering", func() {
 			"guid": "resource-guid",
 			"created_at": "1970-01-01T00:00:01Z",
 			"updated_at": "1970-01-01T00:00:02Z",
-			"state": {
-			  "Status": 0,
-			  "Details": ""
-			},
 			"metadata": {
 				"labels": {
 					"label": "label-foo"

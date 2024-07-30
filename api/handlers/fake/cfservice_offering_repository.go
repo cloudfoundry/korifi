@@ -11,25 +11,25 @@ import (
 )
 
 type CFServiceOfferingRepository struct {
-	ListOfferingsStub        func(context.Context, authorization.Info) ([]repositories.ServiceOfferingResource, error)
+	ListOfferingsStub        func(context.Context, authorization.Info) ([]repositories.ServiceOfferingRecord, error)
 	listOfferingsMutex       sync.RWMutex
 	listOfferingsArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
 	}
 	listOfferingsReturns struct {
-		result1 []repositories.ServiceOfferingResource
+		result1 []repositories.ServiceOfferingRecord
 		result2 error
 	}
 	listOfferingsReturnsOnCall map[int]struct {
-		result1 []repositories.ServiceOfferingResource
+		result1 []repositories.ServiceOfferingRecord
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferings(arg1 context.Context, arg2 authorization.Info) ([]repositories.ServiceOfferingResource, error) {
+func (fake *CFServiceOfferingRepository) ListOfferings(arg1 context.Context, arg2 authorization.Info) ([]repositories.ServiceOfferingRecord, error) {
 	fake.listOfferingsMutex.Lock()
 	ret, specificReturn := fake.listOfferingsReturnsOnCall[len(fake.listOfferingsArgsForCall)]
 	fake.listOfferingsArgsForCall = append(fake.listOfferingsArgsForCall, struct {
@@ -55,7 +55,7 @@ func (fake *CFServiceOfferingRepository) ListOfferingsCallCount() int {
 	return len(fake.listOfferingsArgsForCall)
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferingsCalls(stub func(context.Context, authorization.Info) ([]repositories.ServiceOfferingResource, error)) {
+func (fake *CFServiceOfferingRepository) ListOfferingsCalls(stub func(context.Context, authorization.Info) ([]repositories.ServiceOfferingRecord, error)) {
 	fake.listOfferingsMutex.Lock()
 	defer fake.listOfferingsMutex.Unlock()
 	fake.ListOfferingsStub = stub
@@ -68,28 +68,28 @@ func (fake *CFServiceOfferingRepository) ListOfferingsArgsForCall(i int) (contex
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferingsReturns(result1 []repositories.ServiceOfferingResource, result2 error) {
+func (fake *CFServiceOfferingRepository) ListOfferingsReturns(result1 []repositories.ServiceOfferingRecord, result2 error) {
 	fake.listOfferingsMutex.Lock()
 	defer fake.listOfferingsMutex.Unlock()
 	fake.ListOfferingsStub = nil
 	fake.listOfferingsReturns = struct {
-		result1 []repositories.ServiceOfferingResource
+		result1 []repositories.ServiceOfferingRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferingsReturnsOnCall(i int, result1 []repositories.ServiceOfferingResource, result2 error) {
+func (fake *CFServiceOfferingRepository) ListOfferingsReturnsOnCall(i int, result1 []repositories.ServiceOfferingRecord, result2 error) {
 	fake.listOfferingsMutex.Lock()
 	defer fake.listOfferingsMutex.Unlock()
 	fake.ListOfferingsStub = nil
 	if fake.listOfferingsReturnsOnCall == nil {
 		fake.listOfferingsReturnsOnCall = make(map[int]struct {
-			result1 []repositories.ServiceOfferingResource
+			result1 []repositories.ServiceOfferingRecord
 			result2 error
 		})
 	}
 	fake.listOfferingsReturnsOnCall[i] = struct {
-		result1 []repositories.ServiceOfferingResource
+		result1 []repositories.ServiceOfferingRecord
 		result2 error
 	}{result1, result2}
 }

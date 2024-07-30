@@ -8,7 +8,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
-	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,9 +31,9 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 	Describe("Create", func() {
 		var (
-			createMsg repositories.CreateServiceBrokerMessage
-			broker    repositories.ServiceBrokerResource
-			createErr error
+			createMsg    repositories.CreateServiceBrokerMessage
+			brokerRecord repositories.ServiceBrokerRecord
+			createErr    error
 		)
 
 		BeforeEach(func() {
@@ -58,7 +58,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 		})
 
 		JustBeforeEach(func() {
-			broker, createErr = repo.CreateServiceBroker(ctx, authInfo, createMsg)
+			brokerRecord, createErr = repo.CreateServiceBroker(ctx, authInfo, createMsg)
 		})
 
 		It("returns a forbidden error", func() {
@@ -79,16 +79,13 @@ var _ = Describe("ServiceBrokerRepo", func() {
 				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 			})
 
-			JustBeforeEach(func() {
+			It("returns a ServiceBrokerRecord", func() {
 				Expect(createErr).NotTo(HaveOccurred())
-			})
-
-			It("returns a ServiceBrokerResource", func() {
-				Expect(broker.ServiceBroker).To(Equal(services.ServiceBroker{
+				Expect(brokerRecord.ServiceBroker).To(Equal(services.ServiceBroker{
 					Name: "my-broker",
 					URL:  "https://my.broker.com",
 				}))
-				Expect(broker.Metadata).To(Equal(model.Metadata{
+				Expect(brokerRecord.Metadata).To(Equal(model.Metadata{
 					Labels: map[string]string{
 						"label": "label-value",
 					},
@@ -96,15 +93,16 @@ var _ = Describe("ServiceBrokerRepo", func() {
 						"annotation": "annotation-value",
 					},
 				}))
-				Expect(broker.CFResource.GUID).NotTo(BeEmpty())
-				Expect(broker.CFResource.CreatedAt).NotTo(BeZero())
+				Expect(brokerRecord.CFResource.GUID).NotTo(BeEmpty())
+				Expect(brokerRecord.CFResource.CreatedAt).NotTo(BeZero())
 			})
 
 			It("creates a CFServiceBroker resource in Kubernetes", func() {
+				Expect(createErr).NotTo(HaveOccurred())
 				cfServiceBroker := &korifiv1alpha1.CFServiceBroker{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: rootNamespace,
-						Name:      broker.GUID,
+						Name:      brokerRecord.GUID,
 					},
 				}
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBroker), cfServiceBroker)).To(Succeed())
@@ -116,10 +114,11 @@ var _ = Describe("ServiceBrokerRepo", func() {
 			})
 
 			It("stores broker credentials in a k8s secret", func() {
+				Expect(createErr).NotTo(HaveOccurred())
 				cfServiceBroker := &korifiv1alpha1.CFServiceBroker{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: rootNamespace,
-						Name:      broker.GUID,
+						Name:      brokerRecord.GUID,
 					},
 				}
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBroker), cfServiceBroker)).To(Succeed())
@@ -148,25 +147,23 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 	Describe("GetState", func() {
 		var (
-			brokerGUID      string
 			cfServiceBroker *korifiv1alpha1.CFServiceBroker
 			state           model.CFResourceState
 			getStateErr     error
 		)
 
 		BeforeEach(func() {
-			brokerGUID = uuid.NewString()
 			cfServiceBroker = &korifiv1alpha1.CFServiceBroker{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: rootNamespace,
-					Name:      brokerGUID,
+					Name:      uuid.NewString(),
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfServiceBroker)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
-			state, getStateErr = repo.GetState(ctx, authInfo, brokerGUID)
+			state, getStateErr = repo.GetState(ctx, authInfo, cfServiceBroker.Name)
 		})
 
 		It("returns a forbidden error", func() {
@@ -184,9 +181,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 			It("returns unknown state", func() {
 				Expect(getStateErr).NotTo(HaveOccurred())
-				Expect(state).To(Equal(model.CFResourceState{
-					Status: model.CFResourceStatusUnknown,
-				}))
+				Expect(state).To(Equal(model.CFResourceStateUnknown))
 			})
 
 			When("the broker is ready", func() {
@@ -198,14 +193,26 @@ var _ = Describe("ServiceBrokerRepo", func() {
 							Message: "Ready",
 							Reason:  "Ready",
 						})
+						cfServiceBroker.Status.ObservedGeneration = cfServiceBroker.Generation
 					})).To(Succeed())
 				})
 
 				It("returns ready state", func() {
 					Expect(getStateErr).NotTo(HaveOccurred())
-					Expect(state).To(Equal(model.CFResourceState{
-						Status: model.CFResourceStatusReady,
-					}))
+					Expect(state).To(Equal(model.CFResourceStateReady))
+				})
+
+				When("the ready status is stale ", func() {
+					BeforeEach(func() {
+						Expect(k8s.Patch(ctx, k8sClient, cfServiceBroker, func() {
+							cfServiceBroker.Status.ObservedGeneration = -1
+						})).To(Succeed())
+					})
+
+					It("returns unknown state", func() {
+						Expect(getStateErr).NotTo(HaveOccurred())
+						Expect(state).To(Equal(model.CFResourceStateUnknown))
+					})
 				})
 			})
 
@@ -223,9 +230,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 				It("returns unknown state", func() {
 					Expect(getStateErr).NotTo(HaveOccurred())
-					Expect(state).To(Equal(model.CFResourceState{
-						Status: model.CFResourceStatusUnknown,
-					}))
+					Expect(state).To(Equal(model.CFResourceStateUnknown))
 				})
 			})
 		})
@@ -233,7 +238,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 	Describe("ListServiceBrokers", func() {
 		var (
-			brokers []repositories.ServiceBrokerResource
+			brokers []repositories.ServiceBrokerRecord
 			message repositories.ListServiceBrokerMessage
 		)
 
@@ -341,7 +346,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 	Describe("GetServiceBroker", func() {
 		var (
-			serviceBroker repositories.ServiceBrokerResource
+			serviceBroker repositories.ServiceBrokerRecord
 			getErr        error
 		)
 
@@ -402,6 +407,145 @@ var _ = Describe("ServiceBrokerRepo", func() {
 		})
 	})
 
+	Describe("UpdateServiceBroker", func() {
+		var (
+			cfServiceBroker *korifiv1alpha1.CFServiceBroker
+			brokerRecord    repositories.ServiceBrokerRecord
+			updateMessage   repositories.UpdateServiceBrokerMessage
+			updateErr       error
+		)
+
+		BeforeEach(func() {
+			credentialsData, err := tools.ToCredentialsSecretData(map[string]string{
+				"username": "user",
+				"password": "pass",
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			credentialsSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: rootNamespace,
+				},
+				Data: credentialsData,
+			}
+			Expect(k8sClient.Create(ctx, credentialsSecret)).To(Succeed())
+
+			cfServiceBroker = &korifiv1alpha1.CFServiceBroker{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.CFServiceBrokerSpec{
+					ServiceBroker: services.ServiceBroker{
+						Name: "my-broker",
+						URL:  "https://my.broker",
+					},
+					Credentials: corev1.LocalObjectReference{
+						Name: credentialsSecret.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfServiceBroker)).To(Succeed())
+
+			updateMessage = repositories.UpdateServiceBrokerMessage{
+				GUID: cfServiceBroker.Name,
+				Name: tools.PtrTo("your-broker"),
+				URL:  tools.PtrTo("https://your.broker"),
+				Credentials: &services.BrokerCredentials{
+					Username: "another-user",
+					Password: "another-pass",
+				},
+				MetadataPatch: repositories.MetadataPatch{
+					Labels: map[string]*string{
+						"foo": tools.PtrTo("bar"),
+					},
+					Annotations: map[string]*string{
+						"baz": tools.PtrTo("qux"),
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			brokerRecord, updateErr = repo.UpdateServiceBroker(ctx, authInfo, updateMessage)
+		})
+
+		It("returns a forbidden error", func() {
+			Expect(updateErr).To(WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user has permissions to update brokers", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+			})
+
+			It("returns an updated ServiceBrokerRecord", func() {
+				Expect(updateErr).NotTo(HaveOccurred())
+				Expect(brokerRecord.ServiceBroker).To(Equal(services.ServiceBroker{
+					Name: "your-broker",
+					URL:  "https://your.broker",
+				}))
+
+				Expect(brokerRecord.Metadata.Labels).To(HaveKeyWithValue("foo", "bar"))
+				Expect(brokerRecord.Metadata.Annotations).To(HaveKeyWithValue("baz", "qux"))
+			})
+
+			It("updates the CFServiceBroker resource in Kubernetes", func() {
+				Expect(updateErr).NotTo(HaveOccurred())
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBroker), cfServiceBroker)).To(Succeed())
+
+				Expect(cfServiceBroker.Spec.ServiceBroker).To(Equal(services.ServiceBroker{
+					Name: "your-broker",
+					URL:  "https://your.broker",
+				}))
+
+				Expect(cfServiceBroker.Labels).To(HaveKeyWithValue("foo", "bar"))
+				Expect(cfServiceBroker.Annotations).To(HaveKeyWithValue("baz", "qux"))
+			})
+
+			It("updates the service borker credentials secret", func() {
+				Expect(updateErr).NotTo(HaveOccurred())
+				credentialsSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      cfServiceBroker.Spec.Credentials.Name,
+						Namespace: rootNamespace,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
+				Expect(credentialsSecret.Data).To(SatisfyAll(
+					HaveLen(1),
+					HaveKeyWithValue(tools.CredentialsSecretKey,
+						MatchJSON(`{"username" : "another-user", "password": "another-pass"}`),
+					),
+				))
+			})
+
+			When("credentials are not updated", func() {
+				BeforeEach(func() {
+					updateMessage.Credentials = nil
+				})
+
+				It("does not update the credentials secret", func() {
+					Expect(updateErr).NotTo(HaveOccurred())
+					credentialsSecret := &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      cfServiceBroker.Spec.Credentials.Name,
+							Namespace: rootNamespace,
+						},
+					}
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
+					Expect(credentialsSecret.Data).To(SatisfyAll(
+						HaveLen(1),
+						HaveKeyWithValue(tools.CredentialsSecretKey,
+							MatchJSON(`{"username" : "user", "password": "pass"}`),
+						),
+					))
+				})
+			})
+		})
+	})
+
 	Describe("DeleteServiceBroker", func() {
 		var (
 			deleteErr  error
@@ -438,7 +582,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 			})
 
 			It("errors", func() {
-				Expect(deleteErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				Expect(deleteErr).To(WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})
@@ -493,7 +637,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 			})
 
 			It("errors", func() {
-				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				Expect(getErr).To(WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})

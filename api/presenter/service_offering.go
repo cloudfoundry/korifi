@@ -18,22 +18,22 @@ type ServiceOfferingLinks struct {
 }
 
 type ServiceOfferingResponse struct {
-	repositories.ServiceOfferingResource
+	repositories.ServiceOfferingRecord
 	Links ServiceOfferingLinks `json:"links"`
 }
 
-func ForServiceOffering(serviceOfferingResource repositories.ServiceOfferingResource, baseURL url.URL) ServiceOfferingResponse {
+func ForServiceOffering(serviceOffering repositories.ServiceOfferingRecord, baseURL url.URL) ServiceOfferingResponse {
 	return ServiceOfferingResponse{
-		ServiceOfferingResource: serviceOfferingResource,
+		ServiceOfferingRecord: serviceOffering,
 		Links: ServiceOfferingLinks{
 			Self: Link{
-				HRef: buildURL(baseURL).appendPath(serviceOfferingsBase, serviceOfferingResource.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(serviceOfferingsBase, serviceOffering.GUID).build(),
 			},
 			ServicePlans: Link{
-				HRef: buildURL(baseURL).appendPath(servicePlansBase).setQuery("service_offering_guids=" + serviceOfferingResource.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(servicePlansBase).setQuery("service_offering_guids=" + serviceOffering.GUID).build(),
 			},
 			ServiceBroker: Link{
-				HRef: buildURL(baseURL).appendPath(serviceBrokersBase, serviceOfferingResource.Relationships.ServiceBroker.Data.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(serviceBrokersBase, serviceOffering.Relationships.ServiceBroker.Data.GUID).build(),
 			},
 		},
 	}

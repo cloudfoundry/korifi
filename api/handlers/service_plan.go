@@ -20,7 +20,7 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFServicePlanRepository . CFServicePlanRepository
 type CFServicePlanRepository interface {
-	ListPlans(context.Context, authorization.Info) ([]repositories.ServicePlanResource, error)
+	ListPlans(context.Context, authorization.Info) ([]repositories.ServicePlanRecord, error)
 }
 
 type ServicePlan struct {

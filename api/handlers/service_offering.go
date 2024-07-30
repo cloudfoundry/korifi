@@ -20,7 +20,7 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFServiceOfferingRepository . CFServiceOfferingRepository
 type CFServiceOfferingRepository interface {
-	ListOfferings(context.Context, authorization.Info) ([]repositories.ServiceOfferingResource, error)
+	ListOfferings(context.Context, authorization.Info) ([]repositories.ServiceOfferingRecord, error)
 }
 
 type ServiceOffering struct {

@@ -15,7 +15,7 @@ import (
 
 const ServicePlanResourceType = "Service Plan"
 
-type ServicePlanResource struct {
+type ServicePlanRecord struct {
 	services.ServicePlan
 	model.CFResource
 	Relationships ServicePlanRelationships `json:"relationships"`
@@ -40,7 +40,7 @@ func NewServicePlanRepo(
 	}
 }
 
-func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info) ([]ServicePlanResource, error) {
+func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info) ([]ServicePlanRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
@@ -51,11 +51,11 @@ func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.
 		return nil, apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
-	return iter.Map(iter.Lift(cfServicePlans.Items), planToResource).Collect(), nil
+	return iter.Map(iter.Lift(cfServicePlans.Items), planToRecord).Collect(), nil
 }
 
-func planToResource(plan korifiv1alpha1.CFServicePlan) ServicePlanResource {
-	return ServicePlanResource{
+func planToRecord(plan korifiv1alpha1.CFServicePlan) ServicePlanRecord {
+	return ServicePlanRecord{
 		ServicePlan: plan.Spec.ServicePlan,
 		CFResource: model.CFResource{
 			GUID:      plan.Name,

@@ -30,7 +30,7 @@ var _ = Describe("ServiceOffering", func() {
 
 	Describe("GET /v3/service_offerings", func() {
 		BeforeEach(func() {
-			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingResource{{
+			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
 				ServiceOffering: services.ServiceOffering{},
 				CFResource: model.CFResource{
 					GUID: "offering-guid",
