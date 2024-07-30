@@ -198,12 +198,13 @@ func (r *ServiceInstanceRepo) patchCredentialsSecret(
 		},
 	}
 
-	err := userClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
+	credentialsSecretData, err := tools.ToCredentialsSecretData(credentials)
 	if err != nil {
-		return err
+		return errors.New("failed to marshal credentials for service instance")
 	}
-
-	return r.createCredentialsSecret(ctx, userClient, cfServiceInstance, credentials)
+	return PatchResource(ctx, userClient, credentialsSecret, func() {
+		credentialsSecret.Data = credentialsSecretData
+	})
 }
 
 func (r *ServiceInstanceRepo) createCredentialsSecret(
@@ -212,28 +213,24 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 	cfServiceInstance *korifiv1alpha1.CFServiceInstance,
 	creds map[string]any,
 ) error {
+	credentialsSecretData, err := tools.ToCredentialsSecretData(creds)
+	if err != nil {
+		return errors.New("failed to marshal credentials for service instance")
+	}
+
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfServiceInstance.Spec.SecretName,
 			Namespace: cfServiceInstance.Namespace,
+			Labels: map[string]string{
+				CFServiceInstanceGUIDLabel: cfServiceInstance.Name,
+			},
 		},
+		Data: credentialsSecretData,
 	}
+	_ = controllerutil.SetOwnerReference(cfServiceInstance, credentialsSecret, scheme.Scheme)
 
-	_, err := controllerutil.CreateOrPatch(ctx, userClient, credentialsSecret, func() error {
-		if credentialsSecret.Labels == nil {
-			credentialsSecret.Labels = map[string]string{}
-		}
-		credentialsSecret.Labels[CFServiceInstanceGUIDLabel] = cfServiceInstance.Name
-
-		var err error
-		credentialsSecret.Data, err = tools.ToCredentialsSecretData(creds)
-		if err != nil {
-			return errors.New("failed to marshal credentials for service instance")
-		}
-
-		return controllerutil.SetOwnerReference(cfServiceInstance, credentialsSecret, scheme.Scheme)
-	})
-	return err
+	return userClient.Create(ctx, credentialsSecret)
 }
 
 // nolint:dupl
