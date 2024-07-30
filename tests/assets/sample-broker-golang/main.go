@@ -1,12 +1,20 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"sample-broker/osbapi"
+)
+
+const (
+	hardcodedUserName = "broker-user"
+	hardcodedPassword = "broker-password"
 )
 
 func main() {
@@ -25,7 +33,13 @@ func helloWorldHandler(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprintln(w, "Hi, I'm the sample broker!")
 }
 
-func getCatalogHandler(w http.ResponseWriter, _ *http.Request) {
+func getCatalogHandler(w http.ResponseWriter, r *http.Request) {
+	if status, err := checkCredentials(w, r); err != nil {
+		w.WriteHeader(status)
+		fmt.Fprintf(w, "Credentials check failed: %v", err)
+		return
+	}
+
 	catalog := osbapi.Catalog{
 		Services: []osbapi.Service{{
 			Name:        "sample-service",
@@ -43,10 +57,45 @@ func getCatalogHandler(w http.ResponseWriter, _ *http.Request) {
 
 	catalogBytes, err := json.Marshal(catalog)
 	if err != nil {
-		fmt.Fprintf(w, "Failed to marshal catalog: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "Failed to marshal catalog: %v", err)
 		return
 	}
 
 	fmt.Fprintln(w, string(catalogBytes))
+}
+
+func checkCredentials(_ http.ResponseWriter, r *http.Request) (int, error) {
+	authHeader := r.Header.Get("Authorization")
+	if len(authHeader) == 0 {
+		return http.StatusUnauthorized, errors.New("Authorization request header not specified")
+	}
+
+	headerSplit := strings.Split(authHeader, " ")
+	if len(headerSplit) != 2 {
+		return http.StatusUnauthorized, errors.New("Could not parse Authorization request header")
+	}
+
+	if headerSplit[0] != "Basic" {
+		return http.StatusUnauthorized, errors.New("Unsupported Authorization request header scheme. Only 'Basic' is supported")
+	}
+
+	credBytes, err := base64.StdEncoding.DecodeString(headerSplit[1])
+	if err != nil {
+		return http.StatusUnauthorized, errors.New("Failed to decode Authorization request header")
+	}
+
+	creds := strings.Split(string(credBytes), ":")
+	if len(creds) != 2 {
+		return http.StatusUnauthorized, errors.New("Failed to extract user credentials from Authorization request header")
+	}
+
+	username := creds[0]
+	password := creds[1]
+
+	if username != hardcodedUserName || password != hardcodedPassword {
+		return http.StatusForbidden, fmt.Errorf("Incorrect credentials: user %q, password %q. Use %q as username and %q as password", username, password, hardcodedUserName, hardcodedPassword)
+	}
+
+	return -1, nil
 }

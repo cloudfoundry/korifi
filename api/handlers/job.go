@@ -26,6 +26,7 @@ const (
 	DomainDeleteJobType        = "domain.delete"
 	RoleDeleteJobType          = "role.delete"
 	ServiceBrokerCreateJobType = "service_broker.create"
+	ServiceBrokerUpdateJobType = "service_broker.update"
 	ServiceBrokerDeleteJobType = "service_broker.delete"
 
 	JobTimeoutDuration = 120.0
@@ -182,8 +183,8 @@ func (h *Job) handleStateJob(ctx context.Context, repository StateRepository, jo
 		)
 	}
 
-	switch state.Status {
-	case model.CFResourceStatusReady:
+	switch state {
+	case model.CFResourceStateReady:
 		return presenter.ForJob(job,
 			[]presenter.JobResponseError{},
 			presenter.StateComplete,

@@ -29,7 +29,7 @@ var _ = Describe("ServicePlan", func() {
 
 	Describe("GET /v3/service_plans", func() {
 		BeforeEach(func() {
-			servicePlanRepo.ListPlansReturns([]repositories.ServicePlanResource{{
+			servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
 				CFResource: model.CFResource{
 					GUID: "plan-guid",
 				},

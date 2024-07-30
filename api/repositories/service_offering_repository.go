@@ -16,7 +16,7 @@ import (
 
 const ServiceOfferingResourceType = "Service Offering"
 
-type ServiceOfferingResource struct {
+type ServiceOfferingRecord struct {
 	services.ServiceOffering
 	model.CFResource
 	Relationships ServiceOfferingRelationships `json:"relationships"`
@@ -41,29 +41,29 @@ func NewServiceOfferingRepo(
 	}
 }
 
-func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info) ([]ServiceOfferingResource, error) {
+func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info) ([]ServiceOfferingRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return []ServiceOfferingResource{}, fmt.Errorf("failed to build user client: %w", err)
+		return []ServiceOfferingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	offeringsList := &korifiv1alpha1.CFServiceOfferingList{}
 	err = userClient.List(ctx, offeringsList, client.InNamespace(r.rootNamespace))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return []ServiceOfferingResource{}, nil
+			return []ServiceOfferingRecord{}, nil
 		}
 
-		return []ServiceOfferingResource{}, fmt.Errorf("failed to list service offerings: %w",
+		return []ServiceOfferingRecord{}, fmt.Errorf("failed to list service offerings: %w",
 			apierrors.FromK8sError(err, ServiceOfferingResourceType),
 		)
 	}
 
-	return iter.Map(iter.Lift(offeringsList.Items), offeringToResource).Collect(), nil
+	return iter.Map(iter.Lift(offeringsList.Items), offeringToRecord).Collect(), nil
 }
 
-func offeringToResource(offering korifiv1alpha1.CFServiceOffering) ServiceOfferingResource {
-	return ServiceOfferingResource{
+func offeringToRecord(offering korifiv1alpha1.CFServiceOffering) ServiceOfferingRecord {
+	return ServiceOfferingRecord{
 		ServiceOffering: offering.Spec.ServiceOffering,
 		CFResource: model.CFResource{
 			GUID:      offering.Name,

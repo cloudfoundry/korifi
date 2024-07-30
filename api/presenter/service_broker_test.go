@@ -18,14 +18,14 @@ var _ = Describe("Service Broker", func() {
 	var (
 		baseURL *url.URL
 		output  []byte
-		record  repositories.ServiceBrokerResource
+		record  repositories.ServiceBrokerRecord
 	)
 
 	BeforeEach(func() {
 		var err error
 		baseURL, err = url.Parse("https://api.example.org")
 		Expect(err).NotTo(HaveOccurred())
-		record = repositories.ServiceBrokerResource{
+		record = repositories.ServiceBrokerRecord{
 			ServiceBroker: services.ServiceBroker{
 				Name: "my-broker",
 				URL:  "https://my.broker",
@@ -67,10 +67,6 @@ var _ = Describe("Service Broker", func() {
 			  "annotations": {
 				"annotation": "broker-annotation"
 			  }
-			},
-			"state": {
-			  "Status": 0,
-			  "Details": ""
 			},
 			"links": {
 			  "self": {

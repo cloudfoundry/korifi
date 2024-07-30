@@ -12,26 +12,20 @@ type ServicePlanLinks struct {
 }
 
 type ServicePlanResponse struct {
-	repositories.ServicePlanResource
+	repositories.ServicePlanRecord
 	Links ServicePlanLinks `json:"links"`
 }
 
-func ForServicePlan(servicePlanResource repositories.ServicePlanResource, baseURL url.URL) ServicePlanResponse {
+func ForServicePlan(servicePlan repositories.ServicePlanRecord, baseURL url.URL) ServicePlanResponse {
 	return ServicePlanResponse{
-		ServicePlanResource: servicePlanResource,
+		ServicePlanRecord: servicePlan,
 		Links: ServicePlanLinks{
 			Self: Link{
-				HRef: buildURL(baseURL).appendPath(servicePlansBase, servicePlanResource.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(servicePlansBase, servicePlan.GUID).build(),
 			},
 			ServiceOffering: Link{
-				HRef: buildURL(baseURL).appendPath(serviceOfferingsBase, servicePlanResource.Relationships.ServiceOffering.Data.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(serviceOfferingsBase, servicePlan.Relationships.ServiceOffering.Data.GUID).build(),
 			},
 		},
 	}
-}
-
-func ForServicePlanList(servicePlanResourceList []repositories.ServicePlanResource, baseURL, requestURL url.URL) ListResponse[ServicePlanResponse] {
-	return ForList(func(servicePlanResource repositories.ServicePlanResource, baseURL url.URL) ServicePlanResponse {
-		return ForServicePlan(servicePlanResource, baseURL)
-	}, servicePlanResourceList, baseURL, requestURL)
 }

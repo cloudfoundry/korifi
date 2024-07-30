@@ -784,7 +784,7 @@ func getServiceBindingsForApp(appGUID string) []resource {
 func createBitsPackage(appGUID string) string {
 	GinkgoHelper()
 
-	return createPackage(appGUID, packageResource{
+	return createPackage(packageResource{
 		typedResource: typedResource{
 			Type: "bits",
 			resource: resource{
@@ -796,7 +796,7 @@ func createBitsPackage(appGUID string) string {
 	})
 }
 
-func createPackage(appGUID string, pkg packageResource) string {
+func createPackage(pkg packageResource) string {
 	var result resource
 	resp, err := adminClient.R().
 		SetBody(pkg).
@@ -1166,7 +1166,7 @@ func getBrokerInClusterURL(brokerAppGUID string) string {
 	return fmt.Sprintf("http://%s.%s:8080", brokerService.Name, brokerService.Namespace)
 }
 
-func createBroker(brokerURL string) string {
+func createBrokerAsync(brokerURL, username, password string) (string, string) {
 	resp, err := adminClient.R().
 		SetBody(serviceBrokerResource{
 			resource: resource{
@@ -1176,8 +1176,8 @@ func createBroker(brokerURL string) string {
 			Authentication: serviceBrokerAuthenticationResource{
 				Type: "basic",
 				Credentials: map[string]any{
-					"username": "broker-user",
-					"password": "broker-password",
+					"username": username,
+					"password": password,
 				},
 			},
 		}).
@@ -1190,16 +1190,21 @@ func createBroker(brokerURL string) string {
 	))
 
 	jobURL := resp.Header().Get("Location")
+	jobURLSplit := strings.Split(jobURL, "~")
+	Expect(jobURLSplit).To(HaveLen(2))
+	brokerGUID := jobURLSplit[1]
+	return brokerGUID, jobURL
+}
+
+func createBroker(brokerURL string) string {
+	brokerGUID, jobURL := createBrokerAsync(brokerURL, "broker-user", "broker-password")
 	Eventually(func(g Gomega) {
-		resp, err = adminClient.R().Get(jobURL)
+		resp, err := adminClient.R().Get(jobURL)
 		g.Expect(err).NotTo(HaveOccurred())
 		jobRespBody := string(resp.Body())
 		g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
 	}).Should(Succeed())
 
-	jobURLSplit := strings.Split(jobURL, "~")
-	Expect(jobURLSplit).To(HaveLen(2))
-	brokerGUID := jobURLSplit[1]
 	return brokerGUID
 }
 

@@ -24,7 +24,7 @@ var _ = Describe("ServicePlanRepo", func() {
 	Describe("List", func() {
 		var (
 			planGUID    string
-			listedPlans []repositories.ServicePlanResource
+			listedPlans []repositories.ServicePlanRecord
 			listErr     error
 		)
 

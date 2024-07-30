@@ -16,15 +16,16 @@ import (
 
 const (
 	ServiceBrokersPath = "/v3/service_brokers"
-	ServiceBrokerPath  = ServiceBrokersPath + "/{guid}"
+	ServiceBrokerPath  = "/v3/service_brokers/{guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServiceBrokerRepository . CFServiceBrokerRepository
 type CFServiceBrokerRepository interface {
-	CreateServiceBroker(context.Context, authorization.Info, repositories.CreateServiceBrokerMessage) (repositories.ServiceBrokerResource, error)
-	ListServiceBrokers(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerResource, error)
-	GetServiceBroker(context.Context, authorization.Info, string) (repositories.ServiceBrokerResource, error)
+	CreateServiceBroker(context.Context, authorization.Info, repositories.CreateServiceBrokerMessage) (repositories.ServiceBrokerRecord, error)
+	ListServiceBrokers(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerRecord, error)
+	GetServiceBroker(context.Context, authorization.Info, string) (repositories.ServiceBrokerRecord, error)
 	DeleteServiceBroker(context.Context, authorization.Info, string) error
+	UpdateServiceBroker(context.Context, authorization.Info, repositories.UpdateServiceBrokerMessage) (repositories.ServiceBrokerRecord, error)
 }
 
 type ServiceBroker struct {
@@ -54,7 +55,7 @@ func (h *ServiceBroker) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	broker, err := h.serviceBrokerRepo.CreateServiceBroker(r.Context(), authInfo, payload.ToCreateServiceBrokerMessage())
+	broker, err := h.serviceBrokerRepo.CreateServiceBroker(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to create service broker")
 	}
@@ -99,6 +100,34 @@ func (h *ServiceBroker) delete(r *http.Request) (*routing.Response, error) {
 		WithHeader("Location", presenter.JobURLForRedirects(guid, presenter.ServiceBrokerDeleteOperation, h.serverURL)), nil
 }
 
+func (h *ServiceBroker) update(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-broker.update")
+
+	guid := routing.URLParam(r, "guid")
+	payload := payloads.ServiceBrokerUpdate{}
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	_, err := h.serviceBrokerRepo.GetServiceBroker(r.Context(), authInfo, guid)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service broker")
+	}
+
+	broker, err := h.serviceBrokerRepo.UpdateServiceBroker(r.Context(), authInfo, payload.ToMessage(guid))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service broker", "guid", guid)
+	}
+
+	if payload.IsAsyncRequest() {
+		return routing.NewResponse(http.StatusAccepted).
+			WithHeader("Location", presenter.JobURLForRedirects(broker.GUID, presenter.ServiceBrokerUpdateOperation, h.serverURL)), nil
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceBroker(broker, h.serverURL)), nil
+}
+
 func (h *ServiceBroker) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -108,5 +137,6 @@ func (h *ServiceBroker) AuthenticatedRoutes() []routing.Route {
 		{Method: "POST", Pattern: ServiceBrokersPath, Handler: h.create},
 		{Method: "GET", Pattern: ServiceBrokersPath, Handler: h.list},
 		{Method: "DELETE", Pattern: ServiceBrokerPath, Handler: h.delete},
+		{Method: "PATCH", Pattern: ServiceBrokerPath, Handler: h.update},
 	}
 }

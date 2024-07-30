@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -71,6 +72,63 @@ var _ = Describe("Service Brokers", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"GUID": Equal(serviceBrokerGUID),
+			})))
+		})
+	})
+
+	Describe("Update", func() {
+		var brokerGUID string
+
+		BeforeEach(func() {
+			var jobURL string
+			brokerGUID, jobURL = createBrokerAsync(serviceBrokerURL, "incorrect-username", "incorrect-password")
+			Eventually(func(g Gomega) {
+				jobResp, jobErr := adminClient.R().Get(jobURL)
+				g.Expect(jobErr).NotTo(HaveOccurred())
+				jobRespBody := string(jobResp.Body())
+				g.Expect(jobRespBody).To(ContainSubstring("PROCESSING"))
+			}).Should(Succeed())
+		})
+
+		AfterEach(func() {
+			cleanupBroker(brokerGUID)
+		})
+
+		JustBeforeEach(func() {
+			resp, err = adminClient.R().SetBody(map[string]any{
+				"authentication": map[string]any{
+					"type": "basic",
+					"credentials": map[string]any{
+						"username": "broker-user",
+						"password": "broker-password",
+					},
+				},
+			}).Patch("/v3/service_brokers/" + brokerGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("succeeds with job redirect", func() {
+			Expect(resp).To(SatisfyAll(
+				HaveRestyStatusCode(http.StatusAccepted),
+				HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/service_broker.update~")),
+			))
+
+			jobURL := resp.Header().Get("Location")
+			Eventually(func(g Gomega) {
+				jobResp, jobErr := adminClient.R().Get(jobURL)
+				g.Expect(jobErr).NotTo(HaveOccurred())
+				jobRespBody := string(jobResp.Body())
+				g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
+			}).Should(Succeed())
+
+			var servicePlans resourceList[resource]
+			resp, err = adminClient.R().SetResult(&servicePlans).Get("/v3/service_plans")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(servicePlans.Resources).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
+					"Labels": HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, serviceBrokerGUID),
+				})),
 			})))
 		})
 	})
