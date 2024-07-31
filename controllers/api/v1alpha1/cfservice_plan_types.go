@@ -7,6 +7,14 @@ import (
 
 type CFServicePlanSpec struct {
 	services.ServicePlan `json:",inline"`
+	Visibility           ServicePlanVisibility `json:"visibility"`
+}
+
+const AdminServicePlanVisibilityType = "admin"
+
+type ServicePlanVisibility struct {
+	// +kubebuilder:validation:Enum=admin
+	Type string `json:"type"`
 }
 
 // +kubebuilder:object:root=true

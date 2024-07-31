@@ -6,11 +6,6 @@ import (
 
 // +kubebuilder:object:generate=true
 type ServicePlan struct {
-	BrokerServicePlan `json:",inline"`
-}
-
-// +kubebuilder:object:generate=true
-type BrokerServicePlan struct {
 	Name          string                   `json:"name"`
 	Free          bool                     `json:"free"`
 	Description   string                   `json:"description,omitempty"`
@@ -18,22 +13,11 @@ type BrokerServicePlan struct {
 	Schemas       ServicePlanSchemas       `json:"schemas"`
 }
 
-type ServicePlanCost struct {
-	Amount   string `json:"amount"`
-	Currency string `json:"currency"`
-	Unit     string `json:"unit"`
-}
-
-type ServicePlanMaintenanceInfo struct {
-	Version     string `json:"version"`
-	Description string `json:"description"`
-}
-
 // +kubebuilder:object:generate=true
 type ServicePlanBrokerCatalog struct {
 	ID string `json:"id"`
 	// +kubebuilder:validation:Optional
-	Metadata *runtime.RawExtension `json:"metadata"`
+	Metadata *runtime.RawExtension `json:"metadata,omitempty"`
 	// +kubebuilder:validation:Optional
 	Features ServicePlanFeatures `json:"features"`
 }

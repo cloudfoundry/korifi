@@ -191,42 +191,43 @@ var _ = Describe("CFServiceBroker", func() {
 			))
 			g.Expect(plan.Spec).To(MatchAllFields(Fields{
 				"ServicePlan": MatchAllFields(Fields{
-					"BrokerServicePlan": MatchAllFields(Fields{
-						"Name":        Equal("plan-name"),
-						"Free":        BeTrue(),
-						"Description": Equal("plan description"),
-						"BrokerCatalog": MatchAllFields(Fields{
-							"ID": Equal("plan-id"),
-							"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-								"Raw": MatchJSON(`{"plan-md": "plan-md-value"}`),
-							})),
-							"Features": Equal(services.ServicePlanFeatures{
-								PlanUpdateable: true,
-								Bindable:       true,
+					"Name":        Equal("plan-name"),
+					"Free":        BeTrue(),
+					"Description": Equal("plan description"),
+					"BrokerCatalog": MatchAllFields(Fields{
+						"ID": Equal("plan-id"),
+						"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
+							"Raw": MatchJSON(`{"plan-md": "plan-md-value"}`),
+						})),
+						"Features": Equal(services.ServicePlanFeatures{
+							PlanUpdateable: true,
+							Bindable:       true,
+						}),
+					}),
+					"Schemas": MatchFields(IgnoreExtras, Fields{
+						"ServiceInstance": MatchFields(IgnoreExtras, Fields{
+							"Create": MatchFields(IgnoreExtras, Fields{
+								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
+									"Raw": MatchJSON(`{"create-param":"create-value"}`),
+								})),
+							}),
+							"Update": MatchFields(IgnoreExtras, Fields{
+								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
+									"Raw": MatchJSON(`{"update-param":"update-value"}`),
+								})),
 							}),
 						}),
-						"Schemas": MatchFields(IgnoreExtras, Fields{
-							"ServiceInstance": MatchFields(IgnoreExtras, Fields{
-								"Create": MatchFields(IgnoreExtras, Fields{
-									"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-										"Raw": MatchJSON(`{"create-param":"create-value"}`),
-									})),
-								}),
-								"Update": MatchFields(IgnoreExtras, Fields{
-									"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-										"Raw": MatchJSON(`{"update-param":"update-value"}`),
-									})),
-								}),
-							}),
-							"ServiceBinding": MatchFields(IgnoreExtras, Fields{
-								"Create": MatchFields(IgnoreExtras, Fields{
-									"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-										"Raw": MatchJSON(`{"binding-create-param": "binding-create-value"}`),
-									})),
-								}),
+						"ServiceBinding": MatchFields(IgnoreExtras, Fields{
+							"Create": MatchFields(IgnoreExtras, Fields{
+								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
+									"Raw": MatchJSON(`{"binding-create-param": "binding-create-value"}`),
+								})),
 							}),
 						}),
 					}),
+				}),
+				"Visibility": MatchAllFields(Fields{
+					"Type": Equal(korifiv1alpha1.AdminServicePlanVisibilityType),
 				}),
 			}))
 		}).Should(Succeed())

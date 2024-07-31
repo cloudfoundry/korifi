@@ -111,11 +111,21 @@ spec:
                 - service_binding
                 - service_instance
                 type: object
+              visibility:
+                properties:
+                  type:
+                    enum:
+                    - admin
+                    type: string
+                required:
+                - type
+                type: object
             required:
             - broker_catalog
             - free
             - name
             - schemas
+            - visibility
             type: object
         type: object
     served: true

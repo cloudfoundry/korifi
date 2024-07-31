@@ -295,6 +295,10 @@ type cfErr struct {
 	Code   int    `json:"code"`
 }
 
+type planVisibilityResource struct {
+	Type string `json:"type"`
+}
+
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(fail_handler.New("E2E Tests",
 		fail_handler.Hook{

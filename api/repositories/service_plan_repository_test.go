@@ -44,42 +44,43 @@ var _ = Describe("ServicePlanRepo", func() {
 				},
 				Spec: korifiv1alpha1.CFServicePlanSpec{
 					ServicePlan: services.ServicePlan{
-						BrokerServicePlan: services.BrokerServicePlan{
-							Name:        "my-service-plan",
-							Free:        true,
-							Description: "service plan description",
-							BrokerCatalog: services.ServicePlanBrokerCatalog{
-								ID: "broker-plan-guid",
-								Metadata: &runtime.RawExtension{
-									Raw: []byte(`{"foo":"bar"}`),
+						Name:        "my-service-plan",
+						Free:        true,
+						Description: "service plan description",
+						BrokerCatalog: services.ServicePlanBrokerCatalog{
+							ID: "broker-plan-guid",
+							Metadata: &runtime.RawExtension{
+								Raw: []byte(`{"foo":"bar"}`),
+							},
+							Features: services.ServicePlanFeatures{
+								PlanUpdateable: true,
+								Bindable:       true,
+							},
+						},
+						Schemas: services.ServicePlanSchemas{
+							ServiceInstance: services.ServiceInstanceSchema{
+								Create: services.InputParameterSchema{
+									Parameters: &runtime.RawExtension{
+										Raw: []byte(`{"create-param":"create-value"}`),
+									},
 								},
-								Features: services.ServicePlanFeatures{
-									PlanUpdateable: true,
-									Bindable:       true,
+								Update: services.InputParameterSchema{
+									Parameters: &runtime.RawExtension{
+										Raw: []byte(`{"update-param":"update-value"}`),
+									},
 								},
 							},
-							Schemas: services.ServicePlanSchemas{
-								ServiceInstance: services.ServiceInstanceSchema{
-									Create: services.InputParameterSchema{
-										Parameters: &runtime.RawExtension{
-											Raw: []byte(`{"create-param":"create-value"}`),
-										},
-									},
-									Update: services.InputParameterSchema{
-										Parameters: &runtime.RawExtension{
-											Raw: []byte(`{"update-param":"update-value"}`),
-										},
-									},
-								},
-								ServiceBinding: services.ServiceBindingSchema{
-									Create: services.InputParameterSchema{
-										Parameters: &runtime.RawExtension{
-											Raw: []byte(`{"binding-create-param":"binding-create-value"}`),
-										},
+							ServiceBinding: services.ServiceBindingSchema{
+								Create: services.InputParameterSchema{
+									Parameters: &runtime.RawExtension{
+										Raw: []byte(`{"binding-create-param":"binding-create-value"}`),
 									},
 								},
 							},
 						},
+					},
+					Visibility: korifiv1alpha1.ServicePlanVisibility{
+						Type: korifiv1alpha1.AdminServicePlanVisibilityType,
 					},
 				},
 			})).To(Succeed())
@@ -95,40 +96,38 @@ var _ = Describe("ServicePlanRepo", func() {
 			Expect(listErr).NotTo(HaveOccurred())
 			Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
 				"ServicePlan": MatchFields(IgnoreExtras, Fields{
-					"BrokerServicePlan": MatchFields(IgnoreExtras, Fields{
-						"Name":        Equal("my-service-plan"),
-						"Description": Equal("service plan description"),
-						"Free":        BeTrue(),
-						"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
-							"ID": Equal("broker-plan-guid"),
-							"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-								"Raw": MatchJSON(`{"foo": "bar"}`),
-							})),
+					"Name":        Equal("my-service-plan"),
+					"Description": Equal("service plan description"),
+					"Free":        BeTrue(),
+					"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
+						"ID": Equal("broker-plan-guid"),
+						"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
+							"Raw": MatchJSON(`{"foo": "bar"}`),
+						})),
 
-							"Features": MatchFields(IgnoreExtras, Fields{
-								"PlanUpdateable": BeTrue(),
-								"Bindable":       BeTrue(),
+						"Features": MatchFields(IgnoreExtras, Fields{
+							"PlanUpdateable": BeTrue(),
+							"Bindable":       BeTrue(),
+						}),
+					}),
+					"Schemas": MatchFields(IgnoreExtras, Fields{
+						"ServiceInstance": MatchFields(IgnoreExtras, Fields{
+							"Create": MatchFields(IgnoreExtras, Fields{
+								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
+									"Raw": MatchJSON(`{"create-param":"create-value"}`),
+								})),
+							}),
+							"Update": MatchFields(IgnoreExtras, Fields{
+								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
+									"Raw": MatchJSON(`{"update-param":"update-value"}`),
+								})),
 							}),
 						}),
-						"Schemas": MatchFields(IgnoreExtras, Fields{
-							"ServiceInstance": MatchFields(IgnoreExtras, Fields{
-								"Create": MatchFields(IgnoreExtras, Fields{
-									"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-										"Raw": MatchJSON(`{"create-param":"create-value"}`),
-									})),
-								}),
-								"Update": MatchFields(IgnoreExtras, Fields{
-									"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-										"Raw": MatchJSON(`{"update-param":"update-value"}`),
-									})),
-								}),
-							}),
-							"ServiceBinding": MatchFields(IgnoreExtras, Fields{
-								"Create": MatchFields(IgnoreExtras, Fields{
-									"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-										"Raw": MatchJSON(`{"binding-create-param": "binding-create-value"}`),
-									})),
-								}),
+						"ServiceBinding": MatchFields(IgnoreExtras, Fields{
+							"Create": MatchFields(IgnoreExtras, Fields{
+								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
+									"Raw": MatchJSON(`{"binding-create-param": "binding-create-value"}`),
+								})),
 							}),
 						}),
 					}),
@@ -162,6 +161,11 @@ var _ = Describe("ServicePlanRepo", func() {
 							korifiv1alpha1.RelServiceOfferingLabel: "other-offering-guid",
 						},
 					},
+					Spec: korifiv1alpha1.CFServicePlanSpec{
+						Visibility: korifiv1alpha1.ServicePlanVisibility{
+							Type: korifiv1alpha1.AdminServicePlanVisibilityType,
+						},
+					},
 				})).To(Succeed())
 
 				message.ServiceOfferingGUIDs = []string{"other-offering-guid"}
@@ -179,6 +183,40 @@ var _ = Describe("ServicePlanRepo", func() {
 					}),
 				})))
 			})
+		})
+	})
+
+	Describe("GetPlanVisibility", func() {
+		var (
+			planGUID   string
+			visibility repositories.ServicePlanVisibilityRecord
+		)
+
+		BeforeEach(func() {
+			planGUID = uuid.NewString()
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServicePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      planGUID,
+				},
+				Spec: korifiv1alpha1.CFServicePlanSpec{
+					Visibility: korifiv1alpha1.ServicePlanVisibility{
+						Type: korifiv1alpha1.AdminServicePlanVisibilityType,
+					},
+				},
+			})).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			visibility, err = repo.GetPlanVisibility(ctx, authInfo, planGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the plan visibility", func() {
+			Expect(visibility).To(Equal(repositories.ServicePlanVisibilityRecord{
+				Type: korifiv1alpha1.AdminServicePlanVisibilityType,
+			}))
 		})
 	})
 })
