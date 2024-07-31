@@ -19,7 +19,7 @@ func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
 }
 
 func (l *ServicePlanList) SupportedKeys() []string {
-	return []string{"service_offering_guids", "page", "per_page"}
+	return []string{"service_offering_guids", "page", "per_page", "include"}
 }
 
 func (l *ServicePlanList) IgnoredKeys() []*regexp.Regexp {

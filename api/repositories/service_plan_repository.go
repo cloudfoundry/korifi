@@ -10,16 +10,22 @@ import (
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	"github.com/BooleanCat/go-functional/iter"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const ServicePlanResourceType = "Service Plan"
+const (
+	ServicePlanResourceType           = "Service Plan"
+	ServicePlanVisibilityResourceType = "Service Plan Visibility"
+)
 
 type ServicePlanRecord struct {
 	services.ServicePlan
 	model.CFResource
 	Relationships ServicePlanRelationships `json:"relationships"`
 }
+
+type ServicePlanVisibilityRecord korifiv1alpha1.ServicePlanVisibility
 
 type ServicePlanRelationships struct {
 	ServiceOffering model.ToOneRelationship `json:"service_offering"`
@@ -60,6 +66,26 @@ func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.
 	}
 
 	return iter.Map(iter.Lift(cfServicePlans.Items).Filter(message.matches), planToRecord).Collect(), nil
+}
+
+func (r *ServicePlanRepo) GetPlanVisibility(ctx context.Context, authInfo authorization.Info, planGUID string) (ServicePlanVisibilityRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ServicePlanVisibilityRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfServicePlan := &korifiv1alpha1.CFServicePlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      planGUID,
+		},
+	}
+
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfServicePlan), cfServicePlan)
+	if err != nil {
+		return ServicePlanVisibilityRecord{}, apierrors.FromK8sError(err, ServicePlanVisibilityResourceType)
+	}
+	return ServicePlanVisibilityRecord(cfServicePlan.Spec.Visibility), nil
 }
 
 func planToRecord(plan korifiv1alpha1.CFServicePlan) ServicePlanRecord {

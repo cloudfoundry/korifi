@@ -235,22 +235,23 @@ func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *
 
 		servicePlan.Spec = korifiv1alpha1.CFServicePlanSpec{
 			ServicePlan: services.ServicePlan{
-				BrokerServicePlan: services.BrokerServicePlan{
-					Name:        catalogPlan.Name,
-					Free:        catalogPlan.Free,
-					Description: catalogPlan.Description,
-					BrokerCatalog: services.ServicePlanBrokerCatalog{
-						ID: catalogPlan.ID,
-						Metadata: &runtime.RawExtension{
-							Raw: rawMetadata,
-						},
-						Features: services.ServicePlanFeatures{
-							PlanUpdateable: catalogPlan.PlanUpdateable,
-							Bindable:       catalogPlan.Bindable,
-						},
+				Name:        catalogPlan.Name,
+				Free:        catalogPlan.Free,
+				Description: catalogPlan.Description,
+				BrokerCatalog: services.ServicePlanBrokerCatalog{
+					ID: catalogPlan.ID,
+					Metadata: &runtime.RawExtension{
+						Raw: rawMetadata,
 					},
-					Schemas: catalogPlan.Schemas,
+					Features: services.ServicePlanFeatures{
+						PlanUpdateable: catalogPlan.PlanUpdateable,
+						Bindable:       catalogPlan.Bindable,
+					},
 				},
+				Schemas: catalogPlan.Schemas,
+			},
+			Visibility: korifiv1alpha1.ServicePlanVisibility{
+				Type: korifiv1alpha1.AdminServicePlanVisibilityType,
 			},
 		}
 

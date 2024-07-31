@@ -47,3 +47,10 @@ rules:
   - cfservicebrokers
   verbs:
   - list
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceplans
+  verbs:
+  - get

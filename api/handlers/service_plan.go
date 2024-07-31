@@ -16,12 +16,14 @@ import (
 )
 
 const (
-	ServicePlansPath = "/v3/service_plans"
+	ServicePlansPath          = "/v3/service_plans"
+	ServicePlanVisivilityPath = "/v3/service_plans/{guid}/visibility"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServicePlanRepository . CFServicePlanRepository
 type CFServicePlanRepository interface {
 	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
+	GetPlanVisibility(context.Context, authorization.Info, string) (repositories.ServicePlanVisibilityRecord, error)
 }
 
 type ServicePlan struct {
@@ -53,10 +55,25 @@ func (h *ServicePlan) list(r *http.Request) (*routing.Response, error) {
 
 	servicePlanList, err := h.servicePlanRepo.ListPlans(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service plans")
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list service plans")
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServicePlan, servicePlanList, h.serverURL, *r.URL)), nil
+}
+
+func (h *ServicePlan) getPlanVisibility(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.get-visibility")
+
+	planGUID := routing.URLParam(r, "guid")
+	logger = logger.WithValues("guid", planGUID)
+
+	visibility, err := h.servicePlanRepo.GetPlanVisibility(r.Context(), authInfo, planGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get plan visibility")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlanVisibility(visibility, h.serverURL)), nil
 }
 
 func (h *ServicePlan) UnauthenticatedRoutes() []routing.Route {
@@ -66,5 +83,6 @@ func (h *ServicePlan) UnauthenticatedRoutes() []routing.Route {
 func (h *ServicePlan) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: ServicePlansPath, Handler: h.list},
+		{Method: "GET", Pattern: ServicePlanVisivilityPath, Handler: h.getPlanVisibility},
 	}
 }

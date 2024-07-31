@@ -205,6 +205,7 @@ rules:
   - cfserviceplans
   verbs:
   - list
+  - get
 
 - apiGroups:
   - rbac.authorization.k8s.io
