@@ -10,6 +10,7 @@ import (
 type ServicePlanLinks struct {
 	Self            Link `json:"self"`
 	ServiceOffering Link `json:"service_offering"`
+	Visibility      Link `json:"visibility"`
 }
 
 type ServicePlanResponse struct {
@@ -27,14 +28,17 @@ func ForServicePlan(servicePlan repositories.ServicePlanRecord, baseURL url.URL)
 			ServiceOffering: Link{
 				HRef: buildURL(baseURL).appendPath(serviceOfferingsBase, servicePlan.Relationships.ServiceOffering.Data.GUID).build(),
 			},
+			Visibility: Link{
+				HRef: buildURL(baseURL).appendPath(servicePlansBase, servicePlan.GUID, "visibility").build(),
+			},
 		},
 	}
 }
 
 type ServicePlanVisibilityResponse korifiv1alpha1.ServicePlanVisibility
 
-func ForServicePlanVisibility(visibility repositories.ServicePlanVisibilityRecord, _ url.URL) ServicePlanVisibilityResponse {
+func ForServicePlanVisibility(plan repositories.ServicePlanRecord, _ url.URL) ServicePlanVisibilityResponse {
 	return ServicePlanVisibilityResponse{
-		Type: visibility.Type,
+		Type: plan.VisibilityType,
 	}
 }

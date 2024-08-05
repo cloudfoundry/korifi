@@ -10,10 +10,13 @@ type CFServicePlanSpec struct {
 	Visibility           ServicePlanVisibility `json:"visibility"`
 }
 
-const AdminServicePlanVisibilityType = "admin"
+const (
+	AdminServicePlanVisibilityType  = "admin"
+	PublicServicePlanVisibilityType = "public"
+)
 
 type ServicePlanVisibility struct {
-	// +kubebuilder:validation:Enum=admin
+	// +kubebuilder:validation:Enum=admin;public
 	Type string `json:"type"`
 }
 

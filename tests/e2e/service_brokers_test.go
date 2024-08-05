@@ -61,7 +61,18 @@ var _ = Describe("Service Brokers", func() {
 	})
 
 	Describe("List", func() {
-		var result resourceList[resource]
+		var (
+			result     resourceList[resource]
+			brokerGUID string
+		)
+
+		BeforeEach(func() {
+			brokerGUID = createBroker(serviceBrokerURL)
+		})
+
+		AfterEach(func() {
+			cleanupBroker(brokerGUID)
+		})
 
 		JustBeforeEach(func() {
 			resp, err = adminClient.R().SetResult(&result).Get("/v3/service_brokers")
@@ -71,7 +82,7 @@ var _ = Describe("Service Brokers", func() {
 		It("returns a list of brokers", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-				"GUID": Equal(serviceBrokerGUID),
+				"GUID": Equal(brokerGUID),
 			})))
 		})
 	})
@@ -127,7 +138,7 @@ var _ = Describe("Service Brokers", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(servicePlans.Resources).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-					"Labels": HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, serviceBrokerGUID),
+					"Labels": HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, brokerGUID),
 				})),
 			})))
 		})

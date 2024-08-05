@@ -52,7 +52,6 @@ var (
 	commonTestOrgName       string
 	defaultAppBitsFile      string
 	multiProcessAppBitsFile string
-	serviceBrokerGUID       string
 	serviceBrokerURL        string
 )
 
@@ -327,7 +326,6 @@ type sharedSetupData struct {
 	CommonOrgName            string `json:"commonOrgName"`
 	CommonOrgGUID            string `json:"commonOrgGuid"`
 	DefaultAppBitsFile       string `json:"defaultAppBitsFile"`
-	ServiceBrokerGUID        string `json:"service_broker_guid"`
 	ServiceBrokerURL         string `json:"service_broker_url"`
 	MultiProcessAppBitsFile  string `json:"multiProcessAppBitsFile"`
 	AdminServiceAccount      string `json:"admin_service_account"`
@@ -345,17 +343,15 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestOrgName = generateGUID("common-test-org")
 	commonTestOrgGUID = createOrg(commonTestOrgName)
 
-	brokerGUID, brokerURL := createSampleBroker(helpers.ZipDirectory(
-		helpers.GetDefaultedEnvVar("DEFAULT_SERVICE_BROKER_BITS_PATH", "../assets/sample-broker"),
-	))
 	sharedData := sharedSetupData{
 		CommonOrgName: commonTestOrgName,
 		CommonOrgGUID: commonTestOrgGUID,
 		DefaultAppBitsFile: helpers.ZipDirectory(
 			helpers.GetDefaultedEnvVar("DEFAULT_APP_BITS_PATH", "../assets/dorifi"),
 		),
-		ServiceBrokerGUID:        brokerGUID,
-		ServiceBrokerURL:         brokerURL,
+		ServiceBrokerURL: pushSampleBroker(helpers.ZipDirectory(
+			helpers.GetDefaultedEnvVar("DEFAULT_SERVICE_BROKER_BITS_PATH", "../assets/sample-broker"),
+		)),
 		MultiProcessAppBitsFile:  helpers.ZipDirectory("../assets/multi-process"),
 		AdminServiceAccount:      adminServiceAccount,
 		AdminServiceAccountToken: adminServiceAccountToken,
@@ -375,7 +371,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	commonTestOrgGUID = sharedSetup.CommonOrgGUID
 	commonTestOrgName = sharedSetup.CommonOrgName
 	defaultAppBitsFile = sharedSetup.DefaultAppBitsFile
-	serviceBrokerGUID = sharedSetup.ServiceBrokerGUID
 	serviceBrokerURL = sharedSetup.ServiceBrokerURL
 	multiProcessAppBitsFile = sharedSetup.MultiProcessAppBitsFile
 	adminServiceAccount = sharedSetup.AdminServiceAccount
@@ -387,7 +382,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = SynchronizedAfterSuite(func() {
 }, func() {
 	deleteOrg(commonTestOrgGUID)
-	cleanupBroker(serviceBrokerGUID)
 	serviceAccountFactory.DeleteServiceAccount(adminServiceAccount)
 })
 
@@ -1144,13 +1138,12 @@ func printAllRoleBindings(config *rest.Config) {
 	fmt.Fprint(GinkgoWriter, "\n\n========== Expected 404 debug log (end) ==========\n\n")
 }
 
-func createSampleBroker(brokerBitsFile string) (string, string) {
+func pushSampleBroker(brokerBitsFile string) string {
 	spaceGUID := createSpace(uuid.NewString(), commonTestOrgGUID)
 	brokerAppGUID, _ := pushTestApp(spaceGUID, brokerBitsFile)
 	body := curlApp(brokerAppGUID, "")
 	Expect(body).To(ContainSubstring("Hi, I'm the sample broker!"))
-	brokerURL := getBrokerInClusterURL(brokerAppGUID)
-	return createBroker(brokerURL), brokerURL
+	return getBrokerInClusterURL(brokerAppGUID)
 }
 
 func getBrokerInClusterURL(brokerAppGUID string) string {

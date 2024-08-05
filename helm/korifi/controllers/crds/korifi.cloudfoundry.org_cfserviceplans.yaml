@@ -116,6 +116,7 @@ spec:
                   type:
                     enum:
                     - admin
+                    - public
                     type: string
                 required:
                 - type
