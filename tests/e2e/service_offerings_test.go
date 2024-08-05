@@ -10,7 +10,18 @@ import (
 )
 
 var _ = Describe("Service Offerings", func() {
-	var resp *resty.Response
+	var (
+		resp       *resty.Response
+		brokerGUID string
+	)
+
+	BeforeEach(func() {
+		brokerGUID = createBroker(serviceBrokerURL)
+	})
+
+	AfterEach(func() {
+		cleanupBroker(brokerGUID)
+	})
 
 	Describe("List", func() {
 		var result resourceList[resource]
@@ -26,7 +37,7 @@ var _ = Describe("Service Offerings", func() {
 			Expect(result.Resources).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Relationships": HaveKeyWithValue("service_broker", relationship{
 					Data: resource{
-						GUID: serviceBrokerGUID,
+						GUID: brokerGUID,
 					},
 				}),
 			})))

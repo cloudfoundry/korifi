@@ -233,6 +233,11 @@ func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *
 			return fmt.Errorf("failed to marshal service plan %q metadata: %w", catalogPlan.ID, err)
 		}
 
+		visibilityType := korifiv1alpha1.AdminServicePlanVisibilityType
+		if servicePlan.Spec.Visibility.Type != "" {
+			visibilityType = servicePlan.Spec.Visibility.Type
+		}
+
 		servicePlan.Spec = korifiv1alpha1.CFServicePlanSpec{
 			ServicePlan: services.ServicePlan{
 				Name:        catalogPlan.Name,
@@ -251,7 +256,7 @@ func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *
 				Schemas: catalogPlan.Schemas,
 			},
 			Visibility: korifiv1alpha1.ServicePlanVisibility{
-				Type: korifiv1alpha1.AdminServicePlanVisibilityType,
+				Type: visibilityType,
 			},
 		}
 

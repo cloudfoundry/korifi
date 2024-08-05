@@ -11,19 +11,34 @@ import (
 )
 
 type CFServicePlanRepository struct {
-	GetPlanVisibilityStub        func(context.Context, authorization.Info, string) (repositories.ServicePlanVisibilityRecord, error)
-	getPlanVisibilityMutex       sync.RWMutex
-	getPlanVisibilityArgsForCall []struct {
+	ApplyPlanVisibilityStub        func(context.Context, authorization.Info, repositories.ApplyServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
+	applyPlanVisibilityMutex       sync.RWMutex
+	applyPlanVisibilityArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.ApplyServicePlanVisibilityMessage
+	}
+	applyPlanVisibilityReturns struct {
+		result1 repositories.ServicePlanRecord
+		result2 error
+	}
+	applyPlanVisibilityReturnsOnCall map[int]struct {
+		result1 repositories.ServicePlanRecord
+		result2 error
+	}
+	GetPlanStub        func(context.Context, authorization.Info, string) (repositories.ServicePlanRecord, error)
+	getPlanMutex       sync.RWMutex
+	getPlanArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
 		arg3 string
 	}
-	getPlanVisibilityReturns struct {
-		result1 repositories.ServicePlanVisibilityRecord
+	getPlanReturns struct {
+		result1 repositories.ServicePlanRecord
 		result2 error
 	}
-	getPlanVisibilityReturnsOnCall map[int]struct {
-		result1 repositories.ServicePlanVisibilityRecord
+	getPlanReturnsOnCall map[int]struct {
+		result1 repositories.ServicePlanRecord
 		result2 error
 	}
 	ListPlansStub        func(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
@@ -45,18 +60,18 @@ type CFServicePlanRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFServicePlanRepository) GetPlanVisibility(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.ServicePlanVisibilityRecord, error) {
-	fake.getPlanVisibilityMutex.Lock()
-	ret, specificReturn := fake.getPlanVisibilityReturnsOnCall[len(fake.getPlanVisibilityArgsForCall)]
-	fake.getPlanVisibilityArgsForCall = append(fake.getPlanVisibilityArgsForCall, struct {
+func (fake *CFServicePlanRepository) ApplyPlanVisibility(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ApplyServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error) {
+	fake.applyPlanVisibilityMutex.Lock()
+	ret, specificReturn := fake.applyPlanVisibilityReturnsOnCall[len(fake.applyPlanVisibilityArgsForCall)]
+	fake.applyPlanVisibilityArgsForCall = append(fake.applyPlanVisibilityArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
+		arg3 repositories.ApplyServicePlanVisibilityMessage
 	}{arg1, arg2, arg3})
-	stub := fake.GetPlanVisibilityStub
-	fakeReturns := fake.getPlanVisibilityReturns
-	fake.recordInvocation("GetPlanVisibility", []interface{}{arg1, arg2, arg3})
-	fake.getPlanVisibilityMutex.Unlock()
+	stub := fake.ApplyPlanVisibilityStub
+	fakeReturns := fake.applyPlanVisibilityReturns
+	fake.recordInvocation("ApplyPlanVisibility", []interface{}{arg1, arg2, arg3})
+	fake.applyPlanVisibilityMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -66,47 +81,113 @@ func (fake *CFServicePlanRepository) GetPlanVisibility(arg1 context.Context, arg
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFServicePlanRepository) GetPlanVisibilityCallCount() int {
-	fake.getPlanVisibilityMutex.RLock()
-	defer fake.getPlanVisibilityMutex.RUnlock()
-	return len(fake.getPlanVisibilityArgsForCall)
+func (fake *CFServicePlanRepository) ApplyPlanVisibilityCallCount() int {
+	fake.applyPlanVisibilityMutex.RLock()
+	defer fake.applyPlanVisibilityMutex.RUnlock()
+	return len(fake.applyPlanVisibilityArgsForCall)
 }
 
-func (fake *CFServicePlanRepository) GetPlanVisibilityCalls(stub func(context.Context, authorization.Info, string) (repositories.ServicePlanVisibilityRecord, error)) {
-	fake.getPlanVisibilityMutex.Lock()
-	defer fake.getPlanVisibilityMutex.Unlock()
-	fake.GetPlanVisibilityStub = stub
+func (fake *CFServicePlanRepository) ApplyPlanVisibilityCalls(stub func(context.Context, authorization.Info, repositories.ApplyServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)) {
+	fake.applyPlanVisibilityMutex.Lock()
+	defer fake.applyPlanVisibilityMutex.Unlock()
+	fake.ApplyPlanVisibilityStub = stub
 }
 
-func (fake *CFServicePlanRepository) GetPlanVisibilityArgsForCall(i int) (context.Context, authorization.Info, string) {
-	fake.getPlanVisibilityMutex.RLock()
-	defer fake.getPlanVisibilityMutex.RUnlock()
-	argsForCall := fake.getPlanVisibilityArgsForCall[i]
+func (fake *CFServicePlanRepository) ApplyPlanVisibilityArgsForCall(i int) (context.Context, authorization.Info, repositories.ApplyServicePlanVisibilityMessage) {
+	fake.applyPlanVisibilityMutex.RLock()
+	defer fake.applyPlanVisibilityMutex.RUnlock()
+	argsForCall := fake.applyPlanVisibilityArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFServicePlanRepository) GetPlanVisibilityReturns(result1 repositories.ServicePlanVisibilityRecord, result2 error) {
-	fake.getPlanVisibilityMutex.Lock()
-	defer fake.getPlanVisibilityMutex.Unlock()
-	fake.GetPlanVisibilityStub = nil
-	fake.getPlanVisibilityReturns = struct {
-		result1 repositories.ServicePlanVisibilityRecord
+func (fake *CFServicePlanRepository) ApplyPlanVisibilityReturns(result1 repositories.ServicePlanRecord, result2 error) {
+	fake.applyPlanVisibilityMutex.Lock()
+	defer fake.applyPlanVisibilityMutex.Unlock()
+	fake.ApplyPlanVisibilityStub = nil
+	fake.applyPlanVisibilityReturns = struct {
+		result1 repositories.ServicePlanRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFServicePlanRepository) GetPlanVisibilityReturnsOnCall(i int, result1 repositories.ServicePlanVisibilityRecord, result2 error) {
-	fake.getPlanVisibilityMutex.Lock()
-	defer fake.getPlanVisibilityMutex.Unlock()
-	fake.GetPlanVisibilityStub = nil
-	if fake.getPlanVisibilityReturnsOnCall == nil {
-		fake.getPlanVisibilityReturnsOnCall = make(map[int]struct {
-			result1 repositories.ServicePlanVisibilityRecord
+func (fake *CFServicePlanRepository) ApplyPlanVisibilityReturnsOnCall(i int, result1 repositories.ServicePlanRecord, result2 error) {
+	fake.applyPlanVisibilityMutex.Lock()
+	defer fake.applyPlanVisibilityMutex.Unlock()
+	fake.ApplyPlanVisibilityStub = nil
+	if fake.applyPlanVisibilityReturnsOnCall == nil {
+		fake.applyPlanVisibilityReturnsOnCall = make(map[int]struct {
+			result1 repositories.ServicePlanRecord
 			result2 error
 		})
 	}
-	fake.getPlanVisibilityReturnsOnCall[i] = struct {
-		result1 repositories.ServicePlanVisibilityRecord
+	fake.applyPlanVisibilityReturnsOnCall[i] = struct {
+		result1 repositories.ServicePlanRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServicePlanRepository) GetPlan(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.ServicePlanRecord, error) {
+	fake.getPlanMutex.Lock()
+	ret, specificReturn := fake.getPlanReturnsOnCall[len(fake.getPlanArgsForCall)]
+	fake.getPlanArgsForCall = append(fake.getPlanArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetPlanStub
+	fakeReturns := fake.getPlanReturns
+	fake.recordInvocation("GetPlan", []interface{}{arg1, arg2, arg3})
+	fake.getPlanMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFServicePlanRepository) GetPlanCallCount() int {
+	fake.getPlanMutex.RLock()
+	defer fake.getPlanMutex.RUnlock()
+	return len(fake.getPlanArgsForCall)
+}
+
+func (fake *CFServicePlanRepository) GetPlanCalls(stub func(context.Context, authorization.Info, string) (repositories.ServicePlanRecord, error)) {
+	fake.getPlanMutex.Lock()
+	defer fake.getPlanMutex.Unlock()
+	fake.GetPlanStub = stub
+}
+
+func (fake *CFServicePlanRepository) GetPlanArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getPlanMutex.RLock()
+	defer fake.getPlanMutex.RUnlock()
+	argsForCall := fake.getPlanArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServicePlanRepository) GetPlanReturns(result1 repositories.ServicePlanRecord, result2 error) {
+	fake.getPlanMutex.Lock()
+	defer fake.getPlanMutex.Unlock()
+	fake.GetPlanStub = nil
+	fake.getPlanReturns = struct {
+		result1 repositories.ServicePlanRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServicePlanRepository) GetPlanReturnsOnCall(i int, result1 repositories.ServicePlanRecord, result2 error) {
+	fake.getPlanMutex.Lock()
+	defer fake.getPlanMutex.Unlock()
+	fake.GetPlanStub = nil
+	if fake.getPlanReturnsOnCall == nil {
+		fake.getPlanReturnsOnCall = make(map[int]struct {
+			result1 repositories.ServicePlanRecord
+			result2 error
+		})
+	}
+	fake.getPlanReturnsOnCall[i] = struct {
+		result1 repositories.ServicePlanRecord
 		result2 error
 	}{result1, result2}
 }
@@ -180,8 +261,10 @@ func (fake *CFServicePlanRepository) ListPlansReturnsOnCall(i int, result1 []rep
 func (fake *CFServicePlanRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getPlanVisibilityMutex.RLock()
-	defer fake.getPlanVisibilityMutex.RUnlock()
+	fake.applyPlanVisibilityMutex.RLock()
+	defer fake.applyPlanVisibilityMutex.RUnlock()
+	fake.getPlanMutex.RLock()
+	defer fake.getPlanMutex.RUnlock()
 	fake.listPlansMutex.RLock()
 	defer fake.listPlansMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

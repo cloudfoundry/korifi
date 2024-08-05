@@ -206,6 +206,7 @@ rules:
   verbs:
   - list
   - get
+  - patch
 
 - apiGroups:
   - rbac.authorization.k8s.io

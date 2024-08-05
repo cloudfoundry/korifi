@@ -130,6 +130,7 @@ var _ = Describe("CFServiceBroker", func() {
 			)))
 		}).Should(Succeed())
 	})
+
 	It("sets the ObservedGeneration status field", func() {
 		Eventually(func(g Gomega) {
 			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
@@ -231,6 +232,56 @@ var _ = Describe("CFServiceBroker", func() {
 				}),
 			}))
 		}).Should(Succeed())
+	})
+
+	When("the plan visibility is updated", func() {
+		var planGUID string
+
+		BeforeEach(func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+				g.Expect(serviceBroker.Status.Conditions).To(ContainElement(SatisfyAll(
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+					HasStatus(Equal(metav1.ConditionTrue)),
+				)))
+			}).Should(Succeed())
+
+			plans := &korifiv1alpha1.CFServicePlanList{}
+			Expect(adminClient.List(ctx, plans, client.InNamespace(serviceBroker.Namespace))).To(Succeed())
+			Expect(plans.Items).To(HaveLen(1))
+
+			planGUID = plans.Items[0].Name
+
+			plan := &plans.Items[0]
+			Expect(k8s.PatchResource(ctx, adminClient, plan, func() {
+				plan.Spec.Visibility.Type = korifiv1alpha1.PublicServicePlanVisibilityType
+			})).To(Succeed())
+		})
+
+		When("the controller reconciles the broker", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, serviceBroker, func() {
+					serviceBroker.Spec.Name = uuid.NewString()
+				})).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(serviceBroker.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
+					g.Expect(serviceBroker.Generation).To(Equal(serviceBroker.Status.ObservedGeneration))
+				}).Should(Succeed())
+			})
+
+			It("keeps the updated value", func() {
+				plan := &korifiv1alpha1.CFServicePlan{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: serviceBroker.Namespace,
+						Name:      planGUID,
+					},
+				}
+				Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(plan), plan)).To(Succeed())
+				Expect(plan.Spec.Visibility.Type).To(Equal(korifiv1alpha1.PublicServicePlanVisibilityType))
+			})
+		})
 	})
 
 	When("getting the catalog fails", func() {

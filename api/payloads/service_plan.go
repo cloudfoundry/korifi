@@ -30,3 +30,14 @@ func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
 	l.ServiceOfferingGUIDs = values.Get("service_offering_guids")
 	return nil
 }
+
+type ServicePlanVisibility struct {
+	Type string `json:"type"`
+}
+
+func (p *ServicePlanVisibility) ToMessage(planGUID string) repositories.ApplyServicePlanVisibilityMessage {
+	return repositories.ApplyServicePlanVisibilityMessage{
+		PlanGUID: planGUID,
+		Type:     p.Type,
+	}
+}

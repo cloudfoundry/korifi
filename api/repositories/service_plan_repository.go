@@ -22,10 +22,9 @@ const (
 type ServicePlanRecord struct {
 	services.ServicePlan
 	model.CFResource
-	Relationships ServicePlanRelationships `json:"relationships"`
+	VisibilityType string                   `json:"visibility_type"`
+	Relationships  ServicePlanRelationships `json:"relationships"`
 }
-
-type ServicePlanVisibilityRecord korifiv1alpha1.ServicePlanVisibility
 
 type ServicePlanRelationships struct {
 	ServiceOffering model.ToOneRelationship `json:"service_offering"`
@@ -36,6 +35,19 @@ type ServicePlanRepo struct {
 	rootNamespace     string
 }
 
+type ListServicePlanMessage struct {
+	ServiceOfferingGUIDs []string
+}
+
+func (m *ListServicePlanMessage) matches(cfServicePlan korifiv1alpha1.CFServicePlan) bool {
+	return emptyOrContains(m.ServiceOfferingGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel])
+}
+
+type ApplyServicePlanVisibilityMessage struct {
+	PlanGUID string
+	Type     string
+}
+
 func NewServicePlanRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	rootNamespace string,
@@ -44,14 +56,6 @@ func NewServicePlanRepo(
 		userClientFactory: userClientFactory,
 		rootNamespace:     rootNamespace,
 	}
-}
-
-type ListServicePlanMessage struct {
-	ServiceOfferingGUIDs []string
-}
-
-func (m *ListServicePlanMessage) matches(cfServicePlan korifiv1alpha1.CFServicePlan) bool {
-	return emptyOrContains(m.ServiceOfferingGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel])
 }
 
 func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]ServicePlanRecord, error) {
@@ -68,10 +72,10 @@ func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.
 	return iter.Map(iter.Lift(cfServicePlans.Items).Filter(message.matches), planToRecord).Collect(), nil
 }
 
-func (r *ServicePlanRepo) GetPlanVisibility(ctx context.Context, authInfo authorization.Info, planGUID string) (ServicePlanVisibilityRecord, error) {
+func (r *ServicePlanRepo) GetPlan(ctx context.Context, authInfo authorization.Info, planGUID string) (ServicePlanRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return ServicePlanVisibilityRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return ServicePlanRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	cfServicePlan := &korifiv1alpha1.CFServicePlan{
@@ -83,9 +87,31 @@ func (r *ServicePlanRepo) GetPlanVisibility(ctx context.Context, authInfo author
 
 	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfServicePlan), cfServicePlan)
 	if err != nil {
-		return ServicePlanVisibilityRecord{}, apierrors.FromK8sError(err, ServicePlanVisibilityResourceType)
+		return ServicePlanRecord{}, apierrors.FromK8sError(err, ServicePlanVisibilityResourceType)
 	}
-	return ServicePlanVisibilityRecord(cfServicePlan.Spec.Visibility), nil
+	return planToRecord(*cfServicePlan), nil
+}
+
+func (r *ServicePlanRepo) ApplyPlanVisibility(ctx context.Context, authInfo authorization.Info, message ApplyServicePlanVisibilityMessage) (ServicePlanRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ServicePlanRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfServicePlan := &korifiv1alpha1.CFServicePlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      message.PlanGUID,
+		},
+	}
+
+	if err := PatchResource(ctx, userClient, cfServicePlan, func() {
+		cfServicePlan.Spec.Visibility.Type = message.Type
+	}); err != nil {
+		return ServicePlanRecord{}, apierrors.FromK8sError(err, ServicePlanVisibilityResourceType)
+	}
+
+	return planToRecord(*cfServicePlan), nil
 }
 
 func planToRecord(plan korifiv1alpha1.CFServicePlan) ServicePlanRecord {
@@ -99,6 +125,7 @@ func planToRecord(plan korifiv1alpha1.CFServicePlan) ServicePlanRecord {
 				Annotations: plan.Annotations,
 			},
 		},
+		VisibilityType: plan.Spec.Visibility.Type,
 		Relationships: ServicePlanRelationships{
 			ServiceOffering: model.ToOneRelationship{
 				Data: model.Relationship{

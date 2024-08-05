@@ -81,6 +81,7 @@ var _ = Describe("Service Plan", func() {
 						},
 					},
 				},
+				VisibilityType: "visibility-type",
 				Relationships: repositories.ServicePlanRelationships{
 					ServiceOffering: model.ToOneRelationship{
 						Data: model.Relationship{
@@ -135,6 +136,7 @@ var _ = Describe("Service Plan", func() {
 				  }
 				},
 				"guid": "resource-guid",
+				"visibility_type": "visibility-type",
 				"created_at": "1970-01-01T00:00:01Z",
 				"updated_at": "1970-01-01T00:00:02Z",
 				"metadata": {
@@ -158,6 +160,9 @@ var _ = Describe("Service Plan", func() {
 				  },
 				  "service_offering": {
 					"href": "https://api.example.org/v3/service_offerings/service-offering-guid"
+				  },
+				  "visibility": {
+					"href": "https://api.example.org/v3/service_plans/resource-guid/visibility"
 				  }
 				}
 			}`))
@@ -165,11 +170,11 @@ var _ = Describe("Service Plan", func() {
 	})
 
 	Describe("ForServicePlanVisibility", func() {
-		var record repositories.ServicePlanVisibilityRecord
+		var record repositories.ServicePlanRecord
 
 		BeforeEach(func() {
-			record = repositories.ServicePlanVisibilityRecord{
-				Type: "admin",
+			record = repositories.ServicePlanRecord{
+				VisibilityType: "admin",
 			}
 		})
 

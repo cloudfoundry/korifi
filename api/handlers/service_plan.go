@@ -22,8 +22,9 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFServicePlanRepository . CFServicePlanRepository
 type CFServicePlanRepository interface {
+	GetPlan(context.Context, authorization.Info, string) (repositories.ServicePlanRecord, error)
 	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
-	GetPlanVisibility(context.Context, authorization.Info, string) (repositories.ServicePlanVisibilityRecord, error)
+	ApplyPlanVisibility(context.Context, authorization.Info, repositories.ApplyServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
 }
 
 type ServicePlan struct {
@@ -68,9 +69,29 @@ func (h *ServicePlan) getPlanVisibility(r *http.Request) (*routing.Response, err
 	planGUID := routing.URLParam(r, "guid")
 	logger = logger.WithValues("guid", planGUID)
 
-	visibility, err := h.servicePlanRepo.GetPlanVisibility(r.Context(), authInfo, planGUID)
+	plan, err := h.servicePlanRepo.GetPlan(r.Context(), authInfo, planGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to get plan visibility")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlanVisibility(plan, h.serverURL)), nil
+}
+
+func (h *ServicePlan) applyPlanVisibility(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.get-visibility")
+
+	planGUID := routing.URLParam(r, "guid")
+	logger = logger.WithValues("guid", planGUID)
+
+	payload := payloads.ServicePlanVisibility{}
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
+	}
+
+	visibility, err := h.servicePlanRepo.ApplyPlanVisibility(r.Context(), authInfo, payload.ToMessage(planGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to apply plan visibility")
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlanVisibility(visibility, h.serverURL)), nil
@@ -84,5 +105,6 @@ func (h *ServicePlan) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: ServicePlansPath, Handler: h.list},
 		{Method: "GET", Pattern: ServicePlanVisivilityPath, Handler: h.getPlanVisibility},
+		{Method: "POST", Pattern: ServicePlanVisivilityPath, Handler: h.applyPlanVisibility},
 	}
 }
