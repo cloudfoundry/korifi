@@ -16,14 +16,16 @@ var _ = Describe("ServiceOffering", func() {
 			Expect(*actualServiceOfferingList).To(Equal(expectedServiceOfferingList))
 		},
 		Entry("names", "names=b1,b2", payloads.ServiceOfferingList{Names: "b1,b2"}),
+		Entry("service_broker_names", "service_broker_names=b1,b2", payloads.ServiceOfferingList{BrokerNames: "b1,b2"}),
 	)
 
 	Describe("ToMessage", func() {
 		It("converts payload to repository message", func() {
-			payload := &payloads.ServiceOfferingList{Names: "b1,b2"}
+			payload := &payloads.ServiceOfferingList{Names: "b1,b2", BrokerNames: "br1,br2"}
 
 			Expect(payload.ToMessage()).To(Equal(repositories.ListServiceOfferingMessage{
-				Names: []string{"b1", "b2"},
+				Names:       []string{"b1", "b2"},
+				BrokerNames: []string{"br1", "br2"},
 			}))
 		})
 	})

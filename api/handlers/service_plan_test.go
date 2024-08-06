@@ -41,13 +41,7 @@ var _ = Describe("ServicePlan", func() {
 				CFResource: model.CFResource{
 					GUID: "plan-guid",
 				},
-				Relationships: repositories.ServicePlanRelationships{
-					ServiceOffering: model.ToOneRelationship{
-						Data: model.Relationship{
-							GUID: "service-offering-guid",
-						},
-					},
-				},
+				ServiceOfferingGUID: "service-offering-guid",
 			}}, nil)
 		})
 
@@ -112,7 +106,9 @@ var _ = Describe("ServicePlan", func() {
 	Describe("GET /v3/service_plans/{guid}/visibility", func() {
 		BeforeEach(func() {
 			servicePlanRepo.GetPlanReturns(repositories.ServicePlanRecord{
-				VisibilityType: korifiv1alpha1.AdminServicePlanVisibilityType,
+				Visibility: repositories.PlanVisibility{
+					Type: korifiv1alpha1.AdminServicePlanVisibilityType,
+				},
 			}, nil)
 		})
 
@@ -155,7 +151,9 @@ var _ = Describe("ServicePlan", func() {
 			})
 
 			servicePlanRepo.ApplyPlanVisibilityReturns(repositories.ServicePlanRecord{
-				VisibilityType: korifiv1alpha1.PublicServicePlanVisibilityType,
+				Visibility: repositories.PlanVisibility{
+					Type: korifiv1alpha1.PublicServicePlanVisibilityType,
+				},
 			}, nil)
 		})
 
@@ -177,8 +175,9 @@ var _ = Describe("ServicePlan", func() {
 			_, actualAuthInfo, actualMessage := servicePlanRepo.ApplyPlanVisibilityArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualMessage).To(Equal(repositories.ApplyServicePlanVisibilityMessage{
-				PlanGUID: "my-service-plan",
-				Type:     korifiv1alpha1.PublicServicePlanVisibilityType,
+				PlanGUID:      "my-service-plan",
+				Type:          korifiv1alpha1.PublicServicePlanVisibilityType,
+				Organizations: []string{},
 			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
@@ -202,6 +201,71 @@ var _ = Describe("ServicePlan", func() {
 		When("updating the visibility fails", func() {
 			BeforeEach(func() {
 				servicePlanRepo.ApplyPlanVisibilityReturns(repositories.ServicePlanRecord{}, errors.New("visibility-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("PATCH /v3/service_plans/{guid}/visibility", func() {
+		BeforeEach(func() {
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServicePlanVisibility{
+				Type: korifiv1alpha1.PublicServicePlanVisibilityType,
+			})
+
+			servicePlanRepo.UpdatePlanVisibilityReturns(repositories.ServicePlanRecord{
+				Visibility: repositories.PlanVisibility{
+					Type: korifiv1alpha1.PublicServicePlanVisibilityType,
+				},
+			}, nil)
+		})
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "PATCH", "/v3/service_plans/my-service-plan/visibility", strings.NewReader("the-payload"))
+			Expect(err).NotTo(HaveOccurred())
+
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
+
+		It("validates the payload", func() {
+			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+			Expect(bodyString(actualReq)).To(Equal("the-payload"))
+		})
+
+		It("updates the plan visibility", func() {
+			Expect(servicePlanRepo.UpdatePlanVisibilityCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualMessage := servicePlanRepo.UpdatePlanVisibilityArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.UpdateServicePlanVisibilityMessage{
+				PlanGUID:      "my-service-plan",
+				Type:          korifiv1alpha1.PublicServicePlanVisibilityType,
+				Organizations: []string{},
+			}))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.type", korifiv1alpha1.PublicServicePlanVisibilityType),
+			)))
+		})
+
+		When("the payload is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("invalid-payload"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("updating the visibility fails", func() {
+			BeforeEach(func() {
+				servicePlanRepo.UpdatePlanVisibilityReturns(repositories.ServicePlanRecord{}, errors.New("visibility-err"))
 			})
 
 			It("returns an error", func() {

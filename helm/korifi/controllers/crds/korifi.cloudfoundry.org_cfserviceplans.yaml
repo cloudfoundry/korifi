@@ -113,10 +113,15 @@ spec:
                 type: object
               visibility:
                 properties:
+                  organizations:
+                    items:
+                      type: string
+                    type: array
                   type:
                     enum:
                     - admin
                     - public
+                    - organization
                     type: string
                 required:
                 - type

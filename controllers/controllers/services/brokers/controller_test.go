@@ -228,7 +228,8 @@ var _ = Describe("CFServiceBroker", func() {
 					}),
 				}),
 				"Visibility": MatchAllFields(Fields{
-					"Type": Equal(korifiv1alpha1.AdminServicePlanVisibilityType),
+					"Type":          Equal(korifiv1alpha1.AdminServicePlanVisibilityType),
+					"Organizations": BeEmpty(),
 				}),
 			}))
 		}).Should(Succeed())

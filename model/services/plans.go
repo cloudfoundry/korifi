@@ -49,3 +49,8 @@ type ServicePlanFeatures struct {
 	PlanUpdateable bool `json:"plan_updateable"`
 	Bindable       bool `json:"bindable"`
 }
+
+type VisibilityOrganization struct {
+	GUID string `json:"guid"`
+	Name string `json:"name"`
+}

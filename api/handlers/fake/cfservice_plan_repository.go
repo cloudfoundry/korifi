@@ -56,6 +56,21 @@ type CFServicePlanRepository struct {
 		result1 []repositories.ServicePlanRecord
 		result2 error
 	}
+	UpdatePlanVisibilityStub        func(context.Context, authorization.Info, repositories.UpdateServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
+	updatePlanVisibilityMutex       sync.RWMutex
+	updatePlanVisibilityArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.UpdateServicePlanVisibilityMessage
+	}
+	updatePlanVisibilityReturns struct {
+		result1 repositories.ServicePlanRecord
+		result2 error
+	}
+	updatePlanVisibilityReturnsOnCall map[int]struct {
+		result1 repositories.ServicePlanRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -258,6 +273,72 @@ func (fake *CFServicePlanRepository) ListPlansReturnsOnCall(i int, result1 []rep
 	}{result1, result2}
 }
 
+func (fake *CFServicePlanRepository) UpdatePlanVisibility(arg1 context.Context, arg2 authorization.Info, arg3 repositories.UpdateServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error) {
+	fake.updatePlanVisibilityMutex.Lock()
+	ret, specificReturn := fake.updatePlanVisibilityReturnsOnCall[len(fake.updatePlanVisibilityArgsForCall)]
+	fake.updatePlanVisibilityArgsForCall = append(fake.updatePlanVisibilityArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.UpdateServicePlanVisibilityMessage
+	}{arg1, arg2, arg3})
+	stub := fake.UpdatePlanVisibilityStub
+	fakeReturns := fake.updatePlanVisibilityReturns
+	fake.recordInvocation("UpdatePlanVisibility", []interface{}{arg1, arg2, arg3})
+	fake.updatePlanVisibilityMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFServicePlanRepository) UpdatePlanVisibilityCallCount() int {
+	fake.updatePlanVisibilityMutex.RLock()
+	defer fake.updatePlanVisibilityMutex.RUnlock()
+	return len(fake.updatePlanVisibilityArgsForCall)
+}
+
+func (fake *CFServicePlanRepository) UpdatePlanVisibilityCalls(stub func(context.Context, authorization.Info, repositories.UpdateServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)) {
+	fake.updatePlanVisibilityMutex.Lock()
+	defer fake.updatePlanVisibilityMutex.Unlock()
+	fake.UpdatePlanVisibilityStub = stub
+}
+
+func (fake *CFServicePlanRepository) UpdatePlanVisibilityArgsForCall(i int) (context.Context, authorization.Info, repositories.UpdateServicePlanVisibilityMessage) {
+	fake.updatePlanVisibilityMutex.RLock()
+	defer fake.updatePlanVisibilityMutex.RUnlock()
+	argsForCall := fake.updatePlanVisibilityArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServicePlanRepository) UpdatePlanVisibilityReturns(result1 repositories.ServicePlanRecord, result2 error) {
+	fake.updatePlanVisibilityMutex.Lock()
+	defer fake.updatePlanVisibilityMutex.Unlock()
+	fake.UpdatePlanVisibilityStub = nil
+	fake.updatePlanVisibilityReturns = struct {
+		result1 repositories.ServicePlanRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServicePlanRepository) UpdatePlanVisibilityReturnsOnCall(i int, result1 repositories.ServicePlanRecord, result2 error) {
+	fake.updatePlanVisibilityMutex.Lock()
+	defer fake.updatePlanVisibilityMutex.Unlock()
+	fake.UpdatePlanVisibilityStub = nil
+	if fake.updatePlanVisibilityReturnsOnCall == nil {
+		fake.updatePlanVisibilityReturnsOnCall = make(map[int]struct {
+			result1 repositories.ServicePlanRecord
+			result2 error
+		})
+	}
+	fake.updatePlanVisibilityReturnsOnCall[i] = struct {
+		result1 repositories.ServicePlanRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFServicePlanRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -267,6 +348,8 @@ func (fake *CFServicePlanRepository) Invocations() map[string][][]interface{} {
 	defer fake.getPlanMutex.RUnlock()
 	fake.listPlansMutex.RLock()
 	defer fake.listPlansMutex.RUnlock()
+	fake.updatePlanVisibilityMutex.RLock()
+	defer fake.updatePlanVisibilityMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

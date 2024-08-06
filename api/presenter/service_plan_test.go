@@ -81,14 +81,10 @@ var _ = Describe("Service Plan", func() {
 						},
 					},
 				},
-				VisibilityType: "visibility-type",
-				Relationships: repositories.ServicePlanRelationships{
-					ServiceOffering: model.ToOneRelationship{
-						Data: model.Relationship{
-							GUID: "service-offering-guid",
-						},
-					},
+				Visibility: repositories.PlanVisibility{
+					Type: "visibility-type",
 				},
+				ServiceOfferingGUID: "service-offering-guid",
 			}
 		})
 
@@ -174,7 +170,13 @@ var _ = Describe("Service Plan", func() {
 
 		BeforeEach(func() {
 			record = repositories.ServicePlanRecord{
-				VisibilityType: "admin",
+				Visibility: repositories.PlanVisibility{
+					Type: "organization",
+					Organizations: []services.VisibilityOrganization{{
+						GUID: "org-guid",
+						Name: "org-name",
+					}},
+				},
 			}
 		})
 
@@ -187,7 +189,13 @@ var _ = Describe("Service Plan", func() {
 
 		It("returns the expected JSON", func() {
 			Expect(output).To(MatchJSON(`{
-				"type": "admin"
+				"type": "organization",
+				"organizations": [
+				  {
+					  "guid": "org-guid",
+					  "name": "org-name"
+				  }
+				]
 			}`))
 		})
 	})

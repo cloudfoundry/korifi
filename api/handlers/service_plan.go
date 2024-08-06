@@ -25,6 +25,7 @@ type CFServicePlanRepository interface {
 	GetPlan(context.Context, authorization.Info, string) (repositories.ServicePlanRecord, error)
 	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
 	ApplyPlanVisibility(context.Context, authorization.Info, repositories.ApplyServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
+	UpdatePlanVisibility(context.Context, authorization.Info, repositories.UpdateServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
 }
 
 type ServicePlan struct {
@@ -79,7 +80,7 @@ func (h *ServicePlan) getPlanVisibility(r *http.Request) (*routing.Response, err
 
 func (h *ServicePlan) applyPlanVisibility(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
-	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.get-visibility")
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.apply-visibility")
 
 	planGUID := routing.URLParam(r, "guid")
 	logger = logger.WithValues("guid", planGUID)
@@ -89,9 +90,29 @@ func (h *ServicePlan) applyPlanVisibility(r *http.Request) (*routing.Response, e
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
-	visibility, err := h.servicePlanRepo.ApplyPlanVisibility(r.Context(), authInfo, payload.ToMessage(planGUID))
+	visibility, err := h.servicePlanRepo.ApplyPlanVisibility(r.Context(), authInfo, payload.ToApplyMessage(planGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to apply plan visibility")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlanVisibility(visibility, h.serverURL)), nil
+}
+
+func (h *ServicePlan) updatePlanVisibility(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.update-visibility")
+
+	planGUID := routing.URLParam(r, "guid")
+	logger = logger.WithValues("guid", planGUID)
+
+	payload := payloads.ServicePlanVisibility{}
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
+	}
+
+	visibility, err := h.servicePlanRepo.UpdatePlanVisibility(r.Context(), authInfo, payload.ToUpdateMessage(planGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to update plan visibility")
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlanVisibility(visibility, h.serverURL)), nil
@@ -106,5 +127,6 @@ func (h *ServicePlan) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: ServicePlansPath, Handler: h.list},
 		{Method: "GET", Pattern: ServicePlanVisivilityPath, Handler: h.getPlanVisibility},
 		{Method: "POST", Pattern: ServicePlanVisivilityPath, Handler: h.applyPlanVisibility},
+		{Method: "PATCH", Pattern: ServicePlanVisivilityPath, Handler: h.updatePlanVisibility},
 	}
 }
