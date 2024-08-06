@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
@@ -209,7 +210,7 @@ func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 	}
 
 	filteredRoutes := itx.FromSlice(routes).Filter(message.matches)
-	return itx.Map(filteredRoutes, cfRouteToRouteRecord).Collect(), nil
+	return slices.Collect(it.Map(filteredRoutes, cfRouteToRouteRecord)), nil
 }
 
 func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
@@ -232,7 +233,7 @@ func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
 }
 
 func cfRouteDestinationsToDestinationRecords(cfRoute korifiv1alpha1.CFRoute) []DestinationRecord {
-	return itx.Map(slices.Values(cfRoute.Spec.Destinations), func(specDestination korifiv1alpha1.Destination) DestinationRecord {
+	return slices.Collect(it.Map(slices.Values(cfRoute.Spec.Destinations), func(specDestination korifiv1alpha1.Destination) DestinationRecord {
 		record := DestinationRecord{
 			GUID:        specDestination.GUID,
 			AppGUID:     specDestination.AppRef.Name,
@@ -250,7 +251,7 @@ func cfRouteDestinationsToDestinationRecords(cfRoute korifiv1alpha1.CFRoute) []D
 		}
 
 		return record
-	}).Collect()
+	}))
 }
 
 func (r *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
@@ -435,7 +436,7 @@ func (r *RouteRepo) fetchRouteByFields(ctx context.Context, authInfo authorizati
 }
 
 func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) []korifiv1alpha1.Destination {
-	return itx.Map(itx.FromSlice(destinationRecords), func(destinationRecord DestinationRecord) korifiv1alpha1.Destination {
+	return slices.Collect(it.Map(itx.FromSlice(destinationRecords), func(destinationRecord DestinationRecord) korifiv1alpha1.Destination {
 		return korifiv1alpha1.Destination{
 			GUID: destinationRecord.GUID,
 			Port: destinationRecord.Port,
@@ -445,7 +446,7 @@ func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) 
 			ProcessType: destinationRecord.ProcessType,
 			Protocol:    destinationRecord.Protocol,
 		}
-	}).Collect()
+	}))
 }
 
 func (r *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorization.Info, message PatchRouteMetadataMessage) (RouteRecord, error) {

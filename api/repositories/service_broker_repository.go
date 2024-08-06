@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -11,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -191,7 +193,7 @@ func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo aut
 
 	brokers := itx.FromSlice(brokersList.Items).Filter(message.matches)
 
-	return itx.Map(brokers, toServiceBrokerRecord).Collect(), nil
+	return slices.Collect(it.Map(brokers, toServiceBrokerRecord)), nil
 }
 
 func (r *ServiceBrokerRepo) GetServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) (ServiceBrokerRecord, error) {

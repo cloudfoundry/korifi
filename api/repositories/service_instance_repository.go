@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -12,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -268,7 +270,7 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 	}
 
 	filteredServiceInstances := itx.FromSlice(serviceInstances).Filter(message.matches)
-	return itx.Map(filteredServiceInstances, cfServiceInstanceToRecord).Collect(), nil
+	return slices.Collect(it.Map(filteredServiceInstances, cfServiceInstanceToRecord)), nil
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {

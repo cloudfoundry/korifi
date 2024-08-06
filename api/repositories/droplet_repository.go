@@ -3,10 +3,12 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -171,7 +173,7 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 	}
 
 	filteredBuilds := itx.FromSlice(allBuilds).Filter(message.matches)
-	return itx.Map(filteredBuilds, cfBuildToDropletRecord).Collect(), nil
+	return slices.Collect(it.Map(filteredBuilds, cfBuildToDropletRecord)), nil
 }
 
 type UpdateDropletMessage struct {

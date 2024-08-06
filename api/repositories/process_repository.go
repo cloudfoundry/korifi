@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -10,6 +11,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 
 	corev1 "k8s.io/api/core/v1"
@@ -167,7 +169,7 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 	}
 
 	filteredProcesses := itx.FromSlice(processes).Filter(message.matches)
-	return itx.Map(filteredProcesses, cfProcessToProcessRecord).Collect(), nil
+	return slices.Collect(it.Map(filteredProcesses, cfProcessToProcessRecord)), nil
 }
 
 func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage ScaleProcessMessage) (ProcessRecord, error) {

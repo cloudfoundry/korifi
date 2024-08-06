@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools/dockercfg"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/uuid"
@@ -336,7 +337,7 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 	}
 
 	filteredPackages := itx.FromSlice(packages).Filter(message.matches)
-	return itx.Map(filteredPackages, r.cfPackageToPackageRecord).Collect(), nil
+	return slices.Collect(it.Map(filteredPackages, r.cfPackageToPackageRecord)), nil
 }
 
 func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message UpdatePackageSourceMessage) (PackageRecord, error) {

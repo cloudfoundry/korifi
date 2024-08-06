@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -16,6 +17,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -293,5 +295,5 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 	}
 
 	filteredServiceBindings := itx.FromSlice(serviceBindings).Filter(message.matches)
-	return itx.Map(filteredServiceBindings, cfServiceBindingToRecord).Collect(), nil
+	return slices.Collect(it.Map(filteredServiceBindings, cfServiceBindingToRecord)), nil
 }
