@@ -4,7 +4,8 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/model/services"
 )
 
 type ServicePlanLinks struct {
@@ -13,20 +14,36 @@ type ServicePlanLinks struct {
 	Visibility      Link `json:"visibility"`
 }
 
+type ServicePlanRelationships struct {
+	ServiceOffering model.ToOneRelationship `json:"service_offering"`
+}
+
 type ServicePlanResponse struct {
-	repositories.ServicePlanRecord
-	Links ServicePlanLinks `json:"links"`
+	services.ServicePlan
+	model.CFResource
+	VisibilityType string                   `json:"visibility_type"`
+	Relationships  ServicePlanRelationships `json:"relationships"`
+	Links          ServicePlanLinks         `json:"links"`
 }
 
 func ForServicePlan(servicePlan repositories.ServicePlanRecord, baseURL url.URL) ServicePlanResponse {
 	return ServicePlanResponse{
-		ServicePlanRecord: servicePlan,
+		ServicePlan:    servicePlan.ServicePlan,
+		CFResource:     servicePlan.CFResource,
+		VisibilityType: servicePlan.Visibility.Type,
+		Relationships: ServicePlanRelationships{
+			ServiceOffering: model.ToOneRelationship{
+				Data: model.Relationship{
+					GUID: servicePlan.ServiceOfferingGUID,
+				},
+			},
+		},
 		Links: ServicePlanLinks{
 			Self: Link{
 				HRef: buildURL(baseURL).appendPath(servicePlansBase, servicePlan.GUID).build(),
 			},
 			ServiceOffering: Link{
-				HRef: buildURL(baseURL).appendPath(serviceOfferingsBase, servicePlan.Relationships.ServiceOffering.Data.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(serviceOfferingsBase, servicePlan.ServiceOfferingGUID).build(),
 			},
 			Visibility: Link{
 				HRef: buildURL(baseURL).appendPath(servicePlansBase, servicePlan.GUID, "visibility").build(),
@@ -35,10 +52,14 @@ func ForServicePlan(servicePlan repositories.ServicePlanRecord, baseURL url.URL)
 	}
 }
 
-type ServicePlanVisibilityResponse korifiv1alpha1.ServicePlanVisibility
+type ServicePlanVisibilityResponse struct {
+	Type          string                            `json:"type"`
+	Organizations []services.VisibilityOrganization `json:"organizations,omitempty"`
+}
 
 func ForServicePlanVisibility(plan repositories.ServicePlanRecord, _ url.URL) ServicePlanVisibilityResponse {
 	return ServicePlanVisibilityResponse{
-		Type: plan.VisibilityType,
+		Type:          plan.Visibility.Type,
+		Organizations: plan.Visibility.Organizations,
 	}
 }

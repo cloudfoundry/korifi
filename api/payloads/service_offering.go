@@ -9,17 +9,19 @@ import (
 )
 
 type ServiceOfferingList struct {
-	Names string
+	Names       string
+	BrokerNames string
 }
 
 func (l *ServiceOfferingList) ToMessage() repositories.ListServiceOfferingMessage {
 	return repositories.ListServiceOfferingMessage{
-		Names: parse.ArrayParam(l.Names),
+		Names:       parse.ArrayParam(l.Names),
+		BrokerNames: parse.ArrayParam(l.BrokerNames),
 	}
 }
 
 func (l *ServiceOfferingList) SupportedKeys() []string {
-	return []string{"names", "page", "per_page"}
+	return []string{"names", "service_broker_names", "page", "per_page"}
 }
 
 func (l *ServiceOfferingList) IgnoredKeys() []*regexp.Regexp {
@@ -28,5 +30,6 @@ func (l *ServiceOfferingList) IgnoredKeys() []*regexp.Regexp {
 
 func (l *ServiceOfferingList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
+	l.BrokerNames = values.Get("service_broker_names")
 	return nil
 }

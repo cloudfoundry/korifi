@@ -3,10 +3,11 @@ package repositories_test
 import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/gomega/gstruct"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,7 +25,12 @@ var _ = Describe("ServicePlanRepo", func() {
 	)
 
 	BeforeEach(func() {
-		repo = repositories.NewServicePlanRepo(userClientFactory, rootNamespace)
+		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &fakeawaiter.FakeAwaiter[
+			*korifiv1alpha1.CFOrg,
+			korifiv1alpha1.CFOrgList,
+			*korifiv1alpha1.CFOrgList,
+		]{})
+		repo = repositories.NewServicePlanRepo(userClientFactory, rootNamespace, orgRepo)
 
 		planGUID = uuid.NewString()
 		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServicePlan{
@@ -139,14 +145,11 @@ var _ = Describe("ServicePlanRepo", func() {
 						"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
 					}),
 				}),
-				"VisibilityType": Equal(korifiv1alpha1.AdminServicePlanVisibilityType),
-				"Relationships": Equal(repositories.ServicePlanRelationships{
-					ServiceOffering: model.ToOneRelationship{
-						Data: model.Relationship{
-							GUID: "offering-guid",
-						},
-					},
+				"Visibility": MatchAllFields(Fields{
+					"Type":          Equal(korifiv1alpha1.AdminServicePlanVisibilityType),
+					"Organizations": BeEmpty(),
 				}),
+				"ServiceOfferingGUID": Equal("offering-guid"),
 			}))
 		})
 	})
@@ -198,57 +201,307 @@ var _ = Describe("ServicePlanRepo", func() {
 			It("returns matching service plans", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Relationships": Equal(repositories.ServicePlanRelationships{
-						ServiceOffering: model.ToOneRelationship{
-							Data: model.Relationship{
-								GUID: "other-offering-guid",
-							},
+					"ServiceOfferingGUID": Equal("other-offering-guid"),
+				})))
+			})
+		})
+
+		When("filtering by names", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServicePlan{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: rootNamespace,
+						Name:      uuid.NewString(),
+						Labels: map[string]string{
+							korifiv1alpha1.RelServiceOfferingLabel: "other-offering-guid",
 						},
-					}),
+					},
+					Spec: korifiv1alpha1.CFServicePlanSpec{
+						Visibility: korifiv1alpha1.ServicePlanVisibility{
+							Type: korifiv1alpha1.AdminServicePlanVisibilityType,
+						},
+						ServicePlan: services.ServicePlan{
+							Name: "other-plan",
+						},
+					},
+				})).To(Succeed())
+
+				message.Names = []string{"other-plan"}
+			})
+
+			It("returns matching service plans", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"ServiceOfferingGUID": Equal("other-offering-guid"),
 				})))
 			})
 		})
 	})
 
-	Describe("ApplyPlanVisibility", func() {
+	Describe("PlanVisibility", func() {
 		var (
-			plan     repositories.ServicePlanRecord
-			applyErr error
+			visibilityType string
+			orgGUIDs       []string
+			cfOrg          *korifiv1alpha1.CFOrg
+			anotherOrg     *korifiv1alpha1.CFOrg
+			plan           repositories.ServicePlanRecord
+			visibilityErr  error
 		)
 
-		JustBeforeEach(func() {
-			plan, applyErr = repo.ApplyPlanVisibility(ctx, authInfo, repositories.ApplyServicePlanVisibilityMessage{
-				PlanGUID: planGUID,
-				Type:     korifiv1alpha1.PublicServicePlanVisibilityType,
+		BeforeEach(func() {
+			cfOrg = createOrgWithCleanup(ctx, uuid.NewString())
+			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
+
+			anotherOrg = createOrgWithCleanup(ctx, uuid.NewString())
+			createRoleBinding(ctx, userName, orgUserRole.Name, anotherOrg.Name)
+
+			visibilityType = korifiv1alpha1.OrganizationServicePlanVisibilityType
+			orgGUIDs = []string{cfOrg.Name}
+		})
+
+		Describe("ApplyPlanVisibility", func() {
+			JustBeforeEach(func() {
+				plan, visibilityErr = repo.ApplyPlanVisibility(ctx, authInfo, repositories.ApplyServicePlanVisibilityMessage{
+					PlanGUID:      planGUID,
+					Type:          visibilityType,
+					Organizations: orgGUIDs,
+				})
+			})
+
+			It("returns unauthorized error", func() {
+				Expect(visibilityErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+
+			When("the user has permissions", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+				})
+
+				It("returns the patched plan visibility", func() {
+					Expect(visibilityErr).NotTo(HaveOccurred())
+					Expect(plan.Visibility).To(Equal(repositories.PlanVisibility{
+						Type: korifiv1alpha1.OrganizationServicePlanVisibilityType,
+						Organizations: []services.VisibilityOrganization{{
+							GUID: cfOrg.Name,
+							Name: cfOrg.Spec.DisplayName,
+						}},
+					}))
+				})
+
+				It("patches the plan visibility in kubernetes", func() {
+					Expect(visibilityErr).NotTo(HaveOccurred())
+
+					servicePlan := &korifiv1alpha1.CFServicePlan{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: rootNamespace,
+							Name:      planGUID,
+						},
+					}
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
+
+					Expect(servicePlan.Spec.Visibility).To(Equal(korifiv1alpha1.ServicePlanVisibility{
+						Type:          korifiv1alpha1.OrganizationServicePlanVisibilityType,
+						Organizations: []string{cfOrg.Name},
+					}))
+				})
+
+				When("the plan already has the org visibility type", func() {
+					BeforeEach(func() {
+						cfServicePlan := &korifiv1alpha1.CFServicePlan{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: rootNamespace,
+								Name:      planGUID,
+							},
+						}
+
+						Expect(k8s.PatchResource(ctx, k8sClient, cfServicePlan, func() {
+							cfServicePlan.Spec.Visibility = korifiv1alpha1.ServicePlanVisibility{
+								Type:          korifiv1alpha1.OrganizationServicePlanVisibilityType,
+								Organizations: []string{anotherOrg.Name},
+							}
+						})).To(Succeed())
+					})
+
+					It("returns plan visibility with merged orgs", func() {
+						Expect(visibilityErr).NotTo(HaveOccurred())
+						Expect(plan.Visibility.Organizations).To(ConsistOf(
+							services.VisibilityOrganization{
+								GUID: anotherOrg.Name,
+								Name: anotherOrg.Spec.DisplayName,
+							},
+							services.VisibilityOrganization{
+								GUID: cfOrg.Name,
+								Name: cfOrg.Spec.DisplayName,
+							},
+						))
+					})
+
+					It("patches the plan visibility in kubernetes by merging org guids", func() {
+						Expect(visibilityErr).NotTo(HaveOccurred())
+
+						servicePlan := &korifiv1alpha1.CFServicePlan{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: rootNamespace,
+								Name:      planGUID,
+							},
+						}
+						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
+
+						Expect(servicePlan.Spec.Visibility.Organizations).To(ConsistOf(anotherOrg.Name, cfOrg.Name))
+					})
+
+					When("the visibility type is set to non-org", func() {
+						BeforeEach(func() {
+							visibilityType = korifiv1alpha1.AdminServicePlanVisibilityType
+							orgGUIDs = []string{}
+						})
+
+						It("clears the visibility organizations in kubernetes", func() {
+							Expect(visibilityErr).NotTo(HaveOccurred())
+
+							servicePlan := &korifiv1alpha1.CFServicePlan{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: rootNamespace,
+									Name:      planGUID,
+								},
+							}
+							Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
+
+							Expect(servicePlan.Spec.Visibility.Organizations).To(BeEmpty())
+						})
+					})
+				})
+
+				When("the visibility org list contains duplicates", func() {
+					BeforeEach(func() {
+						orgGUIDs = []string{cfOrg.Name, cfOrg.Name}
+					})
+
+					It("deduplicates it", func() {
+						Expect(visibilityErr).NotTo(HaveOccurred())
+
+						servicePlan := &korifiv1alpha1.CFServicePlan{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: rootNamespace,
+								Name:      planGUID,
+							},
+						}
+						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
+
+						Expect(servicePlan.Spec.Visibility.Organizations).To(ConsistOf(cfOrg.Name))
+					})
+				})
 			})
 		})
 
-		It("returns unauthorized error", func() {
-			Expect(applyErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
-		})
-
-		When("the user has permissions", func() {
-			BeforeEach(func() {
-				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+		Describe("UpdatePlanVisibility", func() {
+			JustBeforeEach(func() {
+				plan, visibilityErr = repo.UpdatePlanVisibility(ctx, authInfo, repositories.UpdateServicePlanVisibilityMessage{
+					PlanGUID:      planGUID,
+					Type:          visibilityType,
+					Organizations: orgGUIDs,
+				})
 			})
 
-			It("returns the patched plan visibility", func() {
-				Expect(applyErr).NotTo(HaveOccurred())
-				Expect(plan.VisibilityType).To(Equal(korifiv1alpha1.PublicServicePlanVisibilityType))
+			It("returns unauthorized error", func() {
+				Expect(visibilityErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 
-			It("patches the plan visibility in kubernetes", func() {
-				Expect(applyErr).NotTo(HaveOccurred())
+			When("the user has permissions", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+				})
 
-				servicePlan := &korifiv1alpha1.CFServicePlan{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: rootNamespace,
-						Name:      planGUID,
-					},
-				}
-				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
+				It("returns the patched plan visibility", func() {
+					Expect(visibilityErr).NotTo(HaveOccurred())
+					Expect(plan.Visibility).To(Equal(repositories.PlanVisibility{
+						Type: korifiv1alpha1.OrganizationServicePlanVisibilityType,
+						Organizations: []services.VisibilityOrganization{{
+							GUID: cfOrg.Name,
+							Name: cfOrg.Spec.DisplayName,
+						}},
+					}))
+				})
 
-				Expect(servicePlan.Spec.Visibility.Type).To(Equal(korifiv1alpha1.PublicServicePlanVisibilityType))
+				It("patches the plan visibility in kubernetes", func() {
+					Expect(visibilityErr).NotTo(HaveOccurred())
+
+					servicePlan := &korifiv1alpha1.CFServicePlan{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: rootNamespace,
+							Name:      planGUID,
+						},
+					}
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
+
+					Expect(servicePlan.Spec.Visibility).To(Equal(korifiv1alpha1.ServicePlanVisibility{
+						Type:          korifiv1alpha1.OrganizationServicePlanVisibilityType,
+						Organizations: []string{cfOrg.Name},
+					}))
+				})
+
+				When("the plan already has the org visibility type", func() {
+					BeforeEach(func() {
+						anotherOrg := createOrgWithCleanup(ctx, uuid.NewString())
+						createRoleBinding(ctx, userName, orgUserRole.Name, anotherOrg.Name)
+
+						cfServicePlan := &korifiv1alpha1.CFServicePlan{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: rootNamespace,
+								Name:      planGUID,
+							},
+						}
+
+						Expect(k8s.PatchResource(ctx, k8sClient, cfServicePlan, func() {
+							cfServicePlan.Spec.Visibility = korifiv1alpha1.ServicePlanVisibility{
+								Type:          korifiv1alpha1.OrganizationServicePlanVisibilityType,
+								Organizations: []string{anotherOrg.Name},
+							}
+						})).To(Succeed())
+					})
+
+					It("returns plan visibility with replaced orgs", func() {
+						Expect(visibilityErr).NotTo(HaveOccurred())
+						Expect(plan.Visibility.Organizations).To(ConsistOf(services.VisibilityOrganization{
+							GUID: cfOrg.Name,
+							Name: cfOrg.Spec.DisplayName,
+						}))
+					})
+
+					It("patches the plan visibility in kubernetes by replacing org guids", func() {
+						Expect(visibilityErr).NotTo(HaveOccurred())
+
+						servicePlan := &korifiv1alpha1.CFServicePlan{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: rootNamespace,
+								Name:      planGUID,
+							},
+						}
+						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
+
+						Expect(servicePlan.Spec.Visibility.Organizations).To(ConsistOf(cfOrg.Name))
+					})
+				})
+
+				When("the visibility org list contains duplicates", func() {
+					BeforeEach(func() {
+						orgGUIDs = []string{cfOrg.Name, cfOrg.Name}
+					})
+
+					It("deduplicates it", func() {
+						Expect(visibilityErr).NotTo(HaveOccurred())
+
+						servicePlan := &korifiv1alpha1.CFServicePlan{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: rootNamespace,
+								Name:      planGUID,
+							},
+						}
+						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
+
+						Expect(servicePlan.Spec.Visibility.Organizations).To(ConsistOf(cfOrg.Name))
+					})
+				})
 			})
 		})
 	})

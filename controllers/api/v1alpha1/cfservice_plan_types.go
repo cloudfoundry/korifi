@@ -11,13 +11,16 @@ type CFServicePlanSpec struct {
 }
 
 const (
-	AdminServicePlanVisibilityType  = "admin"
-	PublicServicePlanVisibilityType = "public"
+	AdminServicePlanVisibilityType        = "admin"
+	PublicServicePlanVisibilityType       = "public"
+	OrganizationServicePlanVisibilityType = "organization"
 )
 
 type ServicePlanVisibility struct {
-	// +kubebuilder:validation:Enum=admin;public
+	// +kubebuilder:validation:Enum=admin;public;organization
 	Type string `json:"type"`
+	// +kubebuilder:validation:Optional
+	Organizations []string `json:"organizations,omitempty"`
 }
 
 // +kubebuilder:object:root=true

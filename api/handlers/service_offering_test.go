@@ -41,13 +41,7 @@ var _ = Describe("ServiceOffering", func() {
 				CFResource: model.CFResource{
 					GUID: "offering-guid",
 				},
-				Relationships: repositories.ServiceOfferingRelationships{
-					ServiceBroker: model.ToOneRelationship{
-						Data: model.Relationship{
-							GUID: "broker-guid",
-						},
-					},
-				},
+				ServiceBrokerGUID: "broker-guid",
 			}}, nil)
 		})
 

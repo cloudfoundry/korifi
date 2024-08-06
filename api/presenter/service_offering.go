@@ -4,6 +4,8 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/model/services"
 )
 
 const (
@@ -18,13 +20,27 @@ type ServiceOfferingLinks struct {
 }
 
 type ServiceOfferingResponse struct {
-	repositories.ServiceOfferingRecord
-	Links ServiceOfferingLinks `json:"links"`
+	services.ServiceOffering
+	model.CFResource
+	Relationships ServiceOfferingRelationships `json:"relationships"`
+	Links         ServiceOfferingLinks         `json:"links"`
+}
+
+type ServiceOfferingRelationships struct {
+	ServiceBroker model.ToOneRelationship `json:"service_broker"`
 }
 
 func ForServiceOffering(serviceOffering repositories.ServiceOfferingRecord, baseURL url.URL) ServiceOfferingResponse {
 	return ServiceOfferingResponse{
-		ServiceOfferingRecord: serviceOffering,
+		ServiceOffering: serviceOffering.ServiceOffering,
+		CFResource:      serviceOffering.CFResource,
+		Relationships: ServiceOfferingRelationships{
+			ServiceBroker: model.ToOneRelationship{
+				Data: model.Relationship{
+					GUID: serviceOffering.ServiceBrokerGUID,
+				},
+			},
+		},
 		Links: ServiceOfferingLinks{
 			Self: Link{
 				HRef: buildURL(baseURL).appendPath(serviceOfferingsBase, serviceOffering.GUID).build(),
@@ -33,7 +49,7 @@ func ForServiceOffering(serviceOffering repositories.ServiceOfferingRecord, base
 				HRef: buildURL(baseURL).appendPath(servicePlansBase).setQuery("service_offering_guids=" + serviceOffering.GUID).build(),
 			},
 			ServiceBroker: Link{
-				HRef: buildURL(baseURL).appendPath(serviceBrokersBase, serviceOffering.Relationships.ServiceBroker.Data.GUID).build(),
+				HRef: buildURL(baseURL).appendPath(serviceBrokersBase, serviceOffering.ServiceBrokerGUID).build(),
 			},
 		},
 	}

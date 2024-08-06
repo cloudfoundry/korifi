@@ -46,7 +46,10 @@ var _ = Describe("Service Plans", func() {
 	})
 
 	Describe("Visibility", func() {
-		var planGUID string
+		var (
+			planGUID string
+			result   planVisibilityResource
+		)
 
 		BeforeEach(func() {
 			plans := resourceList[resource]{}
@@ -63,8 +66,6 @@ var _ = Describe("Service Plans", func() {
 		})
 
 		Describe("Get Visibility", func() {
-			var result planVisibilityResource
-
 			JustBeforeEach(func() {
 				var err error
 				resp, err = adminClient.R().SetResult(&result).Get(fmt.Sprintf("/v3/service_plans/%s/visibility", planGUID))
@@ -80,8 +81,6 @@ var _ = Describe("Service Plans", func() {
 		})
 
 		Describe("Apply Visibility", func() {
-			var result planVisibilityResource
-
 			JustBeforeEach(func() {
 				var err error
 				resp, err = adminClient.R().
@@ -90,6 +89,28 @@ var _ = Describe("Service Plans", func() {
 						Type: "public",
 					}).
 					Post(fmt.Sprintf("/v3/service_plans/%s/visibility", planGUID))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("applies the plan visibility", func() {
+				Expect(resp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusOK),
+					HaveRestyBody(MatchJSON(`{
+						"type": "public"
+					}`)),
+				))
+			})
+		})
+
+		Describe("Update Visibility", func() {
+			JustBeforeEach(func() {
+				var err error
+				resp, err = adminClient.R().
+					SetResult(&result).
+					SetBody(planVisibilityResource{
+						Type: "public",
+					}).
+					Patch(fmt.Sprintf("/v3/service_plans/%s/visibility", planGUID))
 				Expect(err).NotTo(HaveOccurred())
 			})
 

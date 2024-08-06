@@ -3,7 +3,6 @@ package repositories_test
 import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/gomega/gstruct"
@@ -19,12 +18,20 @@ var _ = Describe("ServiceOfferingRepo", func() {
 	var repo *repositories.ServiceOfferingRepo
 
 	BeforeEach(func() {
-		repo = repositories.NewServiceOfferingRepo(userClientFactory, rootNamespace)
+		repo = repositories.NewServiceOfferingRepo(
+			userClientFactory,
+			rootNamespace,
+			repositories.NewServiceBrokerRepo(
+				userClientFactory,
+				rootNamespace,
+			),
+		)
 	})
 
 	Describe("List", func() {
 		var (
 			offeringGUID    string
+			broker          *korifiv1alpha1.CFServiceBroker
 			listedOfferings []repositories.ServiceOfferingRecord
 			message         repositories.ListServiceOfferingMessage
 			listErr         error
@@ -32,12 +39,26 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 		BeforeEach(func() {
 			offeringGUID = uuid.NewString()
+
+			broker = &korifiv1alpha1.CFServiceBroker{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.CFServiceBrokerSpec{
+					ServiceBroker: services.ServiceBroker{
+						Name: uuid.NewString(),
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, broker)).To(Succeed())
+
 			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceOffering{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: rootNamespace,
 					Name:      offeringGUID,
 					Labels: map[string]string{
-						korifiv1alpha1.RelServiceBrokerLabel: "broker-guid",
+						korifiv1alpha1.RelServiceBrokerLabel: broker.Name,
 					},
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
@@ -103,17 +124,11 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					"CreatedAt": Not(BeZero()),
 					"UpdatedAt": BeNil(),
 					"Metadata": MatchAllFields(Fields{
-						"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, "broker-guid"),
+						"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, broker.Name),
 						"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
 					}),
 				}),
-				"Relationships": Equal(repositories.ServiceOfferingRelationships{
-					ServiceBroker: model.ToOneRelationship{
-						Data: model.Relationship{
-							GUID: "broker-guid",
-						},
-					},
-				}),
+				"ServiceBrokerGUID": Equal(broker.Name),
 			})))
 		})
 
@@ -132,6 +147,31 @@ var _ = Describe("ServiceOfferingRepo", func() {
 				})).To(Succeed())
 
 				message.Names = []string{"my-offering"}
+			})
+
+			It("returns the matching offerings", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("my-offering"),
+					}),
+				})))
+			})
+		})
+
+		When("filtering by broker name", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceOffering{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: rootNamespace,
+						Name:      uuid.NewString(),
+						Labels: map[string]string{
+							korifiv1alpha1.RelServiceBrokerLabel: uuid.NewString(),
+						},
+					},
+				})).To(Succeed())
+
+				message.BrokerNames = []string{broker.Spec.Name}
 			})
 
 			It("returns the matching offerings", func() {

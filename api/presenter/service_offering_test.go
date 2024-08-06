@@ -60,13 +60,7 @@ var _ = Describe("Service Offering", func() {
 					},
 				},
 			},
-			Relationships: repositories.ServiceOfferingRelationships{
-				ServiceBroker: model.ToOneRelationship{
-					Data: model.Relationship{
-						GUID: "broker-guid",
-					},
-				},
-			},
+			ServiceBrokerGUID: "broker-guid",
 		}
 	})
 
