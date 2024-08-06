@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"iter"
 	"slices"
 	"strings"
 	"time"
@@ -109,24 +110,24 @@ func (r *PodRepo) GetRuntimeLogsForApp(ctx context.Context, logger logr.Logger, 
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	logRecords := itx.Map(slices.Values(podList.Items), func(pod corev1.Pod) func(func(LogRecord) bool) {
+	logRecords := slices.Collect(it.Map(slices.Values(podList.Items), func(pod corev1.Pod) func(func(LogRecord) bool) {
 		return r.getPodLogs(ctx, logClient, logger, pod, message.Limit)
-	}).Collect()
+	}))
 
 	return slices.Collect(it.Chain(logRecords...)), nil
 }
 
-func (r *PodRepo) getPodLogs(ctx context.Context, k8sClient k8sclient.Interface, logger logr.Logger, pod corev1.Pod, limit int64) itx.Iterator[LogRecord] {
+func (r *PodRepo) getPodLogs(ctx context.Context, k8sClient k8sclient.Interface, logger logr.Logger, pod corev1.Pod, limit int64) iter.Seq[LogRecord] {
 	logReadCloser, err := k8sClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Timestamps: true, TailLines: &limit}).Stream(ctx)
 	if err != nil {
 		logger.Info("failed to fetch logs", "pod", pod.Name, "reason", err)
-		return itx.Exhausted[LogRecord]()
+		return it.Exhausted[LogRecord]()
 	}
 
 	defer logReadCloser.Close()
 
 	logLines := readLines(logReadCloser, logger.WithValues("pod", pod.Name))
-	return itx.Map(slices.Values(logLines), logLineToLogRecord)
+	return it.Map(slices.Values(logLines), logLineToLogRecord)
 }
 
 func readLines(r io.Reader, logger logr.Logger) []string {

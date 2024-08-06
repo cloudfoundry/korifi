@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 
@@ -162,10 +164,10 @@ func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Inf
 		return []DomainRecord{}, fmt.Errorf("failed to list domains in namespace %s: %w", r.rootNamespace, apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	domainRecords := itx.Map(
+	domainRecords := slices.Collect(it.Map(
 		itx.FromSlice(cfdomainList.Items).Filter(message.matches),
 		cfDomainToDomainRecord,
-	).Collect()
+	))
 	sort.Slice(domainRecords, func(i, j int) bool {
 		return domainRecords[i].CreatedAt.Before(domainRecords[j].CreatedAt)
 	})

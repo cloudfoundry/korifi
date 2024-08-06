@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -253,7 +254,7 @@ func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info) (
 	}
 
 	cfRoleBindings := itx.FromSlice(roleBindings).Filter(r.isCFRole)
-	return itx.Map(cfRoleBindings, r.toRoleRecord).Collect(), nil
+	return slices.Collect(it.Map(cfRoleBindings, r.toRoleRecord)), nil
 }
 
 func (r *RoleRepo) isCFRole(rb rbacv1.RoleBinding) bool {
@@ -271,9 +272,9 @@ func (r *RoleRepo) getCFRoleName(k8sRoleName string) string {
 }
 
 func (r *RoleRepo) getCFRoleNames() []string {
-	return itx.Map(maps.Values(r.roleMappings), func(r config.Role) string {
+	return slices.Collect(it.Map(maps.Values(r.roleMappings), func(r config.Role) string {
 		return r.Name
-	}).Collect()
+	}))
 }
 
 func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding) RoleRecord {
