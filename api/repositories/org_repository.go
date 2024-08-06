@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -11,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -136,7 +138,7 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, message
 	filteredOrgs := itx.FromSlice(cfOrgList.Items).Filter(func(org korifiv1alpha1.CFOrg) bool {
 		return authorizedNamespaces[org.Name] && message.matches(org)
 	})
-	return itx.Map(filteredOrgs, cfOrgToOrgRecord).Collect(), nil
+	return slices.Collect(it.Map(filteredOrgs, cfOrgToOrgRecord)), nil
 }
 
 func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID string) (OrgRecord, error) {

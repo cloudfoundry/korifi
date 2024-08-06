@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -11,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -159,7 +161,7 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info,
 		return authorizedSpaceNamespaces[s.Name] && message.matches(s)
 	})
 
-	return itx.Map(filteredSpaces, cfSpaceToSpaceRecord).Collect(), nil
+	return slices.Collect(it.Map(filteredSpaces, cfSpaceToSpaceRecord)), nil
 }
 
 func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGUID string) (SpaceRecord, error) {
