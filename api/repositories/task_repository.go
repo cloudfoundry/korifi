@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -10,7 +11,8 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/tasks"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -190,8 +192,8 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 		tasks = append(tasks, taskList.Items...)
 	}
 
-	filteredTasks := iter.Lift(tasks).Filter(msg.matches)
-	return iter.Map(filteredTasks, taskToRecord).Collect(), nil
+	filteredTasks := itx.FromSlice(tasks).Filter(msg.matches)
+	return slices.Collect(it.Map(filteredTasks, taskToRecord)), nil
 }
 
 func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, taskGUID string) (TaskRecord, error) {

@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"path"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/actions/shared"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/tools/singleton"
-	"golang.org/x/exp/maps"
 )
 
 type StateCollector struct {
@@ -131,7 +132,7 @@ func (s StateCollector) collectServiceBindings(ctx context.Context, authInfo aut
 		serviceInstanceGUIDSet[sb.ServiceInstanceGUID] = true
 	}
 
-	services, err := s.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, repositories.ListServiceInstanceMessage{GUIDs: maps.Keys(serviceInstanceGUIDSet)})
+	services, err := s.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, repositories.ListServiceInstanceMessage{GUIDs: slices.Collect(maps.Keys(serviceInstanceGUIDSet))})
 	if err != nil {
 		return nil, err
 	}

@@ -10,7 +10,8 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -68,7 +69,7 @@ func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo author
 		)
 	}
 
-	filteredByName := iter.Map(iter.Lift(offeringsList.Items).Filter(message.matchesName), offeringToRecord).Collect()
+	filteredByName := slices.Collect(it.Map(itx.FromSlice(offeringsList.Items).Filter(message.matchesName), offeringToRecord))
 
 	filteredByBroker := []ServiceOfferingRecord{}
 	for _, offering := range filteredByName {

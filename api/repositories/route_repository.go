@@ -11,7 +11,8 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -117,7 +118,7 @@ func (m *ListRoutesMessage) matchesApp(r korifiv1alpha1.CFRoute) bool {
 		return true
 	}
 
-	return len(iter.Lift(r.Spec.Destinations).Filter(func(d korifiv1alpha1.Destination) bool {
+	return len(itx.FromSlice(r.Spec.Destinations).Filter(func(d korifiv1alpha1.Destination) bool {
 		return slices.Contains(m.AppGUIDs, d.AppRef.Name)
 	}).Collect()) > 0
 }
@@ -207,8 +208,8 @@ func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		routes = append(routes, cfRouteList.Items...)
 	}
 
-	filteredRoutes := iter.Lift(routes).Filter(message.matches)
-	return iter.Map(filteredRoutes, cfRouteToRouteRecord).Collect(), nil
+	filteredRoutes := itx.FromSlice(routes).Filter(message.matches)
+	return slices.Collect(it.Map(filteredRoutes, cfRouteToRouteRecord)), nil
 }
 
 func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
@@ -231,7 +232,7 @@ func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
 }
 
 func cfRouteDestinationsToDestinationRecords(cfRoute korifiv1alpha1.CFRoute) []DestinationRecord {
-	return iter.Map(iter.Lift(cfRoute.Spec.Destinations), func(specDestination korifiv1alpha1.Destination) DestinationRecord {
+	return slices.Collect(it.Map(slices.Values(cfRoute.Spec.Destinations), func(specDestination korifiv1alpha1.Destination) DestinationRecord {
 		record := DestinationRecord{
 			GUID:        specDestination.GUID,
 			AppGUID:     specDestination.AppRef.Name,
@@ -249,7 +250,7 @@ func cfRouteDestinationsToDestinationRecords(cfRoute korifiv1alpha1.CFRoute) []D
 		}
 
 		return record
-	}).Collect()
+	}))
 }
 
 func (r *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
@@ -351,7 +352,7 @@ func (r *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 		return RouteRecord{}, fmt.Errorf("failed to get route: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	updatedDestinations := iter.Lift(cfRoute.Spec.Destinations).Exclude(message.matches).Collect()
+	updatedDestinations := itx.FromSlice(cfRoute.Spec.Destinations).Exclude(message.matches).Collect()
 	if len(updatedDestinations) == len(cfRoute.Spec.Destinations) {
 		return RouteRecord{}, apierrors.NewUnprocessableEntityError(nil, "Unable to unmap route from destination. Ensure the route has a destination with this guid.")
 	}
@@ -393,14 +394,14 @@ func destinationMessageToDestination(m DesiredDestination) korifiv1alpha1.Destin
 }
 
 func contains(existingDestinations []korifiv1alpha1.Destination, desired DesiredDestination) bool {
-	matches := iter.Lift(existingDestinations).Filter(func(dest korifiv1alpha1.Destination) bool {
+	_, ok := itx.FromSlice(existingDestinations).Find(func(dest korifiv1alpha1.Destination) bool {
 		return desired.AppGUID == dest.AppRef.Name &&
 			desired.ProcessType == dest.ProcessType &&
 			equal(desired.Port, dest.Port) &&
 			equal(desired.Protocol, dest.Protocol)
-	}).Collect()
+	})
 
-	return len(matches) > 0
+	return ok
 }
 
 func equal[T comparable](v1, v2 *T) bool {
@@ -434,7 +435,7 @@ func (r *RouteRepo) fetchRouteByFields(ctx context.Context, authInfo authorizati
 }
 
 func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) []korifiv1alpha1.Destination {
-	return iter.Map(iter.Lift(destinationRecords), func(destinationRecord DestinationRecord) korifiv1alpha1.Destination {
+	return slices.Collect(it.Map(itx.FromSlice(destinationRecords), func(destinationRecord DestinationRecord) korifiv1alpha1.Destination {
 		return korifiv1alpha1.Destination{
 			GUID: destinationRecord.GUID,
 			Port: destinationRecord.Port,
@@ -444,7 +445,7 @@ func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) 
 			ProcessType: destinationRecord.ProcessType,
 			Protocol:    destinationRecord.Protocol,
 		}
-	}).Collect()
+	}))
 }
 
 func (r *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorization.Info, message PatchRouteMetadataMessage) (RouteRecord, error) {

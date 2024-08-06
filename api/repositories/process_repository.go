@@ -3,13 +3,15 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,9 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	ProcessResourceType = "Process"
-)
+const ProcessResourceType = "Process"
 
 func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
 	return &ProcessRepo{
@@ -167,8 +167,8 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 		processes = append(processes, processList.Items...)
 	}
 
-	filteredProcesses := iter.Lift(processes).Filter(message.matches)
-	return iter.Map(filteredProcesses, cfProcessToProcessRecord).Collect(), nil
+	filteredProcesses := itx.FromSlice(processes).Filter(message.matches)
+	return slices.Collect(it.Map(filteredProcesses, cfProcessToProcessRecord)), nil
 }
 
 func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage ScaleProcessMessage) (ProcessRecord, error) {

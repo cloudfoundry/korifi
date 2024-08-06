@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -15,7 +16,8 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -291,6 +293,6 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 		serviceBindings = append(serviceBindings, serviceBindingList.Items...)
 	}
 
-	filteredServiceBindings := iter.Lift(serviceBindings).Filter(message.matches)
-	return iter.Map(filteredServiceBindings, cfServiceBindingToRecord).Collect(), nil
+	filteredServiceBindings := itx.FromSlice(serviceBindings).Filter(message.matches)
+	return slices.Collect(it.Map(filteredServiceBindings, cfServiceBindingToRecord)), nil
 }
