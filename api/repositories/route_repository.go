@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/iter"
@@ -102,14 +103,14 @@ type ListRoutesMessage struct {
 }
 
 func (m *ListRoutesMessage) matches(r korifiv1alpha1.CFRoute) bool {
-	return emptyOrContains(m.DomainGUIDs, r.Spec.DomainRef.Name) &&
-		emptyOrContains(m.Hosts, r.Spec.Host) &&
-		emptyOrContains(m.Paths, r.Spec.Path) &&
+	return tools.EmptyOrContains(m.DomainGUIDs, r.Spec.DomainRef.Name) &&
+		tools.EmptyOrContains(m.Hosts, r.Spec.Host) &&
+		tools.EmptyOrContains(m.Paths, r.Spec.Path) &&
 		m.matchesApp(r)
 }
 
 func (m *ListRoutesMessage) matchesNamespace(ns string) bool {
-	return emptyOrContains(m.SpaceGUIDs, ns)
+	return tools.EmptyOrContains(m.SpaceGUIDs, ns)
 }
 
 func (m *ListRoutesMessage) matchesApp(r korifiv1alpha1.CFRoute) bool {

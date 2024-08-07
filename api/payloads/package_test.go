@@ -319,10 +319,10 @@ var _ = Describe("PackageList", func() {
 
 			Expect(actualListPackagesMessage).To(Equal(expectedListPackagesMessage))
 		},
-		Entry("guids", payloads.PackageList{GUIDs: "g1,g2", AppGUIDs: "", States: ""}, repositories.ListPackagesMessage{GUIDs: []string{"g1", "g2"}, AppGUIDs: []string{}, States: []string{}}),
-		Entry("app_guids", payloads.PackageList{GUIDs: "", AppGUIDs: "ag1,ag2", States: ""}, repositories.ListPackagesMessage{GUIDs: []string{}, AppGUIDs: []string{"ag1", "ag2"}, States: []string{}}),
-		Entry("states", payloads.PackageList{GUIDs: "", AppGUIDs: "", States: "s1,s2"}, repositories.ListPackagesMessage{GUIDs: []string{}, AppGUIDs: []string{}, States: []string{"s1", "s2"}}),
-		Entry("empty", payloads.PackageList{}, repositories.ListPackagesMessage{GUIDs: []string{}, AppGUIDs: []string{}, States: []string{}}),
+		Entry("guids", payloads.PackageList{GUIDs: "g1,g2"}, repositories.ListPackagesMessage{GUIDs: []string{"g1", "g2"}}),
+		Entry("app_guids", payloads.PackageList{AppGUIDs: "ag1,ag2"}, repositories.ListPackagesMessage{AppGUIDs: []string{"ag1", "ag2"}}),
+		Entry("states", payloads.PackageList{States: "s1,s2"}, repositories.ListPackagesMessage{States: []string{"s1", "s2"}}),
+		Entry("empty", payloads.PackageList{}, repositories.ListPackagesMessage{}),
 	)
 
 	DescribeTable("invalid query",

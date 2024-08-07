@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/iter"
 
@@ -110,8 +111,8 @@ type ListProcessesMessage struct {
 }
 
 func (m *ListProcessesMessage) matches(process korifiv1alpha1.CFProcess) bool {
-	return emptyOrContains(m.AppGUIDs, process.Spec.AppRef.Name) &&
-		emptyOrContains(m.ProcessTypes, process.Spec.ProcessType)
+	return tools.EmptyOrContains(m.AppGUIDs, process.Spec.AppRef.Name) &&
+		tools.EmptyOrContains(m.ProcessTypes, process.Spec.ProcessType)
 }
 
 func (m *ListProcessesMessage) matchesNamespace(ns string) bool {

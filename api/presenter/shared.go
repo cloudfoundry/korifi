@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"path"
 	"time"
+
+	"code.cloudfoundry.org/korifi/model"
 )
 
 type Lifecycle struct {
@@ -37,9 +39,9 @@ type Link struct {
 }
 
 type ListResponse[T any] struct {
-	PaginationData PaginationData `json:"pagination"`
-	Resources      []T            `json:"resources"`
-	Included       *IncludedData  `json:"included,omitempty"`
+	PaginationData PaginationData   `json:"pagination"`
+	Resources      []T              `json:"resources"`
+	Included       map[string][]any `json:"included,omitempty"`
 }
 
 type PaginationData struct {
@@ -51,17 +53,13 @@ type PaginationData struct {
 	Previous     *int    `json:"previous"`
 }
 
-type IncludedData struct {
-	Apps []interface{} `json:"apps"`
-}
-
 type PageRef struct {
 	HREF string `json:"href"`
 }
 
 type itemPresenter[T, S any] func(T, url.URL) S
 
-func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL) ListResponse[S] {
+func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL, includes ...model.IncludedResource) ListResponse[S] {
 	presenters := []S{}
 	for _, resource := range resources {
 		presenters = append(presenters, itemPresenter(resource, baseURL))
@@ -78,7 +76,21 @@ func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL
 			},
 		},
 		Resources: presenters,
+		Included:  includedResources(includes...),
 	}
+}
+
+func includedResources(includes ...model.IncludedResource) map[string][]any {
+	resources := map[string][]any{}
+	for _, include := range includes {
+		if resources[include.Type] == nil {
+			resources[include.Type] = []any{}
+		}
+
+		resources[include.Type] = append(resources[include.Type], include.Resource)
+	}
+
+	return resources
 }
 
 type buildURL url.URL

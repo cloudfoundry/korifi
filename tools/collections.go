@@ -1,0 +1,19 @@
+package tools
+
+import (
+	"cmp"
+	"slices"
+)
+
+func Uniq[S ~[]E, E cmp.Ordered](elements S) S {
+	slices.Sort(elements)
+	return slices.Compact(elements)
+}
+
+func EmptyOrContains[S ~[]E, E comparable](elements S, e E) bool {
+	if len(elements) == 0 {
+		return true
+	}
+
+	return slices.Contains(elements, e)
+}

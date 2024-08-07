@@ -7,9 +7,9 @@ import (
 )
 
 var _ = Describe("ParseArrayParam", func() {
-	When("a nil value is specified", func() {
-		It("returns an empty array", func() {
-			Expect(ArrayParam("")).To(Equal([]string{}))
+	When("an empty string is specified", func() {
+		It("returns nil", func() {
+			Expect(ArrayParam("")).To(BeNil())
 		})
 	})
 

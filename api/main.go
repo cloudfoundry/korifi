@@ -425,6 +425,7 @@ func main() {
 			*serverURL,
 			requestValidator,
 			serviceOfferingRepo,
+			serviceBrokerRepo,
 		),
 		handlers.NewServicePlan(
 			*serverURL,

@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
-	. "github.com/onsi/gomega/gstruct"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -120,9 +119,7 @@ var _ = Describe("ServiceBroker", func() {
 			Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualListMsg := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualListMsg).To(MatchAllFields(Fields{
-				"Names": BeEmpty(),
-			}))
+			Expect(actualListMsg).To(Equal(repositories.ListServiceBrokerMessage{}))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))

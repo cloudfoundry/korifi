@@ -90,12 +90,12 @@ type ListServiceInstanceMessage struct {
 }
 
 func (m *ListServiceInstanceMessage) matches(serviceInstance korifiv1alpha1.CFServiceInstance) bool {
-	return emptyOrContains(m.Names, serviceInstance.Spec.DisplayName) &&
-		emptyOrContains(m.GUIDs, serviceInstance.Name)
+	return tools.EmptyOrContains(m.Names, serviceInstance.Spec.DisplayName) &&
+		tools.EmptyOrContains(m.GUIDs, serviceInstance.Name)
 }
 
 func (m *ListServiceInstanceMessage) matchesNamespace(ns string) bool {
-	return emptyOrContains(m.SpaceGUIDs, ns)
+	return tools.EmptyOrContains(m.SpaceGUIDs, ns)
 }
 
 type DeleteServiceInstanceMessage struct {

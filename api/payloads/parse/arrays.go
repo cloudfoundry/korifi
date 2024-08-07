@@ -4,7 +4,7 @@ import "strings"
 
 func ArrayParam(arrayParam string) []string {
 	if arrayParam == "" {
-		return []string{}
+		return nil
 	}
 
 	elements := strings.Split(arrayParam, ",")

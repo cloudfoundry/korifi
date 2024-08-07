@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/iter"
@@ -35,8 +36,8 @@ type ListOrgsMessage struct {
 }
 
 func (m *ListOrgsMessage) matches(org korifiv1alpha1.CFOrg) bool {
-	return emptyOrContains(m.GUIDs, org.Name) &&
-		emptyOrContains(m.Names, org.Spec.DisplayName) &&
+	return tools.EmptyOrContains(m.GUIDs, org.Name) &&
+		tools.EmptyOrContains(m.Names, org.Spec.DisplayName) &&
 		meta.IsStatusConditionTrue(org.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 }
 

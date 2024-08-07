@@ -13,6 +13,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/iter"
@@ -182,12 +183,12 @@ type ListAppsMessage struct {
 }
 
 func (m *ListAppsMessage) matchesNamespace(ns string) bool {
-	return emptyOrContains(m.SpaceGUIDs, ns)
+	return tools.EmptyOrContains(m.SpaceGUIDs, ns)
 }
 
 func (m *ListAppsMessage) matches(cfApp korifiv1alpha1.CFApp) bool {
-	return emptyOrContains(m.Names, cfApp.Spec.DisplayName) &&
-		emptyOrContains(m.Guids, cfApp.Name)
+	return tools.EmptyOrContains(m.Names, cfApp.Spec.DisplayName) &&
+		tools.EmptyOrContains(m.Guids, cfApp.Name)
 }
 
 type byName []AppRecord

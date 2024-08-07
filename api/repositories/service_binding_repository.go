@@ -13,6 +13,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/iter"
@@ -90,8 +91,8 @@ type ListServiceBindingsMessage struct {
 }
 
 func (m *ListServiceBindingsMessage) matches(serviceBinding korifiv1alpha1.CFServiceBinding) bool {
-	return emptyOrContains(m.ServiceInstanceGUIDs, serviceBinding.Spec.Service.Name) &&
-		emptyOrContains(m.AppGUIDs, serviceBinding.Spec.AppRef.Name)
+	return tools.EmptyOrContains(m.ServiceInstanceGUIDs, serviceBinding.Spec.Service.Name) &&
+		tools.EmptyOrContains(m.AppGUIDs, serviceBinding.Spec.AppRef.Name)
 }
 
 func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServiceBinding {
