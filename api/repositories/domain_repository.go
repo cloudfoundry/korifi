@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/iter"
 	"github.com/google/uuid"
@@ -70,7 +71,7 @@ type ListDomainsMessage struct {
 }
 
 func (m *ListDomainsMessage) matches(d korifiv1alpha1.CFDomain) bool {
-	return emptyOrContains(m.Names, d.Spec.Name)
+	return tools.EmptyOrContains(m.Names, d.Spec.Name)
 }
 
 func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {

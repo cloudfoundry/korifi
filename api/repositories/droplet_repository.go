@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/iter"
 
@@ -64,7 +65,7 @@ type ListDropletsMessage struct {
 }
 
 func (m *ListDropletsMessage) matches(b korifiv1alpha1.CFBuild) bool {
-	return emptyOrContains(m.PackageGUIDs, b.Spec.PackageRef.Name) &&
+	return tools.EmptyOrContains(m.PackageGUIDs, b.Spec.PackageRef.Name) &&
 		meta.IsStatusConditionFalse(b.Status.Conditions, StagingConditionType) &&
 		meta.IsStatusConditionTrue(b.Status.Conditions, SucceededConditionType)
 }

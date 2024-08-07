@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -12,6 +13,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
+	"github.com/BooleanCat/go-functional/iter"
 	"github.com/go-logr/logr"
 )
 
@@ -28,17 +32,20 @@ type ServiceOffering struct {
 	serverURL           url.URL
 	requestValidator    RequestValidator
 	serviceOfferingRepo CFServiceOfferingRepository
+	serviceBrokerRepo   CFServiceBrokerRepository
 }
 
 func NewServiceOffering(
 	serverURL url.URL,
 	requestValidator RequestValidator,
 	serviceOfferingRepo CFServiceOfferingRepository,
+	serviceBrokerRepo CFServiceBrokerRepository,
 ) *ServiceOffering {
 	return &ServiceOffering{
 		serverURL:           serverURL,
 		requestValidator:    requestValidator,
 		serviceOfferingRepo: serviceOfferingRepo,
+		serviceBrokerRepo:   serviceBrokerRepo,
 	}
 }
 
@@ -53,10 +60,52 @@ func (h *ServiceOffering) list(r *http.Request) (*routing.Response, error) {
 
 	serviceOfferingList, err := h.serviceOfferingRepo.ListOfferings(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service offerings")
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list service offerings")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceOffering, serviceOfferingList, h.serverURL, *r.URL)), nil
+	brokerIncludes, err := h.getBrokerIncludes(r.Context(), authInfo, serviceOfferingList, payload.IncludeBrokerFields)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get broker includes")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceOffering, serviceOfferingList, h.serverURL, *r.URL, brokerIncludes...)), nil
+}
+
+func (h *ServiceOffering) getBrokerIncludes(
+	ctx context.Context,
+	authInfo authorization.Info,
+	serviceOfferings []repositories.ServiceOfferingRecord,
+	brokerFields []string,
+) ([]model.IncludedResource, error) {
+	if len(brokerFields) == 0 {
+		return nil, nil
+	}
+
+	brokerGUIDs := iter.Map(iter.Lift(serviceOfferings), func(o repositories.ServiceOfferingRecord) string {
+		return o.ServiceBrokerGUID
+	}).Collect()
+
+	brokers, err := h.serviceBrokerRepo.ListServiceBrokers(ctx, authInfo, repositories.ListServiceBrokerMessage{
+		GUIDs: tools.Uniq(brokerGUIDs),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return iter.Map(iter.Lift(brokers), func(b repositories.ServiceBrokerRecord) model.IncludedResource {
+		resource := map[string]string{}
+		if slices.Contains(brokerFields, "guid") {
+			resource["guid"] = b.GUID
+		}
+		if slices.Contains(brokerFields, "name") {
+			resource["name"] = b.Name
+		}
+
+		return model.IncludedResource{
+			Type:     "service_brokers",
+			Resource: resource,
+		}
+	}).Collect(), nil
 }
 
 func (h *ServiceOffering) UnauthenticatedRoutes() []routing.Route {

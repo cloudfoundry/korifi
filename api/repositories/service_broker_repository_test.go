@@ -333,6 +333,22 @@ var _ = Describe("ServiceBrokerRepo", func() {
 			})
 		})
 
+		When("a guid filter is applied", func() {
+			BeforeEach(func() {
+				message.GUIDs = []string{"broker-2"}
+			})
+
+			It("only returns the matching brokers", func() {
+				Expect(brokers).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"CFResource": MatchFields(IgnoreExtras, Fields{
+							"GUID": Equal("broker-2"),
+						}),
+					}),
+				))
+			})
+		})
+
 		When("a nonexistent name filter is applied", func() {
 			BeforeEach(func() {
 				message.Names = []string{"no-such-broker"}

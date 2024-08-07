@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/model"
 )
 
 type (
@@ -31,10 +32,11 @@ func forRecord(r record, u url.URL) presentedRecord {
 var _ = Describe("Shared", func() {
 	Describe("ForList", func() {
 		var (
-			records    []record
-			baseURL    *url.URL
-			requestURL *url.URL
-			output     []byte
+			records           []record
+			includedResources []model.IncludedResource
+			baseURL           *url.URL
+			requestURL        *url.URL
+			output            []byte
 		)
 
 		BeforeEach(func() {
@@ -46,10 +48,11 @@ var _ = Describe("Shared", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			records = []record{{N: 42}, {N: 43}}
+			includedResources = []model.IncludedResource{}
 		})
 
 		JustBeforeEach(func() {
-			response := presenter.ForList(forRecord, records, *baseURL, *requestURL)
+			response := presenter.ForList(forRecord, records, *baseURL, *requestURL, includedResources...)
 			var err error
 			output, err = json.Marshal(response)
 			Expect(err).NotTo(HaveOccurred())
@@ -80,6 +83,68 @@ var _ = Describe("Shared", func() {
 					}
 				]
 			}`))
+		})
+
+		When("included resources are provided", func() {
+			BeforeEach(func() {
+				includedResources = []model.IncludedResource{
+					{
+						Type:     "typeA",
+						Resource: map[string]string{"a": "A"},
+					},
+					{
+						Type:     "typeA",
+						Resource: map[string]string{"a1": "A1"},
+					},
+					{
+						Type:     "typeB",
+						Resource: map[string]string{"b": "B"},
+					},
+				}
+			})
+
+			It("returns the expected json", func() {
+				Expect(output).To(MatchJSON(`{
+				  "pagination": {
+					"total_results": 2,
+					"total_pages": 1,
+					"first": {
+					  "href": "https://api.example.org/v3/records?foo=bar"
+					},
+					"last": {
+					  "href": "https://api.example.org/v3/records?foo=bar"
+					},
+					"next": null,
+					"previous": null
+				  },
+				  "resources": [
+					{
+					  "m": 42,
+					  "u": "https://api.example.org"
+					},
+					{
+					  "m": 43,
+					  "u": "https://api.example.org"
+					}
+				  ],
+				  "included": {
+					"typeA": [
+					  {
+						"a": "A"
+					  },
+					  {
+						"a1": "A1"
+					  }
+					],
+					"typeB": [
+					  {
+						"b": "B"
+					  }
+					]
+				  }
+				}
+				`))
+			})
 		})
 
 		When("records are empty", func() {

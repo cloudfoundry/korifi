@@ -10,6 +10,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/packages"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/dockercfg"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -88,8 +89,8 @@ type ListPackagesMessage struct {
 }
 
 func (m *ListPackagesMessage) matches(p korifiv1alpha1.CFPackage) bool {
-	return emptyOrContains(m.GUIDs, p.Name) &&
-		emptyOrContains(m.AppGUIDs, p.Spec.AppRef.Name) &&
+	return tools.EmptyOrContains(m.GUIDs, p.Name) &&
+		tools.EmptyOrContains(m.AppGUIDs, p.Spec.AppRef.Name) &&
 		m.matchesState(p)
 }
 

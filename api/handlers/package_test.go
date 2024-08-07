@@ -191,9 +191,7 @@ var _ = Describe("Package", func() {
 			It("calls the package repository with expected arguments", func() {
 				_, _, message := packageRepo.ListPackagesArgsForCall(0)
 				Expect(message).To(Equal(repositories.ListPackagesMessage{
-					GUIDs:    []string{},
 					AppGUIDs: []string{appGUID},
-					States:   []string{},
 				}))
 
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
@@ -252,9 +250,7 @@ var _ = Describe("Package", func() {
 			It("calls repository ListPackage with the correct message object", func() {
 				_, _, message := packageRepo.ListPackagesArgsForCall(0)
 				Expect(message).To(Equal(repositories.ListPackagesMessage{
-					GUIDs:    []string{},
-					AppGUIDs: []string{},
-					States:   []string{"READY", "AWAITING_UPLOAD"},
+					States: []string{"READY", "AWAITING_UPLOAD"},
 				}))
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			})

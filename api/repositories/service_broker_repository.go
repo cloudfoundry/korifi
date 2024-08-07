@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -32,14 +31,12 @@ type CreateServiceBrokerMessage struct {
 
 type ListServiceBrokerMessage struct {
 	Names []string
+	GUIDs []string
 }
 
 func (l ListServiceBrokerMessage) matches(b korifiv1alpha1.CFServiceBroker) bool {
-	if len(l.Names) == 0 {
-		return true
-	}
-
-	return slices.Contains(l.Names, b.Spec.Name)
+	return tools.EmptyOrContains(l.Names, b.Spec.Name) &&
+		tools.EmptyOrContains(l.GUIDs, b.Name)
 }
 
 type UpdateServiceBrokerMessage struct {

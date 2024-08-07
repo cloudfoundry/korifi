@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/iter"
@@ -36,12 +37,12 @@ type ListSpacesMessage struct {
 
 func (m *ListSpacesMessage) matches(space korifiv1alpha1.CFSpace) bool {
 	return meta.IsStatusConditionTrue(space.Status.Conditions, korifiv1alpha1.StatusConditionReady) &&
-		emptyOrContains(m.GUIDs, space.Name) &&
-		emptyOrContains(m.Names, space.Spec.DisplayName)
+		tools.EmptyOrContains(m.GUIDs, space.Name) &&
+		tools.EmptyOrContains(m.Names, space.Spec.DisplayName)
 }
 
 func (m *ListSpacesMessage) matchesNamespace(ns string) bool {
-	return emptyOrContains(m.OrganizationGUIDs, ns)
+	return tools.EmptyOrContains(m.OrganizationGUIDs, ns)
 }
 
 type DeleteSpaceMessage struct {

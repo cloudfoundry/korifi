@@ -10,6 +10,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/iter"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,7 +36,7 @@ type ListServiceOfferingMessage struct {
 }
 
 func (m *ListServiceOfferingMessage) matchesName(cfServiceOffering korifiv1alpha1.CFServiceOffering) bool {
-	return emptyOrContains(m.Names, cfServiceOffering.Spec.Name)
+	return tools.EmptyOrContains(m.Names, cfServiceOffering.Spec.Name)
 }
 
 func NewServiceOfferingRepo(

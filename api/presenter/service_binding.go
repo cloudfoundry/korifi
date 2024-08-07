@@ -4,6 +4,8 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
+	"github.com/BooleanCat/go-functional/iter"
 )
 
 const (
@@ -77,13 +79,12 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 }
 
 func ForServiceBindingList(serviceBindingRecords []repositories.ServiceBindingRecord, appRecords []repositories.AppRecord, baseURL, requestURL url.URL) ListResponse[ServiceBindingResponse] {
-	ret := ForList(ForServiceBinding, serviceBindingRecords, baseURL, requestURL)
-	if len(appRecords) > 0 {
-		appData := IncludedData{}
-		for _, appRecord := range appRecords {
-			appData.Apps = append(appData.Apps, ForApp(appRecord, baseURL))
+	includedApps := iter.Map(iter.Lift(appRecords), func(app repositories.AppRecord) model.IncludedResource {
+		return model.IncludedResource{
+			Type:     "apps",
+			Resource: ForApp(app, baseURL),
 		}
-		ret.Included = &appData
-	}
-	return ret
+	}).Collect()
+
+	return ForList(ForServiceBinding, serviceBindingRecords, baseURL, requestURL, includedApps...)
 }

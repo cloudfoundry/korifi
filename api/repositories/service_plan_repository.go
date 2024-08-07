@@ -3,13 +3,13 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/iter"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,8 +44,8 @@ type ListServicePlanMessage struct {
 }
 
 func (m *ListServicePlanMessage) matches(cfServicePlan korifiv1alpha1.CFServicePlan) bool {
-	return emptyOrContains(m.ServiceOfferingGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel]) &&
-		emptyOrContains(m.Names, cfServicePlan.Spec.Name)
+	return tools.EmptyOrContains(m.ServiceOfferingGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel]) &&
+		tools.EmptyOrContains(m.Names, cfServicePlan.Spec.Name)
 }
 
 type ApplyServicePlanVisibilityMessage struct {
@@ -56,7 +56,7 @@ type ApplyServicePlanVisibilityMessage struct {
 
 func (m *ApplyServicePlanVisibilityMessage) apply(cfServicePlan *korifiv1alpha1.CFServicePlan) {
 	cfServicePlan.Spec.Visibility.Type = m.Type
-	cfServicePlan.Spec.Visibility.Organizations = uniq(append(
+	cfServicePlan.Spec.Visibility.Organizations = tools.Uniq(append(
 		cfServicePlan.Spec.Visibility.Organizations,
 		m.Organizations...,
 	))
@@ -73,7 +73,7 @@ type UpdateServicePlanVisibilityMessage struct {
 
 func (m *UpdateServicePlanVisibilityMessage) apply(cfServicePlan *korifiv1alpha1.CFServicePlan) {
 	cfServicePlan.Spec.Visibility.Type = m.Type
-	cfServicePlan.Spec.Visibility.Organizations = uniq(m.Organizations)
+	cfServicePlan.Spec.Visibility.Organizations = tools.Uniq(m.Organizations)
 }
 
 func NewServicePlanRepo(
@@ -210,9 +210,4 @@ func (r *ServicePlanRepo) toVisibilityOrganizations(ctx context.Context, authInf
 			Name: o.Name,
 		}
 	}).Collect(), nil
-}
-
-func uniq(s []string) []string {
-	slices.Sort(s)
-	return slices.Compact(s)
 }

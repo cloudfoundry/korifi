@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -70,14 +69,6 @@ func getLabelOrAnnotation(mapObj map[string]string, key string) string {
 		return ""
 	}
 	return mapObj[key]
-}
-
-func emptyOrContains[S ~[]E, E comparable](elements S, e E) bool {
-	if len(elements) == 0 {
-		return true
-	}
-
-	return slices.Contains(elements, e)
 }
 
 func authorizedSpaceNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) (*iter.LiftIter[string], error) {

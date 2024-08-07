@@ -9,6 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/tasks"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/iter"
 	"github.com/google/uuid"
@@ -61,8 +62,8 @@ type ListTaskMessage struct {
 }
 
 func (m *ListTaskMessage) matches(task korifiv1alpha1.CFTask) bool {
-	return emptyOrContains(m.SequenceIDs, task.Status.SequenceID) &&
-		emptyOrContains(m.AppGUIDs, task.Spec.AppRef.Name)
+	return tools.EmptyOrContains(m.SequenceIDs, task.Status.SequenceID) &&
+		tools.EmptyOrContains(m.AppGUIDs, task.Spec.AppRef.Name)
 }
 
 type PatchTaskMetadataMessage struct {
