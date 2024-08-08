@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -19,18 +20,21 @@ import (
 
 var _ = Describe("ServicePlan", func() {
 	var (
-		servicePlanRepo  *fake.CFServicePlanRepository
-		requestValidator *fake.RequestValidator
+		servicePlanRepo     *fake.CFServicePlanRepository
+		serviceOfferingRepo *fake.CFServiceOfferingRepository
+		requestValidator    *fake.RequestValidator
 	)
 
 	BeforeEach(func() {
 		requestValidator = new(fake.RequestValidator)
 		servicePlanRepo = new(fake.CFServicePlanRepository)
+		serviceOfferingRepo = new(fake.CFServiceOfferingRepository)
 
 		apiHandler := NewServicePlan(
 			*serverURL,
 			requestValidator,
 			servicePlanRepo,
+			serviceOfferingRepo,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -42,6 +46,15 @@ var _ = Describe("ServicePlan", func() {
 					GUID: "plan-guid",
 				},
 				ServiceOfferingGUID: "service-offering-guid",
+			}}, nil)
+
+			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
+				ServiceOffering: services.ServiceOffering{
+					Name: "service-offering-name",
+				},
+				CFResource: model.CFResource{
+					GUID: "service-offering-guid",
+				},
 			}}, nil)
 		})
 
@@ -65,6 +78,7 @@ var _ = Describe("ServicePlan", func() {
 				MatchJSONPath("$.resources[0].guid", "plan-guid"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/service_plans/plan-guid"),
 				MatchJSONPath("$.resources[0].links.service_offering.href", "https://api.example.org/v3/service_offerings/service-offering-guid"),
+				Not(ContainSubstring("included")),
 			)))
 		})
 
@@ -79,6 +93,40 @@ var _ = Describe("ServicePlan", func() {
 				Expect(servicePlanRepo.ListPlansCallCount()).To(Equal(1))
 				_, _, message := servicePlanRepo.ListPlansArgsForCall(0)
 				Expect(message.ServiceOfferingGUIDs).To(ConsistOf("a1", "a2"))
+			})
+		})
+
+		Describe("include service_offering", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServicePlanList{
+					IncludeResources: []string{"service_offering"},
+				})
+			})
+
+			It("lists the offerings", func() {
+				Expect(serviceOfferingRepo.ListOfferingsCallCount()).To(Equal(1))
+				_, _, actualListMessage := serviceOfferingRepo.ListOfferingsArgsForCall(0)
+				Expect(actualListMessage).To(Equal(repositories.ListServiceOfferingMessage{
+					GUIDs: []string{"service-offering-guid"},
+				}))
+			})
+
+			When("listing offerings fails", func() {
+				BeforeEach(func() {
+					serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{}, errors.New("list-offering-err"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+
+			It("includes broker fields in the response", func() {
+				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.included.service_offerings[0].guid", "service-offering-guid"),
+					MatchJSONPath("$.included.service_offerings[0].name", "service-offering-name"),
+				)))
 			})
 		})
 

@@ -32,11 +32,13 @@ type ServiceOfferingRepo struct {
 
 type ListServiceOfferingMessage struct {
 	Names       []string
+	GUIDs       []string
 	BrokerNames []string
 }
 
 func (m *ListServiceOfferingMessage) matchesName(cfServiceOffering korifiv1alpha1.CFServiceOffering) bool {
-	return tools.EmptyOrContains(m.Names, cfServiceOffering.Spec.Name)
+	return tools.EmptyOrContains(m.Names, cfServiceOffering.Spec.Name) &&
+		tools.EmptyOrContains(m.GUIDs, cfServiceOffering.Name)
 }
 
 func NewServiceOfferingRepo(

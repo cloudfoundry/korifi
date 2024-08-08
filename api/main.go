@@ -431,6 +431,7 @@ func main() {
 			*serverURL,
 			requestValidator,
 			servicePlanRepo,
+			serviceOfferingRepo,
 		),
 	}
 	for _, handler := range apiHandlers {
