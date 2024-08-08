@@ -23,4 +23,13 @@ var _ = Describe("Collections", func() {
 		Entry("contains element", []string{"nail", "needle", "pin"}, BeTrue()),
 		Entry("does not contain element", []string{"nail", "pin"}, BeFalse()),
 	)
+
+	DescribeTable("NilOrEquals",
+		func(value *string, match types.GomegaMatcher) {
+			Expect(tools.NilOrEquals(value, "needle")).To(match)
+		},
+		Entry("nil", nil, BeTrue()),
+		Entry("equal", tools.PtrTo("needle"), BeTrue()),
+		Entry("not-equal", tools.PtrTo("not-needle"), BeFalse()),
+	)
 })

@@ -22,6 +22,7 @@ type ServicePlanResponse struct {
 	services.ServicePlan
 	model.CFResource
 	VisibilityType string                   `json:"visibility_type"`
+	Available      bool                     `json:"available"`
 	Relationships  ServicePlanRelationships `json:"relationships"`
 	Links          ServicePlanLinks         `json:"links"`
 }
@@ -31,6 +32,7 @@ func ForServicePlan(servicePlan repositories.ServicePlanRecord, baseURL url.URL)
 		ServicePlan:    servicePlan.ServicePlan,
 		CFResource:     servicePlan.CFResource,
 		VisibilityType: servicePlan.Visibility.Type,
+		Available:      servicePlan.Available,
 		Relationships: ServicePlanRelationships{
 			ServiceOffering: model.ToOneRelationship{
 				Data: model.Relationship{

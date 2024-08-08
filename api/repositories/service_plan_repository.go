@@ -25,6 +25,7 @@ type ServicePlanRecord struct {
 	model.CFResource
 	Visibility          PlanVisibility
 	ServiceOfferingGUID string
+	Available           bool
 }
 
 type PlanVisibility struct {
@@ -41,11 +42,17 @@ type ServicePlanRepo struct {
 type ListServicePlanMessage struct {
 	ServiceOfferingGUIDs []string
 	Names                []string
+	Available            *bool
 }
 
 func (m *ListServicePlanMessage) matches(cfServicePlan korifiv1alpha1.CFServicePlan) bool {
 	return tools.EmptyOrContains(m.ServiceOfferingGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel]) &&
-		tools.EmptyOrContains(m.Names, cfServicePlan.Spec.Name)
+		tools.EmptyOrContains(m.Names, cfServicePlan.Spec.Name) &&
+		tools.NilOrEquals(m.Available, isAvailable(cfServicePlan))
+}
+
+func isAvailable(cfServicePlan korifiv1alpha1.CFServicePlan) bool {
+	return cfServicePlan.Spec.Visibility.Type != korifiv1alpha1.AdminServicePlanVisibilityType
 }
 
 type ApplyServicePlanVisibilityMessage struct {
@@ -193,6 +200,7 @@ func (r *ServicePlanRepo) planToRecord(ctx context.Context, authInfo authorizati
 			Organizations: organizations,
 		},
 		ServiceOfferingGUID: plan.Labels[korifiv1alpha1.RelServiceOfferingLabel],
+		Available:           isAvailable(plan),
 	}, nil
 }
 

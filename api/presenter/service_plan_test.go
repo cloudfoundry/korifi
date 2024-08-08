@@ -85,6 +85,7 @@ var _ = Describe("Service Plan", func() {
 					Type: "visibility-type",
 				},
 				ServiceOfferingGUID: "service-offering-guid",
+				Available:           true,
 			}
 		})
 
@@ -133,6 +134,7 @@ var _ = Describe("Service Plan", func() {
 				},
 				"guid": "resource-guid",
 				"visibility_type": "visibility-type",
+				"available": true,
 				"created_at": "1970-01-01T00:00:01Z",
 				"updated_at": "1970-01-01T00:00:02Z",
 				"metadata": {

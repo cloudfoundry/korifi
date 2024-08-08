@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/iter"
 	jellidation "github.com/jellydator/validation"
 )
@@ -17,17 +19,19 @@ import (
 type ServicePlanList struct {
 	ServiceOfferingGUIDs string
 	Names                string
+	Available            *bool
 }
 
 func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
 	return repositories.ListServicePlanMessage{
 		ServiceOfferingGUIDs: parse.ArrayParam(l.ServiceOfferingGUIDs),
 		Names:                parse.ArrayParam(l.Names),
+		Available:            l.Available,
 	}
 }
 
 func (l *ServicePlanList) SupportedKeys() []string {
-	return []string{"service_offering_guids", "names", "page", "per_page", "include"}
+	return []string{"service_offering_guids", "names", "available", "page", "per_page", "include"}
 }
 
 func (l *ServicePlanList) IgnoredKeys() []*regexp.Regexp {
@@ -37,7 +41,26 @@ func (l *ServicePlanList) IgnoredKeys() []*regexp.Regexp {
 func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
 	l.ServiceOfferingGUIDs = values.Get("service_offering_guids")
 	l.Names = values.Get("names")
+
+	available, err := parseBool(values.Get("available"))
+	if err != nil {
+		return fmt.Errorf("failed to parse 'available' query parameter: %w", err)
+	}
+	l.Available = available
+
 	return nil
+}
+
+func parseBool(valueStr string) (*bool, error) {
+	if valueStr == "" {
+		return nil, nil
+	}
+
+	valueBool, err := strconv.ParseBool(valueStr)
+	if err != nil {
+		return nil, err
+	}
+	return tools.PtrTo(valueBool), nil
 }
 
 type ServicePlanVisibility struct {
