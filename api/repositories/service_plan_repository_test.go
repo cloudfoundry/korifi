@@ -7,6 +7,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/gomega/gstruct"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -149,19 +150,57 @@ var _ = Describe("ServicePlanRepo", func() {
 					"Type":          Equal(korifiv1alpha1.AdminServicePlanVisibilityType),
 					"Organizations": BeEmpty(),
 				}),
+				"Available":           BeFalse(),
 				"ServiceOfferingGUID": Equal("offering-guid"),
 			}))
+		})
+
+		When("the visibility type is not admin", func() {
+			BeforeEach(func() {
+				cfServicePlan := &korifiv1alpha1.CFServicePlan{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: rootNamespace,
+						Name:      planGUID,
+					},
+				}
+				Expect(k8s.PatchResource(ctx, k8sClient, cfServicePlan, func() {
+					cfServicePlan.Spec.Visibility.Type = korifiv1alpha1.PublicServicePlanVisibilityType
+				})).To(Succeed())
+			})
+
+			It("returns an available plan", func() {
+				Expect(plan.Available).To(BeTrue())
+			})
 		})
 	})
 
 	Describe("List", func() {
 		var (
-			listedPlans []repositories.ServicePlanRecord
-			message     repositories.ListServicePlanMessage
-			listErr     error
+			otherPlanGUID string
+			listedPlans   []repositories.ServicePlanRecord
+			message       repositories.ListServicePlanMessage
+			listErr       error
 		)
 
 		BeforeEach(func() {
+			otherPlanGUID = uuid.NewString()
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServicePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      otherPlanGUID,
+					Labels: map[string]string{
+						korifiv1alpha1.RelServiceOfferingLabel: "other-offering-guid",
+					},
+				},
+				Spec: korifiv1alpha1.CFServicePlanSpec{
+					Visibility: korifiv1alpha1.ServicePlanVisibility{
+						Type: korifiv1alpha1.PublicServicePlanVisibilityType,
+					},
+					ServicePlan: services.ServicePlan{
+						Name: "other-plan",
+					},
+				},
+			})).To(Succeed())
 			message = repositories.ListServicePlanMessage{}
 		})
 
@@ -171,30 +210,21 @@ var _ = Describe("ServicePlanRepo", func() {
 
 		It("lists service offerings", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-				"CFResource": MatchFields(IgnoreExtras, Fields{
-					"GUID": Equal(planGUID),
+			Expect(listedPlans).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"GUID": Equal(planGUID),
+					}),
+				}), MatchFields(IgnoreExtras, Fields{
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"GUID": Equal(otherPlanGUID),
+					}),
 				}),
-			})))
+			))
 		})
 
 		When("filtering by service_offering_guid", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServicePlan{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: rootNamespace,
-						Name:      uuid.NewString(),
-						Labels: map[string]string{
-							korifiv1alpha1.RelServiceOfferingLabel: "other-offering-guid",
-						},
-					},
-					Spec: korifiv1alpha1.CFServicePlanSpec{
-						Visibility: korifiv1alpha1.ServicePlanVisibility{
-							Type: korifiv1alpha1.AdminServicePlanVisibilityType,
-						},
-					},
-				})).To(Succeed())
-
 				message.ServiceOfferingGUIDs = []string{"other-offering-guid"}
 			})
 
@@ -208,31 +238,30 @@ var _ = Describe("ServicePlanRepo", func() {
 
 		When("filtering by names", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServicePlan{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: rootNamespace,
-						Name:      uuid.NewString(),
-						Labels: map[string]string{
-							korifiv1alpha1.RelServiceOfferingLabel: "other-offering-guid",
-						},
-					},
-					Spec: korifiv1alpha1.CFServicePlanSpec{
-						Visibility: korifiv1alpha1.ServicePlanVisibility{
-							Type: korifiv1alpha1.AdminServicePlanVisibilityType,
-						},
-						ServicePlan: services.ServicePlan{
-							Name: "other-plan",
-						},
-					},
-				})).To(Succeed())
-
 				message.Names = []string{"other-plan"}
 			})
 
 			It("returns matching service plans", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"ServiceOfferingGUID": Equal("other-offering-guid"),
+					"ServicePlan": MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("other-plan"),
+					}),
+				})))
+			})
+		})
+
+		When("filtering by availability", func() {
+			BeforeEach(func() {
+				message.Available = tools.PtrTo(true)
+			})
+
+			It("returns matching service plans", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"GUID": Equal(otherPlanGUID),
+					}),
 				})))
 			})
 		})

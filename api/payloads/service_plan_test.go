@@ -5,6 +5,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -21,15 +22,29 @@ var _ = Describe("ServicePlan", func() {
 			},
 			Entry("service_offering_guids", "service_offering_guids=b1,b2", payloads.ServicePlanList{ServiceOfferingGUIDs: "b1,b2"}),
 			Entry("names", "names=b1,b2", payloads.ServicePlanList{Names: "b1,b2"}),
+			Entry("available", "available=true", payloads.ServicePlanList{Available: tools.PtrTo(true)}),
+			Entry("not available", "available=false", payloads.ServicePlanList{Available: tools.PtrTo(false)}),
+		)
+
+		DescribeTable("invalid query",
+			func(query string, errMatcher types.GomegaMatcher) {
+				_, decodeErr := decodeQuery[payloads.ServicePlanList](query)
+				Expect(decodeErr).To(errMatcher)
+			},
+			Entry("invalid available", "available=invalid", MatchError(ContainSubstring("failed to parse"))),
 		)
 
 		Describe("ToMessage", func() {
 			It("converts payload to repository message", func() {
-				payload := &payloads.ServicePlanList{ServiceOfferingGUIDs: "b1,b2", Names: "n1,n2"}
-
+				payload := payloads.ServicePlanList{
+					ServiceOfferingGUIDs: "b1,b2",
+					Names:                "n1,n2",
+					Available:            tools.PtrTo(true),
+				}
 				Expect(payload.ToMessage()).To(Equal(repositories.ListServicePlanMessage{
 					ServiceOfferingGUIDs: []string{"b1", "b2"},
 					Names:                []string{"n1", "n2"},
+					Available:            tools.PtrTo(true),
 				}))
 			})
 		})

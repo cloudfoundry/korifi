@@ -17,3 +17,11 @@ func EmptyOrContains[S ~[]E, E comparable](elements S, e E) bool {
 
 	return slices.Contains(elements, e)
 }
+
+func NilOrEquals[E comparable](value *E, expectedValue E) bool {
+	if value == nil {
+		return true
+	}
+
+	return expectedValue == *value
+}
