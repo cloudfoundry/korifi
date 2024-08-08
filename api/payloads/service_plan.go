@@ -20,6 +20,13 @@ type ServicePlanList struct {
 	ServiceOfferingGUIDs string
 	Names                string
 	Available            *bool
+	IncludeResources     []string
+}
+
+func (l ServicePlanList) Validate() error {
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.IncludeResources, jellidation.Each(validation.OneOf("service_offering"))),
+	)
 }
 
 func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
@@ -47,6 +54,7 @@ func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
 		return fmt.Errorf("failed to parse 'available' query parameter: %w", err)
 	}
 	l.Available = available
+	l.IncludeResources = parse.ArrayParam(values.Get("include"))
 
 	return nil
 }
