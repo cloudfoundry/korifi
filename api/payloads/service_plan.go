@@ -20,6 +20,15 @@ type ServicePlanList struct {
 	ServiceOfferingGUIDs string
 	Names                string
 	Available            *bool
+	IncludeResources     []string
+	IncludeBrokerFields  []string
+}
+
+func (l ServicePlanList) Validate() error {
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.IncludeResources, jellidation.Each(validation.OneOf("service_offering"))),
+		jellidation.Field(&l.IncludeBrokerFields, jellidation.Each(validation.OneOf("guid", "name"))),
+	)
 }
 
 func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
@@ -31,11 +40,11 @@ func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
 }
 
 func (l *ServicePlanList) SupportedKeys() []string {
-	return []string{"service_offering_guids", "names", "available", "page", "per_page", "include"}
+	return []string{"service_offering_guids", "names", "available", "fields[service_offering.service_broker]", "page", "per_page", "include"}
 }
 
 func (l *ServicePlanList) IgnoredKeys() []*regexp.Regexp {
-	return []*regexp.Regexp{regexp.MustCompile(`fields\[.+\]`)}
+	return nil
 }
 
 func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
@@ -47,6 +56,8 @@ func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
 		return fmt.Errorf("failed to parse 'available' query parameter: %w", err)
 	}
 	l.Available = available
+	l.IncludeResources = parse.ArrayParam(values.Get("include"))
+	l.IncludeBrokerFields = parse.ArrayParam(values.Get("fields[service_offering.service_broker]"))
 
 	return nil
 }

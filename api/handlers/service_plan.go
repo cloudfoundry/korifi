@@ -3,8 +3,10 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -12,6 +14,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
+	"github.com/BooleanCat/go-functional/iter"
 	"github.com/go-logr/logr"
 )
 
@@ -29,20 +34,26 @@ type CFServicePlanRepository interface {
 }
 
 type ServicePlan struct {
-	serverURL        url.URL
-	requestValidator RequestValidator
-	servicePlanRepo  CFServicePlanRepository
+	serverURL           url.URL
+	requestValidator    RequestValidator
+	servicePlanRepo     CFServicePlanRepository
+	serviceOfferingRepo CFServiceOfferingRepository
+	serviceBrokerRepo   CFServiceBrokerRepository
 }
 
 func NewServicePlan(
 	serverURL url.URL,
 	requestValidator RequestValidator,
 	servicePlanRepo CFServicePlanRepository,
+	serviceOfferingRepo CFServiceOfferingRepository,
+	serviceBrokerRepo CFServiceBrokerRepository,
 ) *ServicePlan {
 	return &ServicePlan{
-		serverURL:        serverURL,
-		requestValidator: requestValidator,
-		servicePlanRepo:  servicePlanRepo,
+		serverURL:           serverURL,
+		requestValidator:    requestValidator,
+		servicePlanRepo:     servicePlanRepo,
+		serviceOfferingRepo: serviceOfferingRepo,
+		serviceBrokerRepo:   serviceBrokerRepo,
 	}
 }
 
@@ -55,12 +66,110 @@ func (h *ServicePlan) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode json payload")
 	}
 
-	servicePlanList, err := h.servicePlanRepo.ListPlans(r.Context(), authInfo, payload.ToMessage())
+	servicePlans, err := h.servicePlanRepo.ListPlans(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list service plans")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServicePlan, servicePlanList, h.serverURL, *r.URL)), nil
+	includedResources, err := h.getIncludedResources(r.Context(), authInfo, payload, servicePlans)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServicePlan, servicePlans, h.serverURL, *r.URL, includedResources...)), nil
+}
+
+func (h *ServicePlan) getIncludedResources(
+	ctx context.Context,
+	authInfo authorization.Info,
+	payload payloads.ServicePlanList,
+	servicePlans []repositories.ServicePlanRecord,
+) ([]model.IncludedResource, error) {
+	if len(payload.IncludeResources) == 0 && len(payload.IncludeBrokerFields) == 0 {
+		return nil, nil
+	}
+
+	includedResources := []model.IncludedResource{}
+
+	offerings, err := h.listOfferings(ctx, authInfo, servicePlans)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list offerings for plans: %w", err)
+	}
+
+	if slices.Contains(payload.IncludeResources, "service_offering") {
+		includedResources = append(includedResources, iter.Map(iter.Lift(offerings), func(o repositories.ServiceOfferingRecord) model.IncludedResource {
+			return model.IncludedResource{
+				Type:     "service_offerings",
+				Resource: presenter.ForServiceOffering(o, h.serverURL),
+			}
+		}).Collect()...)
+	}
+
+	if len(payload.IncludeBrokerFields) != 0 {
+		brokers, err := h.listBrokers(ctx, authInfo, offerings)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list brokers for offerings of plans: %w", err)
+		}
+
+		includedBrokerFields, err := h.getIncludedBrokerFields(brokers, payload.IncludeBrokerFields)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get included broker fields: %w", err)
+		}
+		includedResources = append(includedResources, includedBrokerFields...)
+	}
+
+	return includedResources, nil
+}
+
+func (h *ServicePlan) listOfferings(
+	ctx context.Context,
+	authInfo authorization.Info,
+	servicePlans []repositories.ServicePlanRecord,
+) ([]repositories.ServiceOfferingRecord, error) {
+	offeringGUIDs := iter.Map(iter.Lift(servicePlans), func(o repositories.ServicePlanRecord) string {
+		return o.ServiceOfferingGUID
+	}).Collect()
+
+	return h.serviceOfferingRepo.ListOfferings(ctx, authInfo, repositories.ListServiceOfferingMessage{
+		GUIDs: tools.Uniq(offeringGUIDs),
+	})
+}
+
+func (h *ServicePlan) listBrokers(
+	ctx context.Context,
+	authInfo authorization.Info,
+	offerings []repositories.ServiceOfferingRecord,
+) ([]repositories.ServiceBrokerRecord, error) {
+	brokerGUIDs := iter.Map(iter.Lift(offerings), func(o repositories.ServiceOfferingRecord) string {
+		return o.ServiceBrokerGUID
+	}).Collect()
+
+	return h.serviceBrokerRepo.ListServiceBrokers(ctx, authInfo, repositories.ListServiceBrokerMessage{
+		GUIDs: brokerGUIDs,
+	})
+}
+
+func (h *ServicePlan) getIncludedBrokerFields(
+	brokers []repositories.ServiceBrokerRecord,
+	brokerFields []string,
+) ([]model.IncludedResource, error) {
+	brokerIncludes := iter.Map(iter.Lift(brokers), func(b repositories.ServiceBrokerRecord) model.IncludedResource {
+		return model.IncludedResource{
+			Type:     "service_brokers",
+			Resource: presenter.ForServiceBroker(b, h.serverURL),
+		}
+	}).Collect()
+
+	brokerIncludesFields := []model.IncludedResource{}
+	for _, brokerInclude := range brokerIncludes {
+		fields, err := brokerInclude.SelectJSONFields(brokerFields...)
+		if err != nil {
+			return nil, err
+		}
+		brokerIncludesFields = append(brokerIncludesFields, fields)
+	}
+
+	return brokerIncludesFields, nil
 }
 
 func (h *ServicePlan) getPlanVisibility(r *http.Request) (*routing.Response, error) {
