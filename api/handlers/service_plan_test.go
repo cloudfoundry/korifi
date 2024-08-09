@@ -22,6 +22,7 @@ var _ = Describe("ServicePlan", func() {
 	var (
 		servicePlanRepo     *fake.CFServicePlanRepository
 		serviceOfferingRepo *fake.CFServiceOfferingRepository
+		serviceBrokerRepo   *fake.CFServiceBrokerRepository
 		requestValidator    *fake.RequestValidator
 	)
 
@@ -29,12 +30,14 @@ var _ = Describe("ServicePlan", func() {
 		requestValidator = new(fake.RequestValidator)
 		servicePlanRepo = new(fake.CFServicePlanRepository)
 		serviceOfferingRepo = new(fake.CFServiceOfferingRepository)
+		serviceBrokerRepo = new(fake.CFServiceBrokerRepository)
 
 		apiHandler := NewServicePlan(
 			*serverURL,
 			requestValidator,
 			servicePlanRepo,
 			serviceOfferingRepo,
+			serviceBrokerRepo,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -121,11 +124,64 @@ var _ = Describe("ServicePlan", func() {
 				})
 			})
 
-			It("includes broker fields in the response", func() {
+			It("includes service offering in the response", func() {
 				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
 					MatchJSONPath("$.included.service_offerings[0].guid", "service-offering-guid"),
 					MatchJSONPath("$.included.service_offerings[0].name", "service-offering-name"),
+				)))
+			})
+		})
+
+		Describe("fields service_offering.service_broker", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
+					ServiceBroker: services.ServiceBroker{
+						Name: "service-broker-name",
+					},
+					CFResource: model.CFResource{
+						GUID: "service-broker-guid",
+					},
+				}}, nil)
+
+				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
+					ServiceOffering: services.ServiceOffering{
+						Name: "service-offering-name",
+					},
+					CFResource: model.CFResource{
+						GUID: "service-offering-guid",
+					},
+					ServiceBrokerGUID: "service-broker-guid",
+				}}, nil)
+
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServicePlanList{
+					IncludeBrokerFields: []string{"guid", "name"},
+				})
+			})
+
+			It("lists the brokers", func() {
+				Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
+				_, _, actualListMessage := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
+				Expect(actualListMessage).To(Equal(repositories.ListServiceBrokerMessage{
+					GUIDs: []string{"service-broker-guid"},
+				}))
+			})
+
+			When("listing brokers fails", func() {
+				BeforeEach(func() {
+					serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{}, errors.New("list-broker-err"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+
+			It("includes broker fields in the response", func() {
+				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.included.service_brokers[0].guid", "service-broker-guid"),
+					MatchJSONPath("$.included.service_brokers[0].name", "service-broker-name"),
 				)))
 			})
 		})

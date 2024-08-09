@@ -25,6 +25,7 @@ var _ = Describe("ServicePlan", func() {
 			Entry("available", "available=true", payloads.ServicePlanList{Available: tools.PtrTo(true)}),
 			Entry("not available", "available=false", payloads.ServicePlanList{Available: tools.PtrTo(false)}),
 			Entry("include", "include=service_offering", payloads.ServicePlanList{IncludeResources: []string{"service_offering"}}),
+			Entry("service broker fields", "fields[service_offering.service_broker]=guid,name", payloads.ServicePlanList{IncludeBrokerFields: []string{"guid", "name"}}),
 		)
 
 		DescribeTable("invalid query",
@@ -34,6 +35,7 @@ var _ = Describe("ServicePlan", func() {
 			},
 			Entry("invalid available", "available=invalid", MatchError(ContainSubstring("failed to parse"))),
 			Entry("invalid include", "include=foo", MatchError(ContainSubstring("value must be one of: service_offering"))),
+			Entry("invalid service broker fields", "fields[service_offering.service_broker]=foo", MatchError(ContainSubstring("value must be one of"))),
 		)
 
 		Describe("ToMessage", func() {
