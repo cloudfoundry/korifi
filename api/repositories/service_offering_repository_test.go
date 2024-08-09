@@ -30,15 +30,17 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 	Describe("List", func() {
 		var (
-			offeringGUID    string
-			broker          *korifiv1alpha1.CFServiceBroker
-			listedOfferings []repositories.ServiceOfferingRecord
-			message         repositories.ListServiceOfferingMessage
-			listErr         error
+			offeringGUID        string
+			anotherOfferingGUID string
+			broker              *korifiv1alpha1.CFServiceBroker
+			listedOfferings     []repositories.ServiceOfferingRecord
+			message             repositories.ListServiceOfferingMessage
+			listErr             error
 		)
 
 		BeforeEach(func() {
 			offeringGUID = uuid.NewString()
+			anotherOfferingGUID = uuid.NewString()
 
 			broker = &korifiv1alpha1.CFServiceBroker{
 				ObjectMeta: metav1.ObjectMeta{
@@ -88,6 +90,21 @@ var _ = Describe("ServiceOfferingRepo", func() {
 				},
 			})).To(Succeed())
 
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceOffering{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      anotherOfferingGUID,
+					Labels: map[string]string{
+						korifiv1alpha1.RelServiceBrokerLabel: "another-broker",
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceOfferingSpec{
+					ServiceOffering: services.ServiceOffering{
+						Name: "another-offering",
+					},
+				},
+			})).To(Succeed())
+
 			message = repositories.ListServiceOfferingMessage{}
 		})
 
@@ -97,55 +114,50 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 		It("lists service offerings", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-				"ServiceOffering": MatchFields(IgnoreExtras, Fields{
-					"Name":             Equal("my-offering"),
-					"Description":      Equal("my offering description"),
-					"Tags":             ConsistOf("t1"),
-					"Requires":         ConsistOf("r1"),
-					"DocumentationURL": PointTo(Equal("https://my.offering.com")),
-					"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
-						"Id": Equal("offering-catalog-guid"),
-						"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-							"Raw": MatchJSON(`{"offering-md": "offering-md-value"}`),
-						})),
+			Expect(listedOfferings).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{
+					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
+						"Name":             Equal("my-offering"),
+						"Description":      Equal("my offering description"),
+						"Tags":             ConsistOf("t1"),
+						"Requires":         ConsistOf("r1"),
+						"DocumentationURL": PointTo(Equal("https://my.offering.com")),
+						"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
+							"Id": Equal("offering-catalog-guid"),
+							"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
+								"Raw": MatchJSON(`{"offering-md": "offering-md-value"}`),
+							})),
 
-						"Features": MatchFields(IgnoreExtras, Fields{
-							"PlanUpdateable":       BeTrue(),
-							"Bindable":             BeTrue(),
-							"InstancesRetrievable": BeTrue(),
-							"BindingsRetrievable":  BeTrue(),
-							"AllowContextUpdates":  BeTrue(),
+							"Features": MatchFields(IgnoreExtras, Fields{
+								"PlanUpdateable":       BeTrue(),
+								"Bindable":             BeTrue(),
+								"InstancesRetrievable": BeTrue(),
+								"BindingsRetrievable":  BeTrue(),
+								"AllowContextUpdates":  BeTrue(),
+							}),
 						}),
 					}),
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"GUID":      Equal(offeringGUID),
+						"CreatedAt": Not(BeZero()),
+						"UpdatedAt": BeNil(),
+						"Metadata": MatchAllFields(Fields{
+							"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, broker.Name),
+							"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
+						}),
+					}),
+					"ServiceBrokerGUID": Equal(broker.Name),
 				}),
-				"CFResource": MatchFields(IgnoreExtras, Fields{
-					"GUID":      Equal(offeringGUID),
-					"CreatedAt": Not(BeZero()),
-					"UpdatedAt": BeNil(),
-					"Metadata": MatchAllFields(Fields{
-						"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, broker.Name),
-						"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
+				MatchFields(IgnoreExtras, Fields{
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"GUID": Equal(anotherOfferingGUID),
 					}),
 				}),
-				"ServiceBrokerGUID": Equal(broker.Name),
-			})))
+			))
 		})
 
 		When("filtering by name", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceOffering{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: rootNamespace,
-						Name:      uuid.NewString(),
-					},
-					Spec: korifiv1alpha1.CFServiceOfferingSpec{
-						ServiceOffering: services.ServiceOffering{
-							Name: "my-other-offering",
-						},
-					},
-				})).To(Succeed())
-
 				message.Names = []string{"my-offering"}
 			})
 
@@ -161,24 +173,27 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 		When("filtering by broker name", func() {
 			BeforeEach(func() {
-				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceOffering{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: rootNamespace,
-						Name:      uuid.NewString(),
-						Labels: map[string]string{
-							korifiv1alpha1.RelServiceBrokerLabel: uuid.NewString(),
-						},
-					},
-				})).To(Succeed())
-
 				message.BrokerNames = []string{broker.Spec.Name}
 			})
 
 			It("returns the matching offerings", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
-						"Name": Equal("my-offering"),
+					"ServiceBrokerGUID": Equal(broker.Name),
+				})))
+			})
+		})
+
+		When("filtering by guid", func() {
+			BeforeEach(func() {
+				message.GUIDs = []string{offeringGUID}
+			})
+
+			It("returns the matching offerings", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"GUID": Equal(offeringGUID),
 					}),
 				})))
 			})

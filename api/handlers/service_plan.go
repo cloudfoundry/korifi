@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -12,6 +13,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
+	"github.com/BooleanCat/go-functional/iter"
 	"github.com/go-logr/logr"
 )
 
@@ -29,20 +33,23 @@ type CFServicePlanRepository interface {
 }
 
 type ServicePlan struct {
-	serverURL        url.URL
-	requestValidator RequestValidator
-	servicePlanRepo  CFServicePlanRepository
+	serverURL           url.URL
+	requestValidator    RequestValidator
+	servicePlanRepo     CFServicePlanRepository
+	serviceOfferingRepo CFServiceOfferingRepository
 }
 
 func NewServicePlan(
 	serverURL url.URL,
 	requestValidator RequestValidator,
 	servicePlanRepo CFServicePlanRepository,
+	serviceOfferingRepo CFServiceOfferingRepository,
 ) *ServicePlan {
 	return &ServicePlan{
-		serverURL:        serverURL,
-		requestValidator: requestValidator,
-		servicePlanRepo:  servicePlanRepo,
+		serverURL:           serverURL,
+		requestValidator:    requestValidator,
+		servicePlanRepo:     servicePlanRepo,
+		serviceOfferingRepo: serviceOfferingRepo,
 	}
 }
 
@@ -60,7 +67,42 @@ func (h *ServicePlan) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list service plans")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServicePlan, servicePlanList, h.serverURL, *r.URL)), nil
+	includedResources := []model.IncludedResource{}
+
+	if slices.Contains(payload.IncludeResources, "service_offering") {
+		includedOfferings, err := h.getIncludedServiceOfferings(r.Context(), authInfo, servicePlanList, h.serverURL)
+		if err != nil {
+			return nil, apierrors.LogAndReturn(logger, err, "failed to get included service offerings")
+		}
+		includedResources = append(includedResources, includedOfferings...)
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServicePlan, servicePlanList, h.serverURL, *r.URL, includedResources...)), nil
+}
+
+func (h *ServicePlan) getIncludedServiceOfferings(
+	ctx context.Context,
+	authInfo authorization.Info,
+	servicePlans []repositories.ServicePlanRecord,
+	baseUrl url.URL,
+) ([]model.IncludedResource, error) {
+	offeringGUIDs := iter.Map(iter.Lift(servicePlans), func(o repositories.ServicePlanRecord) string {
+		return o.ServiceOfferingGUID
+	}).Collect()
+
+	offerings, err := h.serviceOfferingRepo.ListOfferings(ctx, authInfo, repositories.ListServiceOfferingMessage{
+		GUIDs: tools.Uniq(offeringGUIDs),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return iter.Map(iter.Lift(offerings), func(o repositories.ServiceOfferingRecord) model.IncludedResource {
+		return model.IncludedResource{
+			Type:     "service_offerings",
+			Resource: presenter.ForServiceOffering(o, baseUrl),
+		}
+	}).Collect(), nil
 }
 
 func (h *ServicePlan) getPlanVisibility(r *http.Request) (*routing.Response, error) {
