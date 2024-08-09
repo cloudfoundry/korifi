@@ -47,6 +47,7 @@ rules:
   - cfservicebrokers
   verbs:
   - list
+  - get
 
 - apiGroups:
   - korifi.cloudfoundry.org

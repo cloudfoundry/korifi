@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/iter"
+	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -25,6 +26,7 @@ type ServicePlanRecord struct {
 	model.CFResource
 	Visibility          PlanVisibility
 	ServiceOfferingGUID string
+	ServiceBrokerName   string
 	Available           bool
 }
 
@@ -37,11 +39,13 @@ type ServicePlanRepo struct {
 	userClientFactory authorization.UserK8sClientFactory
 	rootNamespace     string
 	orgRepo           *OrgRepo
+	brokerRepo        *ServiceBrokerRepo
 }
 
 type ListServicePlanMessage struct {
 	ServiceOfferingGUIDs []string
 	Names                []string
+	BrokerNames          []string
 	Available            *bool
 }
 
@@ -87,11 +91,13 @@ func NewServicePlanRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	rootNamespace string,
 	orgRepo *OrgRepo,
+	brokerRepo *ServiceBrokerRepo,
 ) *ServicePlanRepo {
 	return &ServicePlanRepo{
 		userClientFactory: userClientFactory,
 		rootNamespace:     rootNamespace,
 		orgRepo:           orgRepo,
+		brokerRepo:        brokerRepo,
 	}
 }
 
@@ -117,7 +123,9 @@ func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.
 		planRecords = append(planRecords, record)
 	}
 
-	return planRecords, nil
+	return iter.Lift(planRecords).Filter(func(p ServicePlanRecord) bool {
+		return tools.EmptyOrContains(message.BrokerNames, p.ServiceBrokerName)
+	}).Collect(), nil
 }
 
 func (r *ServicePlanRepo) GetPlan(ctx context.Context, authInfo authorization.Info, planGUID string) (ServicePlanRecord, error) {
@@ -200,6 +208,7 @@ func (r *ServicePlanRepo) planToRecord(ctx context.Context, authInfo authorizati
 			Organizations: organizations,
 		},
 		ServiceOfferingGUID: plan.Labels[korifiv1alpha1.RelServiceOfferingLabel],
+		ServiceBrokerName:   r.getBrokerName(ctx, authInfo, plan),
 		Available:           isAvailable(plan),
 	}, nil
 }
@@ -218,4 +227,14 @@ func (r *ServicePlanRepo) toVisibilityOrganizations(ctx context.Context, authInf
 			Name: o.Name,
 		}
 	}).Collect(), nil
+}
+
+func (r *ServicePlanRepo) getBrokerName(ctx context.Context, authInfo authorization.Info, plan korifiv1alpha1.CFServicePlan) string {
+	logger := logr.FromContextOrDiscard(ctx).WithName("getBrokerName").WithValues("plan", plan.Name)
+	broker, err := r.brokerRepo.GetServiceBroker(ctx, authInfo, plan.Labels[korifiv1alpha1.RelServiceBrokerLabel])
+	if err != nil {
+		logger.Error(err, "failed to lookup broker", "broker", plan.Labels[korifiv1alpha1.RelServiceBrokerLabel])
+		return ""
+	}
+	return broker.Name
 }

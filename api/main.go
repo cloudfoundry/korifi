@@ -228,7 +228,7 @@ func main() {
 	metricsRepo := repositories.NewMetricsRepo(userClientFactory)
 	serviceBrokerRepo := repositories.NewServiceBrokerRepo(userClientFactory, cfg.RootNamespace)
 	serviceOfferingRepo := repositories.NewServiceOfferingRepo(userClientFactory, cfg.RootNamespace, serviceBrokerRepo)
-	servicePlanRepo := repositories.NewServicePlanRepo(userClientFactory, cfg.RootNamespace, orgRepo)
+	servicePlanRepo := repositories.NewServicePlanRepo(userClientFactory, cfg.RootNamespace, orgRepo, serviceBrokerRepo)
 
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(

@@ -26,6 +26,7 @@ var _ = Describe("ServicePlan", func() {
 			Entry("not available", "available=false", payloads.ServicePlanList{Available: tools.PtrTo(false)}),
 			Entry("include", "include=service_offering", payloads.ServicePlanList{IncludeResources: []string{"service_offering"}}),
 			Entry("service broker fields", "fields[service_offering.service_broker]=guid,name", payloads.ServicePlanList{IncludeBrokerFields: []string{"guid", "name"}}),
+			Entry("broker names", "service_broker_names=b1,b2", payloads.ServicePlanList{BrokerNames: "b1,b2"}),
 		)
 
 		DescribeTable("invalid query",
@@ -42,11 +43,13 @@ var _ = Describe("ServicePlan", func() {
 			It("converts payload to repository message", func() {
 				payload := payloads.ServicePlanList{
 					ServiceOfferingGUIDs: "b1,b2",
+					BrokerNames:          "br1,br2",
 					Names:                "n1,n2",
 					Available:            tools.PtrTo(true),
 				}
 				Expect(payload.ToMessage()).To(Equal(repositories.ListServicePlanMessage{
 					ServiceOfferingGUIDs: []string{"b1", "b2"},
+					BrokerNames:          []string{"br1", "br2"},
 					Names:                []string{"n1", "n2"},
 					Available:            tools.PtrTo(true),
 				}))

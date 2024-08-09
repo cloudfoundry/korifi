@@ -31,15 +31,30 @@ var _ = Describe("ServicePlanRepo", func() {
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]{})
-		repo = repositories.NewServicePlanRepo(userClientFactory, rootNamespace, orgRepo)
+		repo = repositories.NewServicePlanRepo(userClientFactory, rootNamespace, orgRepo, repositories.NewServiceBrokerRepo(userClientFactory, rootNamespace))
 
 		planGUID = uuid.NewString()
+		brokerGUID := uuid.NewString()
+
+		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceBroker{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: rootNamespace,
+				Name:      brokerGUID,
+			},
+			Spec: korifiv1alpha1.CFServiceBrokerSpec{
+				ServiceBroker: services.ServiceBroker{
+					Name: "my-broker",
+				},
+			},
+		})).To(Succeed())
+
 		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServicePlan{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: rootNamespace,
 				Name:      planGUID,
 				Labels: map[string]string{
 					korifiv1alpha1.RelServiceOfferingLabel: "offering-guid",
+					korifiv1alpha1.RelServiceBrokerLabel:   brokerGUID,
 				},
 				Annotations: map[string]string{
 					"annotation": "annotation-value",
@@ -152,6 +167,7 @@ var _ = Describe("ServicePlanRepo", func() {
 				}),
 				"Available":           BeFalse(),
 				"ServiceOfferingGUID": Equal("offering-guid"),
+				"ServiceBrokerName":   Equal("my-broker"),
 			}))
 		})
 
@@ -170,6 +186,24 @@ var _ = Describe("ServicePlanRepo", func() {
 
 			It("returns an available plan", func() {
 				Expect(plan.Available).To(BeTrue())
+			})
+		})
+
+		When("the broker cannot be looked up", func() {
+			BeforeEach(func() {
+				cfServicePlan := &korifiv1alpha1.CFServicePlan{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: rootNamespace,
+						Name:      planGUID,
+					},
+				}
+				Expect(repositories.PatchResource(ctx, k8sClient, cfServicePlan, func() {
+					cfServicePlan.Labels[korifiv1alpha1.RelServiceBrokerLabel] = "i-do-not-exist"
+				})).To(Succeed())
+			})
+
+			It("does not set the broker name", func() {
+				Expect(plan.ServiceBrokerName).To(BeEmpty())
 			})
 		})
 	})
@@ -262,6 +296,19 @@ var _ = Describe("ServicePlanRepo", func() {
 					"CFResource": MatchFields(IgnoreExtras, Fields{
 						"GUID": Equal(otherPlanGUID),
 					}),
+				})))
+			})
+		})
+
+		When("filtering by broker name", func() {
+			BeforeEach(func() {
+				message.BrokerNames = []string{"my-broker"}
+			})
+
+			It("returns matching service plans", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"ServiceBrokerName": Equal("my-broker"),
 				})))
 			})
 		})
