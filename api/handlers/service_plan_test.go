@@ -8,7 +8,9 @@ import (
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
@@ -36,8 +38,10 @@ var _ = Describe("ServicePlan", func() {
 			*serverURL,
 			requestValidator,
 			servicePlanRepo,
-			serviceOfferingRepo,
-			serviceBrokerRepo,
+			relationships.NewResourseRelationshipsRepo(
+				serviceOfferingRepo,
+				serviceBrokerRepo,
+			),
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -99,28 +103,13 @@ var _ = Describe("ServicePlan", func() {
 			})
 		})
 
-		Describe("include service_offering", func() {
+		When("params to include service_offering are provided", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServicePlanList{
-					IncludeResources: []string{"service_offering"},
-				})
-			})
-
-			It("lists the offerings", func() {
-				Expect(serviceOfferingRepo.ListOfferingsCallCount()).To(Equal(1))
-				_, _, actualListMessage := serviceOfferingRepo.ListOfferingsArgsForCall(0)
-				Expect(actualListMessage).To(Equal(repositories.ListServiceOfferingMessage{
-					GUIDs: []string{"service-offering-guid"},
-				}))
-			})
-
-			When("listing offerings fails", func() {
-				BeforeEach(func() {
-					serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{}, errors.New("list-offering-err"))
-				})
-
-				It("returns an error", func() {
-					expectUnknownError()
+					IncludeResourceRules: []params.IncludeResourceRule{{
+						RelationshipPath: []string{"service_offering"},
+						Fields:           []string{},
+					}},
 				})
 			})
 
@@ -133,7 +122,7 @@ var _ = Describe("ServicePlan", func() {
 			})
 		})
 
-		Describe("fields service_offering.service_broker", func() {
+		When("params to inlude fields[service_offering.service_broker]", func() {
 			BeforeEach(func() {
 				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
 					ServiceBroker: services.ServiceBroker{
@@ -155,25 +144,10 @@ var _ = Describe("ServicePlan", func() {
 				}}, nil)
 
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServicePlanList{
-					IncludeBrokerFields: []string{"guid", "name"},
-				})
-			})
-
-			It("lists the brokers", func() {
-				Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
-				_, _, actualListMessage := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
-				Expect(actualListMessage).To(Equal(repositories.ListServiceBrokerMessage{
-					GUIDs: []string{"service-broker-guid"},
-				}))
-			})
-
-			When("listing brokers fails", func() {
-				BeforeEach(func() {
-					serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{}, errors.New("list-broker-err"))
-				})
-
-				It("returns an error", func() {
-					expectUnknownError()
+					IncludeResourceRules: []params.IncludeResourceRule{{
+						RelationshipPath: []string{"service_offering", "service_broker"},
+						Fields:           []string{"name", "guid"},
+					}},
 				})
 			})
 

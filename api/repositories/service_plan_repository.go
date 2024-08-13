@@ -28,6 +28,16 @@ type ServicePlanRecord struct {
 	Available           bool
 }
 
+func (r ServicePlanRecord) Relationships() map[string]model.ToOneRelationship {
+	return map[string]model.ToOneRelationship{
+		"service_offering": {
+			Data: model.Relationship{
+				GUID: r.ServiceOfferingGUID,
+			},
+		},
+	}
+}
+
 type PlanVisibility struct {
 	Type          string
 	Organizations []services.VisibilityOrganization

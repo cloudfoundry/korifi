@@ -2,6 +2,7 @@ package payloads_test
 
 import (
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model/services"
@@ -24,8 +25,18 @@ var _ = Describe("ServicePlan", func() {
 			Entry("names", "names=b1,b2", payloads.ServicePlanList{Names: "b1,b2"}),
 			Entry("available", "available=true", payloads.ServicePlanList{Available: tools.PtrTo(true)}),
 			Entry("not available", "available=false", payloads.ServicePlanList{Available: tools.PtrTo(false)}),
-			Entry("include", "include=service_offering", payloads.ServicePlanList{IncludeResources: []string{"service_offering"}}),
-			Entry("service broker fields", "fields[service_offering.service_broker]=guid,name", payloads.ServicePlanList{IncludeBrokerFields: []string{"guid", "name"}}),
+			Entry("include", "include=service_offering", payloads.ServicePlanList{
+				IncludeResourceRules: []params.IncludeResourceRule{{
+					RelationshipPath: []string{"service_offering"},
+					Fields:           []string{},
+				}},
+			}),
+			Entry("service broker fields", "fields[service_offering.service_broker]=guid,name", payloads.ServicePlanList{
+				IncludeResourceRules: []params.IncludeResourceRule{{
+					RelationshipPath: []string{"service_offering", "service_broker"},
+					Fields:           []string{"guid", "name"},
+				}},
+			}),
 		)
 
 		DescribeTable("invalid query",
