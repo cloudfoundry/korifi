@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -20,14 +21,12 @@ type ServicePlanList struct {
 	ServiceOfferingGUIDs string
 	Names                string
 	Available            *bool
-	IncludeResources     []string
-	IncludeBrokerFields  []string
+	IncludeResourceRules []params.IncludeResourceRule
 }
 
 func (l ServicePlanList) Validate() error {
 	return jellidation.ValidateStruct(&l,
-		jellidation.Field(&l.IncludeResources, jellidation.Each(validation.OneOf("service_offering"))),
-		jellidation.Field(&l.IncludeBrokerFields, jellidation.Each(validation.OneOf("guid", "name"))),
+		jellidation.Field(&l.IncludeResourceRules),
 	)
 }
 
@@ -56,8 +55,8 @@ func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
 		return fmt.Errorf("failed to parse 'available' query parameter: %w", err)
 	}
 	l.Available = available
-	l.IncludeResources = parse.ArrayParam(values.Get("include"))
-	l.IncludeBrokerFields = parse.ArrayParam(values.Get("fields[service_offering.service_broker]"))
+	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseFields(values)...)
+	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseIncludes(values)...)
 
 	return nil
 }

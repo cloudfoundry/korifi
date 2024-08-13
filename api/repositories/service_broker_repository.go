@@ -69,6 +69,10 @@ type ServiceBrokerRecord struct {
 	model.CFResource
 }
 
+func (r ServiceBrokerRecord) Relationships() map[string]model.ToOneRelationship {
+	return map[string]model.ToOneRelationship{}
+}
+
 func NewServiceBrokerRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	rootNamespace string,

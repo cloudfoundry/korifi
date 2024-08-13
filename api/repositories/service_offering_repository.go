@@ -24,6 +24,16 @@ type ServiceOfferingRecord struct {
 	ServiceBrokerGUID string
 }
 
+func (r ServiceOfferingRecord) Relationships() map[string]model.ToOneRelationship {
+	return map[string]model.ToOneRelationship{
+		"service_broker": {
+			Data: model.Relationship{
+				GUID: r.ServiceBrokerGUID,
+			},
+		},
+	}
+}
+
 type ServiceOfferingRepo struct {
 	userClientFactory authorization.UserK8sClientFactory
 	rootNamespace     string

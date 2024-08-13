@@ -21,6 +21,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
+	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
@@ -268,6 +269,11 @@ func main() {
 		),
 	)
 
+	relationshipsRepo := relationships.NewResourseRelationshipsRepo(
+		serviceOfferingRepo,
+		serviceBrokerRepo,
+	)
+
 	apiHandlers := []routing.Routable{
 		handlers.NewRootV3(*serverURL),
 		handlers.NewRoot(*serverURL),
@@ -431,8 +437,7 @@ func main() {
 			*serverURL,
 			requestValidator,
 			servicePlanRepo,
-			serviceOfferingRepo,
-			serviceBrokerRepo,
+			relationshipsRepo,
 		),
 	}
 	for _, handler := range apiHandlers {
