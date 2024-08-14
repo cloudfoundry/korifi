@@ -138,7 +138,7 @@ var _ = Describe("Service Brokers", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(servicePlans.Resources).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-					"Labels": HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, brokerGUID),
+					"Labels": HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, brokerGUID),
 				})),
 			})))
 		})

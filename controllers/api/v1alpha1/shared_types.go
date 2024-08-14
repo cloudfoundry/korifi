@@ -27,9 +27,10 @@ const (
 	PropagateDeletionAnnotation       = "cloudfoundry.org/propagate-deletion"
 	PropagatedFromLabel               = "cloudfoundry.org/propagated-from"
 
-	RelationshipsLabelPrefix = "korifi.cloudfoundry.org/rel-"
-	RelServiceBrokerLabel    = RelationshipsLabelPrefix + "service_broker"
-	RelServiceOfferingLabel  = RelationshipsLabelPrefix + "service_offering"
+	RelationshipsLabelPrefix    = "korifi.cloudfoundry.org/rel-"
+	RelServiceBrokerGUIDLabel   = RelationshipsLabelPrefix + "service-broker-guid"
+	RelServiceBrokerNameLabel   = RelationshipsLabelPrefix + "service-broker-name"
+	RelServiceOfferingGUIDLabel = RelationshipsLabelPrefix + "service-offering-guid"
 )
 
 type Lifecycle struct {

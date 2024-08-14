@@ -52,12 +52,14 @@ type ServicePlanRepo struct {
 type ListServicePlanMessage struct {
 	ServiceOfferingGUIDs []string
 	Names                []string
+	BrokerNames          []string
 	Available            *bool
 }
 
 func (m *ListServicePlanMessage) matches(cfServicePlan korifiv1alpha1.CFServicePlan) bool {
-	return tools.EmptyOrContains(m.ServiceOfferingGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel]) &&
+	return tools.EmptyOrContains(m.ServiceOfferingGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel]) &&
 		tools.EmptyOrContains(m.Names, cfServicePlan.Spec.Name) &&
+		tools.EmptyOrContains(m.BrokerNames, cfServicePlan.Labels[korifiv1alpha1.RelServiceBrokerNameLabel]) &&
 		tools.NilOrEquals(m.Available, isAvailable(cfServicePlan))
 }
 
@@ -209,7 +211,7 @@ func (r *ServicePlanRepo) planToRecord(ctx context.Context, authInfo authorizati
 			Type:          plan.Spec.Visibility.Type,
 			Organizations: organizations,
 		},
-		ServiceOfferingGUID: plan.Labels[korifiv1alpha1.RelServiceOfferingLabel],
+		ServiceOfferingGUID: plan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel],
 		Available:           isAvailable(plan),
 	}, nil
 }

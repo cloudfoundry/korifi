@@ -1226,7 +1226,7 @@ func cleanupBroker(brokerGUID string) {
 		&korifiv1alpha1.CFServiceOffering{},
 		client.InNamespace(rootNamespace),
 		client.MatchingLabels{
-			korifiv1alpha1.RelServiceBrokerLabel: brokerGUID,
+			korifiv1alpha1.RelServiceBrokerGUIDLabel: brokerGUID,
 		},
 	)).To(Succeed())
 
@@ -1235,7 +1235,7 @@ func cleanupBroker(brokerGUID string) {
 		&korifiv1alpha1.CFServicePlan{},
 		client.InNamespace(rootNamespace),
 		client.MatchingLabels{
-			korifiv1alpha1.RelServiceBrokerLabel: brokerGUID,
+			korifiv1alpha1.RelServiceBrokerGUIDLabel: brokerGUID,
 		},
 	)).To(Succeed())
 }

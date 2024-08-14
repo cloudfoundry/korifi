@@ -60,7 +60,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Namespace: rootNamespace,
 					Name:      offeringGUID,
 					Labels: map[string]string{
-						korifiv1alpha1.RelServiceBrokerLabel: broker.Name,
+						korifiv1alpha1.RelServiceBrokerGUIDLabel: broker.Name,
 					},
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
@@ -95,7 +95,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Namespace: rootNamespace,
 					Name:      anotherOfferingGUID,
 					Labels: map[string]string{
-						korifiv1alpha1.RelServiceBrokerLabel: "another-broker",
+						korifiv1alpha1.RelServiceBrokerGUIDLabel: "another-broker",
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceOfferingSpec{
@@ -142,7 +142,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 						"CreatedAt": Not(BeZero()),
 						"UpdatedAt": BeNil(),
 						"Metadata": MatchAllFields(Fields{
-							"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, broker.Name),
+							"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, broker.Name),
 							"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
 						}),
 					}),

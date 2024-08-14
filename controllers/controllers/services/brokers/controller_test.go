@@ -145,7 +145,10 @@ var _ = Describe("CFServiceBroker", func() {
 			g.Expect(offerings.Items).To(HaveLen(1))
 
 			offering := offerings.Items[0]
-			g.Expect(offering.Labels).To(HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, serviceBroker.Name))
+			g.Expect(offering.Labels).To(SatisfyAll(
+				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, serviceBroker.Name),
+				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerNameLabel, serviceBroker.Spec.Name),
+			))
 			g.Expect(offering.Spec).To(MatchAllFields(Fields{
 				"ServiceOffering": MatchAllFields(Fields{
 					"Name":             Equal("service-name"),
@@ -187,8 +190,9 @@ var _ = Describe("CFServiceBroker", func() {
 			plan := plans.Items[0]
 
 			g.Expect(plan.Labels).To(SatisfyAll(
-				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, serviceBroker.Name),
-				HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingLabel, offerings.Items[0].Name),
+				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, serviceBroker.Name),
+				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerNameLabel, serviceBroker.Spec.Name),
+				HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingGUIDLabel, offerings.Items[0].Name),
 			))
 			g.Expect(plan.Spec).To(MatchAllFields(Fields{
 				"ServicePlan": MatchAllFields(Fields{
@@ -332,8 +336,8 @@ var _ = Describe("CFServiceBroker", func() {
 				g.Expect(offerings.Items).To(HaveLen(2))
 
 				brokerGUIDs := []string{
-					offerings.Items[0].Labels[korifiv1alpha1.RelServiceBrokerLabel],
-					offerings.Items[1].Labels[korifiv1alpha1.RelServiceBrokerLabel],
+					offerings.Items[0].Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel],
+					offerings.Items[1].Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel],
 				}
 				g.Expect(brokerGUIDs).To(ConsistOf(serviceBroker.Name, anotherServiceBroker.Name))
 
@@ -349,8 +353,8 @@ var _ = Describe("CFServiceBroker", func() {
 				g.Expect(plans.Items).To(HaveLen(2))
 
 				brokerGUIDs := []string{
-					plans.Items[0].Labels[korifiv1alpha1.RelServiceBrokerLabel],
-					plans.Items[1].Labels[korifiv1alpha1.RelServiceBrokerLabel],
+					plans.Items[0].Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel],
+					plans.Items[1].Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel],
 				}
 				g.Expect(brokerGUIDs).To(ConsistOf(serviceBroker.Name, anotherServiceBroker.Name))
 
