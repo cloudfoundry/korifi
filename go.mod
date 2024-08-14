@@ -1,10 +1,11 @@
 module code.cloudfoundry.org/korifi
 
-go 1.23
+go 1.23.0
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
+	github.com/BooleanCat/go-functional v1.1.0
 	github.com/BooleanCat/go-functional/v2 v2.0.0-beta.5
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
@@ -31,7 +32,7 @@ require (
 	github.com/pivotal/kpack v0.15.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/servicebinding/runtime v1.0.0
-	golang.org/x/text v0.16.0
+	golang.org/x/text v0.17.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.30.3
