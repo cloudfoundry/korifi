@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
@@ -28,8 +29,32 @@ type ServicePlanList struct {
 
 func (l ServicePlanList) Validate() error {
 	return jellidation.ValidateStruct(&l,
-		jellidation.Field(&l.IncludeResourceRules),
+		jellidation.Field(&l.IncludeResourceRules, jellidation.Each(jellidation.By(func(value any) error {
+			rule, ok := value.(params.IncludeResourceRule)
+			if !ok {
+				return fmt.Errorf("%T is not supported, IncludeResourceRule is expected", value)
+			}
+
+			if len(rule.Fields) == 0 {
+				return validateInclude(rule)
+			}
+
+			return validateFields(rule)
+		}))),
 	)
+}
+
+func validateInclude(rule params.IncludeResourceRule) error {
+	return validation.OneOf("service_offering", "space.organization").
+		Validate(strings.Join(rule.RelationshipPath, "."))
+}
+
+func validateFields(rule params.IncludeResourceRule) error {
+	if strings.Join(rule.RelationshipPath, ".") != "service_offering.service_broker" {
+		return jellidation.NewError("invalid_fields_param", "must be fields[service_offering.service_broker]")
+	}
+
+	return jellidation.Each(validation.OneOf("guid", "name")).Validate(rule.Fields)
 }
 
 func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
