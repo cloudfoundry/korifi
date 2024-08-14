@@ -67,11 +67,15 @@ func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
 }
 
 func (l *ServicePlanList) SupportedKeys() []string {
-	return []string{"service_offering_guids", "names", "available", "fields[service_offering.service_broker]", "service_broker_names", "page", "per_page", "include"}
+	return []string{"service_offering_guids", "names", "available", "fields[service_offering.service_broker]", "service_broker_names", "include"}
 }
 
 func (l *ServicePlanList) IgnoredKeys() []*regexp.Regexp {
-	return []*regexp.Regexp{regexp.MustCompile("space_guids")}
+	return []*regexp.Regexp{
+		regexp.MustCompile("space_guids"),
+		regexp.MustCompile("page"),
+		regexp.MustCompile("per_page"),
+	}
 }
 
 func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
