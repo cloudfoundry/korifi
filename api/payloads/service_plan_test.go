@@ -25,9 +25,15 @@ var _ = Describe("ServicePlan", func() {
 			Entry("names", "names=b1,b2", payloads.ServicePlanList{Names: "b1,b2"}),
 			Entry("available", "available=true", payloads.ServicePlanList{Available: tools.PtrTo(true)}),
 			Entry("not available", "available=false", payloads.ServicePlanList{Available: tools.PtrTo(false)}),
-			Entry("include", "include=service_offering", payloads.ServicePlanList{
+			Entry("include service offering", "include=service_offering", payloads.ServicePlanList{
 				IncludeResourceRules: []params.IncludeResourceRule{{
 					RelationshipPath: []string{"service_offering"},
+					Fields:           []string{},
+				}},
+			}),
+			Entry("include space organization", "include=space.organization", payloads.ServicePlanList{
+				IncludeResourceRules: []params.IncludeResourceRule{{
+					RelationshipPath: []string{"space", "organization"},
 					Fields:           []string{},
 				}},
 			}),

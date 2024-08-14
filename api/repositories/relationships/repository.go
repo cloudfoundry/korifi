@@ -59,6 +59,8 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 			authInfo,
 			repositories.ListServiceBrokerMessage{GUIDs: relatedResourceGUIDs},
 		))
+	case "space", "organization":
+		return nil, nil
 	}
 
 	return nil, fmt.Errorf("no repository for type %q", relatedResourceType)

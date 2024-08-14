@@ -16,7 +16,7 @@ type IncludeResourceRule struct {
 
 func (r IncludeResourceRule) Validate() error {
 	return jellidation.ValidateStruct(&r,
-		jellidation.Field(&r.RelationshipPath, jellidation.Each(validation.OneOf("service_offering", "service_broker"))),
+		jellidation.Field(&r.RelationshipPath, jellidation.Each(validation.OneOf("service_offering", "service_broker", "space", "organization"))),
 		jellidation.Field(&r.Fields, jellidation.Each(validation.OneOf("guid", "name"))),
 	)
 }

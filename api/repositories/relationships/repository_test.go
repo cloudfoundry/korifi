@@ -42,7 +42,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		Expect(listError).To(MatchError(ContainSubstring(`no repository for type "foo"`)))
 	})
 
-	Describe("resorce type service_offering", func() {
+	Describe("resource type service_offering", func() {
 		BeforeEach(func() {
 			resourceType = "service_offering"
 
@@ -91,7 +91,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		})
 	})
 
-	Describe("resorce type service_broker", func() {
+	Describe("resource type service_broker", func() {
 		BeforeEach(func() {
 			resourceType = "service_broker"
 
@@ -137,6 +137,28 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 			It("returns an error", func() {
 				Expect(listError).To(MatchError("list-broker-error"))
 			})
+		})
+	})
+
+	Describe("resource type space", func() {
+		BeforeEach(func() {
+			resourceType = "space"
+		})
+
+		It("does not fail and returns an empty result", func() {
+			Expect(listError).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+	})
+
+	Describe("resource type organization", func() {
+		BeforeEach(func() {
+			resourceType = "organization"
+		})
+
+		It("does not fail and returns an empty result", func() {
+			Expect(listError).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
 		})
 	})
 })
