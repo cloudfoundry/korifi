@@ -130,6 +130,6 @@ func offeringToRecord(offering korifiv1alpha1.CFServiceOffering) ServiceOffering
 				Annotations: offering.Annotations,
 			},
 		},
-		ServiceBrokerGUID: offering.Labels[korifiv1alpha1.RelServiceBrokerLabel],
+		ServiceBrokerGUID: offering.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel],
 	}
 }

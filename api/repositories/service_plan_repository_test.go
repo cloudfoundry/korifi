@@ -39,7 +39,8 @@ var _ = Describe("ServicePlanRepo", func() {
 				Namespace: rootNamespace,
 				Name:      planGUID,
 				Labels: map[string]string{
-					korifiv1alpha1.RelServiceOfferingLabel: "offering-guid",
+					korifiv1alpha1.RelServiceOfferingGUIDLabel: "offering-guid",
+					korifiv1alpha1.RelServiceBrokerNameLabel:   "broker-name",
 				},
 				Annotations: map[string]string{
 					"annotation": "annotation-value",
@@ -142,7 +143,7 @@ var _ = Describe("ServicePlanRepo", func() {
 					"CreatedAt": Not(BeZero()),
 					"UpdatedAt": BeNil(),
 					"Metadata": MatchAllFields(Fields{
-						"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingLabel, "offering-guid"),
+						"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingGUIDLabel, "offering-guid"),
 						"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
 					}),
 				}),
@@ -189,7 +190,8 @@ var _ = Describe("ServicePlanRepo", func() {
 					Namespace: rootNamespace,
 					Name:      otherPlanGUID,
 					Labels: map[string]string{
-						korifiv1alpha1.RelServiceOfferingLabel: "other-offering-guid",
+						korifiv1alpha1.RelServiceOfferingGUIDLabel: "other-offering-guid",
+						korifiv1alpha1.RelServiceBrokerNameLabel:   "other-broker-name",
 					},
 				},
 				Spec: korifiv1alpha1.CFServicePlanSpec{
@@ -254,6 +256,21 @@ var _ = Describe("ServicePlanRepo", func() {
 		When("filtering by availability", func() {
 			BeforeEach(func() {
 				message.Available = tools.PtrTo(true)
+			})
+
+			It("returns matching service plans", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"GUID": Equal(otherPlanGUID),
+					}),
+				})))
+			})
+		})
+
+		When("filtering by broker name", func() {
+			BeforeEach(func() {
+				message.BrokerNames = []string{"other-broker-name"}
 			})
 
 			It("returns matching service plans", func() {

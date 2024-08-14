@@ -193,7 +193,8 @@ func (r *Reconciler) reconcileCatalogService(ctx context.Context, cfServiceBroke
 		if serviceOffering.Labels == nil {
 			serviceOffering.Labels = map[string]string{}
 		}
-		serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerLabel] = cfServiceBroker.Name
+		serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] = cfServiceBroker.Name
+		serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerNameLabel] = cfServiceBroker.Spec.Name
 
 		var err error
 		serviceOffering.Spec.ServiceOffering, err = toSpecServiceOffering(catalogService)
@@ -216,7 +217,7 @@ func (r *Reconciler) reconcileCatalogService(ctx context.Context, cfServiceBroke
 func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *korifiv1alpha1.CFServiceOffering, catalogPlan osbapi.Plan) error {
 	servicePlan := &korifiv1alpha1.CFServicePlan{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      tools.NamespacedUUID(serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerLabel], catalogPlan.ID),
+			Name:      tools.NamespacedUUID(serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel], catalogPlan.ID),
 			Namespace: serviceOffering.Namespace,
 		},
 	}
@@ -225,8 +226,9 @@ func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *
 		if servicePlan.Labels == nil {
 			servicePlan.Labels = map[string]string{}
 		}
-		servicePlan.Labels[korifiv1alpha1.RelServiceBrokerLabel] = serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerLabel]
-		servicePlan.Labels[korifiv1alpha1.RelServiceOfferingLabel] = serviceOffering.Name
+		servicePlan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] = serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel]
+		servicePlan.Labels[korifiv1alpha1.RelServiceBrokerNameLabel] = serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerNameLabel]
+		servicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel] = serviceOffering.Name
 
 		rawMetadata, err := json.Marshal(catalogPlan.Metadata)
 		if err != nil {

@@ -39,7 +39,7 @@ var _ = Describe("Service Plans", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-					"Labels": HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerLabel, brokerGUID),
+					"Labels": HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, brokerGUID),
 				})),
 			})))
 		})
@@ -58,7 +58,7 @@ var _ = Describe("Service Plans", func() {
 			Expect(listResp).To(HaveRestyStatusCode(http.StatusOK))
 
 			brokerPlans := iter.Lift(plans.Resources).Filter(func(r resource) bool {
-				return r.Metadata.Labels[korifiv1alpha1.RelServiceBrokerLabel] == brokerGUID
+				return r.Metadata.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] == brokerGUID
 			}).Collect()
 
 			Expect(brokerPlans).NotTo(BeEmpty())
