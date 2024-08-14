@@ -139,4 +139,26 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 			})
 		})
 	})
+
+	Describe("resorce type space", func() {
+		BeforeEach(func() {
+			resourceType = "space"
+		})
+
+		It("returns a empty list", func() {
+			Expect(listError).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+	})
+
+	Describe("resorce type space", func() {
+		BeforeEach(func() {
+			resourceType = "space"
+		})
+
+		It("returns a empty list", func() {
+			Expect(listError).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+	})
 })

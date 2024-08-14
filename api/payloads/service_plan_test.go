@@ -26,11 +26,17 @@ var _ = Describe("ServicePlan", func() {
 			Entry("available", "available=true", payloads.ServicePlanList{Available: tools.PtrTo(true)}),
 			Entry("not available", "available=false", payloads.ServicePlanList{Available: tools.PtrTo(false)}),
 			Entry("broker names", "service_broker_names=b1,b2", payloads.ServicePlanList{BrokerNames: "b1,b2"}),
-			Entry("include service offering", "include=service_offering", payloads.ServicePlanList{
-				IncludeResourceRules: []params.IncludeResourceRule{{
-					RelationshipPath: []string{"service_offering"},
-					Fields:           []string{},
-				}},
+			Entry("include", "include=service_offering&include=space.organization", payloads.ServicePlanList{
+				IncludeResourceRules: []params.IncludeResourceRule{
+					{
+						RelationshipPath: []string{"service_offering"},
+						Fields:           []string{},
+					},
+					{
+						RelationshipPath: []string{"space", "organization"},
+						Fields:           []string{},
+					},
+				},
 			}),
 			Entry("service broker fields", "fields[service_offering.service_broker]=guid,name", payloads.ServicePlanList{
 				IncludeResourceRules: []params.IncludeResourceRule{{
@@ -41,12 +47,12 @@ var _ = Describe("ServicePlan", func() {
 		)
 
 		DescribeTable("invalid query",
-			func(query string, errMatcher types.GomegaMatcher) {
+			func(query string, matchError types.GomegaMatcher) {
 				_, decodeErr := decodeQuery[payloads.ServicePlanList](query)
-				Expect(decodeErr).To(errMatcher)
+				Expect(decodeErr).To(matchError)
 			},
 			Entry("invalid available", "available=invalid", MatchError(ContainSubstring("failed to parse"))),
-			Entry("invalid include", "include=foo", MatchError(ContainSubstring("value must be one of: service_offering"))),
+			Entry("invalid include", "include=foo", MatchError(ContainSubstring("value must be one of"))),
 			Entry("invalid service broker fields", "fields[service_offering.service_broker]=foo", MatchError(ContainSubstring("value must be one of"))),
 		)
 
