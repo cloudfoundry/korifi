@@ -31,6 +31,7 @@ const (
 	RelServiceBrokerGUIDLabel   = RelationshipsLabelPrefix + "service-broker-guid"
 	RelServiceBrokerNameLabel   = RelationshipsLabelPrefix + "service-broker-name"
 	RelServiceOfferingGUIDLabel = RelationshipsLabelPrefix + "service-offering-guid"
+	RelServiceOfferingNameLabel = RelationshipsLabelPrefix + "service-offering-name"
 )
 
 type Lifecycle struct {

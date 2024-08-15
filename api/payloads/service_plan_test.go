@@ -21,8 +21,10 @@ var _ = Describe("ServicePlan", func() {
 				Expect(decodeErr).NotTo(HaveOccurred())
 				Expect(*actualServicePlanList).To(Equal(expectedServicePlanList))
 			},
+
 			Entry("service_offering_guids", "service_offering_guids=b1,b2", payloads.ServicePlanList{ServiceOfferingGUIDs: "b1,b2"}),
 			Entry("names", "names=b1,b2", payloads.ServicePlanList{Names: "b1,b2"}),
+			Entry("service offering names", "service_offering_names=so1,so2", payloads.ServicePlanList{ServiceOfferingNames: "so1,so2"}),
 			Entry("available", "available=true", payloads.ServicePlanList{Available: tools.PtrTo(true)}),
 			Entry("not available", "available=false", payloads.ServicePlanList{Available: tools.PtrTo(false)}),
 			Entry("broker names", "service_broker_names=b1,b2", payloads.ServicePlanList{BrokerNames: "b1,b2"}),
@@ -62,12 +64,14 @@ var _ = Describe("ServicePlan", func() {
 					ServiceOfferingGUIDs: "b1,b2",
 					BrokerNames:          "br1,br2",
 					Names:                "n1,n2",
+					ServiceOfferingNames: "so1,so2",
 					Available:            tools.PtrTo(true),
 				}
 				Expect(payload.ToMessage()).To(Equal(repositories.ListServicePlanMessage{
 					ServiceOfferingGUIDs: []string{"b1", "b2"},
 					BrokerNames:          []string{"br1", "br2"},
 					Names:                []string{"n1", "n2"},
+					ServiceOfferingNames: []string{"so1", "so2"},
 					Available:            tools.PtrTo(true),
 				}))
 			})

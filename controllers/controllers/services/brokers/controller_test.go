@@ -111,7 +111,8 @@ var _ = Describe("CFServiceBroker", func() {
 			},
 			Spec: korifiv1alpha1.CFServiceBrokerSpec{
 				ServiceBroker: services.ServiceBroker{
-					URL: brokerServer.URL(),
+					Name: "my-service-broker",
+					URL:  brokerServer.URL(),
 				},
 				Credentials: corev1.LocalObjectReference{
 					Name: credentialsSecret.Name,
@@ -191,8 +192,9 @@ var _ = Describe("CFServiceBroker", func() {
 
 			g.Expect(plan.Labels).To(SatisfyAll(
 				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, serviceBroker.Name),
-				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerNameLabel, serviceBroker.Spec.Name),
+				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerNameLabel, "my-service-broker"),
 				HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingGUIDLabel, offerings.Items[0].Name),
+				HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingNameLabel, "service-name"),
 			))
 			g.Expect(plan.Spec).To(MatchAllFields(Fields{
 				"ServicePlan": MatchAllFields(Fields{
