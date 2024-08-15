@@ -17,15 +17,23 @@ type ResourceRelationshipRepository interface {
 	ListRelatedResources(context.Context, authorization.Info, string, []relationships.Resource) ([]relationships.Resource, error)
 }
 
+//counterfeiter:generate -o fake -fake-name ResourcePresenter . ResourcePresenter
+type ResourcePresenter interface {
+	PresentResource(resource relationships.Resource) any
+}
+
 type IncludeResolver[S ~[]E, E relationships.Resource] struct {
 	relationshipsRepo ResourceRelationshipRepository
+	resourcePresenter ResourcePresenter
 }
 
 func NewIncludeResolver[S ~[]E, E relationships.Resource](
 	relationshipsRepo ResourceRelationshipRepository,
+	resourcePresenter ResourcePresenter,
 ) *IncludeResolver[S, E] {
 	return &IncludeResolver[S, E]{
 		relationshipsRepo: relationshipsRepo,
+		resourcePresenter: resourcePresenter,
 	}
 }
 
@@ -76,7 +84,7 @@ func (h *IncludeResolver[S, E]) resolveInclude(
 		includedResources = slices.Collect(it.Map(itx.FromSlice(resources), func(r relationships.Resource) model.IncludedResource {
 			return model.IncludedResource{
 				Type:     plural(relatedResourceType),
-				Resource: r,
+				Resource: h.resourcePresenter.PresentResource(r),
 			}
 		}))
 	}
