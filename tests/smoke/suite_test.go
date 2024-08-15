@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
-	"github.com/cloudfoundry/cf-test-helpers/generator"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,13 +24,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-const NamePrefix = "cf-on-k8s-smoke"
-
 var (
 	appsDomain            string
 	buildpackAppName      string
 	cfAdmin               string
 	dockerAppName         string
+	brokerAppName         string
 	orgName               string
 	rootNamespace         string
 	serviceAccountFactory *helpers.ServiceAccountFactory
@@ -39,7 +37,7 @@ var (
 )
 
 func TestSmoke(t *testing.T) {
-	RegisterFailHandler(fail_handler.New("Smoke Tests",
+	RegisterFailHandler(fail_handler.New("CF CLI Tests",
 		fail_handler.Hook{
 			Matcher: fail_handler.Always,
 			Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
@@ -51,7 +49,7 @@ func TestSmoke(t *testing.T) {
 
 	SetDefaultEventuallyTimeout(helpers.EventuallyTimeout())
 	SetDefaultEventuallyPollingInterval(helpers.EventuallyPollingInterval())
-	RunSpecs(t, "Smoke Tests Suite")
+	RunSpecs(t, "CF CLI Tests Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -68,16 +66,18 @@ var _ = BeforeSuite(func() {
 	Expect(helpers.Cf("auth", cfAdmin)).To(Exit(0))
 
 	appsDomain = helpers.GetRequiredEnvVar("APP_FQDN")
-	orgName = generator.PrefixedRandomName(NamePrefix, "org")
-	spaceName = generator.PrefixedRandomName(NamePrefix, "space")
-	buildpackAppName = generator.PrefixedRandomName(NamePrefix, "buildpackapp")
-	dockerAppName = generator.PrefixedRandomName(NamePrefix, "dockerapp")
+	orgName = uuid.NewString()
+	spaceName = uuid.NewString()
+	buildpackAppName = uuid.NewString()
+	dockerAppName = uuid.NewString()
+	brokerAppName = uuid.NewString()
 
 	Expect(helpers.Cf("create-org", orgName)).To(Exit(0))
 	Expect(helpers.Cf("create-space", "-o", orgName, spaceName)).To(Exit(0))
 	Expect(helpers.Cf("target", "-o", orgName, "-s", spaceName)).To(Exit(0))
 
 	Expect(helpers.Cf("push", buildpackAppName, "-p", "../assets/dorifi")).To(Exit(0))
+	Expect(helpers.Cf("push", brokerAppName, "-p", "../assets/sample-broker")).To(Exit(0))
 	Expect(helpers.Cf("push", dockerAppName, "-o", "eirini/dorini")).To(Exit(0))
 })
 
