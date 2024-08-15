@@ -229,6 +229,7 @@ func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *
 		servicePlan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] = serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel]
 		servicePlan.Labels[korifiv1alpha1.RelServiceBrokerNameLabel] = serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerNameLabel]
 		servicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel] = serviceOffering.Name
+		servicePlan.Labels[korifiv1alpha1.RelServiceOfferingNameLabel] = serviceOffering.Spec.Name
 
 		rawMetadata, err := json.Marshal(catalogPlan.Metadata)
 		if err != nil {
