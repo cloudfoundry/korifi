@@ -2,12 +2,14 @@ package include
 
 import (
 	"context"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/model"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 )
 
 //counterfeiter:generate -o fake -fake-name ResourceRelationshipRepository . ResourceRelationshipRepository
@@ -35,9 +37,9 @@ func (h *IncludeResolver[S, E]) ResolveIncludes(
 ) ([]model.IncludedResource, error) {
 	includes := []model.IncludedResource{}
 
-	repoResources := iter.Map(iter.Lift(resources), func(e E) relationships.Resource {
+	repoResources := slices.Collect(it.Map(itx.FromSlice(resources), func(e E) relationships.Resource {
 		return e
-	}).Collect()
+	}))
 
 	for _, includeResourceRule := range includeResourceRules {
 		includedResources, err := h.resolveInclude(ctx, authInfo, repoResources, includeResourceRule.RelationshipPath)
@@ -71,12 +73,12 @@ func (h *IncludeResolver[S, E]) resolveInclude(
 			return nil, err
 		}
 
-		includedResources = iter.Map(iter.Lift(resources), func(r relationships.Resource) model.IncludedResource {
+		includedResources = slices.Collect(it.Map(itx.FromSlice(resources), func(r relationships.Resource) model.IncludedResource {
 			return model.IncludedResource{
 				Type:     plural(relatedResourceType),
 				Resource: r,
 			}
-		}).Collect()
+		}))
 	}
 
 	return includedResources, nil
