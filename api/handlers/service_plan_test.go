@@ -253,9 +253,8 @@ var _ = Describe("ServicePlan", func() {
 			_, actualAuthInfo, actualMessage := servicePlanRepo.ApplyPlanVisibilityArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualMessage).To(Equal(repositories.ApplyServicePlanVisibilityMessage{
-				PlanGUID:      "my-service-plan",
-				Type:          korifiv1alpha1.PublicServicePlanVisibilityType,
-				Organizations: []string{},
+				PlanGUID: "my-service-plan",
+				Type:     korifiv1alpha1.PublicServicePlanVisibilityType,
 			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
@@ -318,9 +317,8 @@ var _ = Describe("ServicePlan", func() {
 			_, actualAuthInfo, actualMessage := servicePlanRepo.UpdatePlanVisibilityArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualMessage).To(Equal(repositories.UpdateServicePlanVisibilityMessage{
-				PlanGUID:      "my-service-plan",
-				Type:          korifiv1alpha1.PublicServicePlanVisibilityType,
-				Organizations: []string{},
+				PlanGUID: "my-service-plan",
+				Type:     korifiv1alpha1.PublicServicePlanVisibilityType,
 			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))

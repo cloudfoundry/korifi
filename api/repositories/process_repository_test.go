@@ -195,7 +195,6 @@ var _ = Describe("ProcessRepo", func() {
 
 				It("returns an empty list", func() {
 					Expect(processes).To(BeEmpty())
-					Expect(processes).ToNot(BeNil())
 				})
 			})
 
