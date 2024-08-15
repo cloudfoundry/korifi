@@ -49,7 +49,7 @@ func NewServicePlan(
 		serverURL:        serverURL,
 		requestValidator: requestValidator,
 		servicePlanRepo:  servicePlanRepo,
-		includeResolver:  include.NewIncludeResolver[[]repositories.ServicePlanRecord](relationshipRepo),
+		includeResolver:  include.NewIncludeResolver[[]repositories.ServicePlanRecord](relationshipRepo, presenter.NewResource(serverURL)),
 	}
 }
 
