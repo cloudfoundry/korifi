@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -14,7 +15,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/routing"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tools"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-logr/logr"
 )
 
@@ -75,9 +77,9 @@ func (h *ServiceOffering) listBrokersForOfferings(
 	authInfo authorization.Info,
 	serviceOfferings []repositories.ServiceOfferingRecord,
 ) ([]repositories.ServiceBrokerRecord, error) {
-	brokerGUIDs := iter.Map(iter.Lift(serviceOfferings), func(o repositories.ServiceOfferingRecord) string {
+	brokerGUIDs := slices.Collect(it.Map(itx.FromSlice(serviceOfferings), func(o repositories.ServiceOfferingRecord) string {
 		return o.ServiceBrokerGUID
-	}).Collect()
+	}))
 
 	return h.serviceBrokerRepo.ListServiceBrokers(ctx, authInfo, repositories.ListServiceBrokerMessage{
 		GUIDs: tools.Uniq(brokerGUIDs),
@@ -100,12 +102,12 @@ func (h *ServiceOffering) getBrokerIncludes(
 		return nil, err
 	}
 
-	brokerIncludes := iter.Map(iter.Lift(brokers), func(b repositories.ServiceBrokerRecord) model.IncludedResource {
+	brokerIncludes := slices.Collect(it.Map(itx.FromSlice(brokers), func(b repositories.ServiceBrokerRecord) model.IncludedResource {
 		return model.IncludedResource{
 			Type:     "service_brokers",
 			Resource: presenter.ForServiceBroker(b, baseURL),
 		}
-	}).Collect()
+	}))
 
 	brokerIncludesFielded := []model.IncludedResource{}
 	for _, brokerInclude := range brokerIncludes {

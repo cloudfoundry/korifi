@@ -3,11 +3,13 @@ package relationships
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
-	"github.com/BooleanCat/go-functional/iter"
+	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 )
 
 //counterfeiter:generate -o fake -fake-name ServiceOfferingRepository . ServiceOfferingRepository
@@ -41,9 +43,9 @@ func NewResourseRelationshipsRepo(
 }
 
 func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, authInfo authorization.Info, relatedResourceType string, resources []Resource) ([]Resource, error) {
-	relatedResourceGUIDs := iter.Map(iter.Lift(resources), func(r Resource) string {
+	relatedResourceGUIDs := slices.Collect(it.Map(itx.FromSlice(resources), func(r Resource) string {
 		return r.Relationships()[relatedResourceType].Data.GUID
-	}).Collect()
+	}))
 
 	switch relatedResourceType {
 	case "service_offering":
@@ -65,7 +67,7 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 }
 
 func asResources[S ~[]E, E Resource](resources S, err error) ([]Resource, error) {
-	return iter.Map(iter.Lift(resources), func(o E) Resource {
+	return slices.Collect(it.Map(itx.FromSlice(resources), func(o E) Resource {
 		return o
-	}).Collect(), err
+	})), err
 }
