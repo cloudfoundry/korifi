@@ -80,7 +80,7 @@ var _ = BeforeSuite(func() {
 		logger,
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
-		controllers.NewStatusGetter(logger, k8sManager.GetClient()),
+		controllers.NewStatusGetter(k8sManager.GetClient()),
 		time.Minute,
 		false,
 	)

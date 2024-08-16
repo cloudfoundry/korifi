@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -31,7 +30,7 @@ var _ = Describe("StatusGetter", func() {
 			Status: batchv1.JobStatus{},
 		}
 
-		statusGetter = controllers.NewStatusGetter(ctrl.Log.WithName("test"), fakeClient)
+		statusGetter = controllers.NewStatusGetter(fakeClient)
 	})
 
 	JustBeforeEach(func() {

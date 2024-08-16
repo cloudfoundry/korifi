@@ -167,12 +167,13 @@ func main() {
 	}
 
 	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
+		controllersLog := ctrl.Log.WithName("controllers")
 		imageClient := image.NewClient(k8sClient)
 
 		if err = apps.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFApp"),
+			controllersLog,
 			env.NewVCAPServicesEnvValueBuilder(mgr.GetClient()),
 			env.NewVCAPApplicationEnvValueBuilder(mgr.GetClient(), controllerConfig.ExtraVCAPApplicationValues),
 		).SetupWithManager(mgr); err != nil {
@@ -185,7 +186,7 @@ func main() {
 			mgr.GetClient(),
 			buildCleaner,
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFBuildpackBuild"),
+			controllersLog,
 			controllerConfig,
 			env.NewAppEnvBuilder(mgr.GetClient()),
 		).SetupWithManager(mgr); err != nil {
@@ -198,7 +199,7 @@ func main() {
 			buildCleaner,
 			imageClient,
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFDockerBuild"),
+			controllersLog,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFDockerBuild")
 			os.Exit(1)
@@ -207,7 +208,7 @@ func main() {
 		if err = packages.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFPackage"),
+			controllersLog,
 			imageClient,
 			cleanup.NewPackageCleaner(mgr.GetClient(), controllerConfig.MaxRetainedPackagesPerApp),
 			controllerConfig.ContainerRegistrySecretNames,
@@ -219,7 +220,7 @@ func main() {
 		if err = processes.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFProcess"),
+			controllersLog,
 			controllerConfig,
 			env.NewProcessEnvBuilder(mgr.GetClient()),
 		).SetupWithManager(mgr); err != nil {
@@ -230,7 +231,7 @@ func main() {
 		if err = (instances.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
+			controllersLog,
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
 			os.Exit(1)
@@ -239,7 +240,7 @@ func main() {
 		if err = (bindings.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
+			controllersLog,
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
 			os.Exit(1)
@@ -254,7 +255,7 @@ func main() {
 
 		if err = orgs.NewReconciler(
 			mgr.GetClient(),
-			ctrl.Log.WithName("controllers").WithName("CFOrg"),
+			controllersLog,
 			controllerConfig.ContainerRegistrySecretNames,
 			labelCompiler,
 		).SetupWithManager(mgr); err != nil {
@@ -264,7 +265,7 @@ func main() {
 
 		if err = spaces.NewReconciler(
 			mgr.GetClient(),
-			ctrl.Log.WithName("controllers").WithName("CFSpace"),
+			controllersLog,
 			controllerConfig.ContainerRegistrySecretNames,
 			controllerConfig.CFRootNamespace,
 			*controllerConfig.SpaceFinalizerAppDeletionTimeout,
@@ -285,7 +286,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			mgr.GetEventRecorderFor("cftask-controller"),
-			ctrl.Log.WithName("controllers").WithName("CFTask"),
+			controllersLog,
 			env.NewAppEnvBuilder(mgr.GetClient()),
 			taskTTL,
 		).SetupWithManager(mgr); err != nil {
@@ -296,7 +297,7 @@ func main() {
 		if err = domains.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFDomain"),
+			controllersLog,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
 			os.Exit(1)
@@ -307,7 +308,7 @@ func main() {
 				mgr.GetClient(),
 				osbapi.NewClient(mgr.GetClient(), controllerConfig.TrustInsecureServiceBrokers),
 				mgr.GetScheme(),
-				ctrl.Log.WithName("controllers").WithName("CFServiceBroker"),
+				controllersLog,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "CFServiceBroker")
 				os.Exit(1)
@@ -333,7 +334,7 @@ func main() {
 			if err = controllers.NewBuildWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
-				ctrl.Log.WithName("controllers").WithName("BuildWorkloadReconciler"),
+				controllersLog,
 				controllerConfig,
 				imageClient,
 				controllerConfig.ContainerRepositoryPrefix,
@@ -347,7 +348,7 @@ func main() {
 			if err = controllers.NewBuilderInfoReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
-				ctrl.Log.WithName("controllers").WithName("BuilderInfoReconciler"),
+				controllersLog,
 				controllerConfig.ClusterBuilderName,
 				controllerConfig.CFRootNamespace,
 			).SetupWithManager(mgr); err != nil {
@@ -357,7 +358,7 @@ func main() {
 
 			if err = controllers.NewKpackBuildController(
 				mgr.GetClient(),
-				ctrl.Log.WithName("kpack-image-builder").WithName("KpackBuild"),
+				controllersLog,
 				imageClient,
 				controllerConfig.BuilderServiceAccount,
 			).SetupWithManager(mgr); err != nil {
@@ -367,7 +368,6 @@ func main() {
 		}
 
 		if controllerConfig.IncludeJobTaskRunner {
-			logger := ctrl.Log.WithName("controllers").WithName("TaskWorkload")
 			var jobTTL time.Duration
 			jobTTL, err = controllerConfig.ParseJobTTL()
 			if err != nil {
@@ -375,10 +375,10 @@ func main() {
 			}
 
 			taskWorkloadReconciler := jobtaskrunnercontrollers.NewTaskWorkloadReconciler(
-				logger,
+				controllersLog,
 				mgr.GetClient(),
 				mgr.GetScheme(),
-				jobtaskrunnercontrollers.NewStatusGetter(logger, mgr.GetClient()),
+				jobtaskrunnercontrollers.NewStatusGetter(mgr.GetClient()),
 				jobTTL,
 				controllerConfig.JobTaskRunnerTemporarySetPodSeccompProfile,
 			)
@@ -389,7 +389,6 @@ func main() {
 		}
 
 		if controllerConfig.IncludeStatefulsetRunner {
-			logger := ctrl.Log.WithName("controllers").WithName("AppWorkload")
 			if err = statefulsetcontrollers.NewAppWorkloadReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
@@ -398,17 +397,16 @@ func main() {
 					controllerConfig.StatefulsetRunnerTemporarySetPodSeccompProfile,
 				),
 				statefulsetcontrollers.NewPDBUpdater(mgr.GetClient()),
-				logger,
+				controllersLog,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "AppWorkload")
 				os.Exit(1)
 			}
 
-			logger = ctrl.Log.WithName("controllers").WithName("RunnerInfo")
 			if err = statefulsetcontrollers.NewRunnerInfoReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
-				logger,
+				controllersLog,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "RunnerInfo")
 				os.Exit(1)
@@ -418,7 +416,7 @@ func main() {
 		if err = routes.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
-			ctrl.Log.WithName("controllers").WithName("CFRoute"),
+			controllersLog,
 			controllerConfig,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
