@@ -81,6 +81,7 @@ type buildpackBuildReconciler struct {
 func (r *buildpackBuildReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFBuild{}).
+		Named("buildpack_build").
 		Watches(
 			&korifiv1alpha1.BuildWorkload{},
 			handler.EnqueueRequestsFromMapFunc(buildworkloadToBuild),

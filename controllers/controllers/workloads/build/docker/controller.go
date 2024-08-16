@@ -70,6 +70,7 @@ type dockerBuildReconciler struct {
 func (r *dockerBuildReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFBuild{}).
+		Named("docker_build").
 		WithEventFilter(predicate.NewPredicateFuncs(dockerBuildFilter))
 }
 
