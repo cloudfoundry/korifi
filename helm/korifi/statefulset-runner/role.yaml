@@ -24,23 +24,6 @@ rules:
   - korifi.cloudfoundry.org
   resources:
   - appworkloads
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - appworkloads/status
-  verbs:
-  - get
-  - patch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - runnerinfos
   verbs:
   - create
@@ -52,6 +35,7 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - appworkloads/status
   - runnerinfos/status
   verbs:
   - get

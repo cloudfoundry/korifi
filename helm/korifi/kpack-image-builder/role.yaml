@@ -25,23 +25,6 @@ rules:
   - korifi.cloudfoundry.org
   resources:
   - builderinfos
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - builderinfos/status
-  verbs:
-  - get
-  - patch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - buildworkloads
   verbs:
   - create
@@ -53,6 +36,7 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - builderinfos/status
   - buildworkloads/status
   verbs:
   - get
@@ -82,13 +66,8 @@ rules:
   - kpack.io
   resources:
   - builds/finalizers
-  verbs:
-  - get
-  - patch
-- apiGroups:
-  - kpack.io
-  resources:
   - builds/status
+  - images/status
   verbs:
   - get
   - patch
@@ -117,13 +96,6 @@ rules:
   - list
   - patch
   - watch
-- apiGroups:
-  - kpack.io
-  resources:
-  - images/status
-  verbs:
-  - get
-  - patch
 - apiGroups:
   - storage.k8s.io
   resources:
