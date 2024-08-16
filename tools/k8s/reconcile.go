@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -32,7 +33,9 @@ func NewPatchingReconciler[T any, PT ObjectWithDeepCopy[T]](log logr.Logger, k8s
 }
 
 func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.log.WithValues("namespace", req.Namespace, "name", req.Name, "logID", uuid.NewString())
+	log := r.log.
+		WithName(reflect.TypeFor[T]().Name()).
+		WithValues("namespace", req.Namespace, "name", req.Name, "logID", uuid.NewString())
 	ctx = logr.NewContext(ctx, log)
 
 	obj := PT(new(T))

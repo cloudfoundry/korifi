@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,13 +12,11 @@ import (
 )
 
 type StatusGetter struct {
-	logger    logr.Logger
 	k8sClient client.Client
 }
 
-func NewStatusGetter(logger logr.Logger, k8sClient client.Client) *StatusGetter {
+func NewStatusGetter(k8sClient client.Client) *StatusGetter {
 	return &StatusGetter{
-		logger:    logger,
 		k8sClient: k8sClient,
 	}
 }
