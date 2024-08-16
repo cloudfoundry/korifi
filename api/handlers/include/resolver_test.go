@@ -35,6 +35,7 @@ func (t Bar) Relationships() map[string]model.ToOneRelationship {
 var _ = Describe("ResolveIncludes", func() {
 	var (
 		relationshipsRepo *fake.ResourceRelationshipRepository
+		resourcePresenter *fake.ResourcePresenter
 		resolver          *include.IncludeResolver[[]Foo, Foo]
 
 		inputResources []Foo
@@ -52,8 +53,13 @@ var _ = Describe("ResolveIncludes", func() {
 		result = []model.IncludedResource{}
 
 		relationshipsRepo = new(fake.ResourceRelationshipRepository)
+		resourcePresenter = new(fake.ResourcePresenter)
+		resourcePresenter.PresentResourceReturns(map[string]string{
+			"presented-field1": "present1",
+			"presented-field2": "present2",
+		})
 
-		resolver = include.NewIncludeResolver[[]Foo](relationshipsRepo)
+		resolver = include.NewIncludeResolver[[]Foo](relationshipsRepo, resourcePresenter)
 	})
 
 	JustBeforeEach(func() {
@@ -83,14 +89,23 @@ var _ = Describe("ResolveIncludes", func() {
 			}, nil)
 		})
 
-		It("includes the related object", func() {
+		It("presents the related object", func() {
+			Expect(resourcePresenter.PresentResourceCallCount()).To(Equal(1))
+			actualResource := resourcePresenter.PresentResourceArgsForCall(0)
+			Expect(actualResource).To(Equal(Bar{
+				Name: "bar",
+				GUID: "bar-guid",
+			}))
+		})
+
+		It("includes the presented object", func() {
 			Expect(resolveErr).NotTo(HaveOccurred())
 			Expect(result).To(ConsistOf(
 				model.IncludedResource{
 					Type: "bars",
 					Resource: map[string]any{
-						"name": "bar",
-						"guid": "bar-guid",
+						"presented-field1": "present1",
+						"presented-field2": "present2",
 					},
 				},
 			))
@@ -100,7 +115,7 @@ var _ = Describe("ResolveIncludes", func() {
 			BeforeEach(func() {
 				rules = []params.IncludeResourceRule{{
 					RelationshipPath: []string{"bar"},
-					Fields:           []string{"name"},
+					Fields:           []string{"presented-field2"},
 				}}
 			})
 
@@ -110,7 +125,7 @@ var _ = Describe("ResolveIncludes", func() {
 					model.IncludedResource{
 						Type: "bars",
 						Resource: map[string]any{
-							"name": "bar",
+							"presented-field2": "present2",
 						},
 					},
 				))
@@ -178,6 +193,15 @@ var _ = Describe("ResolveIncludes", func() {
 					}
 					return nil, nil
 				}
+
+				resourcePresenter.PresentResourceReturnsOnCall(0, map[string]string{
+					"guid": "presented-foo-guid",
+					"name": "presented-foo-name",
+				})
+				resourcePresenter.PresentResourceReturnsOnCall(1, map[string]string{
+					"guid": "presented-bar-guid",
+					"name": "presented-bar-name",
+				})
 			})
 
 			It("resolves all rules", func() {
@@ -186,14 +210,14 @@ var _ = Describe("ResolveIncludes", func() {
 					model.IncludedResource{
 						Type: "foos",
 						Resource: map[string]any{
-							"name": "foo",
-							"guid": "foo-guid",
+							"guid": "presented-foo-guid",
+							"name": "presented-foo-name",
 						},
 					},
 					model.IncludedResource{
 						Type: "bars",
 						Resource: map[string]any{
-							"name": "bar",
+							"name": "presented-bar-name",
 						},
 					},
 				))
