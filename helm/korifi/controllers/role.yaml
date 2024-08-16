@@ -16,6 +16,8 @@ rules:
   - ""
   resources:
   - namespaces
+  - secrets
+  - services
   verbs:
   - create
   - delete
@@ -42,18 +44,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - serviceaccounts
   verbs:
   - create
@@ -61,18 +51,6 @@ rules:
   - get
   - list
   - patch
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - apps
@@ -122,6 +100,18 @@ rules:
   - korifi.cloudfoundry.org
   resources:
   - appworkloads
+  - builderinfos
+  - buildworkloads
+  - cfbuilds
+  - cforgs
+  - cfpackages
+  - cfprocesses
+  - cfroutes
+  - cfservicebindings
+  - cfservicebrokers
+  - cfserviceinstances
+  - cfspaces
+  - cftasks
   verbs:
   - create
   - delete
@@ -134,57 +124,45 @@ rules:
   - korifi.cloudfoundry.org
   resources:
   - appworkloads/finalizers
+  - builderinfos/finalizers
+  - buildworkloads/finalizers
+  - cfapps/finalizers
+  - cfbuilds/finalizers
+  - cfdomains/finalizers
+  - cforgs/finalizers
+  - cfprocesses/finalizers
+  - cfroutes/finalizers
+  - cfserviceinstances/finalizers
+  - cfspaces/finalizers
+  - cftasks/finalizers
   verbs:
   - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
   - appworkloads/status
+  - cfdomains/status
   verbs:
   - patch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - builderinfos
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - builderinfos/finalizers
-  verbs:
-  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
   - builderinfos/status
+  - cfapps/status
+  - cfbuilds/status
+  - cforgs/status
+  - cfpackages/finalizers
+  - cfpackages/status
+  - cfprocesses/status
+  - cfroutes/status
+  - cfservicebindings/status
+  - cfservicebrokers/status
+  - cfserviceinstances/status
+  - cfspaces/status
+  - cftasks/status
   verbs:
   - get
   - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - buildworkloads
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - buildworkloads/finalizers
-  verbs:
   - update
 - apiGroups:
   - korifi.cloudfoundry.org
@@ -208,315 +186,7 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - cfapps/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfapps/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfbuilds
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfbuilds/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfbuilds/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - cfdomains
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfdomains/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfdomains/status
-  verbs:
-  - patch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cforgs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cforgs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cforgs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfpackages
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfpackages/finalizers
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfpackages/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfprocesses
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfprocesses/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfprocesses/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfroutes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfroutes/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfroutes/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfservicebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfservicebindings/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfservicebrokers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfservicebrokers/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfserviceinstances
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfserviceinstances/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfserviceinstances/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfserviceofferings
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfserviceplans
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfspaces
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfspaces/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfspaces/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cftasks
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cftasks/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cftasks/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - taskworkloads
   verbs:
   - create
@@ -524,6 +194,18 @@ rules:
   - get
   - list
   - patch
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfserviceofferings
+  - cfserviceplans
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - kpack.io
