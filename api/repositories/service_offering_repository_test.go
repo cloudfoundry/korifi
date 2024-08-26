@@ -61,6 +61,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Name:      offeringGUID,
 					Labels: map[string]string{
 						korifiv1alpha1.RelServiceBrokerGUIDLabel: broker.Name,
+						korifiv1alpha1.RelServiceBrokerNameLabel: broker.Spec.Name,
 					},
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
@@ -96,6 +97,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Name:      anotherOfferingGUID,
 					Labels: map[string]string{
 						korifiv1alpha1.RelServiceBrokerGUIDLabel: "another-broker",
+						korifiv1alpha1.RelServiceBrokerNameLabel: "another-broker-name",
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceOfferingSpec{

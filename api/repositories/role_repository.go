@@ -20,6 +20,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/tools/singleton"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
@@ -62,6 +63,10 @@ type RoleRecord struct {
 	Org       string
 	User      string
 	Kind      string
+}
+
+func (r RoleRecord) GetResourceType() string {
+	return RoleResourceType
 }
 
 type RoleRepo struct {
@@ -309,21 +314,9 @@ func (r *RoleRepo) GetRole(ctx context.Context, authInfo authorization.Info, rol
 		return RoleRecord{}, err
 	}
 
-	matchedRoles := []RoleRecord{}
-	for _, role := range roles {
-		if role.GUID == roleGUID {
-			matchedRoles = append(matchedRoles, role)
-		}
-	}
-
-	switch len(matchedRoles) {
-	case 0:
-		return RoleRecord{}, apierrors.NewNotFoundError(nil, RoleResourceType)
-	case 1:
-		return matchedRoles[0], nil
-	default:
-		return RoleRecord{}, fmt.Errorf("multiple role bindings with guid %q found", roleGUID)
-	}
+	return singleton.Get(itx.FromSlice(roles).Filter(func(r RoleRecord) bool {
+		return r.GUID == roleGUID
+	}).Collect())
 }
 
 func (r *RoleRepo) DeleteRole(ctx context.Context, authInfo authorization.Info, deleteMsg DeleteRoleMessage) error {

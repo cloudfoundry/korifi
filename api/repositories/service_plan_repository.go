@@ -122,18 +122,9 @@ func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.
 		return nil, apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
-	filteredPlans := itx.FromSlice(cfServicePlans.Items).Filter(message.matches).Collect()
-
-	planRecords := []ServicePlanRecord{}
-	for _, plan := range filteredPlans {
-		record, err := r.planToRecord(ctx, authInfo, plan)
-		if err != nil {
-			return nil, err
-		}
-		planRecords = append(planRecords, record)
-	}
-
-	return planRecords, nil
+	return it.TryCollect(it.MapError(itx.FromSlice(cfServicePlans.Items).Filter(message.matches), func(plan korifiv1alpha1.CFServicePlan) (ServicePlanRecord, error) {
+		return r.planToRecord(ctx, authInfo, plan)
+	}))
 }
 
 func (r *ServicePlanRepo) GetPlan(ctx context.Context, authInfo authorization.Info, planGUID string) (ServicePlanRecord, error) {

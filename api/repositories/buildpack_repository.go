@@ -3,11 +3,13 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"github.com/BooleanCat/go-functional/v2/it"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -83,11 +85,8 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 }
 
 func builderInfoToBuildpackRecords(info korifiv1alpha1.BuilderInfo) []BuildpackRecord {
-	buildpackRecords := make([]BuildpackRecord, 0, len(info.Status.Buildpacks))
-
-	for i := range info.Status.Buildpacks {
-		b := info.Status.Buildpacks[i]
-		currentRecord := BuildpackRecord{
+	return slices.Collect(it.Right(it.Map2(slices.All(info.Status.Buildpacks), func(i int, b korifiv1alpha1.BuilderInfoStatusBuildpack) (int, BuildpackRecord) {
+		return i, BuildpackRecord{
 			Name:      b.Name,
 			Version:   b.Version,
 			Position:  i + 1,
@@ -95,8 +94,5 @@ func builderInfoToBuildpackRecords(info korifiv1alpha1.BuilderInfo) []BuildpackR
 			CreatedAt: b.CreationTimestamp.Time,
 			UpdatedAt: &b.UpdatedTimestamp.Time,
 		}
-		buildpackRecords = append(buildpackRecords, currentRecord)
-	}
-
-	return buildpackRecords
+	})))
 }

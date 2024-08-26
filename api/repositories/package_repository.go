@@ -353,11 +353,11 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 
 	if err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
 		cfPackage.Spec.Source.Registry.Image = message.ImageRef
-		imagePullSecrets := []corev1.LocalObjectReference{}
-		for _, secret := range message.RegistrySecretNames {
-			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: secret})
-		}
-		cfPackage.Spec.Source.Registry.ImagePullSecrets = imagePullSecrets
+		cfPackage.Spec.Source.Registry.ImagePullSecrets = slices.Collect(
+			it.Map(slices.Values(message.RegistrySecretNames), func(secret string) corev1.LocalObjectReference {
+				return corev1.LocalObjectReference{Name: secret}
+			}),
+		)
 	}); err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to update package source: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}

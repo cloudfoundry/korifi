@@ -651,7 +651,7 @@ var _ = Describe("RoleRepository", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(getErr).To(MatchError(ContainSubstring("multiple role bindings")))
+					Expect(getErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 				})
 			})
 		})
