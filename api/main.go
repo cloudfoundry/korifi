@@ -174,6 +174,10 @@ func main() {
 		namespaceRetriever,
 		userClientFactory,
 	)
+	logRepo := repositories.NewLogRepo(
+		userClientFactory,
+		repositories.DefaultLogStreamer,
+	)
 	runnerInfoRepo := repositories.NewRunnerInfoRepository(
 		userClientFactory,
 		cfg.RunnerName,
@@ -239,7 +243,6 @@ func main() {
 		manifest.NewNormalizer(cfg.DefaultDomainName),
 		manifest.NewApplier(appRepo, domainRepo, processRepo, routeRepo, serviceInstanceRepo, serviceBindingRepo),
 	)
-	appLogs := actions.NewAppLogs(appRepo, buildRepo, podRepo)
 
 	requestValidator := validation.NewDefaultDecoderValidator()
 
@@ -364,10 +367,10 @@ func main() {
 			500*time.Millisecond,
 		),
 		handlers.NewLogCache(
+			requestValidator,
 			appRepo,
 			buildRepo,
-			appLogs,
-			requestValidator,
+			logRepo,
 		),
 		handlers.NewOrg(
 			*serverURL,

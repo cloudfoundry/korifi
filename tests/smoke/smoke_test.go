@@ -4,10 +4,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"syscall"
 
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
+	"github.com/cloudfoundry/cf-test-helpers/cf"
 	"github.com/cloudfoundry/cf-test-helpers/generator"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,9 +35,24 @@ var _ = Describe("Smoke Tests", func() {
 		})
 	})
 
-	Describe("cf logs", func() {
-		It("prints app logs", func() {
+	Describe("cf logs --recent", func() {
+		It("prints app recent logs", func() {
 			Eventually(helpers.Cf("logs", buildpackAppName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
+		})
+	})
+
+	Describe("cf logs", func() {
+		It("blocks waiting for new log entries", func() {
+			logsSession := cf.Cf("logs", buildpackAppName)
+			defer logsSession.Signal(syscall.SIGQUIT)
+
+			Eventually(logsSession).Should(gbytes.Say("Listening on port 8080"))
+			outputLen := len(string(logsSession.Out.Contents()))
+
+			Consistently(func(g Gomega) {
+				Expect(logsSession.ExitCode()).To(Equal(-1))
+				Expect(string(logsSession.Out.Contents())).To(HaveLen(outputLen))
+			}).Should(Succeed())
 		})
 	})
 

@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -20,31 +22,31 @@ const (
 	logCacheVersion  = "2.11.4+cf-k8s"
 )
 
-//counterfeiter:generate -o fake -fake-name AppLogsReader . AppLogsReader
-type AppLogsReader interface {
-	Read(ctx context.Context, logger logr.Logger, authInfo authorization.Info, appGUID string, read payloads.LogRead) ([]repositories.LogRecord, error)
+//counterfeiter:generate -o fake -fake-name LogRepository . LogRepository
+type LogRepository interface {
+	GetAppLogs(context.Context, authorization.Info, repositories.GetLogsMessage) ([]repositories.LogRecord, error)
 }
 
 // LogCache implements the minimal set of log-cache API endpoints/features necessary
 // to support the "cf push" workfloh.handlerWrapper.
 type LogCache struct {
+	requestValidator RequestValidator
 	appRepo          CFAppRepository
 	buildRepo        CFBuildRepository
-	appLogsReader    AppLogsReader
-	requestValidator RequestValidator
+	logRepo          LogRepository
 }
 
 func NewLogCache(
+	requestValidator RequestValidator,
 	appRepo CFAppRepository,
 	buildRepository CFBuildRepository,
-	appLogsReader AppLogsReader,
-	requestValidator RequestValidator,
+	logRepo LogRepository,
 ) *LogCache {
 	return &LogCache{
+		requestValidator: requestValidator,
 		appRepo:          appRepo,
 		buildRepo:        buildRepository,
-		appLogsReader:    appLogsReader,
-		requestValidator: requestValidator,
+		logRepo:          logRepo,
 	}
 }
 
@@ -59,19 +61,47 @@ func (h *LogCache) read(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.log-cache.read")
 
-	payload := new(payloads.LogRead)
-	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
+	payload := payloads.LogRead{}
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
 	appGUID := routing.URLParam(r, "guid")
 
-	logs, err := h.appLogsReader.Read(r.Context(), logger, authInfo, appGUID, *payload)
+	logs, err := h.getAppLogs(r.Context(), logger, authInfo, appGUID, payload)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to read app logs", "appGUID", appGUID)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get app logs", "app", appGUID)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForLogs(logs)), nil
+}
+
+func (h *LogCache) getAppLogs(ctx context.Context, logger logr.Logger, authInfo authorization.Info, appGUID string, payload payloads.LogRead) ([]repositories.LogRecord, error) {
+	app, err := h.appRepo.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get app: %w", err)
+	}
+
+	build, err := h.buildRepo.GetLatestBuildByAppGUID(ctx, authInfo, app.SpaceGUID, app.GUID)
+	if err != nil {
+		if !errors.As(err, new(apierrors.NotFoundError)) {
+			return nil, fmt.Errorf("failed to get latest app build: %w", err)
+		}
+		return []repositories.LogRecord{}, nil
+	}
+
+	logs, err := h.logRepo.GetAppLogs(ctx, authInfo, repositories.GetLogsMessage{
+		App:        app,
+		Build:      build,
+		StartTime:  payload.StartTime,
+		Limit:      payload.Limit,
+		Descending: payload.Descending,
+	})
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get app logs", "app", appGUID, "build", build.GUID)
+	}
+
+	return logs, nil
 }
 
 func (h *LogCache) UnauthenticatedRoutes() []routing.Route {

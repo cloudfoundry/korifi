@@ -32,6 +32,7 @@ func main() {
 	http.HandleFunc("/servicebindingroot", serviceBindingRootHandler)
 	http.HandleFunc("/servicebindings", serviceBindingsHandler)
 	http.HandleFunc("/exit", exitHandler)
+	http.HandleFunc("/log", logHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -62,6 +63,17 @@ func exitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	os.Exit(exitCode)
+}
+
+func logHandler(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		fmt.Fprintf(w, "Failed to parse form: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Println(r.Form.Get("message"))
 }
 
 func helloWorldHandler(arg string) func(w http.ResponseWriter, _ *http.Request) {

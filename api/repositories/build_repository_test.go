@@ -168,6 +168,10 @@ var _ = Describe("BuildRepository", func() {
 					It("returns a record with an AppGUID field matching the CR", func() {
 						Expect(buildRecord.AppGUID).To(Equal(build2.Spec.AppRef.Name))
 					})
+
+					It("sets the space guid on the record", func() {
+						Expect(buildRecord.SpaceGUID).To(Equal(namespace2.Name))
+					})
 				})
 
 				When("status.Conditions \"Staging\": False, \"Succeeded\": True, is set", func() {
