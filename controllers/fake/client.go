@@ -8,7 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -52,11 +51,11 @@ type Client struct {
 	deleteAllOfReturnsOnCall map[int]struct {
 		result1 error
 	}
-	GetStub        func(context.Context, types.NamespacedName, client.Object, ...client.GetOption) error
+	GetStub        func(context.Context, client.ObjectKey, client.Object, ...client.GetOption) error
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
 		arg1 context.Context
-		arg2 types.NamespacedName
+		arg2 client.ObjectKey
 		arg3 client.Object
 		arg4 []client.GetOption
 	}
@@ -366,12 +365,12 @@ func (fake *Client) DeleteAllOfReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Client) Get(arg1 context.Context, arg2 types.NamespacedName, arg3 client.Object, arg4 ...client.GetOption) error {
+func (fake *Client) Get(arg1 context.Context, arg2 client.ObjectKey, arg3 client.Object, arg4 ...client.GetOption) error {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
 		arg1 context.Context
-		arg2 types.NamespacedName
+		arg2 client.ObjectKey
 		arg3 client.Object
 		arg4 []client.GetOption
 	}{arg1, arg2, arg3, arg4})
@@ -394,13 +393,13 @@ func (fake *Client) GetCallCount() int {
 	return len(fake.getArgsForCall)
 }
 
-func (fake *Client) GetCalls(stub func(context.Context, types.NamespacedName, client.Object, ...client.GetOption) error) {
+func (fake *Client) GetCalls(stub func(context.Context, client.ObjectKey, client.Object, ...client.GetOption) error) {
 	fake.getMutex.Lock()
 	defer fake.getMutex.Unlock()
 	fake.GetStub = stub
 }
 
-func (fake *Client) GetArgsForCall(i int) (context.Context, types.NamespacedName, client.Object, []client.GetOption) {
+func (fake *Client) GetArgsForCall(i int) (context.Context, client.ObjectKey, client.Object, []client.GetOption) {
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
 	argsForCall := fake.getArgsForCall[i]

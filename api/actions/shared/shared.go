@@ -5,7 +5,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/go-logr/logr"
 )
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
@@ -25,19 +24,6 @@ type CFAppRepository interface {
 	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 	PatchApp(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
-}
-
-//counterfeiter:generate -o fake -fake-name CFBuildRepository . CFBuildRepository
-
-type CFBuildRepository interface {
-	GetLatestBuildByAppGUID(context.Context, authorization.Info, string, string) (repositories.BuildRecord, error)
-	GetBuildLogs(context.Context, authorization.Info, string, string) ([]repositories.LogRecord, error)
-}
-
-//counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
-
-type PodRepository interface {
-	GetRuntimeLogsForApp(context.Context, logr.Logger, authorization.Info, repositories.RuntimeLogsMessage) ([]repositories.LogRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository

@@ -41,6 +41,22 @@ type CFBuildRepository struct {
 		result1 repositories.BuildRecord
 		result2 error
 	}
+	GetLatestBuildByAppGUIDStub        func(context.Context, authorization.Info, string, string) (repositories.BuildRecord, error)
+	getLatestBuildByAppGUIDMutex       sync.RWMutex
+	getLatestBuildByAppGUIDArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+		arg4 string
+	}
+	getLatestBuildByAppGUIDReturns struct {
+		result1 repositories.BuildRecord
+		result2 error
+	}
+	getLatestBuildByAppGUIDReturnsOnCall map[int]struct {
+		result1 repositories.BuildRecord
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -177,6 +193,73 @@ func (fake *CFBuildRepository) GetBuildReturnsOnCall(i int, result1 repositories
 	}{result1, result2}
 }
 
+func (fake *CFBuildRepository) GetLatestBuildByAppGUID(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string) (repositories.BuildRecord, error) {
+	fake.getLatestBuildByAppGUIDMutex.Lock()
+	ret, specificReturn := fake.getLatestBuildByAppGUIDReturnsOnCall[len(fake.getLatestBuildByAppGUIDArgsForCall)]
+	fake.getLatestBuildByAppGUIDArgsForCall = append(fake.getLatestBuildByAppGUIDArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.GetLatestBuildByAppGUIDStub
+	fakeReturns := fake.getLatestBuildByAppGUIDReturns
+	fake.recordInvocation("GetLatestBuildByAppGUID", []interface{}{arg1, arg2, arg3, arg4})
+	fake.getLatestBuildByAppGUIDMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFBuildRepository) GetLatestBuildByAppGUIDCallCount() int {
+	fake.getLatestBuildByAppGUIDMutex.RLock()
+	defer fake.getLatestBuildByAppGUIDMutex.RUnlock()
+	return len(fake.getLatestBuildByAppGUIDArgsForCall)
+}
+
+func (fake *CFBuildRepository) GetLatestBuildByAppGUIDCalls(stub func(context.Context, authorization.Info, string, string) (repositories.BuildRecord, error)) {
+	fake.getLatestBuildByAppGUIDMutex.Lock()
+	defer fake.getLatestBuildByAppGUIDMutex.Unlock()
+	fake.GetLatestBuildByAppGUIDStub = stub
+}
+
+func (fake *CFBuildRepository) GetLatestBuildByAppGUIDArgsForCall(i int) (context.Context, authorization.Info, string, string) {
+	fake.getLatestBuildByAppGUIDMutex.RLock()
+	defer fake.getLatestBuildByAppGUIDMutex.RUnlock()
+	argsForCall := fake.getLatestBuildByAppGUIDArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *CFBuildRepository) GetLatestBuildByAppGUIDReturns(result1 repositories.BuildRecord, result2 error) {
+	fake.getLatestBuildByAppGUIDMutex.Lock()
+	defer fake.getLatestBuildByAppGUIDMutex.Unlock()
+	fake.GetLatestBuildByAppGUIDStub = nil
+	fake.getLatestBuildByAppGUIDReturns = struct {
+		result1 repositories.BuildRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFBuildRepository) GetLatestBuildByAppGUIDReturnsOnCall(i int, result1 repositories.BuildRecord, result2 error) {
+	fake.getLatestBuildByAppGUIDMutex.Lock()
+	defer fake.getLatestBuildByAppGUIDMutex.Unlock()
+	fake.GetLatestBuildByAppGUIDStub = nil
+	if fake.getLatestBuildByAppGUIDReturnsOnCall == nil {
+		fake.getLatestBuildByAppGUIDReturnsOnCall = make(map[int]struct {
+			result1 repositories.BuildRecord
+			result2 error
+		})
+	}
+	fake.getLatestBuildByAppGUIDReturnsOnCall[i] = struct {
+		result1 repositories.BuildRecord
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFBuildRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -184,6 +267,8 @@ func (fake *CFBuildRepository) Invocations() map[string][][]interface{} {
 	defer fake.createBuildMutex.RUnlock()
 	fake.getBuildMutex.RLock()
 	defer fake.getBuildMutex.RUnlock()
+	fake.getLatestBuildByAppGUIDMutex.RLock()
+	defer fake.getLatestBuildByAppGUIDMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

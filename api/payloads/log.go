@@ -9,16 +9,16 @@ import (
 )
 
 type LogRead struct {
-	StartTime     int64
+	StartTime     *int64
 	EnvelopeTypes []string
-	Limit         int64
+	Limit         *int64
 	Descending    bool
 }
 
 func (l LogRead) Validate() error {
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.EnvelopeTypes,
-			jellidation.Each(validation.OneOf("LOG", "COUNTER", "GAUGE", "TIMER", "EVENT")),
+			jellidation.Each(validation.OneOf("LOG")),
 		),
 	)
 }
@@ -29,11 +29,11 @@ func (l *LogRead) SupportedKeys() []string {
 
 func (l *LogRead) DecodeFromURLValues(values url.Values) error {
 	var err error
-	if l.StartTime, err = getInt(values, "start_time"); err != nil {
+	if l.StartTime, err = getIntPtr(values, "start_time"); err != nil {
 		return err
 	}
 	l.EnvelopeTypes = values["envelope_types"]
-	if l.Limit, err = getInt(values, "limit"); err != nil {
+	if l.Limit, err = getIntPtr(values, "limit"); err != nil {
 		return err
 	}
 	if l.Descending, err = getBool(values, "descending"); err != nil {
@@ -42,15 +42,13 @@ func (l *LogRead) DecodeFromURLValues(values url.Values) error {
 	return nil
 }
 
-func getInt(values url.Values, key string) (int64, error) {
+func getIntPtr(values url.Values, key string) (*int64, error) {
 	if !values.Has(key) {
-		return 0, nil
+		return nil, nil
 	}
-	s := values.Get(key)
-	if s == "" {
-		return 0, nil
-	}
-	return strconv.ParseInt(s, 10, 64)
+
+	result, err := strconv.ParseInt(values.Get(key), 10, 64)
+	return &result, err
 }
 
 func getBool(values url.Values, key string) (bool, error) {

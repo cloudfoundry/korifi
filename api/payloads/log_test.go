@@ -2,6 +2,7 @@ package payloads_test
 
 import (
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -15,23 +16,16 @@ var _ = Describe("LogRead", func() {
 				Expect(decodeErr).NotTo(HaveOccurred())
 				Expect(*actualLogRead).To(Equal(expectedLogRead))
 			},
-			Entry("all fields valid", "start_time=123&envelope_types=LOG&envelope_types=COUNTER&limit=456&descending=true", payloads.LogRead{
-				StartTime:     123,
-				EnvelopeTypes: []string{"LOG", "COUNTER"},
-				Limit:         456,
+			Entry("all fields valid", "start_time=123&envelope_types=LOG&&limit=456&descending=true", payloads.LogRead{
+				StartTime:     tools.PtrTo[int64](123),
+				EnvelopeTypes: []string{"LOG"},
+				Limit:         tools.PtrTo[int64](456),
 				Descending:    true,
 			}),
 			Entry("all fields missing", "", payloads.LogRead{}),
-			Entry("empty start_time", "start_time=", payloads.LogRead{}),
-			Entry("empty end_time", "end_time=", payloads.LogRead{}),
-			Entry("empty limit", "limit=", payloads.LogRead{}),
 			Entry("empty descending", "descending=", payloads.LogRead{}),
 
 			Entry("envelope type LOG", "envelope_types=LOG", payloads.LogRead{EnvelopeTypes: []string{"LOG"}}),
-			Entry("envelope type COUNTER", "envelope_types=COUNTER", payloads.LogRead{EnvelopeTypes: []string{"COUNTER"}}),
-			Entry("envelope type GAUGE", "envelope_types=GAUGE", payloads.LogRead{EnvelopeTypes: []string{"GAUGE"}}),
-			Entry("envelope type TIMER", "envelope_types=TIMER", payloads.LogRead{EnvelopeTypes: []string{"TIMER"}}),
-			Entry("envelope type EVENT", "envelope_types=EVENT", payloads.LogRead{EnvelopeTypes: []string{"EVENT"}}),
 		)
 
 		DescribeTable("invalid query",
