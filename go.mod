@@ -3,13 +3,13 @@ module code.cloudfoundry.org/korifi
 go 1.23.0
 
 require (
-	code.cloudfoundry.org/bytefmt v0.2.0
+	code.cloudfoundry.org/bytefmt v0.3.0
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
-	github.com/BooleanCat/go-functional/v2 v2.0.0-beta.6
+	github.com/BooleanCat/go-functional/v2 v2.0.0-beta.7
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
-	github.com/aws/aws-sdk-go-v2/config v1.27.29
+	github.com/aws/aws-sdk-go-v2/config v1.27.30
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.32.2
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.35.1
@@ -76,7 +76,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.28.0 // indirect
 	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
-	golang.org/x/exp v0.0.0-20240822175202-778ce7bba035 // indirect
+	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240528184218-531527333157 // indirect
 	reconciler.io/runtime v0.20.0 // indirect
 )
