@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -657,9 +658,7 @@ func appEnvVarsSecretToRecord(envVars corev1.Secret) AppEnvVarsRecord {
 }
 
 func convertByteSliceValuesToStrings(inputMap map[string][]byte) map[string]string {
-	outputMap := make(map[string]string, len(inputMap))
-	for k, v := range inputMap {
-		outputMap[k] = string(v)
-	}
-	return outputMap
+	return maps.Collect(it.Map2(maps.All(inputMap), func(k string, v []byte) (string, string) {
+		return k, string(v)
+	}))
 }

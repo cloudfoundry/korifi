@@ -47,9 +47,10 @@ type ListServiceOfferingMessage struct {
 	BrokerNames []string
 }
 
-func (m *ListServiceOfferingMessage) matchesName(cfServiceOffering korifiv1alpha1.CFServiceOffering) bool {
+func (m *ListServiceOfferingMessage) matches(cfServiceOffering korifiv1alpha1.CFServiceOffering) bool {
 	return tools.EmptyOrContains(m.Names, cfServiceOffering.Spec.Name) &&
-		tools.EmptyOrContains(m.GUIDs, cfServiceOffering.Name)
+		tools.EmptyOrContains(m.GUIDs, cfServiceOffering.Name) &&
+		tools.EmptyOrContains(m.BrokerNames, cfServiceOffering.Labels[korifiv1alpha1.RelServiceBrokerNameLabel])
 }
 
 func NewServiceOfferingRepo(
@@ -82,42 +83,7 @@ func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo author
 		)
 	}
 
-	filteredByName := slices.Collect(it.Map(itx.FromSlice(offeringsList.Items).Filter(message.matchesName), offeringToRecord))
-
-	filteredByBroker := []ServiceOfferingRecord{}
-	for _, offering := range filteredByName {
-		matchesBroker, err := r.matchesBroker(ctx, authInfo, offering, message)
-		if err != nil {
-			return nil, err
-		}
-		if matchesBroker {
-			filteredByBroker = append(filteredByBroker, offering)
-		}
-	}
-
-	return filteredByBroker, nil
-}
-
-func (r *ServiceOfferingRepo) matchesBroker(
-	ctx context.Context,
-	authInfo authorization.Info,
-	offering ServiceOfferingRecord,
-	message ListServiceOfferingMessage,
-) (bool, error) {
-	if len(message.BrokerNames) == 0 {
-		return true, nil
-	}
-
-	brokers, err := r.brokerRepo.ListServiceBrokers(ctx, authInfo, ListServiceBrokerMessage{
-		Names: message.BrokerNames,
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to list brokers when filtering offerings: %w", err)
-	}
-
-	return slices.ContainsFunc(brokers, func(b ServiceBrokerRecord) bool {
-		return b.GUID == offering.ServiceBrokerGUID
-	}), nil
+	return slices.Collect(it.Map(itx.FromSlice(offeringsList.Items).Filter(message.matches), offeringToRecord)), nil
 }
 
 func offeringToRecord(offering korifiv1alpha1.CFServiceOffering) ServiceOfferingRecord {
