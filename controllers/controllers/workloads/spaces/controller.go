@@ -296,6 +296,7 @@ func (c *cfSpaceMetadataCompiler) CompileLabels(cfSpace *korifiv1alpha1.CFSpace)
 	return c.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.SpaceNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
 		korifiv1alpha1.SpaceGUIDKey: cfSpace.Name,
+		korifiv1alpha1.OrgGUIDKey:   cfSpace.Namespace,
 	})
 }
 
