@@ -50,6 +50,8 @@ spec:
                 description: The mutable, user-friendly name of the service instance.
                   Unlike metadata.name, the user can change this field
                 type: string
+              plan_guid:
+                type: string
               secretName:
                 description: Name of a secret containing the service credentials.
                   The Secret must be in the same namespace
@@ -66,11 +68,14 @@ spec:
                 type: array
               type:
                 description: Type of the Service Instance. Must be `user-provided`
+                  or `managed`
                 enum:
                 - user-provided
+                - managed
                 type: string
             required:
             - displayName
+            - plan_guid
             - secretName
             - type
             type: object

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strings"
 
+	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -129,16 +131,29 @@ func (p *ServiceInstancePatch) UnmarshalJSON(data []byte) error {
 }
 
 type ServiceInstanceList struct {
-	Names         string
-	GUIDs         string
-	SpaceGUIDs    string
-	OrderBy       string
-	LabelSelector string
+	Names                string
+	GUIDs                string
+	SpaceGUIDs           string
+	OrderBy              string
+	LabelSelector        string
+	IncludeResourceRules []params.IncludeResourceRule
 }
 
 func (l ServiceInstanceList) Validate() error {
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "name", "updated_at")),
+		jellidation.Field(&l.IncludeResourceRules, jellidation.Each(jellidation.By(func(value any) error {
+			rule, ok := value.(params.IncludeResourceRule)
+			if !ok {
+				return fmt.Errorf("%T is not supported, IncludeResourceRule is expected", value)
+			}
+
+			if strings.Join(rule.RelationshipPath, ".") != "service_plan.service_offering.service_broker" {
+				return jellidation.NewError("invalid_fields_param", "must be fields[service_plan.service_offering.service_broker]")
+			}
+
+			return jellidation.Each(validation.OneOf("guid", "name")).Validate(rule.Fields)
+		}))),
 	)
 }
 
@@ -152,11 +167,14 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 }
 
 func (l *ServiceInstanceList) SupportedKeys() []string {
-	return []string{"names", "space_guids", "guids", "order_by", "per_page", "page", "label_selector"}
+	return []string{"names", "space_guids", "guids", "order_by", "label_selector", "fields[service_plan.service_offering.service_broker]"}
 }
 
 func (l *ServiceInstanceList) IgnoredKeys() []*regexp.Regexp {
-	return []*regexp.Regexp{regexp.MustCompile(`fields\[.+\]`)}
+	return []*regexp.Regexp{
+		regexp.MustCompile("page"),
+		regexp.MustCompile("per_page"),
+	}
 }
 
 func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
@@ -165,5 +183,6 @@ func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.GUIDs = values.Get("guids")
 	l.OrderBy = values.Get("order_by")
 	l.LabelSelector = values.Get("label_selector")
+	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseFields(values)...)
 	return nil
 }

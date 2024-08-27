@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -109,6 +110,7 @@ type ServiceInstanceRecord struct {
 	Name        string
 	GUID        string
 	SpaceGUID   string
+	PlanGUID    string
 	SecretName  string
 	Tags        []string
 	Type        string
@@ -116,6 +118,20 @@ type ServiceInstanceRecord struct {
 	Annotations map[string]string
 	CreatedAt   time.Time
 	UpdatedAt   *time.Time
+}
+
+func (r ServiceInstanceRecord) Relationships() map[string]model.ToOneRelationship {
+	if r.Type == korifiv1alpha1.ManagedType {
+		return map[string]model.ToOneRelationship{
+			"service_plan": {
+				Data: model.Relationship{
+					GUID: r.PlanGUID,
+				},
+			},
+		}
+	}
+
+	return nil
 }
 
 func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateServiceInstanceMessage) (ServiceInstanceRecord, error) {
@@ -335,6 +351,7 @@ func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstanc
 		Name:        cfServiceInstance.Spec.DisplayName,
 		GUID:        cfServiceInstance.Name,
 		SpaceGUID:   cfServiceInstance.Namespace,
+		PlanGUID:    cfServiceInstance.Spec.PlanGUID,
 		SecretName:  cfServiceInstance.Spec.SecretName,
 		Tags:        cfServiceInstance.Spec.Tags,
 		Type:        string(cfServiceInstance.Spec.Type),

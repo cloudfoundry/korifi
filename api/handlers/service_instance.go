@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/handlers/include"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/routing"
 
@@ -38,6 +39,10 @@ type ServiceInstance struct {
 	serviceInstanceRepo CFServiceInstanceRepository
 	spaceRepo           CFSpaceRepository
 	requestValidator    RequestValidator
+	includeResolver     *include.IncludeResolver[
+		[]repositories.ServiceInstanceRecord,
+		repositories.ServiceInstanceRecord,
+	]
 }
 
 func NewServiceInstance(
@@ -45,12 +50,14 @@ func NewServiceInstance(
 	serviceInstanceRepo CFServiceInstanceRepository,
 	spaceRepo CFSpaceRepository,
 	requestValidator RequestValidator,
+	relationshipRepo include.ResourceRelationshipRepository,
 ) *ServiceInstance {
 	return &ServiceInstance{
 		serverURL:           serverURL,
 		serviceInstanceRepo: serviceInstanceRepo,
 		spaceRepo:           spaceRepo,
 		requestValidator:    requestValidator,
+		includeResolver:     include.NewIncludeResolver[[]repositories.ServiceInstanceRecord](relationshipRepo, presenter.NewResource(serverURL)),
 	}
 }
 
@@ -112,20 +119,25 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.list")
 
-	listFilter := new(payloads.ServiceInstanceList)
-	err := h.requestValidator.DecodeAndValidateURLValues(r, listFilter)
+	payload := new(payloads.ServiceInstanceList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, payload)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	serviceInstanceList, err := h.serviceInstanceRepo.ListServiceInstances(r.Context(), authInfo, listFilter.ToMessage())
+	serviceInstances, err := h.serviceInstanceRepo.ListServiceInstances(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service instance")
 	}
 
-	h.sortList(serviceInstanceList, listFilter.OrderBy)
+	h.sortList(serviceInstances, payload.OrderBy)
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceInstance, serviceInstanceList, h.serverURL, *r.URL)), nil
+	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, serviceInstances, payload.IncludeResourceRules)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceInstance, serviceInstances, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 // nolint:dupl

@@ -240,6 +240,21 @@ var _ = Describe("ServicePlanRepo", func() {
 			})
 		})
 
+		When("filtering by guids", func() {
+			BeforeEach(func() {
+				message.GUIDs = []string{otherPlanGUID}
+			})
+
+			It("returns matching service plans", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"ServicePlan": MatchFields(IgnoreExtras, Fields{
+						"Name": Equal("other-plan"),
+					}),
+				})))
+			})
+		})
+
 		When("filtering by names", func() {
 			BeforeEach(func() {
 				message.Names = []string{"other-plan"}

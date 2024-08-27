@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -318,9 +319,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("ListServiceInstances", func() {
 		var (
-			space2, space3                                             *korifiv1alpha1.CFSpace
+			space2                                                     *korifiv1alpha1.CFSpace
 			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *korifiv1alpha1.CFServiceInstance
-			nonCFNamespace                                             string
 			filters                                                    repositories.ListServiceInstanceMessage
 			listErr                                                    error
 
@@ -329,18 +329,70 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		BeforeEach(func() {
 			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
-			space3 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space3"))
 
-			nonCFNamespace = prefixedGUID("non-cf")
+			cfServiceInstance1 = &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: space.Name,
+					Name:      "service-instance-1" + uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					DisplayName: "service-instance-1",
+					Type:        korifiv1alpha1.UserProvidedType,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfServiceInstance1)).To(Succeed())
+
+			cfServiceInstance2 = &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: space2.Name,
+					Name:      "service-instance-2" + uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					DisplayName: "service-instance-2",
+					Type:        korifiv1alpha1.UserProvidedType,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfServiceInstance2)).To(Succeed())
+
+			cfServiceInstance3 = &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: space2.Name,
+					Name:      "service-instance-3" + uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					DisplayName: "service-instance-3",
+					Type:        korifiv1alpha1.UserProvidedType,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfServiceInstance3)).To(Succeed())
+
+			space3 := createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space3"))
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: space3.Name,
+					Name:      uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					DisplayName: uuid.NewString(),
+					Type:        korifiv1alpha1.UserProvidedType,
+				},
+			})).To(Succeed())
+
+			nonCFNamespace := uuid.NewString()
 			Expect(k8sClient.Create(
 				testCtx,
 				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
 			)).To(Succeed())
-
-			cfServiceInstance1 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance-1"), space.Name, "service-instance-1", prefixedGUID("secret"))
-			cfServiceInstance2 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance-2"), space2.Name, "service-instance-2", prefixedGUID("secret"))
-			cfServiceInstance3 = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance-3"), space3.Name, "service-instance-3", prefixedGUID("secret"))
-			createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), nonCFNamespace, "service-instance-4", prefixedGUID("secret"))
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: nonCFNamespace,
+					Name:      "service-instance-4" + uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					DisplayName: "service-instance-4",
+					Type:        korifiv1alpha1.UserProvidedType,
+				},
+			})).To(Succeed())
 
 			filters = repositories.ListServiceInstanceMessage{}
 		})
@@ -349,33 +401,61 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			serviceInstanceList, listErr = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
 		})
 
-		When("no service instances exist in spaces where the user has permission", func() {
-			It("returns an empty list of ServiceInstanceRecord", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(serviceInstanceList).To(BeEmpty())
-			})
+		It("returns an empty list of ServiceInstanceRecord", func() {
+			Expect(listErr).NotTo(HaveOccurred())
+			Expect(serviceInstanceList).To(BeEmpty())
 		})
 
-		When("multiple service instances exist in spaces where the user has permissions", func() {
+		When("user is allowed to list service instances ", func() {
 			BeforeEach(func() {
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
 				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
 
-			It("returns ServiceInstance records from only the spaces where the user has permission", func() {
+			It("returns the service instances from the allowed namespaces", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(serviceInstanceList).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
 				))
 			})
-		})
 
-		When("user has permissions in all spaces", func() {
-			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space3.Name)
+			It("returns empty relationships for user provided provided services", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(serviceInstanceList).NotTo(BeEmpty())
+				Expect(serviceInstanceList[0].Relationships()).To(BeEmpty())
+			})
+
+			// Checking record relationships probably make sense in the `Create` describe
+			// TODO: move relationships tests there whenever creating managed services with the repository is implemented
+			When("the service is managed", func() {
+				BeforeEach(func() {
+					Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance1, func() {
+						cfServiceInstance1.Spec.Type = korifiv1alpha1.ManagedType
+						cfServiceInstance1.Spec.PlanGUID = "plan-guid"
+					})).To(Succeed())
+					Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance2, func() {
+						cfServiceInstance2.Spec.Type = korifiv1alpha1.ManagedType
+						cfServiceInstance2.Spec.PlanGUID = "plan-guid"
+					})).To(Succeed())
+					Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance3, func() {
+						cfServiceInstance3.Spec.Type = korifiv1alpha1.ManagedType
+						cfServiceInstance3.Spec.PlanGUID = "plan-guid"
+					})).To(Succeed())
+				})
+
+				It("returns service plan relationships for user provided provided services", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(serviceInstanceList).NotTo(BeEmpty())
+					Expect(serviceInstanceList[0].Relationships()).To(Equal(map[string]model.ToOneRelationship{
+						"service_plan": {
+							Data: model.Relationship{
+								GUID: "plan-guid",
+							},
+						},
+					}))
+				})
 			})
 
 			When("the name filter is set", func() {

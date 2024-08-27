@@ -275,6 +275,7 @@ func main() {
 	relationshipsRepo := relationships.NewResourseRelationshipsRepo(
 		serviceOfferingRepo,
 		serviceBrokerRepo,
+		servicePlanRepo,
 	)
 
 	apiHandlers := []routing.Routable{
@@ -408,6 +409,7 @@ func main() {
 			serviceInstanceRepo,
 			spaceRepo,
 			requestValidator,
+			relationshipsRepo,
 		),
 		handlers.NewServiceBinding(
 			*serverURL,

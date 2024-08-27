@@ -22,6 +22,11 @@ type ServiceBrokerRepository interface {
 	ListServiceBrokers(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerRecord, error)
 }
 
+//counterfeiter:generate -o fake -fake-name ServicePlanRepository . ServicePlanRepository
+type ServicePlanRepository interface {
+	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
+}
+
 //counterfeiter:generate -o fake -fake-name Resource . Resource
 type Resource interface {
 	Relationships() map[string]model.ToOneRelationship
@@ -30,22 +35,31 @@ type Resource interface {
 type ResourceRelationshipsRepo struct {
 	serviceOfferingRepo ServiceOfferingRepository
 	serviceBrokerRepo   ServiceBrokerRepository
+	servicePlanRepo     ServicePlanRepository
 }
 
 func NewResourseRelationshipsRepo(
 	serviceOfferingRepo ServiceOfferingRepository,
 	serviceBrokerRepo ServiceBrokerRepository,
+	servicePlanRepo ServicePlanRepository,
 ) *ResourceRelationshipsRepo {
 	return &ResourceRelationshipsRepo{
 		serviceOfferingRepo: serviceOfferingRepo,
 		serviceBrokerRepo:   serviceBrokerRepo,
+		servicePlanRepo:     servicePlanRepo,
 	}
 }
 
 func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, authInfo authorization.Info, relatedResourceType string, resources []Resource) ([]Resource, error) {
-	relatedResourceGUIDs := slices.Collect(it.Map(itx.FromSlice(resources), func(r Resource) string {
+	relatedResourceGUIDs := slices.Collect(it.Exclude(it.Map(itx.FromSlice(resources), func(r Resource) string {
 		return r.Relationships()[relatedResourceType].Data.GUID
+	}), func(guid string) bool {
+		return guid == ""
 	}))
+
+	if len(relatedResourceGUIDs) == 0 {
+		return nil, nil
+	}
 
 	switch relatedResourceType {
 	case "service_offering":
@@ -60,6 +74,12 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 			ctx,
 			authInfo,
 			repositories.ListServiceBrokerMessage{GUIDs: relatedResourceGUIDs},
+		))
+	case "service_plan":
+		return asResources(r.servicePlanRepo.ListPlans(
+			ctx,
+			authInfo,
+			repositories.ListServicePlanMessage{GUIDs: relatedResourceGUIDs},
 		))
 	case "space", "organization":
 		return []Resource{}, nil
