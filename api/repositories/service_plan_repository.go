@@ -52,8 +52,9 @@ type ServicePlanRepo struct {
 }
 
 type ListServicePlanMessage struct {
-	ServiceOfferingGUIDs []string
+	GUIDs                []string
 	Names                []string
+	ServiceOfferingGUIDs []string
 	ServiceOfferingNames []string
 	BrokerNames          []string
 	Available            *bool
@@ -61,6 +62,7 @@ type ListServicePlanMessage struct {
 
 func (m *ListServicePlanMessage) matches(cfServicePlan korifiv1alpha1.CFServicePlan) bool {
 	return tools.EmptyOrContains(m.ServiceOfferingGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel]) &&
+		tools.EmptyOrContains(m.GUIDs, cfServicePlan.Name) &&
 		tools.EmptyOrContains(m.Names, cfServicePlan.Spec.Name) &&
 		tools.EmptyOrContains(m.BrokerNames, cfServicePlan.Labels[korifiv1alpha1.RelServiceBrokerNameLabel]) &&
 		tools.EmptyOrContains(m.ServiceOfferingNames, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingNameLabel]) &&

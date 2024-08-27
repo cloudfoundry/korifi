@@ -25,6 +25,7 @@ import (
 
 const (
 	UserProvidedType = "user-provided"
+	ManagedType      = "managed"
 )
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
@@ -35,7 +36,7 @@ type CFServiceInstanceSpec struct {
 	// Name of a secret containing the service credentials. The Secret must be in the same namespace
 	SecretName string `json:"secretName"`
 
-	// Type of the Service Instance. Must be `user-provided`
+	// Type of the Service Instance. Must be `user-provided` or `managed`
 	Type InstanceType `json:"type"`
 
 	// Service label to use when adding this instance to VCAP_Services
@@ -45,10 +46,12 @@ type CFServiceInstanceSpec struct {
 
 	// Tags are used by apps to identify service instances
 	Tags []string `json:"tags,omitempty"`
+
+	PlanGUID string `json:"plan_guid"`
 }
 
 // InstanceType defines the type of the Service Instance
-// +kubebuilder:validation:Enum=user-provided
+// +kubebuilder:validation:Enum=user-provided;managed
 type InstanceType string
 
 // CFServiceInstanceStatus defines the observed state of CFServiceInstance

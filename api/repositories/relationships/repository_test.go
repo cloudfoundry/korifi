@@ -15,6 +15,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 	var (
 		serviceOfferingRepo *fake.ServiceOfferingRepository
 		serviceBrokerRepo   *fake.ServiceBrokerRepository
+		servicePlanRepo     *fake.ServicePlanRepository
 		relationshipsRepo   relationships.ResourceRelationshipsRepo
 
 		resourceType   string
@@ -28,10 +29,18 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		resourceType = "foo"
 		inputResource = new(fake.Resource)
 		inputResources = []relationships.Resource{inputResource}
+		inputResource.RelationshipsReturns(map[string]model.ToOneRelationship{
+			"foo": {
+				Data: model.Relationship{
+					GUID: "foo-guid",
+				},
+			},
+		})
 
 		serviceOfferingRepo = new(fake.ServiceOfferingRepository)
 		serviceBrokerRepo = new(fake.ServiceBrokerRepository)
-		relationshipsRepo = *relationships.NewResourseRelationshipsRepo(serviceOfferingRepo, serviceBrokerRepo)
+		servicePlanRepo = new(fake.ServicePlanRepository)
+		relationshipsRepo = *relationships.NewResourseRelationshipsRepo(serviceOfferingRepo, serviceBrokerRepo, servicePlanRepo)
 	})
 
 	JustBeforeEach(func() {
@@ -42,7 +51,24 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		Expect(listError).To(MatchError(ContainSubstring(`no repository for type "foo"`)))
 	})
 
-	Describe("resorce type service_offering", func() {
+	When("the resource has no relationships", func() {
+		BeforeEach(func() {
+			resourceType = "service_offering"
+			inputResource.RelationshipsReturns(nil)
+		})
+
+		It("returns an empty list", func() {
+			Expect(listError).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("does not invoke the delegate repository", func() {
+			Expect(listError).NotTo(HaveOccurred())
+			Expect(serviceOfferingRepo.ListOfferingsCallCount()).To(BeZero())
+		})
+	})
+
+	Describe("resource type service_offering", func() {
 		BeforeEach(func() {
 			resourceType = "service_offering"
 
@@ -91,7 +117,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		})
 	})
 
-	Describe("resorce type service_broker", func() {
+	Describe("resource type service_broker", func() {
 		BeforeEach(func() {
 			resourceType = "service_broker"
 
@@ -140,7 +166,56 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		})
 	})
 
-	Describe("resorce type space", func() {
+	Describe("resource type service_plan", func() {
+		BeforeEach(func() {
+			resourceType = "service_plan"
+
+			inputResource.RelationshipsReturns(map[string]model.ToOneRelationship{
+				"service_plan": {
+					Data: model.Relationship{
+						GUID: "service-plan-guid",
+					},
+				},
+			})
+
+			servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
+				CFResource: model.CFResource{
+					GUID: "service-plan-guid",
+				},
+			}}, nil)
+		})
+
+		It("delegates to the service_plan repository", func() {
+			Expect(servicePlanRepo.ListPlansCallCount()).To(Equal(1))
+			_, _, acutalMessage := servicePlanRepo.ListPlansArgsForCall(0)
+			Expect(acutalMessage).To(Equal(repositories.ListServicePlanMessage{
+				GUIDs: []string{"service-plan-guid"},
+			}))
+		})
+
+		It("returns a list of related service plan", func() {
+			Expect(listError).NotTo(HaveOccurred())
+			Expect(result).To(ConsistOf(
+				repositories.ServicePlanRecord{
+					CFResource: model.CFResource{
+						GUID: "service-plan-guid",
+					},
+				},
+			))
+		})
+
+		When("the underlying repo returns an error", func() {
+			BeforeEach(func() {
+				servicePlanRepo.ListPlansReturns(nil, errors.New("list-plan-error"))
+			})
+
+			It("returns an error", func() {
+				Expect(listError).To(MatchError("list-plan-error"))
+			})
+		})
+	})
+
+	Describe("resource type space", func() {
 		BeforeEach(func() {
 			resourceType = "space"
 		})
@@ -151,7 +226,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		})
 	})
 
-	Describe("resorce type space", func() {
+	Describe("resource type space", func() {
 		BeforeEach(func() {
 			resourceType = "space"
 		})

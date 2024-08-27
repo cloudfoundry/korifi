@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +30,12 @@ var _ = Describe("ServiceInstanceList", func() {
 		Entry("-updated_at", "order_by=-updated_at", payloads.ServiceInstanceList{OrderBy: "-updated_at"}),
 		Entry("name", "order_by=name", payloads.ServiceInstanceList{OrderBy: "name"}),
 		Entry("-name", "order_by=-name", payloads.ServiceInstanceList{OrderBy: "-name"}),
-		Entry("fields[xxx]", "fields[abc.d]=e", payloads.ServiceInstanceList{}),
+		Entry("fields[service_plan.service_offering.service_broker]",
+			"fields[service_plan.service_offering.service_broker]=guid,name",
+			payloads.ServiceInstanceList{IncludeResourceRules: []params.IncludeResourceRule{{
+				RelationshipPath: []string{"service_plan", "service_offering", "service_broker"},
+				Fields:           []string{"guid", "name"},
+			}}}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceInstanceList{LabelSelector: "foo"}),
 	)
 
@@ -39,6 +45,8 @@ var _ = Describe("ServiceInstanceList", func() {
 			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
 		},
 		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+		Entry("invalid fields", "fields[foo]=bar", "unsupported query parameter: fields[foo]"),
+		Entry("invalid service broker fields", "fields[service_plan.service_offering.service_broker]=foo", "value must be one of"),
 	)
 
 	Describe("ToMessage", func() {

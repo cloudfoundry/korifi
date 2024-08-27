@@ -41,6 +41,7 @@ var _ = Describe("ServicePlan", func() {
 			relationships.NewResourseRelationshipsRepo(
 				serviceOfferingRepo,
 				serviceBrokerRepo,
+				servicePlanRepo,
 			),
 		)
 		routerBuilder.LoadRoutes(apiHandler)
