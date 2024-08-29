@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
 	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
@@ -25,14 +26,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	controllerruntime "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -1143,24 +1141,7 @@ func pushSampleBroker(brokerBitsFile string) string {
 	brokerAppGUID, _ := pushTestApp(spaceGUID, brokerBitsFile)
 	body := curlApp(brokerAppGUID, "")
 	Expect(body).To(ContainSubstring("Hi, I'm the sample broker!"))
-	return getBrokerInClusterURL(brokerAppGUID)
-}
-
-func getBrokerInClusterURL(brokerAppGUID string) string {
-	config, err := controllerruntime.GetConfig()
-	Expect(err).NotTo(HaveOccurred())
-
-	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-
-	services := &corev1.ServiceList{}
-	Expect(k8sClient.List(context.Background(), services, client.MatchingLabels{
-		korifiv1alpha1.CFAppGUIDLabelKey: brokerAppGUID,
-	})).To(Succeed())
-	Expect(services.Items).To(HaveLen(1))
-
-	brokerService := services.Items[0]
-	return fmt.Sprintf("http://%s.%s:8080", brokerService.Name, brokerService.Namespace)
+	return helpers.GetInClusterURL(brokerAppGUID)
 }
 
 func createBrokerAsync(brokerURL, username, password string) (string, string) {
@@ -1213,29 +1194,5 @@ func cleanupBroker(brokerGUID string) {
 		Delete("/v3/service_brokers/" + brokerGUID)
 	Expect(err).NotTo(HaveOccurred())
 
-	ctx := context.Background()
-
-	config, err := controllerruntime.GetConfig()
-	Expect(err).NotTo(HaveOccurred())
-
-	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-
-	Expect(k8sClient.DeleteAllOf(
-		ctx,
-		&korifiv1alpha1.CFServiceOffering{},
-		client.InNamespace(rootNamespace),
-		client.MatchingLabels{
-			korifiv1alpha1.RelServiceBrokerGUIDLabel: brokerGUID,
-		},
-	)).To(Succeed())
-
-	Expect(k8sClient.DeleteAllOf(
-		ctx,
-		&korifiv1alpha1.CFServicePlan{},
-		client.InNamespace(rootNamespace),
-		client.MatchingLabels{
-			korifiv1alpha1.RelServiceBrokerGUIDLabel: brokerGUID,
-		},
-	)).To(Succeed())
+	broker.NewCatalogPurger(rootNamespace).ForBrokerGUID(brokerGUID).Purge()
 }

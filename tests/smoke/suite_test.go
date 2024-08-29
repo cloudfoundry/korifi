@@ -2,7 +2,9 @@ package smoke_test
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -14,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/types"
 	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -54,6 +57,8 @@ func TestSmoke(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	rootNamespace = helpers.GetDefaultedEnvVar("ROOT_NAMESPACE", "cf")
 	serviceAccountFactory = helpers.NewServiceAccountFactory(rootNamespace)
@@ -97,6 +102,19 @@ func sessionOutput(session *Session) (string, error) {
 		)
 	}
 	return strings.TrimSpace(string(session.Out.Contents())), nil
+}
+
+func appResponseShould(appName, requestPath string, matchExpectations types.GomegaMatcher) {
+	var httpClient http.Client
+	httpClient.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	Eventually(func(g Gomega) {
+		resp, err := httpClient.Get(fmt.Sprintf("https://%s.%s%s", appName, appsDomain, requestPath))
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(resp).To(matchExpectations)
+	}).Should(Succeed())
 }
 
 func printCfApp(config *rest.Config) {

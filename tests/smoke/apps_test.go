@@ -1,13 +1,10 @@
 package smoke_test
 
 import (
-	"crypto/tls"
-	"fmt"
 	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
 )
 
 var _ = Describe("apps", func() {
@@ -32,16 +29,3 @@ var _ = Describe("apps", func() {
 		))
 	})
 })
-
-func appResponseShould(appName, requestPath string, matchExpectations types.GomegaMatcher) {
-	var httpClient http.Client
-	httpClient.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-
-	Eventually(func(g Gomega) {
-		resp, err := httpClient.Get(fmt.Sprintf("https://%s.%s%s", appName, appsDomain, requestPath))
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(resp).To(matchExpectations)
-	}).Should(Succeed())
-}
