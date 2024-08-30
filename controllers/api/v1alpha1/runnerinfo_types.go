@@ -55,6 +55,10 @@ type RunnerInfo struct {
 	Status RunnerInfoStatus `json:"status,omitempty"`
 }
 
+func (i *RunnerInfo) StatusConditions() *[]metav1.Condition {
+	return &i.Status.Conditions
+}
+
 //+kubebuilder:object:root=true
 
 // RunnerInfoList contains a list of RunnerInfo

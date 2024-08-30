@@ -29,7 +29,6 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -113,18 +112,12 @@ func (r *Reconciler) enqueueCFAppRequests(ctx context.Context, o client.Object) 
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
-	var err error
-	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfRoute)
-	defer func() {
-		meta.SetStatusCondition(&cfRoute.Status.Conditions, readyConditionBuilder.WithError(err).Build())
-	}()
-
 	log.V(1).Info("set observed generation", "generation", cfRoute.Status.ObservedGeneration)
 
 	cfRoute.Status.ObservedGeneration = cfRoute.Generation
 
 	if !cfRoute.GetDeletionTimestamp().IsZero() {
-		err = r.finalizeCFRoute(ctx, cfRoute)
+		err := r.finalizeCFRoute(ctx, cfRoute)
 		if err != nil {
 			log.Info("failed to finalize cf route", "reason", err)
 		}
@@ -132,22 +125,19 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alp
 	}
 
 	cfDomain := &korifiv1alpha1.CFDomain{}
-	err = r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, cfDomain)
+	err := r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, cfDomain)
 	if err != nil {
-		readyConditionBuilder.WithReason("InvalidDomainRef")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("InvalidDomainRef")
 	}
 
 	err = r.createOrPatchServices(ctx, cfRoute)
 	if err != nil {
-		readyConditionBuilder.WithReason("CreatePatchServices")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("CreatePatchServices")
 	}
 
 	err = r.reconcileHTTPRoute(ctx, cfRoute, cfDomain)
 	if err != nil {
-		readyConditionBuilder.WithReason("ReconcileHTTPRoute")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("ReconcileHTTPRoute")
 	}
 
 	fqdn := buildFQDN(cfRoute, cfDomain)
@@ -156,12 +146,9 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alp
 
 	effectiveDestinations, err := r.buildEffectiveDestinations(ctx, cfRoute)
 	if err != nil {
-		readyConditionBuilder.WithReason("BuildEffectiveDestinations")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("BuildEffectiveDestinations")
 	}
 	cfRoute.Status.Destinations = effectiveDestinations
-
-	readyConditionBuilder.Ready()
 
 	if cleanupErr := r.deleteOrphanedServices(ctx, cfRoute); cleanupErr != nil {
 		// technically, failing to delete the orphaned services does not make

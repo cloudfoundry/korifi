@@ -3,13 +3,15 @@ package k8s_test
 import (
 	"context"
 	"errors"
+	"time"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,18 +29,18 @@ import (
 type fakeObjectReconciler struct {
 	reconcileResourceError     error
 	reconcileResourceCallCount int
-	reconcileResourceObj       *corev1.Pod
+	reconcileResourceObj       *korifiv1alpha1.CFOrg
 }
 
-func (f *fakeObjectReconciler) ReconcileResource(ctx context.Context, obj *corev1.Pod) (ctrl.Result, error) {
+func (f *fakeObjectReconciler) ReconcileResource(ctx context.Context, obj *korifiv1alpha1.CFOrg) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 	log.V(1).Info("fake reconciler reconciling")
 
 	f.reconcileResourceCallCount++
 	f.reconcileResourceObj = obj
 
-	obj.Spec.RestartPolicy = corev1.RestartPolicyOnFailure
-	obj.Status.Message = "hello"
+	obj.Spec.DisplayName = "reconciled-display-name"
+	obj.Status.GUID = "hello"
 
 	return ctrl.Result{
 		RequeueAfter: 1,
@@ -54,9 +56,9 @@ var _ = Describe("Reconcile", func() {
 		ctx                context.Context
 		fakeClient         *fake.Client
 		fakeStatusWriter   *fake.StatusWriter
-		patchingReconciler *k8s.PatchingReconciler[corev1.Pod, *corev1.Pod]
+		patchingReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg]
 		objectReconciler   *fakeObjectReconciler
-		pod                *corev1.Pod
+		org                *korifiv1alpha1.CFOrg
 		result             ctrl.Result
 		err                error
 	)
@@ -68,38 +70,36 @@ var _ = Describe("Reconcile", func() {
 		fakeClient.StatusReturns(fakeStatusWriter)
 
 		ctx = context.Background()
-		pod = &corev1.Pod{
+		org = &korifiv1alpha1.CFOrg{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: uuid.NewString(),
 				Name:      uuid.NewString(),
 			},
-			Spec:   corev1.PodSpec{},
-			Status: corev1.PodStatus{},
 		}
 
 		fakeClient.PatchStub = func(_ context.Context, obj client.Object, _ client.Patch, _ ...client.PatchOption) error {
-			o, ok := obj.(*corev1.Pod)
+			o, ok := obj.(*korifiv1alpha1.CFOrg)
 			Expect(ok).To(BeTrue())
-			o.Status = corev1.PodStatus{}
+			o.Status = korifiv1alpha1.CFOrgStatus{}
 			return nil
 		}
 
 		fakeClient.GetStub = func(_ context.Context, _ types.NamespacedName, obj client.Object, _ ...client.GetOption) error {
-			o, ok := obj.(*corev1.Pod)
+			o, ok := obj.(*korifiv1alpha1.CFOrg)
 			Expect(ok).To(BeTrue())
-			*o = *pod
+			*o = *org
 
 			return nil
 		}
 
-		patchingReconciler = k8s.NewPatchingReconciler[corev1.Pod, *corev1.Pod](ctrl.Log, fakeClient, objectReconciler)
+		patchingReconciler = k8s.NewPatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](ctrl.Log, fakeClient, objectReconciler)
 	})
 
 	JustBeforeEach(func() {
 		result, err = patchingReconciler.Reconcile(ctx, ctrl.Request{
 			NamespacedName: types.NamespacedName{
-				Namespace: pod.Namespace,
-				Name:      pod.Name,
+				Namespace: org.Namespace,
+				Name:      org.Name,
 			},
 		})
 	})
@@ -107,14 +107,14 @@ var _ = Describe("Reconcile", func() {
 	It("fetches the object", func() {
 		Expect(fakeClient.GetCallCount()).To(Equal(1))
 		_, namespacedName, obj, _ := fakeClient.GetArgsForCall(0)
-		Expect(namespacedName.Namespace).To(Equal(pod.Namespace))
-		Expect(namespacedName.Name).To(Equal(pod.Name))
-		Expect(obj).To(BeAssignableToTypeOf(&corev1.Pod{}))
+		Expect(namespacedName.Namespace).To(Equal(org.Namespace))
+		Expect(namespacedName.Name).To(Equal(org.Name))
+		Expect(obj).To(BeAssignableToTypeOf(&korifiv1alpha1.CFOrg{}))
 	})
 
 	When("the object does not exist", func() {
 		BeforeEach(func() {
-			fakeClient.GetReturns(apierrors.NewNotFound(schema.GroupResource{}, "pod"))
+			fakeClient.GetReturns(apierrors.NewNotFound(schema.GroupResource{}, "cforg"))
 		})
 
 		It("does not call the object reconciler and succeeds", func() {
@@ -137,16 +137,27 @@ var _ = Describe("Reconcile", func() {
 
 	It("calls the object reconciler", func() {
 		Expect(objectReconciler.reconcileResourceCallCount).To(Equal(1))
-		Expect(objectReconciler.reconcileResourceObj.Namespace).To(Equal(pod.Namespace))
-		Expect(objectReconciler.reconcileResourceObj.Name).To(Equal(pod.Name))
+		Expect(objectReconciler.reconcileResourceObj.Namespace).To(Equal(org.Namespace))
+		Expect(objectReconciler.reconcileResourceObj.Name).To(Equal(org.Name))
 	})
 
 	It("patches the object via the k8s client", func() {
 		Expect(fakeClient.PatchCallCount()).To(Equal(1))
 		_, updatedObject, _, _ := fakeClient.PatchArgsForCall(0)
-		updatedPod, ok := updatedObject.(*corev1.Pod)
+		updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
 		Expect(ok).To(BeTrue())
-		Expect(updatedPod.Spec.RestartPolicy).To(Equal(corev1.RestartPolicyOnFailure))
+		Expect(updatedOrg.Spec.DisplayName).To(Equal("reconciled-display-name"))
+	})
+
+	It("sets the Ready condition to true", func() {
+		Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+		_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+		updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
+		Expect(ok).To(BeTrue())
+		Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
+			HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+			HasStatus(Equal(metav1.ConditionTrue)),
+		)))
 	})
 
 	When("patching the object fails", func() {
@@ -162,9 +173,9 @@ var _ = Describe("Reconcile", func() {
 	It("patches the object status via the k8s client", func() {
 		Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
 		_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
-		updatedPod, ok := updatedObject.(*corev1.Pod)
+		updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
 		Expect(ok).To(BeTrue())
-		Expect(updatedPod.Status.Message).To(Equal("hello"))
+		Expect(updatedOrg.Status.GUID).To(Equal("hello"))
 	})
 
 	When("patching the object status fails", func() {
@@ -194,6 +205,108 @@ var _ = Describe("Reconcile", func() {
 		It("updates the object and its status nevertheless", func() {
 			Expect(fakeClient.PatchCallCount()).To(Equal(1))
 			Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+		})
+
+		It("sets the ready condition to false with unknown reason", func() {
+			Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+			_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+			updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
+			Expect(ok).To(BeTrue())
+
+			Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
+				HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+				HasStatus(Equal(metav1.ConditionFalse)),
+				HasReason(Equal("Unknown")),
+			)))
+		})
+
+		When("the object reconciliation fails with NotReady error", func() {
+			BeforeEach(func() {
+				objectReconciler.reconcileResourceError = k8s.NewNotReadyError().WithReason("TestReason").WithMessage("TestMessage")
+			})
+
+			It("sets the ready condition to false with the reason specified", func() {
+				Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+				_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+				updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
+				Expect(ok).To(BeTrue())
+
+				Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+					HasStatus(Equal(metav1.ConditionFalse)),
+					HasReason(Equal("TestReason")),
+					HasMessage(Equal("TestMessage")),
+				)))
+			})
+
+			When("cause is specified", func() {
+				BeforeEach(func() {
+					objectReconciler.reconcileResourceError = k8s.NewNotReadyError().
+						WithCause(errors.New("test-err")).
+						WithReason("TestReason").
+						WithMessage("TestMessage")
+				})
+
+				It("combines the cause error and the message", func() {
+					Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+					_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+					updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
+					Expect(ok).To(BeTrue())
+
+					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("TestReason")),
+						HasMessage(Equal("TestMessage: test-err")),
+					)))
+				})
+			})
+
+			When("requeueAfter is specified", func() {
+				BeforeEach(func() {
+					objectReconciler.reconcileResourceError = k8s.NewNotReadyError().WithRequeueAfter(time.Minute)
+				})
+
+				It("sets the ready condition to false", func() {
+					Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+					_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+					updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
+					Expect(ok).To(BeTrue())
+
+					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+					)))
+				})
+
+				It("requeues the reconcile event", func() {
+					Expect(result).To(Equal(ctrl.Result{RequeueAfter: time.Minute}))
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			When("no requeue is specified", func() {
+				BeforeEach(func() {
+					objectReconciler.reconcileResourceError = k8s.NewNotReadyError().WithNoRequeue()
+				})
+
+				It("sets the ready condition to false", func() {
+					Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+					_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+					updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
+					Expect(ok).To(BeTrue())
+
+					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+					)))
+				})
+
+				It("does not requeue the reconcile event", func() {
+					Expect(result).To(Equal(ctrl.Result{}))
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
 		})
 	})
 

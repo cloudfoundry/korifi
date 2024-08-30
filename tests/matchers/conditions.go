@@ -20,6 +20,10 @@ func HasReason(matcher types.GomegaMatcher) types.GomegaMatcher {
 	return &conditionMatcher{field: "Reason", matcher: matcher}
 }
 
+func HasMessage(matcher types.GomegaMatcher) types.GomegaMatcher {
+	return &conditionMatcher{field: "Message", matcher: matcher}
+}
+
 func HasObservedGeneration(matcher types.GomegaMatcher) types.GomegaMatcher {
 	return &conditionMatcher{field: "ObservedGeneration", matcher: matcher}
 }

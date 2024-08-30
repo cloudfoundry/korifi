@@ -32,7 +32,6 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -101,43 +100,34 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *k
 	cfServiceInstance.Status.ObservedGeneration = cfServiceInstance.Generation
 	log.V(1).Info("set observed generation", "generation", cfServiceInstance.Status.ObservedGeneration)
 
-	var err error
-	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfServiceInstance)
-	defer func() {
-		meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, readyConditionBuilder.WithError(err).Build())
-	}()
-
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfServiceInstance.Namespace,
 			Name:      cfServiceInstance.Spec.SecretName,
 		},
 	}
-	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
 	if err != nil {
-		readyConditionBuilder.WithReason("CredentialsSecretNotAvailable")
+		notReadyErr := k8s.NewNotReadyError().WithCause(err).WithReason("CredentialsSecretNotAvailable")
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+			notReadyErr = notReadyErr.WithRequeueAfter(2 * time.Second)
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, notReadyErr
 	}
 
 	credentialsSecret, err = r.reconcileCredentials(ctx, credentialsSecret, cfServiceInstance)
 	if err != nil {
-		readyConditionBuilder.WithReason("FailedReconcilingCredentialsSecret")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("FailedReconcilingCredentialsSecret")
 	}
 
 	if err = r.validateCredentials(ctx, credentialsSecret); err != nil {
-		readyConditionBuilder.WithReason("SecretInvalid")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("SecretInvalid")
 	}
 
 	log.V(1).Info("credentials secret", "name", credentialsSecret.Name, "version", credentialsSecret.ResourceVersion)
 	cfServiceInstance.Status.Credentials = corev1.LocalObjectReference{Name: credentialsSecret.Name}
 	cfServiceInstance.Status.CredentialsObservedVersion = credentialsSecret.ResourceVersion
 
-	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

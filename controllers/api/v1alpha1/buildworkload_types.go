@@ -70,6 +70,10 @@ type BuildWorkload struct {
 	Status BuildWorkloadStatus `json:"status,omitempty"`
 }
 
+func (w *BuildWorkload) StatusConditions() *[]metav1.Condition {
+	return &w.Status.Conditions
+}
+
 //+kubebuilder:object:root=true
 
 // BuildWorkloadList contains a list of BuildWorkload

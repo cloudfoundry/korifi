@@ -89,12 +89,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfPackage *korifiv1alpha1.CFPackage) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
-	var err error
-	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfPackage)
-	defer func() {
-		meta.SetStatusCondition(&cfPackage.Status.Conditions, readyConditionBuilder.WithError(err).Build())
-	}()
-
 	cfPackage.Status.ObservedGeneration = cfPackage.Generation
 	log.V(1).Info("set observed generation", "generation", cfPackage.Status.ObservedGeneration)
 
@@ -103,7 +97,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfPackage *korifiv1a
 	}
 
 	var cfApp korifiv1alpha1.CFApp
-	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfPackage.Spec.AppRef.Name, Namespace: cfPackage.Namespace}, &cfApp)
 	if err != nil {
 		log.Info("error when fetching CFApp", "reason", err)
 		return ctrl.Result{}, err
@@ -132,12 +126,8 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfPackage *korifiv1a
 	}()
 
 	if cfPackage.Spec.Source.Registry.Image == "" {
-		readyConditionBuilder.WithReason("Initialized")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("Initialized").WithNoRequeue()
 	}
-
-	readyConditionBuilder.WithReason("SourceImageSet")
-	readyConditionBuilder.Ready()
 
 	return ctrl.Result{}, nil
 }

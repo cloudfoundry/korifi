@@ -27,7 +27,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -121,18 +120,11 @@ func (r *Reconciler) enqueueCFOrgRequests(ctx context.Context, object client.Obj
 //+kubebuilder:rbac:groups="policy",resources=podsecuritypolicies,verbs=use
 
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1alpha1.CFOrg) (ctrl.Result, error) {
-	var err error
-	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfOrg)
-	defer func() {
-		meta.SetStatusCondition(&cfOrg.Status.Conditions, readyConditionBuilder.WithError(err).Build())
-	}()
-
 	nsReconcileResult, err := r.namespaceReconciler.ReconcileResource(ctx, cfOrg)
 	if (nsReconcileResult != ctrl.Result{}) || (err != nil) {
 		return nsReconcileResult, err
 	}
 
-	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

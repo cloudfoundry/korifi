@@ -137,14 +137,8 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 	cfServiceBinding.Status.ObservedGeneration = cfServiceBinding.Generation
 	log.V(1).Info("set observed generation", "generation", cfServiceBinding.Status.ObservedGeneration)
 
-	var err error
-	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfServiceBinding)
-	defer func() {
-		meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, readyConditionBuilder.WithError(err).Build())
-	}()
-
 	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-	err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
 	if err != nil {
 		log.Info("service instance not found", "service-instance", cfServiceBinding.Spec.Service.Name, "error", err)
 		return ctrl.Result{}, err
@@ -157,10 +151,10 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 	}
 
 	if cfServiceInstance.Status.Credentials.Name == "" {
-		readyConditionBuilder.
+		return ctrl.Result{}, k8s.NewNotReadyError().
 			WithReason("CredentialsSecretNotAvailable").
-			WithMessage("Service instance credentials not available yet")
-		return ctrl.Result{RequeueAfter: time.Second}, nil
+			WithMessage("Service instance credentials not available yet").
+			WithRequeueAfter(time.Second)
 	}
 
 	credentialsSecret, err := r.reconcileCredentials(ctx, cfServiceInstance, cfServiceBinding)
@@ -193,11 +187,9 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 	}
 
 	if !isSbServiceBindingReady(sbServiceBinding) {
-		readyConditionBuilder.WithReason("ServiceBindingNotReady")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceBindingNotReady")
 	}
 
-	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

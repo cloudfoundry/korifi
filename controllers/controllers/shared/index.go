@@ -7,8 +7,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -111,26 +109,6 @@ func serviceBindingAppGUIDIndexFn(rawObj client.Object) []string {
 func serviceBindingServiceInstanceGUIDIndexFn(rawObj client.Object) []string {
 	serviceBinding := rawObj.(*korifiv1alpha1.CFServiceBinding)
 	return []string{serviceBinding.Spec.Service.Name}
-}
-
-// GetConditionOrSetAsUnknown is a helper function that retrieves the value of the provided conditionType, like
-// "Succeeded" and returns the value: "True", "False", or "Unknown". If the value is not present, the pointer to the
-// list of conditions provided to the function is used to add an entry to the list of Conditions with a value of
-// "Unknown" and "Unknown" is returned
-func GetConditionOrSetAsUnknown(conditions *[]metav1.Condition, conditionType string, generation int64) metav1.ConditionStatus {
-	if conditionStatus := meta.FindStatusCondition(*conditions, conditionType); conditionStatus != nil {
-		return conditionStatus.Status
-	}
-
-	meta.SetStatusCondition(conditions, metav1.Condition{
-		Type:               conditionType,
-		Status:             metav1.ConditionUnknown,
-		Reason:             "Unknown",
-		Message:            "Unknown",
-		ObservedGeneration: generation,
-	})
-
-	return metav1.ConditionUnknown
 }
 
 func RemovePackageManagerKeys(src map[string]string, log logr.Logger) map[string]string {

@@ -26,7 +26,6 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1alpha1 "github.com/pivotal/kpack/pkg/apis/core/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,8 +38,7 @@ import (
 )
 
 const (
-	BuilderInfoName    = "kpack-image-builder"
-	ReadyConditionType = "Ready"
+	BuilderInfoName = "kpack-image-builder"
 )
 
 func NewBuilderInfoReconciler(
@@ -119,14 +117,10 @@ func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *kor
 
 		info.Status.Stacks = []korifiv1alpha1.BuilderInfoStatusStack{}
 		info.Status.Buildpacks = []korifiv1alpha1.BuilderInfoStatusBuildpack{}
-		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
-			Type:               ReadyConditionType,
-			Status:             metav1.ConditionFalse,
-			Reason:             "ClusterBuilderMissing",
-			Message:            fmt.Sprintf("Error fetching ClusterBuilder %q: %s", r.clusterBuilderName, err),
-			ObservedGeneration: info.Generation,
-		})
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().
+			WithCause(err).
+			WithReason("ClusterBuilderMissing").
+			WithMessage(fmt.Sprintf("Error fetching ClusterBuilder %q: %s", r.clusterBuilderName, err))
 	}
 
 	updatedTimestamp := lastUpdatedTime(clusterBuilder.ObjectMeta)
@@ -134,31 +128,15 @@ func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *kor
 	info.Status.Buildpacks = clusterBuilderToBuildpacks(clusterBuilder, updatedTimestamp)
 
 	clusterBuilderReadyCondition := clusterBuilder.Status.GetCondition(corev1alpha1.ConditionReady)
-	if clusterBuilderReadyCondition != nil && clusterBuilderReadyCondition.Status == corev1.ConditionTrue {
-		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
-			Type:               ReadyConditionType,
-			Status:             metav1.ConditionTrue,
-			Reason:             "ClusterBuilderReady",
-			Message:            fmt.Sprintf("ClusterBuilder %q is ready", r.clusterBuilderName),
-			ObservedGeneration: info.Generation,
-		})
-	} else {
+	if clusterBuilderReadyCondition == nil || clusterBuilderReadyCondition.Status != corev1.ConditionTrue {
 		var msg string
 		if clusterBuilderReadyCondition != nil {
 			msg = clusterBuilderReadyCondition.Message
 		}
 
-		if msg == "" {
-			msg = "resource not reconciled"
-		}
-
-		meta.SetStatusCondition(&info.Status.Conditions, metav1.Condition{
-			Type:               ReadyConditionType,
-			Status:             metav1.ConditionFalse,
-			Reason:             "ClusterBuilderNotReady",
-			Message:            fmt.Sprintf("ClusterBuilder %q is not ready: %s", r.clusterBuilderName, msg),
-			ObservedGeneration: info.Generation,
-		})
+		return ctrl.Result{}, k8s.NewNotReadyError().
+			WithReason("ClusterBuilderNotReady").
+			WithMessage(fmt.Sprintf("ClusterBuilder %q is not ready: %s", r.clusterBuilderName, msg))
 	}
 
 	return ctrl.Result{}, nil

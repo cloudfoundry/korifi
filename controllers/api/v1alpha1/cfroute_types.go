@@ -125,3 +125,7 @@ func (r CFRoute) UniqueValidationErrorMessage() string {
 
 	return fmt.Sprintf("Route already exists with host '%s'%s for domain '%s'.", r.Spec.Host, pathDetails, r.Status.FQDN)
 }
+
+func (r *CFRoute) StatusConditions() *[]metav1.Condition {
+	return &r.Status.Conditions
+}

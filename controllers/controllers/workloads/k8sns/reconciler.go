@@ -25,11 +25,11 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1/status"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -80,28 +80,26 @@ func (r *Reconciler[T, NS]) ReconcileResource(ctx context.Context, obj NS) (ctrl
 		return r.finalizer.Finalize(ctx, obj)
 	}
 
-	shared.GetConditionOrSetAsUnknown(obj.GetStatus().GetConditions(), korifiv1alpha1.StatusConditionReady, obj.GetGeneration())
-
 	obj.GetStatus().SetGUID(obj.GetName())
 
 	err := r.createOrPatchNamespace(ctx, obj)
 	if err != nil {
-		return r.setNotReady(log, obj, fmt.Errorf("error creating namespace: %w", err), "NamespaceCreation")
+		return ctrl.Result{}, fmt.Errorf("error creating namespace: %w", err)
 	}
 
 	err = r.getNamespace(ctx, obj.GetName())
 	if err != nil {
-		return ctrl.Result{RequeueAfter: 100 * time.Millisecond}, nil
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithRequeueAfter(time.Second)
 	}
 
 	err = r.propagateSecrets(ctx, obj, r.containerRegistrySecretNames)
 	if err != nil {
-		return r.setNotReady(log, obj, fmt.Errorf("error propagating secrets: %w", err), "RegistrySecretPropagation")
+		return ctrl.Result{}, fmt.Errorf("error propagating secrets: %w", err)
 	}
 
 	err = r.reconcileRoleBindings(ctx, obj)
 	if err != nil {
-		return r.setNotReady(log, obj, fmt.Errorf("error propagating role-bindings: %w", err), "RoleBindingPropagation")
+		return ctrl.Result{}, fmt.Errorf("error propagating role-bindings: %w", err)
 	}
 
 	return ctrl.Result{}, nil
@@ -137,20 +135,6 @@ func updateMap(dest *map[string]string, values map[string]string) {
 	for key, value := range values {
 		(*dest)[key] = value
 	}
-}
-
-func (r *Reconciler[T, NS]) setNotReady(log logr.Logger, obj NS, err error, reason string) (ctrl.Result, error) {
-	log.Info("not ready yet", "reason", reason, "error", err)
-
-	meta.SetStatusCondition(obj.GetStatus().GetConditions(), metav1.Condition{
-		Type:               korifiv1alpha1.StatusConditionReady,
-		Status:             metav1.ConditionFalse,
-		Reason:             reason,
-		Message:            err.Error(),
-		ObservedGeneration: obj.GetGeneration(),
-	})
-
-	return ctrl.Result{}, err
 }
 
 func (r *Reconciler[T, NS]) propagateSecrets(ctx context.Context, obj NS, secretNames []string) error {

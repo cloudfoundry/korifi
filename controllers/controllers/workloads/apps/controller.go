@@ -103,12 +103,6 @@ func serviceBindingToApp(ctx context.Context, o client.Object) []reconcile.Reque
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
-	var err error
-	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfApp)
-	defer func() {
-		meta.SetStatusCondition(&cfApp.Status.Conditions, readyConditionBuilder.WithError(err).Build())
-	}()
-
 	cfApp.Status.ObservedGeneration = cfApp.Generation
 	log.V(1).Info("set observed generation", "generation", cfApp.Status.ObservedGeneration)
 
@@ -131,8 +125,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 	}
 
 	if !bindingsReady {
-		readyConditionBuilder.WithReason("BindingNotReady")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingNotReady")
 	}
 
 	secretName := cfApp.Name + "-vcap-application"
@@ -151,14 +144,12 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 	cfApp.Status.VCAPServicesSecretName = secretName
 
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
-		readyConditionBuilder.WithReason("DropletNotAssigned")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("DropletNotAssigned")
 	}
 
 	droplet, err := r.getDroplet(ctx, cfApp)
 	if err != nil {
-		readyConditionBuilder.WithReason("CannotResolveCurrentDropletRef")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("CannotResolveCurrentDropletRef")
 	}
 
 	reconciledProcesses, err := r.reconcileProcesses(ctx, cfApp, droplet)
@@ -168,11 +159,9 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 
 	cfApp.Status.ActualState = getActualState(reconciledProcesses)
 	if cfApp.Status.ActualState != cfApp.Spec.DesiredState {
-		readyConditionBuilder.WithReason("DesiredStateNotReached")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("DesiredStateNotReached")
 	}
 
-	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

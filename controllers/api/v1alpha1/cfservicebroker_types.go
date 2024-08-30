@@ -51,6 +51,10 @@ func (b CFServiceBroker) UniqueValidationErrorMessage() string {
 	return "Name must be unique"
 }
 
+func (b *CFServiceBroker) StatusConditions() *[]metav1.Condition {
+	return &b.Status.Conditions
+}
+
 // +kubebuilder:object:root=true
 type CFServiceBrokerList struct {
 	metav1.TypeMeta `json:",inline"`

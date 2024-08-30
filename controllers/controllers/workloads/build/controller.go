@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -82,8 +81,8 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfBuild *korifiv1alp
 		log.Info("unable to clean up old builds", "reason", err)
 	}
 
-	succeededStatus := shared.GetConditionOrSetAsUnknown(&cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType, cfBuild.Generation)
-	if succeededStatus != metav1.ConditionUnknown {
+	succeededStatus := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
+	if succeededStatus != nil {
 		log.Info("build status indicates completion", "status", succeededStatus)
 		return ctrl.Result{}, nil
 	}
