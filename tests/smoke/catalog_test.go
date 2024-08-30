@@ -85,7 +85,7 @@ var _ = Describe("Service Catalog", func() {
 
 	Describe("cf marketplace", func() {
 		It("lists the service catalog", func() {
-			session := helpers.Cf("marketplace", "-b", brokerName)
+			session := helpers.Cf("marketplace", "-b", brokerName, "--show-unavailable")
 			Expect(session).To(Exit(0))
 
 			lines, _ := it.Collect2(it.LinesString(session.Out))

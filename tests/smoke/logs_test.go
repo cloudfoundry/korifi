@@ -21,7 +21,7 @@ var _ = Describe("cf logs", func() {
 	Describe("cf logs", func() {
 		It("blocks waiting for new log entries", func() {
 			logsSession := cf.Cf("logs", buildpackAppName)
-			defer logsSession.Signal(syscall.SIGQUIT)
+			defer logsSession.Signal(syscall.SIGTERM)
 
 			Eventually(logsSession).Should(gbytes.Say("Listening on port 8080"))
 			outputLen := len(string(logsSession.Out.Contents()))
