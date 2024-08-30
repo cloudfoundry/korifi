@@ -90,8 +90,8 @@ func (o *CFOrg) GetStatus() status.NamespaceStatus {
 	return &o.Status
 }
 
-func (o CFOrg) StatusConditions() []metav1.Condition {
-	return o.Status.Conditions
+func (o *CFOrg) StatusConditions() *[]metav1.Condition {
+	return &o.Status.Conditions
 }
 
 func (s *CFOrgStatus) GetConditions() *[]metav1.Condition {

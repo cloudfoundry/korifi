@@ -29,7 +29,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -139,12 +138,6 @@ func (r *Reconciler) enqueueCFSpaceRequestsForServiceAccount(ctx context.Context
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;patch;delete
 
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfSpace *korifiv1alpha1.CFSpace) (ctrl.Result, error) {
-	var err error
-	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfSpace)
-	defer func() {
-		meta.SetStatusCondition(&cfSpace.Status.Conditions, readyConditionBuilder.WithError(err).Build())
-	}()
-
 	nsReconcileResult, err := r.namespaceReconciler.ReconcileResource(ctx, cfSpace)
 	if (nsReconcileResult != ctrl.Result{}) || (err != nil) {
 		return nsReconcileResult, err
@@ -155,12 +148,9 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfSpace *korifiv1alp
 	err = r.reconcileServiceAccounts(ctx, cfSpace)
 	if err != nil {
 		log.Info("not ready yet", "reason", "error propagating service accounts", "error", err)
-
-		readyConditionBuilder.WithReason("ServiceAccountPropagation")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("ServiceAccountPropagation")
 	}
 
-	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

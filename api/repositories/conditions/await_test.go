@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("ConditionAwaiter", func() {
 	var (
-		awaiter     *conditions.Awaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList, *korifiv1alpha1.CFTaskList]
+		awaiter     *conditions.Awaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList, *korifiv1alpha1.CFTaskList]
 		task        *korifiv1alpha1.CFTask
 		awaitedTask *korifiv1alpha1.CFTask
 		awaitErr    error
@@ -43,7 +43,7 @@ var _ = Describe("ConditionAwaiter", func() {
 	}
 
 	BeforeEach(func() {
-		awaiter = conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](time.Second)
+		awaiter = conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](time.Second)
 		awaitedTask = nil
 		awaitErr = nil
 

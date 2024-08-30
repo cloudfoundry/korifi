@@ -3,7 +3,6 @@ package k8sns_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 
@@ -18,7 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -172,22 +170,11 @@ var _ = Describe("K8S NS Reconciler Integration Tests", func() {
 
 		When("the image-registry-credentials secret does not exist in the root-ns", Serial, func() {
 			BeforeEach(func() {
-				reconciler = k8sns.NewReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](controllersClient, finalizer, metadataCompiler, []string{"i-do-not-exist"})
+				reconciler = k8sns.NewReconciler(controllersClient, finalizer, metadataCompiler, []string{"i-do-not-exist"})
 			})
 
-			It("sets the NSObj's Ready condition to 'False'", func() {
+			It("returns an error", func() {
 				Expect(reconcileErr).To(MatchError(ContainSubstring("error fetching secret")))
-
-				readyCondition := meta.FindStatusCondition(nsObj.Status.Conditions, korifiv1alpha1.StatusConditionReady)
-				Expect(readyCondition).NotTo(BeNil())
-				Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
-				Expect(readyCondition.Message).To(ContainSubstring(fmt.Sprintf(
-					"error fetching secret %q from namespace %q",
-					"i-do-not-exist",
-					rootNamespace,
-				)))
-				Expect(readyCondition.Reason).To(Equal("RegistrySecretPropagation"))
-				Expect(readyCondition.ObservedGeneration).To(Equal(nsObj.Generation))
 			})
 		})
 	})

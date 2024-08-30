@@ -86,6 +86,10 @@ type CFBuild struct {
 	Status CFBuildStatus `json:"status,omitempty"`
 }
 
+func (b *CFBuild) StatusConditions() *[]metav1.Condition {
+	return &b.Status.Conditions
+}
+
 //+kubebuilder:object:root=true
 
 // CFBuildList contains a list of CFBuild

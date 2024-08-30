@@ -31,6 +31,7 @@ var _ = Describe("PackageRepository", func() {
 		repoCreator      *fake.RepositoryCreator
 		conditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFPackage,
+			korifiv1alpha1.CFPackage,
 			korifiv1alpha1.CFPackageList,
 			*korifiv1alpha1.CFPackageList,
 		]
@@ -45,6 +46,7 @@ var _ = Describe("PackageRepository", func() {
 		repoCreator = new(fake.RepositoryCreator)
 		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFPackage,
+			korifiv1alpha1.CFPackage,
 			korifiv1alpha1.CFPackageList,
 			*korifiv1alpha1.CFPackageList,
 		]{}

@@ -33,6 +33,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		bindingName         *string
 		conditionAwaiter    *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
+			korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
 		]
@@ -42,6 +43,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		testCtx = context.Background()
 		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
+			korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
 		]{}

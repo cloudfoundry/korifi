@@ -54,6 +54,10 @@ type CFDomain struct {
 	Status CFDomainStatus `json:"status,omitempty"`
 }
 
+func (d *CFDomain) StatusConditions() *[]metav1.Condition {
+	return &d.Status.Conditions
+}
+
 //+kubebuilder:object:root=true
 
 // CFDomainList contains a list of CFDomain

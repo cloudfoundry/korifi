@@ -32,7 +32,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -108,30 +107,23 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBroker *kor
 	cfServiceBroker.Status.ObservedGeneration = cfServiceBroker.Generation
 	log.V(1).Info("set observed generation", "generation", cfServiceBroker.Status.ObservedGeneration)
 
-	var err error
-	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfServiceBroker)
-	defer func() {
-		meta.SetStatusCondition(&cfServiceBroker.Status.Conditions, readyConditionBuilder.WithError(err).Build())
-	}()
-
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfServiceBroker.Namespace,
 			Name:      cfServiceBroker.Spec.Credentials.Name,
 		},
 	}
-	err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
 	if err != nil {
-		readyConditionBuilder.WithReason("CredentialsSecretNotAvailable")
+		notReadyErr := k8s.NewNotReadyError().WithCause(err).WithReason("CredentialsSecretNotAvailable")
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+			notReadyErr = notReadyErr.WithRequeueAfter(2 * time.Second)
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, notReadyErr
 	}
 
 	if err = r.validateCredentials(credentialsSecret); err != nil {
-		readyConditionBuilder.WithReason("SecretInvalid")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("SecretInvalid")
 	}
 
 	log.V(1).Info("credentials secret", "name", credentialsSecret.Name, "version", credentialsSecret.ResourceVersion)
@@ -140,8 +132,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBroker *kor
 	catalog, err := r.catalogClient.GetCatalog(ctx, cfServiceBroker)
 	if err != nil {
 		log.Error(err, "failed to get catalog from broker", "broker", cfServiceBroker.Name)
-		readyConditionBuilder.WithReason("GetCatalogFailed")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("GetCatalogFailed")
 	}
 
 	err = r.reconcileCatalog(ctx, cfServiceBroker, catalog)
@@ -150,7 +141,6 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBroker *kor
 		return ctrl.Result{}, fmt.Errorf("failed to reconcile catalog: %v", err)
 	}
 
-	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

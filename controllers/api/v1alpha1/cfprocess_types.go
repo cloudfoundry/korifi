@@ -116,12 +116,16 @@ type CFProcessList struct {
 	Items           []CFProcess `json:"items"`
 }
 
-func (r *CFProcess) SetStableName(appGUID string) {
-	r.Name = strings.Join([]string{processNamePrefix, appGUID, r.Spec.ProcessType}, "-")
-	if r.Labels == nil {
-		r.Labels = map[string]string{}
+func (p *CFProcess) SetStableName(appGUID string) {
+	p.Name = strings.Join([]string{processNamePrefix, appGUID, p.Spec.ProcessType}, "-")
+	if p.Labels == nil {
+		p.Labels = map[string]string{}
 	}
-	r.Labels[CFProcessGUIDLabelKey] = r.Name
+	p.Labels[CFProcessGUIDLabelKey] = p.Name
+}
+
+func (p *CFProcess) StatusConditions() *[]metav1.Condition {
+	return &p.Status.Conditions
 }
 
 func init() {

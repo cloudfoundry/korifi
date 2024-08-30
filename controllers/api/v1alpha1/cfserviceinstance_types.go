@@ -97,8 +97,8 @@ func (si CFServiceInstance) UniqueValidationErrorMessage() string {
 	return fmt.Sprintf("The service instance name is taken: %s", si.Spec.DisplayName)
 }
 
-func (si CFServiceInstance) StatusConditions() []metav1.Condition {
-	return si.Status.Conditions
+func (si *CFServiceInstance) StatusConditions() *[]metav1.Condition {
+	return &si.Status.Conditions
 }
 
 //+kubebuilder:object:root=true

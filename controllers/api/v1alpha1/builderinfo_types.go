@@ -64,6 +64,10 @@ type BuilderInfo struct {
 	Status BuilderInfoStatus `json:"status,omitempty"`
 }
 
+func (i *BuilderInfo) StatusConditions() *[]metav1.Condition {
+	return &i.Status.Conditions
+}
+
 //+kubebuilder:object:root=true
 
 // BuilderInfoList contains a list of BuilderInfo

@@ -25,7 +25,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -60,12 +59,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1alpha1.CFDomain) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
-	var err error
-	readyConditionBuilder := k8s.NewReadyConditionBuilder(cfDomain)
-	defer func() {
-		meta.SetStatusCondition(&cfDomain.Status.Conditions, readyConditionBuilder.WithError(err).Build())
-	}()
-
 	if !cfDomain.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFDomain(ctx, cfDomain)
 	}
@@ -73,7 +66,6 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1al
 	cfDomain.Status.ObservedGeneration = cfDomain.Generation
 	log.V(1).Info("set observed generation", "generation", cfDomain.Status.ObservedGeneration)
 
-	readyConditionBuilder.Ready()
 	return ctrl.Result{}, nil
 }
 

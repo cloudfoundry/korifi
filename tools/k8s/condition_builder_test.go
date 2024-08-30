@@ -74,8 +74,18 @@ var _ = Describe("ReadyConditionBuilder", func() {
 			builder.WithError(errors.New("some-error"))
 		})
 
-		It("sets the reason", func() {
+		It("sets the message", func() {
 			Expect(condition.Message).To(Equal("some-error"))
+		})
+
+		When("message is set to empty string", func() {
+			BeforeEach(func() {
+				builder.WithMessage("")
+			})
+
+			It("sets the message from the error", func() {
+				Expect(condition.Message).To(Equal("some-error"))
+			})
 		})
 	})
 

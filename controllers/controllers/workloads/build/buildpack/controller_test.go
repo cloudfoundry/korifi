@@ -209,11 +209,6 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 			g.Expect(stagingCondition.Status).To(Equal(metav1.ConditionTrue))
 			g.Expect(stagingCondition.Reason).To(Equal("BuildRunning"))
 			g.Expect(stagingCondition.ObservedGeneration).To(Equal(cfBuild.Generation))
-
-			succeededCondition := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
-			g.Expect(succeededCondition).NotTo(BeNil())
-			g.Expect(succeededCondition.Status).To(Equal(metav1.ConditionUnknown))
-			g.Expect(succeededCondition.ObservedGeneration).To(Equal(cfBuild.Generation))
 		}).Should(Succeed())
 	})
 
@@ -274,7 +269,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 			Expect(adminClient.Create(ctx, existingBuildWorkload)).To(Succeed())
 		})
 
-		It("sets the status conditions on the CFBuild to running", func() {
+		It("sets the staging status condition on the CFBuild to running", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
 
@@ -283,11 +278,6 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 				g.Expect(stagingCondition.Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(stagingCondition.Reason).To(Equal("BuildRunning"))
 				g.Expect(stagingCondition.ObservedGeneration).To(Equal(cfBuild.Generation))
-
-				succeededCondition := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
-				g.Expect(succeededCondition).NotTo(BeNil())
-				g.Expect(succeededCondition.Status).To(Equal(metav1.ConditionUnknown))
-				g.Expect(succeededCondition.ObservedGeneration).To(Equal(cfBuild.Generation))
 			}).Should(Succeed())
 		})
 	})

@@ -133,8 +133,6 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 				readyCondition := meta.FindStatusCondition(info.Status.Conditions, "Ready")
 				Expect(readyCondition).NotTo(BeNil())
 				Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue))
-				Expect(readyCondition.Reason).To(Equal("ClusterBuilderReady"))
-				Expect(readyCondition.Message).To(Equal(fmt.Sprintf("ClusterBuilder %q is ready", clusterBuilderName)))
 				Expect(readyCondition.ObservedGeneration).To(Equal(info.Generation))
 			})
 
@@ -195,7 +193,6 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 						g.Expect(readyCondition).NotTo(BeNil())
 						g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 						g.Expect(readyCondition.Reason).To(Equal("ClusterBuilderNotReady"))
-						g.Expect(readyCondition.Message).To(Equal(fmt.Sprintf("ClusterBuilder %q is not ready: resource not reconciled", clusterBuilderName)))
 						g.Expect(readyCondition.ObservedGeneration).To(Equal(info.Generation))
 					}).Should(Succeed())
 				})
@@ -391,8 +388,6 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 			Expect(readyCondition).NotTo(BeNil())
 			Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 			Expect(readyCondition.Reason).To(Equal("ClusterBuilderMissing"))
-			Expect(readyCondition.Message).To(ContainSubstring(clusterBuilderName))
-			Expect(readyCondition.Message).To(Equal(fmt.Sprintf("Error fetching ClusterBuilder %q: ClusterBuilder.kpack.io %q not found", clusterBuilderName, clusterBuilderName)))
 			Expect(readyCondition.ObservedGeneration).To(Equal(info.Generation))
 		})
 
