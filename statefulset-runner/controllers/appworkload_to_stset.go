@@ -4,12 +4,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
+	"github.com/BooleanCat/go-functional/v2/it"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,12 +96,6 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 		return envs[i].Name < envs[j].Name
 	})
 
-	ports := []corev1.ContainerPort{}
-
-	for _, port := range appWorkload.Spec.Ports {
-		ports = append(ports, corev1.ContainerPort{ContainerPort: port})
-	}
-
 	containers := []corev1.Container{
 		{
 			Name:            ApplicationContainerName,
@@ -106,7 +103,9 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 			ImagePullPolicy: corev1.PullAlways,
 			Command:         appWorkload.Spec.Command,
 			Env:             envs,
-			Ports:           ports,
+			Ports: slices.Collect(it.Map(slices.Values(appWorkload.Spec.Ports), func(port int32) corev1.ContainerPort {
+				return corev1.ContainerPort{ContainerPort: port}
+			})),
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: tools.PtrTo(false),
 				Capabilities: &corev1.Capabilities{
@@ -227,22 +226,15 @@ func truncateString(str string, num int) string {
 }
 
 func toLabelSelectorRequirements(selector *metav1.LabelSelector) []metav1.LabelSelectorRequirement {
-	labels := make([]string, 0, len(selector.MatchLabels))
-	for k := range selector.MatchLabels {
-		labels = append(labels, k)
-	}
-	sort.Strings(labels)
+	labels := slices.Values(slices.Sorted(maps.Keys(selector.MatchLabels)))
 
-	reqs := make([]metav1.LabelSelectorRequirement, 0, len(labels))
-	for _, label := range labels {
-		reqs = append(reqs, metav1.LabelSelectorRequirement{
+	return slices.Collect(it.Map(labels, func(label string) metav1.LabelSelectorRequirement {
+		return metav1.LabelSelectorRequirement{
 			Key:      label,
 			Operator: metav1.LabelSelectorOpIn,
 			Values:   []string{selector.MatchLabels[label]},
-		})
-	}
-
-	return reqs
+		}
+	}))
 }
 
 func statefulSetLabelSelector(appWorkload *korifiv1alpha1.AppWorkload) *metav1.LabelSelector {
