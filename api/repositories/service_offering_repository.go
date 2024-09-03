@@ -25,13 +25,9 @@ type ServiceOfferingRecord struct {
 	ServiceBrokerGUID string
 }
 
-func (r ServiceOfferingRecord) Relationships() map[string]model.ToOneRelationship {
-	return map[string]model.ToOneRelationship{
-		"service_broker": {
-			Data: model.Relationship{
-				GUID: r.ServiceBrokerGUID,
-			},
-		},
+func (r ServiceOfferingRecord) Relationships() map[string]string {
+	return map[string]string{
+		"service_broker": r.ServiceBrokerGUID,
 	}
 }
 

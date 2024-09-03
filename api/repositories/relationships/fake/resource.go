@@ -5,25 +5,24 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
-	"code.cloudfoundry.org/korifi/model"
 )
 
 type Resource struct {
-	RelationshipsStub        func() map[string]model.ToOneRelationship
+	RelationshipsStub        func() map[string]string
 	relationshipsMutex       sync.RWMutex
 	relationshipsArgsForCall []struct {
 	}
 	relationshipsReturns struct {
-		result1 map[string]model.ToOneRelationship
+		result1 map[string]string
 	}
 	relationshipsReturnsOnCall map[int]struct {
-		result1 map[string]model.ToOneRelationship
+		result1 map[string]string
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *Resource) Relationships() map[string]model.ToOneRelationship {
+func (fake *Resource) Relationships() map[string]string {
 	fake.relationshipsMutex.Lock()
 	ret, specificReturn := fake.relationshipsReturnsOnCall[len(fake.relationshipsArgsForCall)]
 	fake.relationshipsArgsForCall = append(fake.relationshipsArgsForCall, struct {
@@ -47,32 +46,32 @@ func (fake *Resource) RelationshipsCallCount() int {
 	return len(fake.relationshipsArgsForCall)
 }
 
-func (fake *Resource) RelationshipsCalls(stub func() map[string]model.ToOneRelationship) {
+func (fake *Resource) RelationshipsCalls(stub func() map[string]string) {
 	fake.relationshipsMutex.Lock()
 	defer fake.relationshipsMutex.Unlock()
 	fake.RelationshipsStub = stub
 }
 
-func (fake *Resource) RelationshipsReturns(result1 map[string]model.ToOneRelationship) {
+func (fake *Resource) RelationshipsReturns(result1 map[string]string) {
 	fake.relationshipsMutex.Lock()
 	defer fake.relationshipsMutex.Unlock()
 	fake.RelationshipsStub = nil
 	fake.relationshipsReturns = struct {
-		result1 map[string]model.ToOneRelationship
+		result1 map[string]string
 	}{result1}
 }
 
-func (fake *Resource) RelationshipsReturnsOnCall(i int, result1 map[string]model.ToOneRelationship) {
+func (fake *Resource) RelationshipsReturnsOnCall(i int, result1 map[string]string) {
 	fake.relationshipsMutex.Lock()
 	defer fake.relationshipsMutex.Unlock()
 	fake.RelationshipsStub = nil
 	if fake.relationshipsReturnsOnCall == nil {
 		fake.relationshipsReturnsOnCall = make(map[int]struct {
-			result1 map[string]model.ToOneRelationship
+			result1 map[string]string
 		})
 	}
 	fake.relationshipsReturnsOnCall[i] = struct {
-		result1 map[string]model.ToOneRelationship
+		result1 map[string]string
 	}{result1}
 }
 

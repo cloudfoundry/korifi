@@ -7,7 +7,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 )
@@ -29,7 +28,7 @@ type ServicePlanRepository interface {
 
 //counterfeiter:generate -o fake -fake-name Resource . Resource
 type Resource interface {
-	Relationships() map[string]model.ToOneRelationship
+	Relationships() map[string]string
 }
 
 type ResourceRelationshipsRepo struct {
@@ -52,7 +51,7 @@ func NewResourseRelationshipsRepo(
 
 func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, authInfo authorization.Info, relatedResourceType string, resources []Resource) ([]Resource, error) {
 	relatedResourceGUIDs := slices.Collect(it.Exclude(it.Map(itx.FromSlice(resources), func(r Resource) string {
-		return r.Relationships()[relatedResourceType].Data.GUID
+		return r.Relationships()[relatedResourceType]
 	}), func(guid string) bool {
 		return guid == ""
 	}))

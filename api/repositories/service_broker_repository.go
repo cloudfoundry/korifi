@@ -71,8 +71,8 @@ type ServiceBrokerRecord struct {
 	model.CFResource
 }
 
-func (r ServiceBrokerRecord) Relationships() map[string]model.ToOneRelationship {
-	return map[string]model.ToOneRelationship{}
+func (r ServiceBrokerRecord) Relationships() map[string]string {
+	return nil
 }
 
 func NewServiceBrokerRepo(

@@ -33,7 +33,7 @@ func ForServicePlan(servicePlan repositories.ServicePlanRecord, baseURL url.URL)
 		CFResource:     servicePlan.CFResource,
 		VisibilityType: servicePlan.Visibility.Type,
 		Available:      servicePlan.Available,
-		Relationships:  servicePlan.Relationships(),
+		Relationships:  ForRelationships(servicePlan.Relationships()),
 		Links: ServicePlanLinks{
 			Self: Link{
 				HRef: buildURL(baseURL).appendPath(servicePlansBase, servicePlan.GUID).build(),
