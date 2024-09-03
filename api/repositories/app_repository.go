@@ -87,6 +87,12 @@ func (a AppRecord) GetResourceType() string {
 	return AppResourceType
 }
 
+func (a AppRecord) Relationships() map[string]string {
+	return map[string]string{
+		"space": a.SpaceGUID,
+	}
+}
+
 type DesiredState string
 
 type Lifecycle struct {

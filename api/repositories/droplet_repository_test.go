@@ -168,6 +168,10 @@ var _ = Describe("DropletRepository", func() {
 					for index := range processTypesArray {
 						Expect(dropletRecord.ProcessTypes).To(HaveKeyWithValue(processTypesArray[index].Type, processTypesArray[index].Command))
 					}
+
+					Expect(dropletRecord.Relationships()).To(Equal(map[string]string{
+						"app": build.Spec.AppRef.Name,
+					}))
 				})
 
 				When("the droplet is of type docker", func() {

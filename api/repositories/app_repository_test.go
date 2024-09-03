@@ -103,6 +103,10 @@ var _ = Describe("AppRepository", func() {
 				}))
 				Expect(app.IsStaged).To(BeFalse())
 				Expect(app.DeletedAt).To(BeNil())
+
+				Expect(app.Relationships()).To(Equal(map[string]string{
+					"space": app.SpaceGUID,
+				}))
 			})
 
 			When("the app has staged condition true", func() {

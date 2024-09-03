@@ -62,7 +62,6 @@ var _ = Describe("Org", func() {
 					"annotation-key": "annotation-val"
 				}
 			},
-			"relationships": {},
 			"links": {
 				"self": {
 					"href": "https://api.example.org/v3/organizations/org-guid"

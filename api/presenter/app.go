@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
 )
 
 const (
@@ -15,12 +16,12 @@ type AppResponse struct {
 	GUID  string `json:"guid"`
 	State string `json:"state"`
 
-	CreatedAt     string        `json:"created_at"`
-	UpdatedAt     string        `json:"updated_at"`
-	Relationships Relationships `json:"relationships"`
-	Lifecycle     Lifecycle     `json:"lifecycle"`
-	Metadata      Metadata      `json:"metadata"`
-	Links         AppLinks      `json:"links"`
+	CreatedAt     string                             `json:"created_at"`
+	UpdatedAt     string                             `json:"updated_at"`
+	Relationships map[string]model.ToOneRelationship `json:"relationships"`
+	Lifecycle     Lifecycle                          `json:"lifecycle"`
+	Metadata      Metadata                           `json:"metadata"`
+	Links         AppLinks                           `json:"links"`
 }
 
 type AppLinks struct {
@@ -41,18 +42,12 @@ type AppLinks struct {
 
 func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 	return AppResponse{
-		Name:      responseApp.Name,
-		GUID:      responseApp.GUID,
-		State:     string(responseApp.State),
-		CreatedAt: formatTimestamp(&responseApp.CreatedAt),
-		UpdatedAt: formatTimestamp(responseApp.UpdatedAt),
-		Relationships: Relationships{
-			"space": Relationship{
-				Data: &RelationshipData{
-					GUID: responseApp.SpaceGUID,
-				},
-			},
-		},
+		Name:          responseApp.Name,
+		GUID:          responseApp.GUID,
+		State:         string(responseApp.State),
+		CreatedAt:     formatTimestamp(&responseApp.CreatedAt),
+		UpdatedAt:     formatTimestamp(responseApp.UpdatedAt),
+		Relationships: ForRelationships(responseApp.Relationships()),
 		Lifecycle: Lifecycle{
 			Type: responseApp.Lifecycle.Type,
 			Data: LifecycleData{
@@ -111,8 +106,8 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
 }
 
 type CurrentDropletResponse struct {
-	Relationship `json:",inline"`
-	Links        CurrentDropletLinks `json:"links"`
+	Data  RelationshipData    `json:"data"`
+	Links CurrentDropletLinks `json:"links"`
 }
 
 type CurrentDropletLinks struct {
@@ -122,10 +117,8 @@ type CurrentDropletLinks struct {
 
 func ForCurrentDroplet(record repositories.CurrentDropletRecord, baseURL url.URL) CurrentDropletResponse {
 	return CurrentDropletResponse{
-		Relationship: Relationship{
-			Data: &RelationshipData{
-				GUID: record.DropletGUID,
-			},
+		Data: RelationshipData{
+			GUID: record.DropletGUID,
 		},
 		Links: CurrentDropletLinks{
 			Self: Link{

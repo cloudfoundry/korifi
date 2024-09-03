@@ -21,7 +21,7 @@ type ServiceBindingResponse struct {
 	CreatedAt     string                              `json:"created_at"`
 	UpdatedAt     string                              `json:"updated_at"`
 	LastOperation ServiceBindingLastOperationResponse `json:"last_operation"`
-	Relationships Relationships                       `json:"relationships"`
+	Relationships map[string]model.ToOneRelationship  `json:"relationships"`
 	Links         ServiceBindingLinks                 `json:"links"`
 	Metadata      Metadata                            `json:"metadata"`
 }
@@ -55,10 +55,7 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 			CreatedAt:   formatTimestamp(&record.LastOperation.CreatedAt),
 			UpdatedAt:   formatTimestamp(record.LastOperation.UpdatedAt),
 		},
-		Relationships: map[string]Relationship{
-			"app":              {&RelationshipData{record.AppGUID}},
-			"service_instance": {&RelationshipData{record.ServiceInstanceGUID}},
-		},
+		Relationships: ForRelationships(record.Relationships()),
 		Links: ServiceBindingLinks{
 			App: Link{
 				HRef: buildURL(baseURL).appendPath(appsBase, record.AppGUID).build(),

@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
 )
 
 const (
@@ -11,15 +12,15 @@ const (
 )
 
 type PackageResponse struct {
-	GUID          string        `json:"guid"`
-	Type          string        `json:"type"`
-	Data          PackageData   `json:"data"`
-	State         string        `json:"state"`
-	Relationships Relationships `json:"relationships"`
-	Links         PackageLinks  `json:"links"`
-	Metadata      Metadata      `json:"metadata"`
-	CreatedAt     string        `json:"created_at"`
-	UpdatedAt     string        `json:"updated_at"`
+	GUID          string                             `json:"guid"`
+	Type          string                             `json:"type"`
+	Data          PackageData                        `json:"data"`
+	State         string                             `json:"state"`
+	Relationships map[string]model.ToOneRelationship `json:"relationships"`
+	Links         PackageLinks                       `json:"links"`
+	Metadata      Metadata                           `json:"metadata"`
+	CreatedAt     string                             `json:"created_at"`
+	UpdatedAt     string                             `json:"updated_at"`
 }
 
 type PackageData struct {
@@ -35,18 +36,12 @@ type PackageLinks struct {
 
 func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageResponse {
 	return PackageResponse{
-		GUID:      record.GUID,
-		Type:      record.Type,
-		State:     record.State,
-		CreatedAt: formatTimestamp(&record.CreatedAt),
-		UpdatedAt: formatTimestamp(record.UpdatedAt),
-		Relationships: Relationships{
-			"app": Relationship{
-				Data: &RelationshipData{
-					GUID: record.AppGUID,
-				},
-			},
-		},
+		GUID:          record.GUID,
+		Type:          record.Type,
+		State:         record.State,
+		CreatedAt:     formatTimestamp(&record.CreatedAt),
+		UpdatedAt:     formatTimestamp(record.UpdatedAt),
+		Relationships: ForRelationships(record.Relationships()),
 		Links: PackageLinks{
 			Self: Link{
 				HRef: buildURL(baseURL).appendPath(packagesBase, record.GUID).build(),

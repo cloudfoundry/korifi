@@ -67,6 +67,13 @@ type ServiceBindingRecord struct {
 	LastOperation       ServiceBindingLastOperation
 }
 
+func (r ServiceBindingRecord) Relationships() map[string]string {
+	return map[string]string{
+		"app":              r.AppGUID,
+		"service_instance": r.ServiceInstanceGUID,
+	}
+}
+
 type ServiceBindingLastOperation struct {
 	Type        string
 	State       string

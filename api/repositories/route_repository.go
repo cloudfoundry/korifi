@@ -64,6 +64,13 @@ type RouteRecord struct {
 	DeletedAt    *time.Time
 }
 
+func (r RouteRecord) Relationships() map[string]string {
+	return map[string]string{
+		"space":  r.SpaceGUID,
+		"domain": r.Domain.GUID,
+	}
+}
+
 type DesiredDestination struct {
 	AppGUID     string
 	ProcessType string

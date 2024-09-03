@@ -156,6 +156,10 @@ var _ = Describe("PackageRepository", func() {
 
 					Expect(createdPackage.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
+					Expect(createdPackage.Relationships()).To(Equal(map[string]string{
+						"app": appGUID,
+					}))
+
 					packageNSName := types.NamespacedName{Name: packageGUID, Namespace: space.Name}
 					createdCFPackage := new(korifiv1alpha1.CFPackage)
 					Expect(k8sClient.Get(ctx, packageNSName, createdCFPackage)).To(Succeed())

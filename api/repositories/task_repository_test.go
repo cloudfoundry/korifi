@@ -236,6 +236,10 @@ var _ = Describe("TaskRepository", func() {
 					Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 					Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 					Expect(taskRecord.State).To(Equal(repositories.TaskStatePending))
+
+					Expect(taskRecord.Relationships()).To(Equal(map[string]string{
+						"app": cfApp.Name,
+					}))
 				})
 
 				When("the task is running", func() {

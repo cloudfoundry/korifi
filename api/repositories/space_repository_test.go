@@ -140,6 +140,10 @@ var _ = Describe("SpaceRepository", func() {
 				Expect(spaceRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 				Expect(spaceRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 				Expect(spaceRecord.DeletedAt).To(BeNil())
+
+				Expect(spaceRecord.Relationships()).To(Equal(map[string]string{
+					"organization": orgGUID,
+				}))
 			})
 
 			When("the space does not become ready", func() {
