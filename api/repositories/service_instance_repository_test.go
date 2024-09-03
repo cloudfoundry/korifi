@@ -423,43 +423,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				))
 			})
 
-			It("returns empty relationships for user provided provided services", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(serviceInstanceList).NotTo(BeEmpty())
-				Expect(serviceInstanceList[0].Relationships()).To(BeEmpty())
-			})
-
-			// Checking record relationships probably make sense in the `Create` describe
-			// TODO: move relationships tests there whenever creating managed services with the repository is implemented
-			When("the service is managed", func() {
-				BeforeEach(func() {
-					Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance1, func() {
-						cfServiceInstance1.Spec.Type = korifiv1alpha1.ManagedType
-						cfServiceInstance1.Spec.PlanGUID = "plan-guid"
-					})).To(Succeed())
-					Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance2, func() {
-						cfServiceInstance2.Spec.Type = korifiv1alpha1.ManagedType
-						cfServiceInstance2.Spec.PlanGUID = "plan-guid"
-					})).To(Succeed())
-					Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance3, func() {
-						cfServiceInstance3.Spec.Type = korifiv1alpha1.ManagedType
-						cfServiceInstance3.Spec.PlanGUID = "plan-guid"
-					})).To(Succeed())
-				})
-
-				It("returns service plan relationships for user provided provided services", func() {
-					Expect(listErr).NotTo(HaveOccurred())
-					Expect(serviceInstanceList).NotTo(BeEmpty())
-					Expect(serviceInstanceList[0].Relationships()).To(Equal(map[string]model.ToOneRelationship{
-						"service_plan": {
-							Data: model.Relationship{
-								GUID: "plan-guid",
-							},
-						},
-					}))
-				})
-			})
-
 			When("the name filter is set", func() {
 				BeforeEach(func() {
 					filters = repositories.ListServiceInstanceMessage{
@@ -606,6 +569,38 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(record.Type).To(Equal(string(serviceInstance.Spec.Type)))
 				Expect(record.Labels).To(Equal(map[string]string{"a-label": "a-label-value"}))
 				Expect(record.Annotations).To(Equal(map[string]string{"an-annotation": "an-annotation-value"}))
+				Expect(record.Relationships()).To(Equal(map[string]model.ToOneRelationship{
+					"space": {
+						Data: model.Relationship{
+							GUID: serviceInstance.Namespace,
+						},
+					},
+				}))
+			})
+
+			When("the service is managed", func() {
+				BeforeEach(func() {
+					Expect(k8s.Patch(ctx, k8sClient, serviceInstance, func() {
+						serviceInstance.Spec.Type = korifiv1alpha1.ManagedType
+						serviceInstance.Spec.PlanGUID = "plan-guid"
+					})).To(Succeed())
+				})
+
+				It("returns service plan relationships for user provided provided services", func() {
+					Expect(getErr).NotTo(HaveOccurred())
+					Expect(record.Relationships()).To(Equal(map[string]model.ToOneRelationship{
+						"space": {
+							Data: model.Relationship{
+								GUID: serviceInstance.Namespace,
+							},
+						},
+						"service_plan": {
+							Data: model.Relationship{
+								GUID: "plan-guid",
+							},
+						},
+					}))
+				})
 			})
 		})
 

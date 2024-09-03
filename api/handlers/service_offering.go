@@ -102,23 +102,12 @@ func (h *ServiceOffering) getBrokerIncludes(
 		return nil, err
 	}
 
-	brokerIncludes := slices.Collect(it.Map(itx.FromSlice(brokers), func(b repositories.ServiceBrokerRecord) model.IncludedResource {
+	return it.TryCollect(it.MapError(slices.Values(brokers), func(broker repositories.ServiceBrokerRecord) (model.IncludedResource, error) {
 		return model.IncludedResource{
 			Type:     "service_brokers",
-			Resource: presenter.ForServiceBroker(b, baseURL),
-		}
+			Resource: presenter.ForServiceBroker(broker, baseURL),
+		}.SelectJSONPaths(brokerFields...)
 	}))
-
-	brokerIncludesFielded := []model.IncludedResource{}
-	for _, brokerInclude := range brokerIncludes {
-		fieldedInclude, err := brokerInclude.SelectJSONFields(brokerFields...)
-		if err != nil {
-			return nil, err
-		}
-		brokerIncludesFielded = append(brokerIncludesFielded, fieldedInclude)
-	}
-
-	return brokerIncludesFielded, nil
 }
 
 func (h *ServiceOffering) UnauthenticatedRoutes() []routing.Route {

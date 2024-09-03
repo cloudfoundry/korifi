@@ -21,10 +21,10 @@ type ServicePlanRelationships struct {
 type ServicePlanResponse struct {
 	services.ServicePlan
 	model.CFResource
-	VisibilityType string                   `json:"visibility_type"`
-	Available      bool                     `json:"available"`
-	Relationships  ServicePlanRelationships `json:"relationships"`
-	Links          ServicePlanLinks         `json:"links"`
+	VisibilityType string                             `json:"visibility_type"`
+	Available      bool                               `json:"available"`
+	Relationships  map[string]model.ToOneRelationship `json:"relationships"`
+	Links          ServicePlanLinks                   `json:"links"`
 }
 
 func ForServicePlan(servicePlan repositories.ServicePlanRecord, baseURL url.URL) ServicePlanResponse {
@@ -33,13 +33,7 @@ func ForServicePlan(servicePlan repositories.ServicePlanRecord, baseURL url.URL)
 		CFResource:     servicePlan.CFResource,
 		VisibilityType: servicePlan.Visibility.Type,
 		Available:      servicePlan.Available,
-		Relationships: ServicePlanRelationships{
-			ServiceOffering: model.ToOneRelationship{
-				Data: model.Relationship{
-					GUID: servicePlan.ServiceOfferingGUID,
-				},
-			},
-		},
+		Relationships:  servicePlan.Relationships(),
 		Links: ServicePlanLinks{
 			Self: Link{
 				HRef: buildURL(baseURL).appendPath(servicePlansBase, servicePlan.GUID).build(),

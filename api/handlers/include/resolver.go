@@ -96,7 +96,7 @@ func selectFields(includedResources []model.IncludedResource, fields []string) (
 	res := []model.IncludedResource{}
 
 	for _, includedResource := range includedResources {
-		partialResource, err := includedResource.SelectJSONFields(fields...)
+		partialResource, err := includedResource.SelectJSONPaths(fields...)
 		if err != nil {
 			return nil, err
 		}

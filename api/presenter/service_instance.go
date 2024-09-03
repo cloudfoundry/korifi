@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
 )
 
 const (
@@ -20,11 +21,11 @@ type ServiceInstanceResponse struct {
 	RouteServiceURL *string       `json:"route_service_url"`
 	SyslogDrainURL  *string       `json:"syslog_drain_url"`
 
-	CreatedAt     string               `json:"created_at"`
-	UpdatedAt     string               `json:"updated_at"`
-	Relationships Relationships        `json:"relationships"`
-	Metadata      Metadata             `json:"metadata"`
-	Links         ServiceInstanceLinks `json:"links"`
+	CreatedAt     string                             `json:"created_at"`
+	UpdatedAt     string                             `json:"updated_at"`
+	Relationships map[string]model.ToOneRelationship `json:"relationships"`
+	Metadata      Metadata                           `json:"metadata"`
+	Links         ServiceInstanceLinks               `json:"links"`
 }
 
 type lastOperation struct {
@@ -61,15 +62,9 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 			State:       "succeeded",
 			Type:        lastOperationType,
 		},
-		CreatedAt: formatTimestamp(&serviceInstanceRecord.CreatedAt),
-		UpdatedAt: formatTimestamp(serviceInstanceRecord.UpdatedAt),
-		Relationships: Relationships{
-			"space": Relationship{
-				Data: &RelationshipData{
-					GUID: serviceInstanceRecord.SpaceGUID,
-				},
-			},
-		},
+		CreatedAt:     formatTimestamp(&serviceInstanceRecord.CreatedAt),
+		UpdatedAt:     formatTimestamp(serviceInstanceRecord.UpdatedAt),
+		Relationships: serviceInstanceRecord.Relationships(),
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(serviceInstanceRecord.Labels),
 			Annotations: emptyMapIfNil(serviceInstanceRecord.Annotations),

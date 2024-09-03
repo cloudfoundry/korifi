@@ -36,6 +36,12 @@ var _ = Describe("ServiceInstanceList", func() {
 				RelationshipPath: []string{"service_plan", "service_offering", "service_broker"},
 				Fields:           []string{"guid", "name"},
 			}}}),
+		Entry("fields[service_plan.service_offering]",
+			"fields[service_plan.service_offering]=guid,name,relationships.service_broker",
+			payloads.ServiceInstanceList{IncludeResourceRules: []params.IncludeResourceRule{{
+				RelationshipPath: []string{"service_plan", "service_offering"},
+				Fields:           []string{"guid", "name", "relationships.service_broker"},
+			}}}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceInstanceList{LabelSelector: "foo"}),
 	)
 
@@ -46,6 +52,7 @@ var _ = Describe("ServiceInstanceList", func() {
 		},
 		Entry("invalid order_by", "order_by=foo", "value must be one of"),
 		Entry("invalid fields", "fields[foo]=bar", "unsupported query parameter: fields[foo]"),
+		Entry("invalid service offering fields", "fields[service_plan.service_offering]=foo", "value must be one of"),
 		Entry("invalid service broker fields", "fields[service_plan.service_offering.service_broker]=foo", "value must be one of"),
 	)
 

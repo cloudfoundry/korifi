@@ -223,57 +223,74 @@ var _ = Describe("ServiceInstance", func() {
 			})
 		})
 
-		When("params to inlude fields[service_plan.service_offering.service_broker]", func() {
+		Describe("fields", func() {
 			BeforeEach(func() {
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{
-					IncludeResourceRules: []params.IncludeResourceRule{{
-						RelationshipPath: []string{"service_plan", "service_offering", "service_broker"},
-						Fields:           []string{"name", "guid"},
-					}},
+				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
+					ServiceOffering: services.ServiceOffering{
+						Name: "service-offering-name",
+					},
+					CFResource: model.CFResource{
+						GUID: "service-offering-guid",
+					},
+					ServiceBrokerGUID: "service-broker-guid",
+				}}, nil)
+
+				servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
+					ServicePlan: services.ServicePlan{
+						Name: "service-plan-name",
+					},
+					CFResource: model.CFResource{
+						GUID: "service-plan-guid",
+					},
+					ServiceOfferingGUID: "service-offering-guid",
+				}}, nil)
+
+				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
+					ServiceBroker: services.ServiceBroker{
+						Name: "service-broker-name",
+					},
+					CFResource: model.CFResource{
+						GUID: "service-broker-guid",
+					},
+				}}, nil)
+			})
+
+			When("params to inlude fields[service_plan.service_offering]", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"service_plan", "service_offering"},
+							Fields:           []string{"name", "guid", "relationships.service_broker"},
+						}},
+					})
+				})
+
+				It("does not include resources", func() {
+					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(Not(ContainSubstring("included"))))
+				})
+
+				When("the service instance is managed", func() {
+					BeforeEach(func() {
+						serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
+							{GUID: "service-inst-guid-1", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
+							{GUID: "service-inst-guid-2", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
+						}, nil)
+					})
+
+					It("includes offering fields in the response", func() {
+						Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+						Expect(rr).To(HaveHTTPBody(SatisfyAll(
+							MatchJSONPath("$.included.service_offerings[0].guid", "service-offering-guid"),
+							MatchJSONPath("$.included.service_offerings[0].name", "service-offering-name"),
+							MatchJSONPath("$.included.service_offerings[0].relationships.service_broker.data.guid", "service-broker-guid"),
+						)))
+					})
 				})
 			})
 
-			It("does not include resources", func() {
-				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
-				Expect(rr).To(HaveHTTPBody(Not(ContainSubstring("included"))))
-			})
-
-			When("the service instance is managed", func() {
+			When("params to inlude fields[service_plan.service_offering.service_broker]", func() {
 				BeforeEach(func() {
-					serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
-						{GUID: "service-inst-guid-1", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
-						{GUID: "service-inst-guid-2", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
-					}, nil)
-
-					serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-						ServiceBroker: services.ServiceBroker{
-							Name: "service-broker-name",
-						},
-						CFResource: model.CFResource{
-							GUID: "service-broker-guid",
-						},
-					}}, nil)
-
-					serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-						ServiceOffering: services.ServiceOffering{
-							Name: "service-offering-name",
-						},
-						CFResource: model.CFResource{
-							GUID: "service-offering-guid",
-						},
-						ServiceBrokerGUID: "service-broker-guid",
-					}}, nil)
-
-					servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
-						ServicePlan: services.ServicePlan{
-							Name: "service-plan-name",
-						},
-						CFResource: model.CFResource{
-							GUID: "service-plan-guid",
-						},
-						ServiceOfferingGUID: "service-offering-guid",
-					}}, nil)
-
 					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{
 						IncludeResourceRules: []params.IncludeResourceRule{{
 							RelationshipPath: []string{"service_plan", "service_offering", "service_broker"},
@@ -282,12 +299,26 @@ var _ = Describe("ServiceInstance", func() {
 					})
 				})
 
-				It("includes broker fields in the response", func() {
+				It("does not include resources", func() {
 					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
-					Expect(rr).To(HaveHTTPBody(SatisfyAll(
-						MatchJSONPath("$.included.service_brokers[0].guid", "service-broker-guid"),
-						MatchJSONPath("$.included.service_brokers[0].name", "service-broker-name"),
-					)))
+					Expect(rr).To(HaveHTTPBody(Not(ContainSubstring("included"))))
+				})
+
+				When("the service instance is managed", func() {
+					BeforeEach(func() {
+						serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
+							{GUID: "service-inst-guid-1", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
+							{GUID: "service-inst-guid-2", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
+						}, nil)
+					})
+
+					It("includes broker fields in the response", func() {
+						Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+						Expect(rr).To(HaveHTTPBody(SatisfyAll(
+							MatchJSONPath("$.included.service_brokers[0].guid", "service-broker-guid"),
+							MatchJSONPath("$.included.service_brokers[0].name", "service-broker-name"),
+						)))
+					})
 				})
 			})
 		})
