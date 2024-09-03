@@ -19,8 +19,8 @@ type Foo struct {
 	GUID string `json:"guid"`
 }
 
-func (t Foo) Relationships() map[string]model.ToOneRelationship {
-	return map[string]model.ToOneRelationship{}
+func (t Foo) Relationships() map[string]string {
+	return nil
 }
 
 type Bar struct {
@@ -28,8 +28,8 @@ type Bar struct {
 	GUID string `json:"guid"`
 }
 
-func (t Bar) Relationships() map[string]model.ToOneRelationship {
-	return map[string]model.ToOneRelationship{}
+func (t Bar) Relationships() map[string]string {
+	return nil
 }
 
 var _ = Describe("ResolveIncludes", func() {
@@ -55,8 +55,8 @@ var _ = Describe("ResolveIncludes", func() {
 		relationshipsRepo = new(fake.ResourceRelationshipRepository)
 		resourcePresenter = new(fake.ResourcePresenter)
 		resourcePresenter.PresentResourceReturns(map[string]string{
-			"presented-field1": "present1",
-			"presented-field2": "present2",
+			"presented_field1": "present1",
+			"presented_field2": "present2",
 		})
 
 		resolver = include.NewIncludeResolver[[]Foo](relationshipsRepo, resourcePresenter)
@@ -104,8 +104,8 @@ var _ = Describe("ResolveIncludes", func() {
 				model.IncludedResource{
 					Type: "bars",
 					Resource: map[string]any{
-						"presented-field1": "present1",
-						"presented-field2": "present2",
+						"presented_field1": "present1",
+						"presented_field2": "present2",
 					},
 				},
 			))
@@ -115,7 +115,7 @@ var _ = Describe("ResolveIncludes", func() {
 			BeforeEach(func() {
 				rules = []params.IncludeResourceRule{{
 					RelationshipPath: []string{"bar"},
-					Fields:           []string{"presented-field2"},
+					Fields:           []string{"presented_field2"},
 				}}
 			})
 
@@ -125,7 +125,7 @@ var _ = Describe("ResolveIncludes", func() {
 					model.IncludedResource{
 						Type: "bars",
 						Resource: map[string]any{
-							"presented-field2": "present2",
+							"presented_field2": "present2",
 						},
 					},
 				))
@@ -136,7 +136,7 @@ var _ = Describe("ResolveIncludes", func() {
 			BeforeEach(func() {
 				rules = []params.IncludeResourceRule{{
 					RelationshipPath: []string{"foo", "bar"},
-					Fields:           []string{"name"},
+					Fields:           []string{"presented_field1"},
 				}}
 
 				relationshipsRepo.ListRelatedResourcesReturns([]relationships.Resource{

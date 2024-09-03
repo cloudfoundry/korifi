@@ -171,4 +171,18 @@ var _ = Describe("Shared", func() {
 			})
 		})
 	})
+
+	Describe("ForRelationships", func() {
+		It("presents relationships", func() {
+			Expect(presenter.ForRelationships(map[string]string{
+				"foo": "bar",
+			})).To(Equal(map[string]model.ToOneRelationship{
+				"foo": {
+					Data: model.Relationship{
+						GUID: "bar",
+					},
+				},
+			}))
+		})
+	})
 })

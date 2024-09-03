@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -569,12 +568,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(record.Type).To(Equal(string(serviceInstance.Spec.Type)))
 				Expect(record.Labels).To(Equal(map[string]string{"a-label": "a-label-value"}))
 				Expect(record.Annotations).To(Equal(map[string]string{"an-annotation": "an-annotation-value"}))
-				Expect(record.Relationships()).To(Equal(map[string]model.ToOneRelationship{
-					"space": {
-						Data: model.Relationship{
-							GUID: serviceInstance.Namespace,
-						},
-					},
+				Expect(record.Relationships()).To(Equal(map[string]string{
+					"space": serviceInstance.Namespace,
 				}))
 			})
 
@@ -588,17 +583,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 				It("returns service plan relationships for user provided provided services", func() {
 					Expect(getErr).NotTo(HaveOccurred())
-					Expect(record.Relationships()).To(Equal(map[string]model.ToOneRelationship{
-						"space": {
-							Data: model.Relationship{
-								GUID: serviceInstance.Namespace,
-							},
-						},
-						"service_plan": {
-							Data: model.Relationship{
-								GUID: "plan-guid",
-							},
-						},
+					Expect(record.Relationships()).To(Equal(map[string]string{
+						"space":        serviceInstance.Namespace,
+						"service_plan": "plan-guid",
 					}))
 				})
 			})

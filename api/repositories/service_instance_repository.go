@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -120,20 +119,12 @@ type ServiceInstanceRecord struct {
 	UpdatedAt   *time.Time
 }
 
-func (r ServiceInstanceRecord) Relationships() map[string]model.ToOneRelationship {
-	relationships := map[string]model.ToOneRelationship{
-		"space": {
-			Data: model.Relationship{
-				GUID: r.SpaceGUID,
-			},
-		},
+func (r ServiceInstanceRecord) Relationships() map[string]string {
+	relationships := map[string]string{
+		"space": r.SpaceGUID,
 	}
 	if r.Type == korifiv1alpha1.ManagedType {
-		relationships["service_plan"] = model.ToOneRelationship{
-			Data: model.Relationship{
-				GUID: r.PlanGUID,
-			},
-		}
+		relationships["service_plan"] = r.PlanGUID
 	}
 
 	return relationships

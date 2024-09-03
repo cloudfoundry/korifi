@@ -29,12 +29,8 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		resourceType = "foo"
 		inputResource = new(fake.Resource)
 		inputResources = []relationships.Resource{inputResource}
-		inputResource.RelationshipsReturns(map[string]model.ToOneRelationship{
-			"foo": {
-				Data: model.Relationship{
-					GUID: "foo-guid",
-				},
-			},
+		inputResource.RelationshipsReturns(map[string]string{
+			"foo": "foo-guid",
 		})
 
 		serviceOfferingRepo = new(fake.ServiceOfferingRepository)
@@ -72,12 +68,8 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		BeforeEach(func() {
 			resourceType = "service_offering"
 
-			inputResource.RelationshipsReturns(map[string]model.ToOneRelationship{
-				"service_offering": {
-					Data: model.Relationship{
-						GUID: "service-offering-guid",
-					},
-				},
+			inputResource.RelationshipsReturns(map[string]string{
+				"service_offering": "service-offering-guid",
 			})
 
 			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
@@ -121,12 +113,8 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		BeforeEach(func() {
 			resourceType = "service_broker"
 
-			inputResource.RelationshipsReturns(map[string]model.ToOneRelationship{
-				"service_broker": {
-					Data: model.Relationship{
-						GUID: "service-broker-guid",
-					},
-				},
+			inputResource.RelationshipsReturns(map[string]string{
+				"service_broker": "service-broker-guid",
 			})
 
 			serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
@@ -170,12 +158,8 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		BeforeEach(func() {
 			resourceType = "service_plan"
 
-			inputResource.RelationshipsReturns(map[string]model.ToOneRelationship{
-				"service_plan": {
-					Data: model.Relationship{
-						GUID: "service-plan-guid",
-					},
-				},
+			inputResource.RelationshipsReturns(map[string]string{
+				"service_plan": "service-plan-guid",
 			})
 
 			servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{

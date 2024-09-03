@@ -30,13 +30,9 @@ type ServicePlanRecord struct {
 	Available           bool
 }
 
-func (r ServicePlanRecord) Relationships() map[string]model.ToOneRelationship {
-	return map[string]model.ToOneRelationship{
-		"service_offering": {
-			Data: model.Relationship{
-				GUID: r.ServiceOfferingGUID,
-			},
-		},
+func (r ServicePlanRecord) Relationships() map[string]string {
+	return map[string]string{
+		"service_offering": r.ServiceOfferingGUID,
 	}
 }
 

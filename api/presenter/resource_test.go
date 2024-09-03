@@ -9,12 +9,11 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
-	"code.cloudfoundry.org/korifi/model"
 )
 
 type unsupportedResource struct{}
 
-func (r *unsupportedResource) Relationships() map[string]model.ToOneRelationship {
+func (r *unsupportedResource) Relationships() map[string]string {
 	return nil
 }
 

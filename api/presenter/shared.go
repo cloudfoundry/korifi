@@ -1,11 +1,13 @@
 package presenter
 
 import (
+	"maps"
 	"net/url"
 	"path"
 	"time"
 
 	"code.cloudfoundry.org/korifi/model"
+	"github.com/BooleanCat/go-functional/v2/it"
 )
 
 type Lifecycle struct {
@@ -26,6 +28,16 @@ type Relationship struct {
 
 type RelationshipData struct {
 	GUID string `json:"guid"`
+}
+
+func ForRelationships(relationships map[string]string) map[string]model.ToOneRelationship {
+	return maps.Collect(it.Map2(maps.All(relationships), func(key, value string) (string, model.ToOneRelationship) {
+		return key, model.ToOneRelationship{
+			Data: model.Relationship{
+				GUID: value,
+			},
+		}
+	}))
 }
 
 type Metadata struct {
