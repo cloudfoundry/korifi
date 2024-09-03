@@ -32,6 +32,12 @@ type DeploymentRecord struct {
 	Status      DeploymentStatus
 }
 
+func (r DeploymentRecord) Relationships() map[string]string {
+	return map[string]string{
+		"app": r.GUID,
+	}
+}
+
 type DeploymentStatusValue string
 
 const (

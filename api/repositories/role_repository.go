@@ -65,6 +65,21 @@ type RoleRecord struct {
 	Kind      string
 }
 
+func (r RoleRecord) Relationships() map[string]string {
+	relationships := map[string]string{
+		"user": r.User,
+	}
+	if r.Org != "" {
+		relationships["organization"] = r.Org
+	}
+
+	if r.Space != "" {
+		relationships["space"] = r.Space
+	}
+
+	return relationships
+}
+
 func (r RoleRecord) GetResourceType() string {
 	return RoleResourceType
 }

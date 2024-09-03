@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
 )
 
 const (
@@ -20,11 +21,11 @@ type RouteResponse struct {
 	URL          string             `json:"url"`
 	Destinations []routeDestination `json:"destinations"`
 
-	CreatedAt     string        `json:"created_at"`
-	UpdatedAt     string        `json:"updated_at"`
-	Relationships Relationships `json:"relationships"`
-	Metadata      Metadata      `json:"metadata"`
-	Links         routeLinks    `json:"links"`
+	CreatedAt     string                             `json:"created_at"`
+	UpdatedAt     string                             `json:"updated_at"`
+	Relationships map[string]model.ToOneRelationship `json:"relationships"`
+	Metadata      Metadata                           `json:"metadata"`
+	Links         routeLinks                         `json:"links"`
 }
 
 type RouteDestinationsResponse struct {
@@ -67,26 +68,15 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
 		destinations = append(destinations, forDestination(destinationRecord))
 	}
 	return RouteResponse{
-		GUID:      route.GUID,
-		Protocol:  route.Protocol,
-		Host:      route.Host,
-		Path:      route.Path,
-		URL:       routeURL(route),
-		CreatedAt: formatTimestamp(&route.CreatedAt),
-		UpdatedAt: formatTimestamp(route.UpdatedAt),
-		Relationships: Relationships{
-			"space": Relationship{
-				Data: &RelationshipData{
-					GUID: route.SpaceGUID,
-				},
-			},
-			"domain": Relationship{
-				Data: &RelationshipData{
-					GUID: route.Domain.GUID,
-				},
-			},
-		},
-		Destinations: destinations,
+		GUID:          route.GUID,
+		Protocol:      route.Protocol,
+		Host:          route.Host,
+		Path:          route.Path,
+		URL:           routeURL(route),
+		CreatedAt:     formatTimestamp(&route.CreatedAt),
+		UpdatedAt:     formatTimestamp(route.UpdatedAt),
+		Relationships: ForRelationships(route.Relationships()),
+		Destinations:  destinations,
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(route.Labels),
 			Annotations: emptyMapIfNil(route.Annotations),

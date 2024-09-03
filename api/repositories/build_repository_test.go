@@ -172,6 +172,12 @@ var _ = Describe("BuildRepository", func() {
 					It("sets the space guid on the record", func() {
 						Expect(buildRecord.SpaceGUID).To(Equal(namespace2.Name))
 					})
+
+					It("returns record with relationships", func() {
+						Expect(buildRecord.Relationships()).To(Equal(map[string]string{
+							"app": build2.Spec.AppRef.Name,
+						}))
+					})
 				})
 
 				When("status.Conditions \"Staging\": False, \"Succeeded\": True, is set", func() {

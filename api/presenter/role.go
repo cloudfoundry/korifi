@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
 )
 
 const (
@@ -11,12 +12,12 @@ const (
 )
 
 type RoleResponse struct {
-	GUID          string        `json:"guid"`
-	CreatedAt     string        `json:"created_at"`
-	UpdatedAt     string        `json:"updated_at"`
-	Type          string        `json:"type"`
-	Relationships Relationships `json:"relationships"`
-	Links         RoleLinks     `json:"links"`
+	GUID          string                             `json:"guid"`
+	CreatedAt     string                             `json:"created_at"`
+	UpdatedAt     string                             `json:"updated_at"`
+	Type          string                             `json:"type"`
+	Relationships map[string]model.ToOneRelationship `json:"relationships"`
+	Links         RoleLinks                          `json:"links"`
 }
 
 type RoleLinks struct {
@@ -28,15 +29,11 @@ type RoleLinks struct {
 
 func ForRole(role repositories.RoleRecord, apiBaseURL url.URL) RoleResponse {
 	resp := RoleResponse{
-		GUID:      role.GUID,
-		CreatedAt: formatTimestamp(&role.CreatedAt),
-		UpdatedAt: formatTimestamp(role.UpdatedAt),
-		Type:      role.Type,
-		Relationships: Relationships{
-			"user":         Relationship{Data: &RelationshipData{GUID: role.User}},
-			"space":        Relationship{Data: nil},
-			"organization": Relationship{Data: nil},
-		},
+		GUID:          role.GUID,
+		CreatedAt:     formatTimestamp(&role.CreatedAt),
+		UpdatedAt:     formatTimestamp(role.UpdatedAt),
+		Type:          role.Type,
+		Relationships: ForRelationships(role.Relationships()),
 		Links: RoleLinks{
 			Self: &Link{
 				HRef: buildURL(apiBaseURL).appendPath(rolesBase, role.GUID).build(),
@@ -48,14 +45,12 @@ func ForRole(role repositories.RoleRecord, apiBaseURL url.URL) RoleResponse {
 	}
 
 	if role.Org != "" {
-		resp.Relationships["organization"] = Relationship{Data: &RelationshipData{GUID: role.Org}}
 		resp.Links.Organization = &Link{
 			HRef: buildURL(apiBaseURL).appendPath(orgsBase, role.Org).build(),
 		}
 	}
 
 	if role.Space != "" {
-		resp.Relationships["space"] = Relationship{Data: &RelationshipData{GUID: role.Space}}
 		resp.Links.Space = &Link{
 			HRef: buildURL(apiBaseURL).appendPath(spacesBase, role.Space).build(),
 		}

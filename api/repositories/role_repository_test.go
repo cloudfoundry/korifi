@@ -635,6 +635,11 @@ var _ = Describe("RoleRepository", func() {
 					User:      "bob",
 					Kind:      "User",
 				}))
+
+				Expect(roleRecord.Relationships()).To(Equal(map[string]string{
+					"user":         "bob",
+					"organization": cfOrg.Name,
+				}))
 			})
 
 			When("the role does not exist", func() {

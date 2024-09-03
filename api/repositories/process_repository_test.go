@@ -79,6 +79,10 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(processRecord.HealthCheck.Data.InvocationTimeoutSeconds).To(Equal(cfProcess1.Spec.HealthCheck.Data.InvocationTimeoutSeconds))
 				Expect(processRecord.HealthCheck.Data.TimeoutSeconds).To(Equal(cfProcess1.Spec.HealthCheck.Data.TimeoutSeconds))
 				Expect(processRecord.HealthCheck.Data.HTTPEndpoint).To(Equal(cfProcess1.Spec.HealthCheck.Data.HTTPEndpoint))
+
+				Expect(processRecord.Relationships()).To(Equal(map[string]string{
+					"app": app1GUID,
+				}))
 			})
 		})
 

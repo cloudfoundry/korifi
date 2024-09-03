@@ -69,6 +69,12 @@ type SpaceRecord struct {
 	DeletedAt        *time.Time
 }
 
+func (r SpaceRecord) Relationships() map[string]string {
+	return map[string]string{
+		"organization": r.OrganizationGUID,
+	}
+}
+
 type SpaceRepo struct {
 	orgRepo            *OrgRepo
 	namespaceRetriever NamespaceRetriever

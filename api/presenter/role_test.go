@@ -53,12 +53,6 @@ var _ = Describe("Role", func() {
 					"data":{
 						"guid": "the-user"
 					}
-				},
-				"space": {
-					"data": null
-				},
-				"organization": {
-					"data": null
 				}
 			},
 			"links": {

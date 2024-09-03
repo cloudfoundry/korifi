@@ -47,6 +47,12 @@ type BuildRecord struct {
 	ImageRef        string
 }
 
+func (r BuildRecord) Relationships() map[string]string {
+	return map[string]string{
+		"app": r.AppGUID,
+	}
+}
+
 type BuildRepo struct {
 	namespaceRetriever NamespaceRetriever
 	userClientFactory  authorization.UserK8sClientFactory

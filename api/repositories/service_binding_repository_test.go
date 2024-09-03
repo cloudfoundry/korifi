@@ -139,6 +139,11 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(serviceBindingRecord.LastOperation.CreatedAt).To(Equal(serviceBindingRecord.CreatedAt))
 				Expect(serviceBindingRecord.LastOperation.UpdatedAt).To(Equal(serviceBindingRecord.UpdatedAt))
 
+				Expect(serviceBindingRecord.Relationships()).To(Equal(map[string]string{
+					"app":              appGUID,
+					"service_instance": serviceInstanceGUID,
+				}))
+
 				serviceBinding := new(korifiv1alpha1.CFServiceBinding)
 				Expect(
 					k8sClient.Get(testCtx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),

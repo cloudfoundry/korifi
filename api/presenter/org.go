@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
 )
 
 const (
@@ -15,12 +16,12 @@ type OrgResponse struct {
 	Name string `json:"name"`
 	GUID string `json:"guid"`
 
-	CreatedAt     string        `json:"created_at"`
-	UpdatedAt     string        `json:"updated_at"`
-	Suspended     bool          `json:"suspended"`
-	Relationships Relationships `json:"relationships"`
-	Metadata      Metadata      `json:"metadata"`
-	Links         OrgLinks      `json:"links"`
+	CreatedAt     string                             `json:"created_at"`
+	UpdatedAt     string                             `json:"updated_at"`
+	Suspended     bool                               `json:"suspended"`
+	Relationships map[string]model.ToOneRelationship `json:"relationships,omitempty"`
+	Metadata      Metadata                           `json:"metadata"`
+	Links         OrgLinks                           `json:"links"`
 }
 
 type OrgLinks struct {
@@ -41,7 +42,6 @@ func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
 			Labels:      emptyMapIfNil(org.Labels),
 			Annotations: emptyMapIfNil(org.Annotations),
 		},
-		Relationships: Relationships{},
 		Links: OrgLinks{
 			Self: &Link{
 				HRef: buildURL(apiBaseURL).appendPath(orgsBase, org.GUID).build(),

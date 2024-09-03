@@ -62,6 +62,12 @@ type DropletRecord struct {
 	Ports           []int32
 }
 
+func (r DropletRecord) Relationships() map[string]string {
+	return map[string]string{
+		"app": r.AppGUID,
+	}
+}
+
 type ListDropletsMessage struct {
 	PackageGUIDs []string
 }

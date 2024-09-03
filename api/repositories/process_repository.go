@@ -52,6 +52,12 @@ type ProcessRecord struct {
 	UpdatedAt        *time.Time
 }
 
+func (r ProcessRecord) Relationships() map[string]string {
+	return map[string]string{
+		"app": r.AppGUID,
+	}
+}
+
 func (r ProcessRecord) GetResourceType() string {
 	return ProcessResourceType
 }

@@ -116,6 +116,11 @@ var _ = Describe("RouteRepository", func() {
 				Expect(route.Path).To(Equal(cfRoute.Spec.Path))
 				Expect(route.Protocol).To(Equal(string(cfRoute.Spec.Protocol)))
 
+				Expect(route.Relationships()).To(Equal(map[string]string{
+					"space":  cfRoute.Namespace,
+					"domain": domainGUID,
+				}))
+
 				By("returning a record with destinations that match the CFRoute CR", func() {
 					Expect(route.Destinations).To(HaveLen(len(cfRoute.Spec.Destinations)), "Route Record Destinations returned was not the correct length")
 					destinationRecord := route.Destinations[0]

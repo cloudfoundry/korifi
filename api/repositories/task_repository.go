@@ -51,6 +51,12 @@ type TaskRecord struct {
 	FailureReason string
 }
 
+func (t TaskRecord) Relationships() map[string]string {
+	return map[string]string{
+		"app": t.AppGUID,
+	}
+}
+
 type CreateTaskMessage struct {
 	Command   string
 	SpaceGUID string

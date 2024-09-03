@@ -83,6 +83,12 @@ type PackageRecord struct {
 	ImageRef    string
 }
 
+func (r PackageRecord) Relationships() map[string]string {
+	return map[string]string{
+		"app": r.AppGUID,
+	}
+}
+
 type ListPackagesMessage struct {
 	GUIDs    []string
 	AppGUIDs []string

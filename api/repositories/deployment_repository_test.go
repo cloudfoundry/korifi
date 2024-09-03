@@ -81,6 +81,10 @@ var _ = Describe("DeploymentRepository", func() {
 				Expect(deployment.Status.Reason).To(Equal(repositories.DeploymentStatusReasonDeploying))
 				Expect(deployment.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 				Expect(deployment.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+
+				Expect(deployment.Relationships()).To(Equal(map[string]string{
+					"app": cfApp.Name,
+				}))
 			})
 
 			When("the app is ready", func() {

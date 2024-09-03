@@ -20,14 +20,8 @@ type LifecycleData struct {
 	Stack      string   `json:"stack,omitempty"`
 }
 
-type Relationships map[string]Relationship
-
-type Relationship struct {
-	Data *RelationshipData `json:"data"`
-}
-
 type RelationshipData struct {
-	GUID string `json:"guid"`
+	GUID string `json:"guid,omitempty"`
 }
 
 func ForRelationships(relationships map[string]string) map[string]model.ToOneRelationship {
