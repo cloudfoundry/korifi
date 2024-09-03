@@ -121,17 +121,22 @@ type ServiceInstanceRecord struct {
 }
 
 func (r ServiceInstanceRecord) Relationships() map[string]model.ToOneRelationship {
+	relationships := map[string]model.ToOneRelationship{
+		"space": {
+			Data: model.Relationship{
+				GUID: r.SpaceGUID,
+			},
+		},
+	}
 	if r.Type == korifiv1alpha1.ManagedType {
-		return map[string]model.ToOneRelationship{
-			"service_plan": {
-				Data: model.Relationship{
-					GUID: r.PlanGUID,
-				},
+		relationships["service_plan"] = model.ToOneRelationship{
+			Data: model.Relationship{
+				GUID: r.PlanGUID,
 			},
 		}
 	}
 
-	return nil
+	return relationships
 }
 
 func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateServiceInstanceMessage) (ServiceInstanceRecord, error) {

@@ -31,10 +31,11 @@ var _ = Describe("IncludedResource", func() {
 		}
 	})
 
-	Describe("SelectJSONFields", func() {
+	Describe("SelectJSONPaths", func() {
 		var (
 			resourceWithFields model.IncludedResource
 			fields             []string
+			err                error
 		)
 
 		BeforeEach(func() {
@@ -42,12 +43,11 @@ var _ = Describe("IncludedResource", func() {
 		})
 
 		JustBeforeEach(func() {
-			var err error
-			resourceWithFields, err = resource.SelectJSONFields(fields...)
-			Expect(err).NotTo(HaveOccurred())
+			resourceWithFields, err = resource.SelectJSONPaths(fields...)
 		})
 
 		It("returns a resource with all fields", func() {
+			Expect(err).NotTo(HaveOccurred())
 			Expect(resourceWithFields).To(MatchAllFields(Fields{
 				"Type": Equal("my-resource-type"),
 				"Resource": MatchAllKeys(Keys{
@@ -66,12 +66,41 @@ var _ = Describe("IncludedResource", func() {
 			})
 
 			It("returns a resource with selected fields only", func() {
+				Expect(err).NotTo(HaveOccurred())
 				Expect(resourceWithFields).To(MatchAllFields(Fields{
 					"Type": Equal("my-resource-type"),
 					"Resource": MatchAllKeys(Keys{
 						"int_field": BeEquivalentTo(5),
 					}),
 				}))
+			})
+		})
+
+		When("nested fields are selected", func() {
+			BeforeEach(func() {
+				fields = []string{"struct_field.foo"}
+			})
+
+			It("returns a resource with selected fields only", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resourceWithFields).To(MatchAllFields(Fields{
+					"Type": Equal("my-resource-type"),
+					"Resource": MatchAllKeys(Keys{
+						"struct_field": MatchAllKeys(Keys{
+							"foo": Equal("bar"),
+						}),
+					}),
+				}))
+			})
+		})
+
+		When("selected field does not exist", func() {
+			BeforeEach(func() {
+				fields = []string{"i_do_not_exist"}
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("unknown key i_do_not_exist")))
 			})
 		})
 	})

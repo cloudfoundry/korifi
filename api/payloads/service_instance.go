@@ -148,11 +148,25 @@ func (l ServiceInstanceList) Validate() error {
 				return fmt.Errorf("%T is not supported, IncludeResourceRule is expected", value)
 			}
 
-			if strings.Join(rule.RelationshipPath, ".") != "service_plan.service_offering.service_broker" {
-				return jellidation.NewError("invalid_fields_param", "must be fields[service_plan.service_offering.service_broker]")
+			relationshipsPath := strings.Join(rule.RelationshipPath, ".")
+			switch relationshipsPath {
+			case "service_plan.service_offering":
+				return jellidation.Each(validation.OneOf(
+					"guid",
+					"name",
+					"relationships.service_broker",
+				)).Validate(rule.Fields)
+			case "service_plan.service_offering.service_broker":
+				return jellidation.Each(validation.OneOf(
+					"guid",
+					"name",
+				)).Validate(rule.Fields)
 			}
 
-			return jellidation.Each(validation.OneOf("guid", "name")).Validate(rule.Fields)
+			return validation.OneOf(
+				"service_plan.service_offering",
+				"service_plan.service_offering.service_broker",
+			).Validate(relationshipsPath)
 		}))),
 	)
 }
@@ -167,7 +181,15 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 }
 
 func (l *ServiceInstanceList) SupportedKeys() []string {
-	return []string{"names", "space_guids", "guids", "order_by", "label_selector", "fields[service_plan.service_offering.service_broker]"}
+	return []string{
+		"names",
+		"space_guids",
+		"guids",
+		"order_by",
+		"label_selector",
+		"fields[service_plan.service_offering]",
+		"fields[service_plan.service_offering.service_broker]",
+	}
 }
 
 func (l *ServiceInstanceList) IgnoredKeys() []*regexp.Regexp {
