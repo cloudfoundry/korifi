@@ -60,6 +60,7 @@ spec:
                 type: string
               desiredInstances:
                 description: The desired number of replicas to deploy
+                format: int32
                 type: integer
               detectedCommand:
                 description: The default command for this process as defined by the
@@ -81,10 +82,10 @@ spec:
                         description: The http endpoint to use with "http" healthchecks
                         type: string
                       invocationTimeoutSeconds:
-                        format: int64
+                        format: int32
                         type: integer
                       timeoutSeconds:
-                        format: int64
+                        format: int32
                         type: integer
                     required:
                     - invocationTimeoutSeconds

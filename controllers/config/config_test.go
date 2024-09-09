@@ -33,7 +33,7 @@ var _ = Describe("LoadFromPath", func() {
 			CFProcessDefaults: config.CFProcessDefaults{
 				MemoryMB:    1024,
 				DiskQuotaMB: 512,
-				Timeout:     tools.PtrTo(int64(30)),
+				Timeout:     tools.PtrTo(int32(30)),
 			},
 			CFStagingResources: config.CFStagingResources{
 				BuildCacheMB: 1024,
@@ -47,7 +47,7 @@ var _ = Describe("LoadFromPath", func() {
 			RunnerName:                       "statefulset-runner",
 			JobTTL:                           "jobTTL",
 			LogLevel:                         zapcore.DebugLevel,
-			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
+			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int32(42)),
 			Networking: config.Networking{
 				GatewayName:      "gw-name",
 				GatewayNamespace: "gw-ns",
@@ -75,7 +75,7 @@ var _ = Describe("LoadFromPath", func() {
 			CFProcessDefaults: config.CFProcessDefaults{
 				MemoryMB:    1024,
 				DiskQuotaMB: 512,
-				Timeout:     tools.PtrTo(int64(30)),
+				Timeout:     tools.PtrTo(int32(30)),
 			},
 			CFStagingResources: config.CFStagingResources{
 				BuildCacheMB: 1024,
@@ -91,7 +91,7 @@ var _ = Describe("LoadFromPath", func() {
 			ExtraVCAPApplicationValues:       map[string]any{},
 			JobTTL:                           "jobTTL",
 			LogLevel:                         zapcore.DebugLevel,
-			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int64(42)),
+			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int32(42)),
 			Networking: config.Networking{
 				GatewayName:      "gw-name",
 				GatewayNamespace: "gw-ns",
@@ -107,7 +107,7 @@ var _ = Describe("LoadFromPath", func() {
 		})
 
 		It("uses the default", func() {
-			Expect(retConfig.CFProcessDefaults.Timeout).To(gstruct.PointTo(Equal(int64(60))))
+			Expect(retConfig.CFProcessDefaults.Timeout).To(gstruct.PointTo(BeEquivalentTo(60)))
 		})
 	})
 
@@ -127,7 +127,7 @@ var _ = Describe("LoadFromPath", func() {
 		})
 
 		It("uses the default", func() {
-			Expect(retConfig.SpaceFinalizerAppDeletionTimeout).To(gstruct.PointTo(Equal(int64(60))))
+			Expect(retConfig.SpaceFinalizerAppDeletionTimeout).To(gstruct.PointTo(BeEquivalentTo(60)))
 		})
 	})
 

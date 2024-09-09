@@ -9,7 +9,7 @@ import (
 )
 
 type ProcessScale struct {
-	Instances *int   `json:"instances"`
+	Instances *int32 `json:"instances"`
 	MemoryMB  *int64 `json:"memory_in_mb"`
 	DiskMB    *int64 `json:"disk_in_mb"`
 }
@@ -34,9 +34,9 @@ type HealthCheck struct {
 }
 
 type Data struct {
-	Timeout           *int64  `json:"timeout"`
+	Timeout           *int32  `json:"timeout"`
 	Endpoint          *string `json:"endpoint"`
-	InvocationTimeout *int64  `json:"invocation_timeout"`
+	InvocationTimeout *int32  `json:"invocation_timeout"`
 }
 
 func (p ProcessScale) ToRecord() repositories.ProcessScaleValues {

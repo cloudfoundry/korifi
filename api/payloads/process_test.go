@@ -37,7 +37,7 @@ var _ = Describe("Process payload validation", func() {
 
 		BeforeEach(func() {
 			payload = payloads.ProcessScale{
-				Instances: tools.PtrTo(1),
+				Instances: tools.PtrTo[int32](1),
 				MemoryMB:  tools.PtrTo[int64](2),
 				DiskMB:    tools.PtrTo[int64](3),
 			}
@@ -56,7 +56,7 @@ var _ = Describe("Process payload validation", func() {
 
 		When("instances is negative", func() {
 			BeforeEach(func() {
-				payload.Instances = tools.PtrTo(-1)
+				payload.Instances = tools.PtrTo[int32](-1)
 			})
 
 			It("returns an error", func() {

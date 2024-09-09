@@ -26,7 +26,7 @@ var _ = Describe("FromRoutes", func() {
 			Status: korifiv1alpha1.CFRouteStatus{
 				Destinations: []korifiv1alpha1.Destination{{
 					GUID: "dest-guid",
-					Port: tools.PtrTo(9876),
+					Port: tools.PtrTo[int32](9876),
 					AppRef: corev1.LocalObjectReference{
 						Name: "my-app",
 					},
@@ -53,7 +53,7 @@ var _ = Describe("FromRoutes", func() {
 				Status: korifiv1alpha1.CFRouteStatus{
 					Destinations: []korifiv1alpha1.Destination{{
 						GUID: "dest-guid",
-						Port: tools.PtrTo(1234),
+						Port: tools.PtrTo[int32](1234),
 						AppRef: corev1.LocalObjectReference{
 							Name: "my-app",
 						},

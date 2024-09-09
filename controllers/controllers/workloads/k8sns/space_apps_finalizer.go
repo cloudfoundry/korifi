@@ -17,12 +17,12 @@ import (
 
 type SpaceAppsFinalizer struct {
 	client             client.Client
-	appDeletionTimeout int64
+	appDeletionTimeout int32
 }
 
 func NewSpaceAppsFinalizer(
 	client client.Client,
-	appDeletionTimeout int64,
+	appDeletionTimeout int32,
 ) *SpaceAppsFinalizer {
 	return &SpaceAppsFinalizer{
 		client:             client,

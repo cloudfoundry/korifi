@@ -221,7 +221,7 @@ var _ = Describe("ProcessRepo", func() {
 			cfProcess           *korifiv1alpha1.CFProcess
 			scaleProcessMessage *repositories.ScaleProcessMessage
 
-			instanceScale int
+			instanceScale int32
 			diskScaleMB   int64
 			memoryScaleMB int64
 		)
@@ -252,7 +252,7 @@ var _ = Describe("ProcessRepo", func() {
 			})
 
 			DescribeTable("calling ScaleProcess with a set of scale values returns an updated CFProcess record",
-				func(instances *int, diskMB, memoryMB *int64) {
+				func(instances *int32, diskMB, memoryMB *int64) {
 					scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{
 						Instances: instances,
 						DiskMB:    diskMB,
@@ -306,16 +306,16 @@ var _ = Describe("ProcessRepo", func() {
 
 			When("scaling down a process to 0 instances", func() {
 				It("works", func() {
-					scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{Instances: tools.PtrTo(0)}
+					scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{Instances: tools.PtrTo[int32](0)}
 					scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(context.Background(), authInfo, *scaleProcessMessage)
 					Expect(scaleProcessErr).ToNot(HaveOccurred())
 
-					Expect(scaleProcessRecord.DesiredInstances).To(Equal(0))
+					Expect(scaleProcessRecord.DesiredInstances).To(BeZero())
 
 					var updatedCFProcess korifiv1alpha1.CFProcess
 					Expect(k8sClient.Get(ctx, client.ObjectKey{Name: process1GUID, Namespace: space1.Name}, &updatedCFProcess)).To(Succeed())
 
-					Expect(updatedCFProcess.Spec.DesiredInstances).To(PointTo(Equal(0)))
+					Expect(updatedCFProcess.Spec.DesiredInstances).To(PointTo(BeZero()))
 				})
 			})
 
@@ -346,7 +346,7 @@ var _ = Describe("ProcessRepo", func() {
 						TimeoutSeconds:           10,
 					},
 				},
-				DesiredInstances: tools.PtrTo(42),
+				DesiredInstances: tools.PtrTo[int32](42),
 				MemoryMB:         456,
 			})
 		})
@@ -377,7 +377,7 @@ var _ = Describe("ProcessRepo", func() {
 							TimeoutSeconds:           10,
 						},
 					},
-					DesiredInstances: tools.PtrTo(42),
+					DesiredInstances: tools.PtrTo[int32](42),
 					MemoryMB:         456,
 					DiskQuotaMB:      123,
 				}))
@@ -476,7 +476,7 @@ var _ = Describe("ProcessRepo", func() {
 								TimeoutSeconds:           2,
 							},
 						},
-						DesiredInstances: tools.PtrTo(1),
+						DesiredInstances: tools.PtrTo[int32](1),
 						MemoryMB:         2,
 						DiskQuotaMB:      3,
 					},
@@ -493,9 +493,9 @@ var _ = Describe("ProcessRepo", func() {
 						Command:                             tools.PtrTo("start-web"),
 						HealthCheckType:                     tools.PtrTo("http"),
 						HealthCheckHTTPEndpoint:             tools.PtrTo("/healthz"),
-						HealthCheckInvocationTimeoutSeconds: tools.PtrTo(int64(20)),
-						HealthCheckTimeoutSeconds:           tools.PtrTo(int64(10)),
-						DesiredInstances:                    tools.PtrTo(42),
+						HealthCheckInvocationTimeoutSeconds: tools.PtrTo(int32(20)),
+						HealthCheckTimeoutSeconds:           tools.PtrTo(int32(10)),
+						DesiredInstances:                    tools.PtrTo[int32](42),
 						MemoryMB:                            tools.PtrTo(int64(456)),
 						DiskQuotaMB:                         tools.PtrTo(int64(123)),
 					}
@@ -521,9 +521,9 @@ var _ = Describe("ProcessRepo", func() {
 							Command:                             tools.PtrTo("start-web"),
 							HealthCheckType:                     tools.PtrTo("http"),
 							HealthCheckHTTPEndpoint:             tools.PtrTo("/healthz"),
-							HealthCheckInvocationTimeoutSeconds: tools.PtrTo(int64(20)),
-							HealthCheckTimeoutSeconds:           tools.PtrTo(int64(10)),
-							DesiredInstances:                    tools.PtrTo(42),
+							HealthCheckInvocationTimeoutSeconds: tools.PtrTo(int32(20)),
+							HealthCheckTimeoutSeconds:           tools.PtrTo(int32(10)),
+							DesiredInstances:                    tools.PtrTo[int32](42),
 							MemoryMB:                            tools.PtrTo(int64(456)),
 							DiskQuotaMB:                         tools.PtrTo(int64(123)),
 							MetadataPatch: &repositories.MetadataPatch{
@@ -563,7 +563,7 @@ var _ = Describe("ProcessRepo", func() {
 									TimeoutSeconds:           10,
 								},
 							},
-							DesiredInstances: tools.PtrTo(42),
+							DesiredInstances: tools.PtrTo[int32](42),
 							MemoryMB:         456,
 							DiskQuotaMB:      123,
 						}))
@@ -578,8 +578,8 @@ var _ = Describe("ProcessRepo", func() {
 							ProcessGUID:               process1GUID,
 							SpaceGUID:                 space.Name,
 							Command:                   tools.PtrTo("new-command"),
-							HealthCheckTimeoutSeconds: tools.PtrTo(int64(42)),
-							DesiredInstances:          tools.PtrTo(5),
+							HealthCheckTimeoutSeconds: tools.PtrTo(int32(42)),
+							DesiredInstances:          tools.PtrTo[int32](5),
 							MemoryMB:                  tools.PtrTo(int64(123)),
 						}
 					})
@@ -612,7 +612,7 @@ var _ = Describe("ProcessRepo", func() {
 									TimeoutSeconds:           42,
 								},
 							},
-							DesiredInstances: tools.PtrTo(5),
+							DesiredInstances: tools.PtrTo[int32](5),
 							MemoryMB:         123,
 							DiskQuotaMB:      3,
 						}))

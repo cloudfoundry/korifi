@@ -133,7 +133,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 						Name: cfApp.Name,
 					},
 					ProcessType: "web",
-					Port:        tools.PtrTo(80),
+					Port:        tools.PtrTo[int32](80),
 				},
 			}
 		})
@@ -238,7 +238,7 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), cfRoute)).To(Succeed())
 				g.Expect(cfRoute.Status.Destinations).To(ConsistOf(korifiv1alpha1.Destination{
 					GUID:        cfRoute.Spec.Destinations[0].GUID,
-					Port:        tools.PtrTo(80),
+					Port:        tools.PtrTo[int32](80),
 					Protocol:    tools.PtrTo("http1"),
 					AppRef:      cfRoute.Spec.Destinations[0].AppRef,
 					ProcessType: "web",

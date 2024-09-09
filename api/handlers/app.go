@@ -719,7 +719,7 @@ func (h *App) restartInstance(r *http.Request) (*routing.Response, error) {
 			"InstanceID", instanceID,
 		)
 	}
-	if process.DesiredInstances <= instance {
+	if int(process.DesiredInstances) <= instance {
 		return nil, apierrors.LogAndReturn(logger,
 			apierrors.NewNotFoundError(nil, fmt.Sprintf("Instance %d of process %s", instance, processType)), "Instance not found", "AppGUID", appGUID, "InstanceID", instanceID, "Process", process)
 	}

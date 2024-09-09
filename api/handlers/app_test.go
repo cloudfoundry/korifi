@@ -1082,7 +1082,7 @@ var _ = Describe("App", func() {
 			}, nil)
 
 			payload = &payloads.ProcessScale{
-				Instances: tools.PtrTo(5),
+				Instances: tools.PtrTo[int32](5),
 				MemoryMB:  tools.PtrTo[int64](256),
 				DiskMB:    tools.PtrTo[int64](1024),
 			}
@@ -1116,7 +1116,7 @@ var _ = Describe("App", func() {
 				GUID:      "process-1-guid",
 				SpaceGUID: spaceGUID,
 				ProcessScaleValues: repositories.ProcessScaleValues{
-					Instances: tools.PtrTo(5),
+					Instances: tools.PtrTo[int32](5),
 					MemoryMB:  tools.PtrTo[int64](256),
 					DiskMB:    tools.PtrTo[int64](1024),
 				},

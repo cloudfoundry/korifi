@@ -1023,7 +1023,7 @@ func (in *CFProcessSpec) DeepCopyInto(out *CFProcessSpec) {
 	out.HealthCheck = in.HealthCheck
 	if in.DesiredInstances != nil {
 		in, out := &in.DesiredInstances, &out.DesiredInstances
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Ports != nil {
@@ -1834,7 +1834,7 @@ func (in *Destination) DeepCopyInto(out *Destination) {
 	*out = *in
 	if in.Port != nil {
 		in, out := &in.Port, &out.Port
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	out.AppRef = in.AppRef

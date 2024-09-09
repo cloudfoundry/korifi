@@ -94,6 +94,10 @@ function run_ginkgo() {
     extra_args+=("-p")
   fi
 
+  if [[ -z "${KEEP_GOING:-}" ]]; then
+    extra_args+=("--keep-going")
+  fi
+
   go run github.com/onsi/ginkgo/v2/ginkgo --output-interceptor-mode=none --randomize-all --randomize-suites "${extra_args[@]}" $@
 }
 

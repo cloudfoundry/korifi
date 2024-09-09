@@ -156,22 +156,22 @@ var _ = Describe("Applier", func() {
 					Command:                      tools.PtrTo("echo foo"),
 					DiskQuota:                    tools.PtrTo("512M"),
 					HealthCheckHTTPEndpoint:      tools.PtrTo("foo/bar"),
-					HealthCheckInvocationTimeout: tools.PtrTo(int64(10)),
+					HealthCheckInvocationTimeout: tools.PtrTo(int32(10)),
 					HealthCheckType:              tools.PtrTo("http"),
-					Instances:                    tools.PtrTo(2),
+					Instances:                    tools.PtrTo[int32](2),
 					Memory:                       tools.PtrTo("756M"),
-					Timeout:                      tools.PtrTo(int64(31)),
+					Timeout:                      tools.PtrTo(int32(31)),
 				},
 				{
 					Type:                         "ben",
 					Command:                      tools.PtrTo("echo bar"),
 					DiskQuota:                    tools.PtrTo("256M"),
 					HealthCheckHTTPEndpoint:      tools.PtrTo("bar/foo"),
-					HealthCheckInvocationTimeout: tools.PtrTo(int64(20)),
+					HealthCheckInvocationTimeout: tools.PtrTo(int32(20)),
 					HealthCheckType:              tools.PtrTo("port"),
-					Instances:                    tools.PtrTo(3),
+					Instances:                    tools.PtrTo[int32](3),
 					Memory:                       tools.PtrTo("1024M"),
-					Timeout:                      tools.PtrTo(int64(45)),
+					Timeout:                      tools.PtrTo(int32(45)),
 				},
 			}
 		})
@@ -188,7 +188,7 @@ var _ = Describe("Applier", func() {
 			Expect(createMsg.Command).To(Equal("echo foo"))
 			Expect(createMsg.DiskQuotaMB).To(BeEquivalentTo(512))
 			Expect(createMsg.MemoryMB).To(BeEquivalentTo(756))
-			Expect(createMsg.DesiredInstances).To(PointTo(Equal(2)))
+			Expect(createMsg.DesiredInstances).To(PointTo(BeEquivalentTo(2)))
 			Expect(createMsg.HealthCheck).To(Equal(repositories.HealthCheck{
 				Type: "http",
 				Data: repositories.HealthCheckData{
@@ -205,7 +205,7 @@ var _ = Describe("Applier", func() {
 			Expect(createMsg.Command).To(Equal("echo bar"))
 			Expect(createMsg.DiskQuotaMB).To(BeEquivalentTo(256))
 			Expect(createMsg.MemoryMB).To(BeEquivalentTo(1024))
-			Expect(createMsg.DesiredInstances).To(PointTo(Equal(3)))
+			Expect(createMsg.DesiredInstances).To(PointTo(BeEquivalentTo(3)))
 			Expect(createMsg.HealthCheck).To(Equal(repositories.HealthCheck{
 				Type: "port",
 				Data: repositories.HealthCheckData{
@@ -244,11 +244,11 @@ var _ = Describe("Applier", func() {
 				Expect(patchMsg.Command).To(Equal(tools.PtrTo("echo bar")))
 				Expect(patchMsg.DiskQuotaMB).To(Equal(tools.PtrTo(int64(256))))
 				Expect(patchMsg.MemoryMB).To(Equal(tools.PtrTo(int64(1024))))
-				Expect(patchMsg.DesiredInstances).To(Equal(tools.PtrTo(3)))
+				Expect(patchMsg.DesiredInstances).To(PointTo(BeEquivalentTo(3)))
 				Expect(patchMsg.HealthCheckType).To(Equal(tools.PtrTo("port")))
 				Expect(patchMsg.HealthCheckHTTPEndpoint).To(Equal(tools.PtrTo("bar/foo")))
-				Expect(patchMsg.HealthCheckInvocationTimeoutSeconds).To(Equal(tools.PtrTo(int64(20))))
-				Expect(patchMsg.HealthCheckTimeoutSeconds).To(Equal(tools.PtrTo(int64(45))))
+				Expect(patchMsg.HealthCheckInvocationTimeoutSeconds).To(Equal(tools.PtrTo(int32(20))))
+				Expect(patchMsg.HealthCheckTimeoutSeconds).To(Equal(tools.PtrTo(int32(45))))
 			})
 
 			When("patching the process fails", func() {

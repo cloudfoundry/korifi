@@ -133,7 +133,7 @@ func (c Client) Config(ctx context.Context, creds Creds, imageRef string) (Confi
 		if err != nil {
 			return Config{}, fmt.Errorf("error getting exposed ports: %w", err)
 		}
-		ports = append(ports, int32(parsed))
+		ports = append(ports, int32(parsed)) // #nosec G115
 	}
 
 	return Config{

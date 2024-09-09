@@ -44,7 +44,7 @@ type Reconciler struct {
 	namespaceReconciler          *k8sns.Reconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace]
 	containerRegistrySecretNames []string
 	rootNamespace                string
-	appDeletionTimeout           int64
+	appDeletionTimeout           int32
 }
 
 func NewReconciler(
@@ -52,7 +52,7 @@ func NewReconciler(
 	log logr.Logger,
 	containerRegistrySecretNames []string,
 	rootNamespace string,
-	appDeletionTimeout int64,
+	appDeletionTimeout int32,
 	labelCompiler labels.Compiler,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace] {
 	namespaceController := k8sns.NewReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](

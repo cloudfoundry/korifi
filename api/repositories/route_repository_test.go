@@ -81,7 +81,7 @@ var _ = Describe("RouteRepository", func() {
 					Destinations: []korifiv1alpha1.Destination{
 						{
 							GUID: "destination-guid",
-							Port: tools.PtrTo(8080),
+							Port: tools.PtrTo[int32](8080),
 							AppRef: corev1.LocalObjectReference{
 								Name: "some-app-guid",
 							},
@@ -171,7 +171,7 @@ var _ = Describe("RouteRepository", func() {
 										Name: "some-app-guid",
 									},
 									ProcessType: "web",
-									Port:        tools.PtrTo(2345),
+									Port:        tools.PtrTo[int32](2345),
 									Protocol:    tools.PtrTo("http1"),
 								}},
 							}
@@ -181,7 +181,7 @@ var _ = Describe("RouteRepository", func() {
 					It("returns a destination record with the port in the route status", func() {
 						Expect(getErr).ToNot(HaveOccurred())
 						Expect(route.Destinations).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-							"Port":     PointTo(Equal(2345)),
+							"Port":     PointTo(BeEquivalentTo(2345)),
 							"Protocol": PointTo(Equal("http1")),
 						})))
 					})
@@ -440,7 +440,7 @@ var _ = Describe("RouteRepository", func() {
 					Destinations: []korifiv1alpha1.Destination{
 						{
 							GUID: "destination-guid",
-							Port: tools.PtrTo(8080),
+							Port: tools.PtrTo[int32](8080),
 							AppRef: corev1.LocalObjectReference{
 								Name: appGUID,
 							},
@@ -623,7 +623,7 @@ var _ = Describe("RouteRepository", func() {
 					Destinations: []korifiv1alpha1.Destination{
 						{
 							GUID: "destination-guid",
-							Port: tools.PtrTo(8080),
+							Port: tools.PtrTo[int32](8080),
 							AppRef: corev1.LocalObjectReference{
 								Name: "some-app-guid",
 							},
@@ -796,7 +796,7 @@ var _ = Describe("RouteRepository", func() {
 					{
 						AppGUID:     appGUID,
 						ProcessType: "web",
-						Port:        tools.PtrTo(9090),
+						Port:        tools.PtrTo[int32](9090),
 						Protocol:    tools.PtrTo("http1"),
 					},
 				},
@@ -837,7 +837,7 @@ var _ = Describe("RouteRepository", func() {
 					MatchAllFields(
 						Fields{
 							"GUID":        Not(BeEmpty()),
-							"Port":        PointTo(Equal(9090)),
+							"Port":        PointTo(BeEquivalentTo(9090)),
 							"AppGUID":     Equal(appGUID),
 							"ProcessType": Equal("web"),
 							"Protocol":    PointTo(Equal("http1")),
@@ -849,7 +849,7 @@ var _ = Describe("RouteRepository", func() {
 					MatchAllFields(
 						Fields{
 							"GUID": Not(BeEmpty()),
-							"Port": PointTo(Equal(9090)),
+							"Port": PointTo(BeEquivalentTo(9090)),
 							"AppRef": Equal(corev1.LocalObjectReference{
 								Name: appGUID,
 							}),
@@ -904,7 +904,7 @@ var _ = Describe("RouteRepository", func() {
 				BeforeEach(func() {
 					routeDestination = korifiv1alpha1.Destination{
 						GUID: prefixedGUID("existing-route-guid"),
-						Port: tools.PtrTo(8000),
+						Port: tools.PtrTo[int32](8000),
 						AppRef: corev1.LocalObjectReference{
 							Name: prefixedGUID("existing-route-app"),
 						},
@@ -1076,7 +1076,7 @@ var _ = Describe("RouteRepository", func() {
 					},
 					Destinations: []korifiv1alpha1.Destination{{
 						GUID: destinationGUID,
-						Port: tools.PtrTo(8000),
+						Port: tools.PtrTo[int32](8000),
 						AppRef: corev1.LocalObjectReference{
 							Name: uuid.NewString(),
 						},
@@ -1378,7 +1378,7 @@ var _ = Describe("RouteRepository", func() {
 					Destinations: []korifiv1alpha1.Destination{
 						{
 							GUID: "destination-guid",
-							Port: tools.PtrTo(8080),
+							Port: tools.PtrTo[int32](8080),
 							AppRef: corev1.LocalObjectReference{
 								Name: "some-app-guid",
 							},

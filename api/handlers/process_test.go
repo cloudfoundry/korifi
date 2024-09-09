@@ -148,7 +148,7 @@ var _ = Describe("Process", func() {
 			}, nil)
 
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ProcessScale{
-				Instances: tools.PtrTo(3),
+				Instances: tools.PtrTo[int32](3),
 				MemoryMB:  tools.PtrTo[int64](512),
 				DiskMB:    tools.PtrTo[int64](256),
 			})
@@ -177,7 +177,7 @@ var _ = Describe("Process", func() {
 				GUID:      "process-guid",
 				SpaceGUID: spaceGUID,
 				ProcessScaleValues: repositories.ProcessScaleValues{
-					Instances: tools.PtrTo(3),
+					Instances: tools.PtrTo[int32](3),
 					MemoryMB:  tools.PtrTo(int64(512)),
 					DiskMB:    tools.PtrTo(int64(256)),
 				},
@@ -380,9 +380,9 @@ var _ = Describe("Process", func() {
 				HealthCheck: &payloads.HealthCheck{
 					Type: tools.PtrTo("port"),
 					Data: &payloads.Data{
-						Timeout:           tools.PtrTo[int64](5),
+						Timeout:           tools.PtrTo[int32](5),
 						Endpoint:          tools.PtrTo("http://myapp.com/health"),
-						InvocationTimeout: tools.PtrTo[int64](2),
+						InvocationTimeout: tools.PtrTo[int32](2),
 					},
 				},
 			})
@@ -403,8 +403,8 @@ var _ = Describe("Process", func() {
 			_, actualAuthInfo, actualMsg := processRepo.PatchProcessArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualMsg.ProcessGUID).To(Equal("process-guid"))
-			Expect(actualMsg.HealthCheckInvocationTimeoutSeconds).To(Equal(tools.PtrTo(int64(2))))
-			Expect(actualMsg.HealthCheckTimeoutSeconds).To(Equal(tools.PtrTo(int64(5))))
+			Expect(actualMsg.HealthCheckInvocationTimeoutSeconds).To(Equal(tools.PtrTo(int32(2))))
+			Expect(actualMsg.HealthCheckTimeoutSeconds).To(Equal(tools.PtrTo(int32(5))))
 			Expect(actualMsg.HealthCheckHTTPEndpoint).To(Equal(tools.PtrTo("http://myapp.com/health")))
 			Expect(actualMsg.HealthCheckType).To(Equal(tools.PtrTo("port")))
 			Expect(actualMsg.MetadataPatch.Labels).To(Equal(map[string]*string{"foo": tools.PtrTo("value1")}))

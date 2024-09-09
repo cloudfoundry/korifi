@@ -114,7 +114,7 @@ func (r RouteDestinationCreate) Validate() error {
 
 type RouteDestination struct {
 	App      AppResource `json:"app"`
-	Port     *int        `json:"port"`
+	Port     *int32      `json:"port"`
 	Protocol *string     `json:"protocol"`
 }
 
