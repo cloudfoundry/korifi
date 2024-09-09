@@ -1,36 +1,20 @@
-/*
-Copyright 2021.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-package instances_test
+package osbapi_test
 
 import (
 	"context"
 	"path/filepath"
 	"testing"
-	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -43,14 +27,12 @@ var (
 	stopClientCache context.CancelFunc
 	testEnv         *envtest.Environment
 	adminClient     client.Client
+	rootNamespace   string
 )
 
-func TestAPIs(t *testing.T) {
-	SetDefaultEventuallyTimeout(30 * time.Second)
-	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
-
+func TestOSBAPI(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Services Instance Controller Integration Suite")
+	RunSpecs(t, "OSBAPI Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -75,14 +57,14 @@ var _ = BeforeSuite(func() {
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	err = (instances.NewReconciler(
-		k8sManager.GetClient(),
-		k8sManager.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFServiceInstance"),
-	)).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
 	stopManager = helpers.StartK8sManager(k8sManager)
+
+	rootNamespace = uuid.NewString()
+	Expect(adminClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: rootNamespace,
+		},
+	})).To(Succeed())
 })
 
 var _ = AfterSuite(func() {

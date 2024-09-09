@@ -262,6 +262,29 @@ var _ = Describe("Reconcile", func() {
 				})
 			})
 
+			When("requeue is specified", func() {
+				BeforeEach(func() {
+					objectReconciler.reconcileResourceError = k8s.NewNotReadyError().WithRequeue()
+				})
+
+				It("sets the ready condition to false", func() {
+					Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+					_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+					updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
+					Expect(ok).To(BeTrue())
+
+					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+					)))
+				})
+
+				It("requeues the reconcile event", func() {
+					Expect(result).To(Equal(ctrl.Result{Requeue: true}))
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
 			When("requeueAfter is specified", func() {
 				BeforeEach(func() {
 					objectReconciler.reconcileResourceError = k8s.NewNotReadyError().WithRequeueAfter(time.Minute)

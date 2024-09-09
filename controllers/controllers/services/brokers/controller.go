@@ -23,7 +23,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers/osbapi"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
@@ -43,25 +43,33 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type CatalogClient interface {
-	GetCatalog(context.Context, *korifiv1alpha1.CFServiceBroker) (*osbapi.Catalog, error)
-}
+//counterfeiter:generate -o fake -fake-name BrokerClient code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi.BrokerClient
+
+//counterfeiter:generate -o fake -fake-name BrokerClientFactory code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi.BrokerClientFactory
 
 type Reconciler struct {
-	k8sClient     client.Client
-	catalogClient CatalogClient
-	scheme        *runtime.Scheme
-	log           logr.Logger
+	k8sClient           client.Client
+	osbapiClientFactory osbapi.BrokerClientFactory
+	scheme              *runtime.Scheme
+	log                 logr.Logger
 }
 
 func NewReconciler(
 	client client.Client,
-	catalogClient CatalogClient,
+	osbapiClientFactory osbapi.BrokerClientFactory,
 	scheme *runtime.Scheme,
 	log logr.Logger,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBroker, *korifiv1alpha1.CFServiceBroker] {
-	serviceInstanceReconciler := Reconciler{k8sClient: client, catalogClient: catalogClient, scheme: scheme, log: log}
-	return k8s.NewPatchingReconciler(log, client, &serviceInstanceReconciler)
+	return k8s.NewPatchingReconciler(
+		log,
+		client,
+		&Reconciler{
+			k8sClient:           client,
+			osbapiClientFactory: osbapiClientFactory,
+			scheme:              scheme,
+			log:                 log,
+		},
+	)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
@@ -122,14 +130,15 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBroker *kor
 		return ctrl.Result{}, notReadyErr
 	}
 
-	if err = r.validateCredentials(credentialsSecret); err != nil {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("SecretInvalid")
-	}
-
 	log.V(1).Info("credentials secret", "name", credentialsSecret.Name, "version", credentialsSecret.ResourceVersion)
 	cfServiceBroker.Status.CredentialsObservedVersion = credentialsSecret.ResourceVersion
 
-	catalog, err := r.catalogClient.GetCatalog(ctx, cfServiceBroker)
+	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, cfServiceBroker)
+	if err != nil {
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("OSBAPIClientCreationFailed")
+	}
+
+	catalog, err := osbapiClient.GetCatalog(ctx)
 	if err != nil {
 		log.Error(err, "failed to get catalog from broker", "broker", cfServiceBroker.Name)
 		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("GetCatalogFailed")
@@ -144,23 +153,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBroker *kor
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) validateCredentials(credentialsSecret *corev1.Secret) error {
-	creds := map[string]any{}
-	err := json.Unmarshal(credentialsSecret.Data[tools.CredentialsSecretKey], &creds)
-	if err != nil {
-		return fmt.Errorf("invalid credentials secret %q: %w", credentialsSecret.Name, err)
-	}
-
-	for _, k := range []string{korifiv1alpha1.UsernameCredentialsKey, korifiv1alpha1.PasswordCredentialsKey} {
-		if _, ok := creds[k]; !ok {
-			return fmt.Errorf("broker credentials secret %q does not specify %q", credentialsSecret.Name, k)
-		}
-	}
-
-	return nil
-}
-
-func (r *Reconciler) reconcileCatalog(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker, catalog *osbapi.Catalog) error {
+func (r *Reconciler) reconcileCatalog(ctx context.Context, cfServiceBroker *korifiv1alpha1.CFServiceBroker, catalog osbapi.Catalog) error {
 	for _, service := range catalog.Services {
 		err := r.reconcileCatalogService(ctx, cfServiceBroker, service)
 		if err != nil {
@@ -266,7 +259,7 @@ func toSpecServiceOffering(catalogService osbapi.Service) (services.ServiceOffer
 		Tags:        catalogService.Tags,
 		Requires:    catalogService.Requires,
 		BrokerCatalog: services.ServiceBrokerCatalog{
-			Id:       catalogService.ID,
+			ID:       catalogService.ID,
 			Features: catalogService.BrokerCatalogFeatures,
 		},
 	}

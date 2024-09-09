@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
 	. "github.com/onsi/gomega"    //lint:ignore ST1001 this is a test file
@@ -17,6 +18,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -55,6 +57,9 @@ func NewUncachedClient(cfg *rest.Config) client.Client {
 
 func NewK8sManager(testEnv *envtest.Environment, managerRolePath string) manager.Manager {
 	k8sManager, err := ctrl.NewManager(SetupTestEnvUser(testEnv, managerRolePath), ctrl.Options{
+		Controller: config.Controller{
+			SkipNameValidation: tools.PtrTo(true),
+		},
 		Scheme: scheme.Scheme,
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Host:    testEnv.WebhookInstallOptions.LocalServingHost,

@@ -20,6 +20,7 @@ type ServiceInstanceCreate struct {
 	Type          string                        `json:"type"`
 	Tags          []string                      `json:"tags"`
 	Credentials   map[string]any                `json:"credentials"`
+	Parameters    map[string]any                `json:"parameters"`
 	Relationships *ServiceInstanceRelationships `json:"relationships"`
 	Metadata      Metadata                      `json:"metadata"`
 }
@@ -46,32 +47,58 @@ func validateTagLength(tags any) error {
 func (c ServiceInstanceCreate) Validate() error {
 	return jellidation.ValidateStruct(&c,
 		jellidation.Field(&c.Name, jellidation.Required),
-		jellidation.Field(&c.Type, jellidation.Required, validation.OneOf("user-provided")),
+		jellidation.Field(&c.Type, jellidation.Required, validation.OneOf("user-provided", "managed")),
 		jellidation.Field(&c.Tags, jellidation.By(validateTagLength)),
-		jellidation.Field(&c.Relationships, jellidation.NotNil),
+		jellidation.Field(&c.Relationships, jellidation.NotNil, jellidation.By(func(r any) error {
+			rel := r.(*ServiceInstanceRelationships)
+			if c.Type == "user-provided" {
+				return rel.ValidateUserProvidedRelationships()
+			}
+
+			return rel.ValidateManagedRelationships()
+		})),
 		jellidation.Field(&c.Metadata),
 	)
 }
 
-func (p ServiceInstanceCreate) ToServiceInstanceCreateMessage() repositories.CreateServiceInstanceMessage {
-	return repositories.CreateServiceInstanceMessage{
+func (p ServiceInstanceCreate) ToUPSICreateMessage() repositories.CreateUPSIMessage {
+	return repositories.CreateUPSIMessage{
 		Name:        p.Name,
 		SpaceGUID:   p.Relationships.Space.Data.GUID,
 		Credentials: p.Credentials,
-		Type:        p.Type,
 		Tags:        p.Tags,
 		Labels:      p.Metadata.Labels,
 		Annotations: p.Metadata.Annotations,
 	}
 }
 
-type ServiceInstanceRelationships struct {
-	Space *Relationship `json:"space"`
+func (p ServiceInstanceCreate) ToManagedSICreateMessage() repositories.CreateManagedSIMessage {
+	return repositories.CreateManagedSIMessage{
+		Name:        p.Name,
+		SpaceGUID:   p.Relationships.Space.Data.GUID,
+		PlanGUID:    p.Relationships.ServicePlan.Data.GUID,
+		Tags:        p.Tags,
+		Labels:      p.Metadata.Labels,
+		Annotations: p.Metadata.Annotations,
+		Parameters:  p.Parameters,
+	}
 }
 
-func (r ServiceInstanceRelationships) Validate() error {
+type ServiceInstanceRelationships struct {
+	Space       *Relationship `json:"space"`
+	ServicePlan *Relationship `json:"service_plan"`
+}
+
+func (r ServiceInstanceRelationships) ValidateUserProvidedRelationships() error {
 	return jellidation.ValidateStruct(&r,
 		jellidation.Field(&r.Space, jellidation.NotNil),
+	)
+}
+
+func (r ServiceInstanceRelationships) ValidateManagedRelationships() error {
+	return jellidation.ValidateStruct(&r,
+		jellidation.Field(&r.Space, jellidation.NotNil),
+		jellidation.Field(&r.ServicePlan, jellidation.NotNil),
 	)
 }
 

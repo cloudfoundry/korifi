@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package instances
+package upsi
 
 import (
 	"context"
@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -55,16 +56,27 @@ func NewReconciler(
 	log logr.Logger,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance] {
 	serviceInstanceReconciler := Reconciler{k8sClient: client, scheme: scheme, log: log}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance](log, client, &serviceInstanceReconciler)
+	return k8s.NewPatchingReconciler(log, client, &serviceInstanceReconciler)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceInstance{}).
+		Named("user-provided-cfserviceinstance").
+		WithEventFilter(predicate.NewPredicateFuncs(r.isUPSI)).
 		Watches(
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.secretToServiceInstance),
 		)
+}
+
+func (r *Reconciler) isUPSI(object client.Object) bool {
+	serviceInstance, ok := object.(*korifiv1alpha1.CFServiceInstance)
+	if !ok {
+		return true
+	}
+
+	return serviceInstance.Spec.Type == korifiv1alpha1.UserProvidedType
 }
 
 func (r *Reconciler) secretToServiceInstance(ctx context.Context, o client.Object) []reconcile.Request {
@@ -120,7 +132,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *k
 		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("FailedReconcilingCredentialsSecret")
 	}
 
-	if err = r.validateCredentials(ctx, credentialsSecret); err != nil {
+	if err = r.validateCredentials(credentialsSecret); err != nil {
 		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("SecretInvalid")
 	}
 
@@ -171,7 +183,7 @@ func (r *Reconciler) reconcileCredentials(ctx context.Context, credentialsSecret
 	return migratedSecret, nil
 }
 
-func (r *Reconciler) validateCredentials(ctx context.Context, credentialsSecret *corev1.Secret) error {
+func (r *Reconciler) validateCredentials(credentialsSecret *corev1.Secret) error {
 	return errors.Wrapf(
 		json.Unmarshal(credentialsSecret.Data[tools.CredentialsSecretKey], &map[string]any{}),
 		"invalid credentials secret %q",

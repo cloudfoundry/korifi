@@ -96,110 +96,172 @@ var _ = Describe("ServiceInstanceCreate", func() {
 
 	BeforeEach(func() {
 		serviceInstanceCreate = new(payloads.ServiceInstanceCreate)
-		createPayload = payloads.ServiceInstanceCreate{
-			Name: "service-instance-name",
-			Type: "user-provided",
-			Tags: []string{"foo", "bar"},
-			Credentials: map[string]any{
-				"username": "bob",
-				"password": "float",
-				"object": map[string]any{
-					"a": "b",
-				},
-			},
-			Relationships: &payloads.ServiceInstanceRelationships{
-				Space: &payloads.Relationship{
-					Data: &payloads.RelationshipData{
-						GUID: "space-guid",
+	})
+
+	Describe("Validation", func() {
+		BeforeEach(func() {
+			createPayload = payloads.ServiceInstanceCreate{
+				Name: "service-instance-name",
+				Type: "user-provided",
+				Tags: []string{"foo", "bar"},
+				Credentials: map[string]any{
+					"username": "bob",
+					"password": "float",
+					"object": map[string]any{
+						"a": "b",
 					},
 				},
-			},
-			Metadata: payloads.Metadata{
-				Annotations: map[string]string{"ann1": "val_ann1"},
-				Labels:      map[string]string{"lab1": "val_lab1"},
-			},
-		}
-	})
-
-	JustBeforeEach(func() {
-		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), serviceInstanceCreate)
-	})
-
-	It("succeeds", func() {
-		Expect(validatorErr).NotTo(HaveOccurred())
-		Expect(serviceInstanceCreate).To(PointTo(Equal(createPayload)))
-	})
-
-	When("name is not set", func() {
-		BeforeEach(func() {
-			createPayload.Name = ""
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "name cannot be blank")
-		})
-	})
-
-	When("type is not set", func() {
-		BeforeEach(func() {
-			createPayload.Type = ""
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "type cannot be blank")
-		})
-	})
-
-	When("type is invalid", func() {
-		BeforeEach(func() {
-			createPayload.Type = "service-instance-type"
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "type value must be one of: user-provided")
-		})
-	})
-
-	When("space relationship data is not set", func() {
-		BeforeEach(func() {
-			createPayload.Relationships.Space.Data = nil
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "data is required")
-		})
-	})
-
-	When("tags length is too long", func() {
-		BeforeEach(func() {
-			longString := strings.Repeat("a", 2048)
-			createPayload.Tags = append(createPayload.Tags, longString)
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "combined length of tags cannot exceed")
-		})
-	})
-
-	When("metadata is invalid", func() {
-		BeforeEach(func() {
-			createPayload.Metadata = payloads.Metadata{
-				Labels: map[string]string{
-					"foo.cloudfoundry.org/bar": "jim",
+				Relationships: &payloads.ServiceInstanceRelationships{
+					Space: &payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: "space-guid",
+						},
+					},
+				},
+				Metadata: payloads.Metadata{
+					Annotations: map[string]string{"ann1": "val_ann1"},
+					Labels:      map[string]string{"lab1": "val_lab1"},
 				},
 			}
 		})
 
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+		JustBeforeEach(func() {
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), serviceInstanceCreate)
+		})
+
+		It("succeeds", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(serviceInstanceCreate).To(PointTo(Equal(createPayload)))
+		})
+
+		When("name is not set", func() {
+			BeforeEach(func() {
+				createPayload.Name = ""
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "name cannot be blank")
+			})
+		})
+
+		When("type is not set", func() {
+			BeforeEach(func() {
+				createPayload.Type = ""
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "type cannot be blank")
+			})
+		})
+
+		When("type is invalid", func() {
+			BeforeEach(func() {
+				createPayload.Type = "service-instance-type"
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "type value must be one of: user-provided")
+			})
+		})
+
+		When("space relationship data is not set", func() {
+			BeforeEach(func() {
+				createPayload.Relationships.Space.Data = nil
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "data is required")
+			})
+		})
+
+		When("tags length is too long", func() {
+			BeforeEach(func() {
+				longString := strings.Repeat("a", 2048)
+				createPayload.Tags = append(createPayload.Tags, longString)
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "combined length of tags cannot exceed")
+			})
+		})
+
+		When("metadata is invalid", func() {
+			BeforeEach(func() {
+				createPayload.Metadata = payloads.Metadata{
+					Labels: map[string]string{
+						"foo.cloudfoundry.org/bar": "jim",
+					},
+				}
+			})
+
+			It("returns an appropriate error", func() {
+				expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
+			})
+		})
+
+		When("the instance type is managed", func() {
+			BeforeEach(func() {
+				createPayload.Type = "managed"
+				createPayload.Credentials = nil
+				createPayload.Relationships.ServicePlan = &payloads.Relationship{
+					Data: &payloads.RelationshipData{
+						GUID: "plan_guid",
+					},
+				}
+			})
+
+			It("succeeds", func() {
+				Expect(validatorErr).NotTo(HaveOccurred())
+				Expect(serviceInstanceCreate).To(PointTo(Equal(createPayload)))
+			})
+
+			When("plan relationship is not set", func() {
+				BeforeEach(func() {
+					createPayload.Relationships.ServicePlan = nil
+				})
+
+				It("return an appropriate error", func() {
+					expectUnprocessableEntityError(validatorErr, "relationships.service_plan is required")
+				})
+			})
 		})
 	})
 
-	Context("ToServiceInstanceCreateMessage()", func() {
+	Describe("ToUPSICreateMessage()", func() {
+		var msg repositories.CreateUPSIMessage
+
+		BeforeEach(func() {
+			createPayload = payloads.ServiceInstanceCreate{
+				Name: "service-instance-name",
+				Type: "user-provided",
+				Tags: []string{"foo", "bar"},
+				Credentials: map[string]any{
+					"username": "bob",
+					"password": "float",
+					"object": map[string]any{
+						"a": "b",
+					},
+				},
+				Relationships: &payloads.ServiceInstanceRelationships{
+					Space: &payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: "space-guid",
+						},
+					},
+				},
+				Metadata: payloads.Metadata{
+					Annotations: map[string]string{"ann1": "val_ann1"},
+					Labels:      map[string]string{"lab1": "val_lab1"},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			msg = createPayload.ToUPSICreateMessage()
+		})
+
 		It("converts to repo message correctly", func() {
-			msg := serviceInstanceCreate.ToServiceInstanceCreateMessage()
 			Expect(msg.Name).To(Equal("service-instance-name"))
-			Expect(msg.Type).To(Equal("user-provided"))
 			Expect(msg.SpaceGUID).To(Equal("space-guid"))
 			Expect(msg.Tags).To(ConsistOf("foo", "bar"))
 			Expect(msg.Annotations).To(HaveLen(1))
@@ -212,6 +274,55 @@ var _ = Describe("ServiceInstanceCreate", func() {
 				"object": MatchAllKeys(Keys{
 					"a": Equal("b"),
 				}),
+			}))
+		})
+	})
+
+	Describe("ToManagedSICreateMessage()", func() {
+		var msg repositories.CreateManagedSIMessage
+
+		BeforeEach(func() {
+			createPayload = payloads.ServiceInstanceCreate{
+				Name: "service-instance-name",
+				Type: "managed",
+				Tags: []string{"foo", "bar"},
+				Parameters: map[string]any{
+					"param1": "param1-value",
+				},
+				Relationships: &payloads.ServiceInstanceRelationships{
+					Space: &payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: "space-guid",
+						},
+					},
+					ServicePlan: &payloads.Relationship{
+						Data: &payloads.RelationshipData{
+							GUID: "plan-guid",
+						},
+					},
+				},
+				Metadata: payloads.Metadata{
+					Annotations: map[string]string{"ann1": "val_ann1"},
+					Labels:      map[string]string{"lab1": "val_lab1"},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			msg = createPayload.ToManagedSICreateMessage()
+		})
+
+		It("converts to repo message correctly", func() {
+			Expect(msg).To(Equal(repositories.CreateManagedSIMessage{
+				Name:      "service-instance-name",
+				SpaceGUID: "space-guid",
+				PlanGUID:  "plan-guid",
+				Parameters: map[string]any{
+					"param1": "param1-value",
+				},
+				Tags:        []string{"foo", "bar"},
+				Labels:      map[string]string{"lab1": "val_lab1"},
+				Annotations: map[string]string{"ann1": "val_ann1"},
 			}))
 		})
 	})

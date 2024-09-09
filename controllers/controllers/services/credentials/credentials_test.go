@@ -29,7 +29,8 @@ var _ = Describe("Credentials", func() {
 		var creds map[string]any
 
 		JustBeforeEach(func() {
-			creds, err = credentials.GetCredentials(credentialsSecret)
+			creds = map[string]any{}
+			err = credentials.GetCredentials(credentialsSecret, &creds)
 		})
 
 		It("returns the credentials object", func() {

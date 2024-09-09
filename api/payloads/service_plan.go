@@ -21,6 +21,7 @@ import (
 
 type ServicePlanList struct {
 	ServiceOfferingGUIDs string
+	BrokerGUIDs          string
 	BrokerNames          string
 	Names                string
 	ServiceOfferingNames string
@@ -64,12 +65,22 @@ func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
 		Names:                parse.ArrayParam(l.Names),
 		ServiceOfferingNames: parse.ArrayParam(l.ServiceOfferingNames),
 		BrokerNames:          parse.ArrayParam(l.BrokerNames),
+		BrokerGUIDs:          parse.ArrayParam(l.BrokerGUIDs),
 		Available:            l.Available,
 	}
 }
 
 func (l *ServicePlanList) SupportedKeys() []string {
-	return []string{"service_offering_guids", "names", "available", "fields[service_offering.service_broker]", "service_broker_names", "include", "service_offering_names"}
+	return []string{
+		"service_offering_guids",
+		"names",
+		"available",
+		"fields[service_offering.service_broker]",
+		"service_broker_names",
+		"service_broker_guids",
+		"include",
+		"service_offering_names",
+	}
 }
 
 func (l *ServicePlanList) IgnoredKeys() []*regexp.Regexp {
@@ -85,6 +96,7 @@ func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
 	l.ServiceOfferingNames = values.Get("service_offering_names")
 	l.BrokerNames = values.Get("service_broker_names")
+	l.BrokerGUIDs = values.Get("service_broker_guids")
 
 	available, err := parseBool(values.Get("available"))
 	if err != nil {

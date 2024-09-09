@@ -86,6 +86,11 @@ func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Requ
 				result = ctrl.Result{RequeueAfter: *notReadyErr.requeueAfter}
 				delegateErr = nil
 			}
+
+			if notReadyErr.requeue {
+				result = ctrl.Result{Requeue: true}
+				delegateErr = nil
+			}
 		}
 	})
 	if err != nil {

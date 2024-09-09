@@ -75,7 +75,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 						Requires:         []string{"r1"},
 						DocumentationURL: tools.PtrTo("https://my.offering.com"),
 						BrokerCatalog: services.ServiceBrokerCatalog{
-							Id: "offering-catalog-guid",
+							ID: "offering-catalog-guid",
 							Metadata: &runtime.RawExtension{
 								Raw: []byte(`{"offering-md": "offering-md-value"}`),
 							},
@@ -125,11 +125,10 @@ var _ = Describe("ServiceOfferingRepo", func() {
 						"Requires":         ConsistOf("r1"),
 						"DocumentationURL": PointTo(Equal("https://my.offering.com")),
 						"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
-							"Id": Equal("offering-catalog-guid"),
+							"ID": Equal("offering-catalog-guid"),
 							"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
 								"Raw": MatchJSON(`{"offering-md": "offering-md-value"}`),
 							})),
-
 							"Features": MatchFields(IgnoreExtras, Fields{
 								"PlanUpdateable":       BeTrue(),
 								"Bindable":             BeTrue(),
