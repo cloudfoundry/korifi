@@ -27,7 +27,8 @@ const (
 
 //counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
 type CFServiceInstanceRepository interface {
-	CreateServiceInstance(context.Context, authorization.Info, repositories.CreateServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
+	CreateUserProvidedServiceInstance(context.Context, authorization.Info, repositories.CreateUPSIMessage) (repositories.ServiceInstanceRecord, error)
+	CreateManagedServiceInstance(context.Context, authorization.Info, repositories.CreateManagedSIMessage) (repositories.ServiceInstanceRecord, error)
 	PatchServiceInstance(context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
 	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
 	GetServiceInstance(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
@@ -82,9 +83,37 @@ func (h *ServiceInstance) create(r *http.Request) (*routing.Response, error) {
 		)
 	}
 
-	serviceInstanceRecord, err := h.serviceInstanceRepo.CreateServiceInstance(r.Context(), authInfo, payload.ToServiceInstanceCreateMessage())
+	if payload.Type == "managed" {
+		return h.createManagedServiceInstance(r.Context(), logger, authInfo, payload)
+	}
+
+	return h.createUserProvidedServiceInstance(r.Context(), logger, authInfo, payload)
+}
+
+func (h *ServiceInstance) createManagedServiceInstance(
+	ctx context.Context,
+	logger logr.Logger,
+	authInfo authorization.Info,
+	payload payloads.ServiceInstanceCreate,
+) (*routing.Response, error) {
+	serviceInstanceRecord, err := h.serviceInstanceRepo.CreateManagedServiceInstance(ctx, authInfo, payload.ToManagedSICreateMessage())
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to create service instance", "Service Instance Name", serviceInstanceRecord.Name)
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to create managed service instance", "Service Instance Name", payload.Name)
+	}
+
+	return routing.NewResponse(http.StatusAccepted).
+		WithHeader("Location", presenter.JobURLForRedirects(serviceInstanceRecord.GUID, presenter.ManagedServiceInstanceCreateOperation, h.serverURL)), nil
+}
+
+func (h *ServiceInstance) createUserProvidedServiceInstance(
+	ctx context.Context,
+	logger logr.Logger,
+	authInfo authorization.Info,
+	payload payloads.ServiceInstanceCreate,
+) (*routing.Response, error) {
+	serviceInstanceRecord, err := h.serviceInstanceRepo.CreateUserProvidedServiceInstance(ctx, authInfo, payload.ToUPSICreateMessage())
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to create user provided service instance", "Service Instance Name", payload.Name)
 	}
 
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForServiceInstance(serviceInstanceRecord, h.serverURL)), nil

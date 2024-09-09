@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/korifi/tests/helpers"
-	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/google/uuid"
@@ -95,21 +94,6 @@ var _ = Describe("Service Catalog", func() {
 		})
 	})
 })
-
-func getAppGUID(appName string) string {
-	GinkgoHelper()
-
-	session := helpers.Cf("app", appName, "--guid")
-	Expect(session).To(Exit(0))
-	return string(session.Out.Contents())
-}
-
-func cleanupBroker(brokerName string) {
-	GinkgoHelper()
-
-	Expect(helpers.Cf("delete-service-broker", "-f", brokerName)).To(Exit(0))
-	broker.NewCatalogPurger(rootNamespace).ForBrokerName(brokerName).Purge()
-}
 
 func matchSubstrings(substrings ...string) types.GomegaMatcher {
 	return MatchRegexp(strings.Join(substrings, ".*"))

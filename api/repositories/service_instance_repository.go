@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -10,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -18,8 +20,10 @@ import (
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -55,11 +59,20 @@ func NewServiceInstanceRepo(
 	}
 }
 
-type CreateServiceInstanceMessage struct {
+type CreateUPSIMessage struct {
 	Name        string
 	SpaceGUID   string
 	Credentials map[string]any
-	Type        string
+	Tags        []string
+	Labels      map[string]string
+	Annotations map[string]string
+}
+
+type CreateManagedSIMessage struct {
+	Name        string
+	SpaceGUID   string
+	PlanGUID    string
+	Parameters  map[string]any
 	Tags        []string
 	Labels      map[string]string
 	Annotations map[string]string
@@ -117,6 +130,7 @@ type ServiceInstanceRecord struct {
 	Annotations map[string]string
 	CreatedAt   time.Time
 	UpdatedAt   *time.Time
+	Ready       bool
 }
 
 func (r ServiceInstanceRecord) Relationships() map[string]string {
@@ -130,19 +144,69 @@ func (r ServiceInstanceRecord) Relationships() map[string]string {
 	return relationships
 }
 
-func (r *ServiceInstanceRepo) CreateServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateServiceInstanceMessage) (ServiceInstanceRecord, error) {
+func (r *ServiceInstanceRepo) CreateUserProvidedServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateUPSIMessage) (ServiceInstanceRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	cfServiceInstance := message.toCFServiceInstance()
+	guid := uuid.NewString()
+	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        guid,
+			Namespace:   message.SpaceGUID,
+			Labels:      message.Labels,
+			Annotations: message.Annotations,
+		},
+		Spec: korifiv1alpha1.CFServiceInstanceSpec{
+			DisplayName: message.Name,
+			SecretName:  guid,
+			Type:        korifiv1alpha1.UserProvidedType,
+			Tags:        message.Tags,
+		},
+	}
 	err = userClient.Create(ctx, cfServiceInstance)
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
 	err = r.createCredentialsSecret(ctx, userClient, cfServiceInstance, message.Credentials)
+	if err != nil {
+		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
+	}
+
+	return cfServiceInstanceToRecord(*cfServiceInstance), nil
+}
+
+func (r *ServiceInstanceRepo) CreateManagedServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateManagedSIMessage) (ServiceInstanceRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	parameterBytes, err := json.Marshal(message.Parameters)
+	if err != nil {
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to marshal parameters: %w", err)
+	}
+
+	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        uuid.NewString(),
+			Namespace:   message.SpaceGUID,
+			Labels:      message.Labels,
+			Annotations: message.Annotations,
+		},
+		Spec: korifiv1alpha1.CFServiceInstanceSpec{
+			DisplayName: message.Name,
+			Type:        korifiv1alpha1.ManagedType,
+			PlanGUID:    message.PlanGUID,
+			Tags:        message.Tags,
+			Parameters: &runtime.RawExtension{
+				Raw: parameterBytes,
+			},
+		},
+	}
+	err = userClient.Create(ctx, cfServiceInstance)
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
@@ -324,22 +388,21 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 	return nil
 }
 
-func (m CreateServiceInstanceMessage) toCFServiceInstance() *korifiv1alpha1.CFServiceInstance {
-	guid := uuid.NewString()
-	return &korifiv1alpha1.CFServiceInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        guid,
-			Namespace:   m.SpaceGUID,
-			Labels:      m.Labels,
-			Annotations: m.Annotations,
-		},
-		Spec: korifiv1alpha1.CFServiceInstanceSpec{
-			DisplayName: m.Name,
-			SecretName:  guid,
-			Type:        korifiv1alpha1.InstanceType(m.Type),
-			Tags:        m.Tags,
-		},
+func (r ServiceInstanceRecord) GetResourceType() string {
+	return ServiceInstanceResourceType
+}
+
+func (r *ServiceInstanceRepo) GetState(ctx context.Context, authInfo authorization.Info, guid string) (model.CFResourceState, error) {
+	instanceRecord, err := r.GetServiceInstance(ctx, authInfo, guid)
+	if err != nil {
+		return model.CFResourceStateUnknown, err
 	}
+
+	if instanceRecord.Ready {
+		return model.CFResourceStateReady, nil
+	}
+
+	return model.CFResourceStateUnknown, nil
 }
 
 func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) ServiceInstanceRecord {
@@ -355,5 +418,14 @@ func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstanc
 		Annotations: cfServiceInstance.Annotations,
 		CreatedAt:   cfServiceInstance.CreationTimestamp.Time,
 		UpdatedAt:   getLastUpdatedTime(&cfServiceInstance),
+		Ready:       isReady(cfServiceInstance),
 	}
+}
+
+func isReady(cfServiceInstance korifiv1alpha1.CFServiceInstance) bool {
+	if cfServiceInstance.Generation != cfServiceInstance.Status.ObservedGeneration {
+		return false
+	}
+
+	return meta.IsStatusConditionTrue(cfServiceInstance.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 }

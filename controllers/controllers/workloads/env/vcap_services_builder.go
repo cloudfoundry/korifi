@@ -124,7 +124,8 @@ func fromServiceBinding(
 		tags = []string{}
 	}
 
-	credentials, err := credentials.GetCredentials(credentialsSecret)
+	creds := map[string]any{}
+	err := credentials.GetCredentials(credentialsSecret, &creds)
 	if err != nil {
 		return ServiceDetails{}, fmt.Errorf("failed to get credentials for service binding %q: %w", serviceBinding.Name, err)
 	}
@@ -137,7 +138,7 @@ func fromServiceBinding(
 		InstanceName:   serviceInstance.Spec.DisplayName,
 		BindingGUID:    serviceBinding.Name,
 		BindingName:    bindingName,
-		Credentials:    credentials,
+		Credentials:    creds,
 		SyslogDrainURL: nil,
 		VolumeMounts:   []string{},
 	}, nil

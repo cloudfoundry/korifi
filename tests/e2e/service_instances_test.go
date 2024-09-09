@@ -29,46 +29,100 @@ var _ = Describe("Service Instances", func() {
 	})
 
 	Describe("Create", func() {
-		When("the user has permissions to create service instances", func() {
-			var instanceName string
+		var (
+			instanceName  string
+			createPayload serviceInstanceResource
+			result        serviceInstanceResource
+		)
 
+		BeforeEach(func() {
+			instanceName = generateGUID("service-instance")
+			createPayload = serviceInstanceResource{}
+		})
+
+		JustBeforeEach(func() {
+			httpResp, httpError = adminClient.R().
+				SetBody(createPayload).
+				SetResult(&result).
+				Post("/v3/service_instances")
+		})
+
+		When("creating a user-provided service instance", func() {
 			BeforeEach(func() {
-				instanceName = generateGUID("service-instance")
-			})
-
-			JustBeforeEach(func() {
-				httpResp, httpError = adminClient.R().
-					SetBody(serviceInstanceResource{
-						resource: resource{
-							Name: instanceName,
-							Relationships: relationships{
-								"space": {
-									Data: resource{
-										GUID: spaceGUID,
-									},
+				createPayload = serviceInstanceResource{
+					resource: resource{
+						Name: instanceName,
+						Relationships: relationships{
+							"space": {
+								Data: resource{
+									GUID: spaceGUID,
 								},
 							},
 						},
-						Credentials: map[string]any{
-							"object": map[string]any{"a": "b"},
-						},
-						InstanceType: "user-provided",
-						Tags:         []string{"some", "tags"},
-					}).Post("/v3/service_instances")
+					},
+					Credentials: map[string]any{
+						"object": map[string]any{"a": "b"},
+					},
+					InstanceType: "user-provided",
+				}
 			})
 
 			It("succeeds", func() {
 				Expect(httpError).NotTo(HaveOccurred())
 				Expect(httpResp).To(HaveRestyStatusCode(http.StatusCreated))
+				Expect(result.Name).To(Equal(instanceName))
+				Expect(result.InstanceType).To(Equal("user-provided"))
+			})
+		})
 
-				serviceInstances := listServiceInstances(instanceName)
-				Expect(serviceInstances.Resources).To(HaveLen(1))
+		When("creating a managed service instance", func() {
+			BeforeEach(func() {
+				brokerGUID := createBroker(serviceBrokerURL)
+				DeferCleanup(func() {
+					cleanupBroker(brokerGUID)
+				})
 
-				serviceInstance := serviceInstances.Resources[0]
-				Expect(serviceInstance.Name).To(Equal(instanceName))
-				Expect(serviceInstance.Relationships["space"].Data.GUID).To(Equal(spaceGUID))
-				Expect(serviceInstance.Tags).To(ConsistOf("some", "tags"))
-				Expect(serviceInstance.InstanceType).To(Equal("user-provided"))
+				var plansResp resourceList[resource]
+				catalogResp, err := adminClient.R().SetResult(&plansResp).Get("/v3/service_plans?service_broker_guids=" + brokerGUID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(catalogResp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(plansResp.Resources).NotTo(BeEmpty())
+
+				createPayload = serviceInstanceResource{
+					resource: resource{
+						Name: instanceName,
+						Relationships: relationships{
+							"space": {
+								Data: resource{
+									GUID: spaceGUID,
+								},
+							},
+							"service_plan": {
+								Data: resource{
+									GUID: plansResp.Resources[0].GUID,
+								},
+							},
+						},
+					},
+					InstanceType: "managed",
+				}
+			})
+
+			It("succeeds with a job redirect", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusAccepted))
+
+				Expect(httpResp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusAccepted),
+					HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_instance.create~")),
+				))
+
+				jobURL := httpResp.Header().Get("Location")
+				Eventually(func(g Gomega) {
+					jobResp, err := adminClient.R().Get(jobURL)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+				}).Should(Succeed())
 			})
 		})
 	})

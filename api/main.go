@@ -362,8 +362,9 @@ func main() {
 				handlers.ServiceBrokerDeleteJobType: serviceBrokerRepo,
 			},
 			map[string]handlers.StateRepository{
-				handlers.ServiceBrokerCreateJobType: serviceBrokerRepo,
-				handlers.ServiceBrokerUpdateJobType: serviceBrokerRepo,
+				handlers.ServiceBrokerCreateJobType:          serviceBrokerRepo,
+				handlers.ServiceBrokerUpdateJobType:          serviceBrokerRepo,
+				handlers.ManagedServiceInstanceCreateJobType: serviceInstanceRepo,
 			},
 			500*time.Millisecond,
 		),

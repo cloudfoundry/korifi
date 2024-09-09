@@ -18,8 +18,10 @@ const (
 )
 
 func main() {
-	http.HandleFunc("/", helloWorldHandler)
-	http.HandleFunc("/v2/catalog", getCatalogHandler)
+	http.HandleFunc("GET /", helloWorldHandler)
+	http.HandleFunc("GET /v2/catalog", getCatalogHandler)
+	http.HandleFunc("PUT /v2/service_instances/{id}", provisionServiceInstanceHandler)
+	http.HandleFunc("GET /v2/service_instances/{id}/last_operation", serviceInstanceLastOperationHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -63,6 +65,26 @@ func getCatalogHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintln(w, string(catalogBytes))
+}
+
+func provisionServiceInstanceHandler(w http.ResponseWriter, r *http.Request) {
+	if status, err := checkCredentials(w, r); err != nil {
+		w.WriteHeader(status)
+		fmt.Fprintf(w, "Credentials check failed: %v", err)
+		return
+	}
+
+	fmt.Fprintf(w, `{"operation":"provision-%s"}`, r.PathValue("id"))
+}
+
+func serviceInstanceLastOperationHandler(w http.ResponseWriter, r *http.Request) {
+	if status, err := checkCredentials(w, r); err != nil {
+		w.WriteHeader(status)
+		fmt.Fprintf(w, "Credentials check failed: %v", err)
+		return
+	}
+
+	fmt.Fprint(w, `{"state":"succeeded"}`)
 }
 
 func checkCredentials(_ http.ResponseWriter, r *http.Request) (int, error) {

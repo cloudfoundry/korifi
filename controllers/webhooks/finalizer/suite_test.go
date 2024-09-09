@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/apps"
@@ -109,6 +110,7 @@ var _ = BeforeSuite(func() {
 		uncachedClient,
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 	Expect(packages.NewValidator().SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(instances.NewValidator(validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, instances.ServiceInstanceEntityType))).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 
