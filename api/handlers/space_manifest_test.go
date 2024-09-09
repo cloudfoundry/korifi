@@ -65,11 +65,11 @@ var _ = Describe("SpaceManifest", func() {
 						Command:                      tools.PtrTo("start-web.sh"),
 						DiskQuota:                    tools.PtrTo("512M"),
 						HealthCheckHTTPEndpoint:      tools.PtrTo("/healthcheck"),
-						HealthCheckInvocationTimeout: tools.PtrTo[int64](5),
+						HealthCheckInvocationTimeout: tools.PtrTo[int32](5),
 						HealthCheckType:              tools.PtrTo("http"),
-						Instances:                    tools.PtrTo(1),
+						Instances:                    tools.PtrTo[int32](1),
 						Memory:                       tools.PtrTo("256M"),
-						Timeout:                      tools.PtrTo[int64](10),
+						Timeout:                      tools.PtrTo[int32](10),
 					}},
 				}},
 			})
@@ -99,11 +99,11 @@ var _ = Describe("SpaceManifest", func() {
 			Expect(payload.Applications[0].Processes[0].Command).To(PointTo(Equal("start-web.sh")))
 			Expect(payload.Applications[0].Processes[0].DiskQuota).To(PointTo(Equal("512M")))
 			Expect(payload.Applications[0].Processes[0].HealthCheckHTTPEndpoint).To(PointTo(Equal("/healthcheck")))
-			Expect(payload.Applications[0].Processes[0].HealthCheckInvocationTimeout).To(PointTo(Equal(int64(5))))
+			Expect(payload.Applications[0].Processes[0].HealthCheckInvocationTimeout).To(PointTo(Equal(int32(5))))
 			Expect(payload.Applications[0].Processes[0].HealthCheckType).To(PointTo(Equal("http")))
-			Expect(payload.Applications[0].Processes[0].Instances).To(PointTo(Equal(1)))
+			Expect(payload.Applications[0].Processes[0].Instances).To(PointTo(BeEquivalentTo(1)))
 			Expect(payload.Applications[0].Processes[0].Memory).To(PointTo(Equal("256M")))
-			Expect(payload.Applications[0].Processes[0].Timeout).To(PointTo(Equal(int64(10))))
+			Expect(payload.Applications[0].Processes[0].Timeout).To(PointTo(Equal(int32(10))))
 		})
 
 		When("the manifest is invalid", func() {

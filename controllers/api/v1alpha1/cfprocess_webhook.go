@@ -31,10 +31,10 @@ var cfprocesslog = logf.Log.WithName("cfprocess-resource")
 type CFProcessDefaulter struct {
 	defaultMemoryMB    int64
 	defaultDiskQuotaMB int64
-	defaultTimeout     int64
+	defaultTimeout     int32
 }
 
-func NewCFProcessDefaulter(defaultMemoryMB, defaultDiskQuotaMB int64, defaultTimeout int64) *CFProcessDefaulter {
+func NewCFProcessDefaulter(defaultMemoryMB, defaultDiskQuotaMB int64, defaultTimeout int32) *CFProcessDefaulter {
 	return &CFProcessDefaulter{
 		defaultMemoryMB:    defaultMemoryMB,
 		defaultDiskQuotaMB: defaultDiskQuotaMB,
@@ -92,11 +92,11 @@ func (d *CFProcessDefaulter) defaultInstances(process *CFProcess) {
 		return
 	}
 
-	defaultInstances := 0
+	defaultInstances := int32(0)
 	if process.Spec.ProcessType == ProcessTypeWeb {
 		defaultInstances = 1
 	}
-	process.Spec.DesiredInstances = tools.PtrTo(defaultInstances)
+	process.Spec.DesiredInstances = tools.PtrTo[int32](defaultInstances)
 }
 
 func (d *CFProcessDefaulter) defaultHealthCheck(process *CFProcess) {

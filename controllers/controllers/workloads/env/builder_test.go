@@ -316,7 +316,7 @@ var _ = Describe("EnvBuilder", func() {
 			BeforeEach(func() {
 				destinations := []korifiv1alpha1.Destination{{
 					GUID: "dest-guid",
-					Port: tools.PtrTo(1234),
+					Port: tools.PtrTo[int32](1234),
 					AppRef: corev1.LocalObjectReference{
 						Name: cfApp.Name,
 					},

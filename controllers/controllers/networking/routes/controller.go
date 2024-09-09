@@ -246,9 +246,9 @@ func (r *Reconciler) buildEffectiveDestinations(ctx context.Context, cfRoute *ko
 				continue
 			}
 
-			effectiveDest.Port = tools.PtrTo(8080)
+			effectiveDest.Port = tools.PtrTo[int32](8080)
 			if len(droplet.Ports) > 0 {
-				effectiveDest.Port = tools.PtrTo(int(droplet.Ports[0]))
+				effectiveDest.Port = tools.PtrTo(droplet.Ports[0])
 			}
 		}
 

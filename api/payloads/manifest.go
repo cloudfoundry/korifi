@@ -26,7 +26,7 @@ type ManifestApplication struct {
 	RandomRoute  bool              `yaml:"random-route"`
 	NoRoute      bool              `yaml:"no-route"`
 	Command      *string           `yaml:"command"`
-	Instances    *int              `json:"instances" yaml:"instances"`
+	Instances    *int32            `json:"instances" yaml:"instances"`
 	Memory       *string           `json:"memory" yaml:"memory"`
 	DiskQuota    *string           `json:"disk_quota" yaml:"disk_quota"`
 	// AltDiskQuota supports `disk-quota` with a hyphen for backwards compatibility.
@@ -35,9 +35,9 @@ type ManifestApplication struct {
 	// Deprecated: Use DiskQuota instead
 	AltDiskQuota                 *string                      `json:"disk-quota" yaml:"disk-quota"`
 	HealthCheckHTTPEndpoint      *string                      `yaml:"health-check-http-endpoint"`
-	HealthCheckInvocationTimeout *int64                       `json:"health-check-invocation-timeout" yaml:"health-check-invocation-timeout"`
+	HealthCheckInvocationTimeout *int32                       `json:"health-check-invocation-timeout" yaml:"health-check-invocation-timeout"`
 	HealthCheckType              *string                      `json:"health-check-type" yaml:"health-check-type"`
-	Timeout                      *int64                       `json:"timeout" yaml:"timeout"`
+	Timeout                      *int32                       `json:"timeout" yaml:"timeout"`
 	Processes                    []ManifestApplicationProcess `json:"processes" yaml:"processes"`
 	Routes                       []ManifestRoute              `json:"routes" yaml:"routes"`
 	Buildpacks                   []string                     `yaml:"buildpacks"`
@@ -60,11 +60,11 @@ type ManifestApplicationProcess struct {
 	// Deprecated: Use DiskQuota instead
 	AltDiskQuota                 *string `json:"disk-quota" yaml:"disk-quota"`
 	HealthCheckHTTPEndpoint      *string `yaml:"health-check-http-endpoint"`
-	HealthCheckInvocationTimeout *int64  `json:"health-check-invocation-timeout" yaml:"health-check-invocation-timeout"`
+	HealthCheckInvocationTimeout *int32  `json:"health-check-invocation-timeout" yaml:"health-check-invocation-timeout"`
 	HealthCheckType              *string `json:"health-check-type" yaml:"health-check-type"`
-	Instances                    *int    `json:"instances" yaml:"instances"`
+	Instances                    *int32  `json:"instances" yaml:"instances"`
 	Memory                       *string `json:"memory" yaml:"memory"`
-	Timeout                      *int64  `json:"timeout" yaml:"timeout"`
+	Timeout                      *int32  `json:"timeout" yaml:"timeout"`
 }
 
 type ManifestApplicationService struct {
@@ -172,15 +172,11 @@ func (p ManifestApplicationProcess) ToProcessCreateMessage(appGUID, spaceGUID st
 	msg.DesiredInstances = p.Instances
 
 	if p.Memory != nil {
-		// error ignored intentionally, since the manifest yaml is validated in handlers
-		memoryQuotaMB, _ := bytefmt.ToMegabytes(*p.Memory)
-		msg.MemoryMB = int64(memoryQuotaMB)
+		msg.MemoryMB = parseMegabytes(*p.Memory)
 	}
 
 	if p.DiskQuota != nil {
-		// error ignored intentionally, since the manifest yaml is validated in handlers
-		diskQuotaMB, _ := bytefmt.ToMegabytes(*p.DiskQuota)
-		msg.DiskQuotaMB = int64(diskQuotaMB)
+		msg.DiskQuotaMB = parseMegabytes(*p.DiskQuota)
 	}
 
 	return msg
@@ -203,14 +199,10 @@ func (p ManifestApplicationProcess) ToProcessPatchMessage(processGUID, spaceGUID
 		}
 	}
 	if p.DiskQuota != nil {
-		diskQuotaMB, _ := bytefmt.ToMegabytes(*p.DiskQuota)
-		int64DQMB := int64(diskQuotaMB)
-		message.DiskQuotaMB = &int64DQMB
+		message.DiskQuotaMB = tools.PtrTo(parseMegabytes(*p.DiskQuota))
 	}
 	if p.Memory != nil {
-		memoryMB, _ := bytefmt.ToMegabytes(*p.Memory)
-		int64MMB := int64(memoryMB)
-		message.MemoryMB = &int64MMB
+		message.MemoryMB = tools.PtrTo(parseMegabytes(*p.Memory))
 	}
 	return message
 }
@@ -286,4 +278,10 @@ func validateAmountWithUnit(value any) error {
 	}
 
 	return nil
+}
+
+func parseMegabytes(s string) int64 {
+	// error intentinally ignored as the manifesst is validated beforehand
+	mb, _ := bytefmt.ToMegabytes(s)
+	return int64(mb) // #nosec G115
 }

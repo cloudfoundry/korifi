@@ -89,7 +89,7 @@ var _ = BeforeSuite(func() {
 		ctrl.Log.WithName("controllers").WithName("CFSpace"),
 		[]string{packageRegistrySecretName},
 		cfRootNamespace,
-		int64(2),
+		int32(2),
 		labelCompiler,
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

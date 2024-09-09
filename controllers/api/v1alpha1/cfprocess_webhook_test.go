@@ -106,16 +106,16 @@ var _ = Describe("CFProcessMutatingWebhook", func() {
 
 	Describe("instances", func() {
 		It("defaults desired instances to zero", func() {
-			Expect(cfProcess.Spec.DesiredInstances).To(gstruct.PointTo(Equal(0)))
+			Expect(cfProcess.Spec.DesiredInstances).To(gstruct.PointTo(BeZero()))
 		})
 
 		When("the process has the instance number set", func() {
 			BeforeEach(func() {
-				cfProcess.Spec.DesiredInstances = tools.PtrTo(24)
+				cfProcess.Spec.DesiredInstances = tools.PtrTo[int32](24)
 			})
 
 			It("leaves instances unchanged", func() {
-				Expect(cfProcess.Spec.DesiredInstances).To(gstruct.PointTo(Equal(24)))
+				Expect(cfProcess.Spec.DesiredInstances).To(gstruct.PointTo(BeEquivalentTo(24)))
 			})
 		})
 
@@ -125,16 +125,16 @@ var _ = Describe("CFProcessMutatingWebhook", func() {
 			})
 
 			It("defaults instances to 1", func() {
-				Expect(cfProcess.Spec.DesiredInstances).To(gstruct.PointTo(Equal(1)))
+				Expect(cfProcess.Spec.DesiredInstances).To(gstruct.PointTo(BeEquivalentTo(1)))
 			})
 
 			When("the process has the instance number set", func() {
 				BeforeEach(func() {
-					cfProcess.Spec.DesiredInstances = tools.PtrTo(42)
+					cfProcess.Spec.DesiredInstances = tools.PtrTo[int32](42)
 				})
 
 				It("leaves instances unchanged", func() {
-					Expect(cfProcess.Spec.DesiredInstances).To(gstruct.PointTo(Equal(42)))
+					Expect(cfProcess.Spec.DesiredInstances).To(gstruct.PointTo(BeEquivalentTo(42)))
 				})
 			})
 		})

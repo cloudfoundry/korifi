@@ -42,7 +42,7 @@ type ProcessRecord struct {
 	AppGUID          string
 	Type             string
 	Command          string
-	DesiredInstances int
+	DesiredInstances int32
 	MemoryMB         int64
 	DiskQuotaMB      int64
 	HealthCheck      HealthCheck
@@ -69,8 +69,8 @@ type HealthCheck struct {
 
 type HealthCheckData struct {
 	HTTPEndpoint             string
-	InvocationTimeoutSeconds int64
-	TimeoutSeconds           int64
+	InvocationTimeoutSeconds int32
+	TimeoutSeconds           int32
 }
 
 type ScaleProcessMessage struct {
@@ -80,7 +80,7 @@ type ScaleProcessMessage struct {
 }
 
 type ProcessScaleValues struct {
-	Instances *int
+	Instances *int32
 	MemoryMB  *int64
 	DiskMB    *int64
 }
@@ -92,7 +92,7 @@ type CreateProcessMessage struct {
 	Command          string
 	DiskQuotaMB      int64
 	HealthCheck      HealthCheck
-	DesiredInstances *int
+	DesiredInstances *int32
 	MemoryMB         int64
 }
 
@@ -102,10 +102,10 @@ type PatchProcessMessage struct {
 	Command                             *string
 	DiskQuotaMB                         *int64
 	HealthCheckHTTPEndpoint             *string
-	HealthCheckInvocationTimeoutSeconds *int64
-	HealthCheckTimeoutSeconds           *int64
+	HealthCheckInvocationTimeoutSeconds *int32
+	HealthCheckTimeoutSeconds           *int32
 	HealthCheckType                     *string
-	DesiredInstances                    *int
+	DesiredInstances                    *int32
 	MemoryMB                            *int64
 	MetadataPatch                       *MetadataPatch
 }

@@ -46,7 +46,7 @@ type CFProcessSpec struct {
 	HealthCheck HealthCheck `json:"healthCheck"`
 
 	// The desired number of replicas to deploy
-	DesiredInstances *int `json:"desiredInstances,omitempty"`
+	DesiredInstances *int32 `json:"desiredInstances,omitempty"`
 
 	// The memory limit in MiB
 	MemoryMB int64 `json:"memoryMB"`
@@ -79,8 +79,8 @@ type HealthCheckData struct {
 	// The http endpoint to use with "http" healthchecks
 	HTTPEndpoint string `json:"httpEndpoint,omitempty"`
 
-	InvocationTimeoutSeconds int64 `json:"invocationTimeoutSeconds"`
-	TimeoutSeconds           int64 `json:"timeoutSeconds"`
+	InvocationTimeoutSeconds int32 `json:"invocationTimeoutSeconds"`
+	TimeoutSeconds           int32 `json:"timeoutSeconds"`
 }
 
 // CFProcessStatus defines the observed state of CFProcess

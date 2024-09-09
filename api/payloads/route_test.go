@@ -215,7 +215,7 @@ var _ = Describe("Add destination", func() {
 							Type: "queue",
 						},
 					},
-					Port:     tools.PtrTo(1234),
+					Port:     tools.PtrTo[int32](1234),
 					Protocol: tools.PtrTo("http1"),
 				},
 			},

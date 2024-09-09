@@ -44,7 +44,7 @@ type DestinationRecord struct {
 	GUID        string
 	AppGUID     string
 	ProcessType string
-	Port        *int
+	Port        *int32
 	Protocol    *string
 	// Weight intentionally omitted as experimental features
 }
@@ -74,7 +74,7 @@ func (r RouteRecord) Relationships() map[string]string {
 type DesiredDestination struct {
 	AppGUID     string
 	ProcessType string
-	Port        *int
+	Port        *int32
 	Protocol    *string
 	// Weight intentionally omitted as experimental features
 }
