@@ -7,6 +7,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
+	validationwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -66,6 +67,12 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Obje
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceInstance but got a %T", oldObj))
 	}
 
+	if serviceInstance.Spec.Type != oldServiceInstance.Spec.Type {
+		return nil, validationwebhook.ValidationError{
+			Type:    validationwebhook.ImmutableFieldErrorType,
+			Message: fmt.Sprintf(validationwebhook.ImmutableFieldErrorMessageTemplate, "CFServiceInstance.Spec.Type"),
+		}.ExportJSONError()
+	}
 	return nil, v.duplicateValidator.ValidateUpdate(ctx, cfserviceinstancelog, serviceInstance.Namespace, oldServiceInstance, serviceInstance)
 }
 

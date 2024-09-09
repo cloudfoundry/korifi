@@ -28,6 +28,7 @@ var _ = Describe("ServicePlan", func() {
 			Entry("available", "available=true", payloads.ServicePlanList{Available: tools.PtrTo(true)}),
 			Entry("not available", "available=false", payloads.ServicePlanList{Available: tools.PtrTo(false)}),
 			Entry("broker names", "service_broker_names=b1,b2", payloads.ServicePlanList{BrokerNames: "b1,b2"}),
+			Entry("broker guids", "service_broker_guids=b1,b2", payloads.ServicePlanList{BrokerGUIDs: "b1,b2"}),
 			Entry("include", "include=service_offering&include=space.organization", payloads.ServicePlanList{
 				IncludeResourceRules: []params.IncludeResourceRule{
 					{
@@ -62,6 +63,7 @@ var _ = Describe("ServicePlan", func() {
 			It("converts payload to repository message", func() {
 				payload := payloads.ServicePlanList{
 					ServiceOfferingGUIDs: "b1,b2",
+					BrokerGUIDs:          "b1-guid,b2-guid",
 					BrokerNames:          "br1,br2",
 					Names:                "n1,n2",
 					ServiceOfferingNames: "so1,so2",
@@ -70,6 +72,7 @@ var _ = Describe("ServicePlan", func() {
 				Expect(payload.ToMessage()).To(Equal(repositories.ListServicePlanMessage{
 					ServiceOfferingGUIDs: []string{"b1", "b2"},
 					BrokerNames:          []string{"br1", "br2"},
+					BrokerGUIDs:          []string{"b1-guid", "b2-guid"},
 					Names:                []string{"n1", "n2"},
 					ServiceOfferingNames: []string{"so1", "so2"},
 					Available:            tools.PtrTo(true),

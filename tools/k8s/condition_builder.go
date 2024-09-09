@@ -78,6 +78,7 @@ type NotReadyError struct {
 	reason       string
 	message      string
 	requeueAfter *time.Duration
+	requeue      bool
 	noRequeue    bool
 }
 
@@ -94,6 +95,11 @@ func NewNotReadyError() NotReadyError {
 
 func (e NotReadyError) WithCause(cause error) NotReadyError {
 	e.cause = cause
+	return e
+}
+
+func (e NotReadyError) WithRequeue() NotReadyError {
+	e.requeue = true
 	return e
 }
 

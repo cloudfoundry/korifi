@@ -53,6 +53,7 @@ type ListServicePlanMessage struct {
 	ServiceOfferingGUIDs []string
 	ServiceOfferingNames []string
 	BrokerNames          []string
+	BrokerGUIDs          []string
 	Available            *bool
 }
 
@@ -61,6 +62,7 @@ func (m *ListServicePlanMessage) matches(cfServicePlan korifiv1alpha1.CFServiceP
 		tools.EmptyOrContains(m.GUIDs, cfServicePlan.Name) &&
 		tools.EmptyOrContains(m.Names, cfServicePlan.Spec.Name) &&
 		tools.EmptyOrContains(m.BrokerNames, cfServicePlan.Labels[korifiv1alpha1.RelServiceBrokerNameLabel]) &&
+		tools.EmptyOrContains(m.BrokerGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel]) &&
 		tools.EmptyOrContains(m.ServiceOfferingNames, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingNameLabel]) &&
 		tools.NilOrEquals(m.Available, isAvailable(cfServicePlan))
 }

@@ -8,6 +8,8 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services/instances"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -122,6 +124,19 @@ var _ = Describe("CFServiceInstanceValidatingWebhook", func() {
 
 			It("denies the request", func() {
 				Expect(retErr).To(MatchError("foo"))
+			})
+		})
+
+		When("the type is being updated", func() {
+			BeforeEach(func() {
+				updatedServiceInstance.Spec.Type = korifiv1alpha1.ManagedType
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					validation.ImmutableFieldErrorType,
+					Equal("'CFServiceInstance.Spec.Type' field is immutable"),
+				))
 			})
 		})
 	})

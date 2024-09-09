@@ -34,7 +34,7 @@ var _ = Describe("Service Offering", func() {
 				Requires:         []string{"r1"},
 				DocumentationURL: tools.PtrTo("https://doc.url"),
 				BrokerCatalog: services.ServiceBrokerCatalog{
-					Id: "catalog-id",
+					ID: "catalog-id",
 					Metadata: &runtime.RawExtension{
 						Raw: []byte(`{"foo": "bar"}`),
 					},

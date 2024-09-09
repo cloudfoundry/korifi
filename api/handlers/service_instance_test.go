@@ -79,9 +79,6 @@ var _ = Describe("ServiceInstance", func() {
 			reqMethod = http.MethodPost
 
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstanceCreate{
-				Name: "service-instance-name",
-				Type: "user-provided",
-				Tags: []string{"foo", "bar"},
 				Relationships: &payloads.ServiceInstanceRelationships{
 					Space: &payloads.Relationship{
 						Data: &payloads.RelationshipData{
@@ -89,33 +86,13 @@ var _ = Describe("ServiceInstance", func() {
 						},
 					},
 				},
-				Metadata: payloads.Metadata{},
 			})
-
-			serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{GUID: "service-instance-guid"}, nil)
 		})
 
-		It("creates a CFServiceInstance", func() {
+		It("validates the request", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
-
-			Expect(serviceInstanceRepo.CreateServiceInstanceCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualCreate := serviceInstanceRepo.CreateServiceInstanceArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualCreate).To(Equal(repositories.CreateServiceInstanceMessage{
-				Name:      "service-instance-name",
-				SpaceGUID: "space-guid",
-				Type:      "user-provided",
-				Tags:      []string{"foo", "bar"},
-			}))
-
-			Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.guid", "service-instance-guid"),
-				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/service_instances/service-instance-guid"),
-			)))
 		})
 
 		When("the request body is not valid", func() {
@@ -154,13 +131,100 @@ var _ = Describe("ServiceInstance", func() {
 			})
 		})
 
-		When("creating the service instance fails", func() {
+		When("creating a user provided serivce instance", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.CreateServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("space-instance-creation-failed"))
+				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstanceCreate{
+					Name: "service-instance-name",
+					Type: "user-provided",
+					Relationships: &payloads.ServiceInstanceRelationships{
+						Space: &payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: "space-guid",
+							},
+						},
+					},
+				})
+
+				serviceInstanceRepo.CreateUserProvidedServiceInstanceReturns(repositories.ServiceInstanceRecord{GUID: "service-instance-guid"}, nil)
 			})
 
-			It("returns unknown error", func() {
-				expectUnknownError()
+			It("creates a user provided service instance with the repository", func() {
+				Expect(serviceInstanceRepo.CreateUserProvidedServiceInstanceCallCount()).To(Equal(1))
+				_, actualAuthInfo, actualCreate := serviceInstanceRepo.CreateUserProvidedServiceInstanceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualCreate).To(Equal(repositories.CreateUPSIMessage{
+					Name:      "service-instance-name",
+					SpaceGUID: "space-guid",
+				}))
+			})
+
+			When("creating the service instance fails", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.CreateUserProvidedServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("space-instance-creation-failed"))
+				})
+
+				It("returns unknown error", func() {
+					expectUnknownError()
+				})
+			})
+
+			It("returns HTTP 201 Created response", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.guid", "service-instance-guid"),
+					MatchJSONPath("$.links.self.href", "https://api.example.org/v3/service_instances/service-instance-guid"),
+				)))
+			})
+		})
+
+		When("the service instance is managed", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstanceCreate{
+					Name: "service-instance-name",
+					Type: "managed",
+					Relationships: &payloads.ServiceInstanceRelationships{
+						Space: &payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: "space-guid",
+							},
+						},
+						ServicePlan: &payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: "plan-guid",
+							},
+						},
+					},
+				})
+
+				serviceInstanceRepo.CreateManagedServiceInstanceReturns(repositories.ServiceInstanceRecord{GUID: "service-instance-guid"}, nil)
+			})
+
+			It("creates a managed service instance with the repository", func() {
+				Expect(serviceInstanceRepo.CreateManagedServiceInstanceCallCount()).To(Equal(1))
+				_, actualAuthInfo, actualCreate := serviceInstanceRepo.CreateManagedServiceInstanceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualCreate).To(Equal(repositories.CreateManagedSIMessage{
+					Name:      "service-instance-name",
+					SpaceGUID: "space-guid",
+					PlanGUID:  "plan-guid",
+				}))
+			})
+
+			When("creating the managed service instance fails", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.CreateManagedServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("create-managed-err"))
+				})
+
+				It("returns unknown error", func() {
+					expectUnknownError()
+				})
+			})
+
+			It("returns HTTP 202 Accepted response", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location",
+					ContainSubstring("/v3/jobs/managed_service_instance.create~service-instance-guid")))
 			})
 		})
 	})

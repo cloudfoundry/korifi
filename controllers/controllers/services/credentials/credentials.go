@@ -6,13 +6,15 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 )
 
 const ServiceBindingSecretTypePrefix = "servicebinding.io/"
 
 func GetBindingSecretType(credentialsSecret *corev1.Secret) (corev1.SecretType, error) {
-	credentials, err := GetCredentials(credentialsSecret)
+	credentials := map[string]any{}
+	err := GetCredentials(credentialsSecret, &credentials)
 	if err != nil {
 		return "", err
 	}
@@ -26,7 +28,8 @@ func GetBindingSecretType(credentialsSecret *corev1.Secret) (corev1.SecretType, 
 }
 
 func GetServiceBindingIOSecretData(credentialsSecret *corev1.Secret) (map[string][]byte, error) {
-	credentials, err := GetCredentials(credentialsSecret)
+	credentials := map[string]any{}
+	err := GetCredentials(credentialsSecret, &credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -54,20 +57,15 @@ func toBytes(value any) ([]byte, error) {
 	return json.Marshal(value)
 }
 
-func GetCredentials(credentialsSecret *corev1.Secret) (map[string]any, error) {
+func GetCredentials(credentialsSecret *corev1.Secret, credentialsObject any) error {
 	credentials, ok := credentialsSecret.Data[tools.CredentialsSecretKey]
 	if !ok {
-		return nil, fmt.Errorf(
+		return fmt.Errorf(
 			"data of secret %q does not contain the %q key",
 			credentialsSecret.Name,
 			tools.CredentialsSecretKey,
 		)
 	}
-	credentialsObject := map[string]any{}
-	err := json.Unmarshal(credentials, &credentialsObject)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal secret data: %w", err)
-	}
 
-	return credentialsObject, nil
+	return errors.Wrap(json.Unmarshal(credentials, credentialsObject), "failed to unmarshal secret data")
 }

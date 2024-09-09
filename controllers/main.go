@@ -31,8 +31,9 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/routes"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers/osbapi"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances/managed"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances/upsi"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/apps"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/build/buildpack"
@@ -228,12 +229,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (instances.NewReconciler(
+		if err = (upsi.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			controllersLog,
 		)).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "CFServiceInstance")
+			setupLog.Error(err, "unable to create controller", "controller", "UPSICFServiceInstance")
 			os.Exit(1)
 		}
 
@@ -306,11 +307,22 @@ func main() {
 		if controllerConfig.ExperimentalManagedServicesEnabled {
 			if err = brokers.NewReconciler(
 				mgr.GetClient(),
-				osbapi.NewClient(mgr.GetClient(), controllerConfig.TrustInsecureServiceBrokers),
+				osbapi.NewClientFactory(mgr.GetClient(), controllerConfig.TrustInsecureServiceBrokers),
 				mgr.GetScheme(),
 				controllersLog,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "CFServiceBroker")
+				os.Exit(1)
+			}
+
+			if err = managed.NewReconciler(
+				mgr.GetClient(),
+				osbapi.NewClientFactory(mgr.GetClient(), controllerConfig.TrustInsecureServiceBrokers),
+				mgr.GetScheme(),
+				controllerConfig.CFRootNamespace,
+				controllersLog,
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "ManagedCFServiceInstance")
 				os.Exit(1)
 			}
 		}

@@ -17,19 +17,19 @@ import (
 )
 
 const (
-	JobPath                    = "/v3/jobs/{guid}"
-	syncSpaceJobType           = "space.apply_manifest"
-	AppDeleteJobType           = "app.delete"
-	OrgDeleteJobType           = "org.delete"
-	RouteDeleteJobType         = "route.delete"
-	SpaceDeleteJobType         = "space.delete"
-	DomainDeleteJobType        = "domain.delete"
-	RoleDeleteJobType          = "role.delete"
-	ServiceBrokerCreateJobType = "service_broker.create"
-	ServiceBrokerUpdateJobType = "service_broker.update"
-	ServiceBrokerDeleteJobType = "service_broker.delete"
-
-	JobTimeoutDuration = 120.0
+	JobPath                             = "/v3/jobs/{guid}"
+	syncSpaceJobType                    = "space.apply_manifest"
+	AppDeleteJobType                    = "app.delete"
+	OrgDeleteJobType                    = "org.delete"
+	RouteDeleteJobType                  = "route.delete"
+	SpaceDeleteJobType                  = "space.delete"
+	DomainDeleteJobType                 = "domain.delete"
+	RoleDeleteJobType                   = "role.delete"
+	ServiceBrokerCreateJobType          = "service_broker.create"
+	ServiceBrokerUpdateJobType          = "service_broker.update"
+	ServiceBrokerDeleteJobType          = "service_broker.delete"
+	ManagedServiceInstanceCreateJobType = "managed_service_instance.create"
+	JobTimeoutDuration                  = 120.0
 )
 
 const JobResourceType = "Job"

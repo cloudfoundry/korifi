@@ -1,11 +1,12 @@
 package broker
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
-
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers/osbapi"
 
 	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
 	. "github.com/onsi/gomega"    //lint:ignore ST1001 this is a test file
@@ -24,21 +25,30 @@ func NewServer() *BrokerServer {
 	}
 }
 
-func (b *BrokerServer) WithCatalog(catalog *osbapi.Catalog) *BrokerServer {
+func (b *BrokerServer) WithResponse(pattern string, response map[string]any, statusCode int) *BrokerServer {
 	GinkgoHelper()
 
-	catalogBytes, err := json.Marshal(catalog)
+	respBytes, err := json.Marshal(response)
 	Expect(err).NotTo(HaveOccurred())
 
-	return b.WithHandler("/v2/catalog", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(catalogBytes)
+	return b.WithHandler(pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(respBytes)
+		w.WriteHeader(statusCode)
 	}))
 }
 
 func (b *BrokerServer) WithHandler(pattern string, handler http.Handler) *BrokerServer {
 	b.mux.Handle(pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b.requests = append(b.requests, r)
-		handler.ServeHTTP(w, r)
+		bodyBytes, err := io.ReadAll(r.Body)
+		Expect(err).NotTo(HaveOccurred())
+
+		recordedRequest := r.Clone(context.Background())
+		recordedRequest.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		b.requests = append(b.requests, recordedRequest)
+
+		executedRequest := r.Clone(r.Context())
+		executedRequest.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		handler.ServeHTTP(w, executedRequest)
 	}))
 
 	return b

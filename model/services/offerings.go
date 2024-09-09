@@ -15,7 +15,7 @@ type ServiceOffering struct {
 
 // +kubebuilder:object:generate=true
 type ServiceBrokerCatalog struct {
-	Id string `json:"id"`
+	ID string `json:"id"`
 	// +kubebuilder:validation:Optional
 	Metadata *runtime.RawExtension `json:"metadata"`
 	Features BrokerCatalogFeatures `json:"features"`

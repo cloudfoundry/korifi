@@ -11,18 +11,33 @@ import (
 )
 
 type CFServiceInstanceRepository struct {
-	CreateServiceInstanceStub        func(context.Context, authorization.Info, repositories.CreateServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
-	createServiceInstanceMutex       sync.RWMutex
-	createServiceInstanceArgsForCall []struct {
+	CreateManagedServiceInstanceStub        func(context.Context, authorization.Info, repositories.CreateManagedSIMessage) (repositories.ServiceInstanceRecord, error)
+	createManagedServiceInstanceMutex       sync.RWMutex
+	createManagedServiceInstanceArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.CreateServiceInstanceMessage
+		arg3 repositories.CreateManagedSIMessage
 	}
-	createServiceInstanceReturns struct {
+	createManagedServiceInstanceReturns struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}
-	createServiceInstanceReturnsOnCall map[int]struct {
+	createManagedServiceInstanceReturnsOnCall map[int]struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}
+	CreateUserProvidedServiceInstanceStub        func(context.Context, authorization.Info, repositories.CreateUPSIMessage) (repositories.ServiceInstanceRecord, error)
+	createUserProvidedServiceInstanceMutex       sync.RWMutex
+	createUserProvidedServiceInstanceArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.CreateUPSIMessage
+	}
+	createUserProvidedServiceInstanceReturns struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}
+	createUserProvidedServiceInstanceReturnsOnCall map[int]struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}
@@ -88,18 +103,18 @@ type CFServiceInstanceRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFServiceInstanceRepository) CreateServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateServiceInstanceMessage) (repositories.ServiceInstanceRecord, error) {
-	fake.createServiceInstanceMutex.Lock()
-	ret, specificReturn := fake.createServiceInstanceReturnsOnCall[len(fake.createServiceInstanceArgsForCall)]
-	fake.createServiceInstanceArgsForCall = append(fake.createServiceInstanceArgsForCall, struct {
+func (fake *CFServiceInstanceRepository) CreateManagedServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateManagedSIMessage) (repositories.ServiceInstanceRecord, error) {
+	fake.createManagedServiceInstanceMutex.Lock()
+	ret, specificReturn := fake.createManagedServiceInstanceReturnsOnCall[len(fake.createManagedServiceInstanceArgsForCall)]
+	fake.createManagedServiceInstanceArgsForCall = append(fake.createManagedServiceInstanceArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.CreateServiceInstanceMessage
+		arg3 repositories.CreateManagedSIMessage
 	}{arg1, arg2, arg3})
-	stub := fake.CreateServiceInstanceStub
-	fakeReturns := fake.createServiceInstanceReturns
-	fake.recordInvocation("CreateServiceInstance", []interface{}{arg1, arg2, arg3})
-	fake.createServiceInstanceMutex.Unlock()
+	stub := fake.CreateManagedServiceInstanceStub
+	fakeReturns := fake.createManagedServiceInstanceReturns
+	fake.recordInvocation("CreateManagedServiceInstance", []interface{}{arg1, arg2, arg3})
+	fake.createManagedServiceInstanceMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -109,46 +124,112 @@ func (fake *CFServiceInstanceRepository) CreateServiceInstance(arg1 context.Cont
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFServiceInstanceRepository) CreateServiceInstanceCallCount() int {
-	fake.createServiceInstanceMutex.RLock()
-	defer fake.createServiceInstanceMutex.RUnlock()
-	return len(fake.createServiceInstanceArgsForCall)
+func (fake *CFServiceInstanceRepository) CreateManagedServiceInstanceCallCount() int {
+	fake.createManagedServiceInstanceMutex.RLock()
+	defer fake.createManagedServiceInstanceMutex.RUnlock()
+	return len(fake.createManagedServiceInstanceArgsForCall)
 }
 
-func (fake *CFServiceInstanceRepository) CreateServiceInstanceCalls(stub func(context.Context, authorization.Info, repositories.CreateServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)) {
-	fake.createServiceInstanceMutex.Lock()
-	defer fake.createServiceInstanceMutex.Unlock()
-	fake.CreateServiceInstanceStub = stub
+func (fake *CFServiceInstanceRepository) CreateManagedServiceInstanceCalls(stub func(context.Context, authorization.Info, repositories.CreateManagedSIMessage) (repositories.ServiceInstanceRecord, error)) {
+	fake.createManagedServiceInstanceMutex.Lock()
+	defer fake.createManagedServiceInstanceMutex.Unlock()
+	fake.CreateManagedServiceInstanceStub = stub
 }
 
-func (fake *CFServiceInstanceRepository) CreateServiceInstanceArgsForCall(i int) (context.Context, authorization.Info, repositories.CreateServiceInstanceMessage) {
-	fake.createServiceInstanceMutex.RLock()
-	defer fake.createServiceInstanceMutex.RUnlock()
-	argsForCall := fake.createServiceInstanceArgsForCall[i]
+func (fake *CFServiceInstanceRepository) CreateManagedServiceInstanceArgsForCall(i int) (context.Context, authorization.Info, repositories.CreateManagedSIMessage) {
+	fake.createManagedServiceInstanceMutex.RLock()
+	defer fake.createManagedServiceInstanceMutex.RUnlock()
+	argsForCall := fake.createManagedServiceInstanceArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFServiceInstanceRepository) CreateServiceInstanceReturns(result1 repositories.ServiceInstanceRecord, result2 error) {
-	fake.createServiceInstanceMutex.Lock()
-	defer fake.createServiceInstanceMutex.Unlock()
-	fake.CreateServiceInstanceStub = nil
-	fake.createServiceInstanceReturns = struct {
+func (fake *CFServiceInstanceRepository) CreateManagedServiceInstanceReturns(result1 repositories.ServiceInstanceRecord, result2 error) {
+	fake.createManagedServiceInstanceMutex.Lock()
+	defer fake.createManagedServiceInstanceMutex.Unlock()
+	fake.CreateManagedServiceInstanceStub = nil
+	fake.createManagedServiceInstanceReturns = struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFServiceInstanceRepository) CreateServiceInstanceReturnsOnCall(i int, result1 repositories.ServiceInstanceRecord, result2 error) {
-	fake.createServiceInstanceMutex.Lock()
-	defer fake.createServiceInstanceMutex.Unlock()
-	fake.CreateServiceInstanceStub = nil
-	if fake.createServiceInstanceReturnsOnCall == nil {
-		fake.createServiceInstanceReturnsOnCall = make(map[int]struct {
+func (fake *CFServiceInstanceRepository) CreateManagedServiceInstanceReturnsOnCall(i int, result1 repositories.ServiceInstanceRecord, result2 error) {
+	fake.createManagedServiceInstanceMutex.Lock()
+	defer fake.createManagedServiceInstanceMutex.Unlock()
+	fake.CreateManagedServiceInstanceStub = nil
+	if fake.createManagedServiceInstanceReturnsOnCall == nil {
+		fake.createManagedServiceInstanceReturnsOnCall = make(map[int]struct {
 			result1 repositories.ServiceInstanceRecord
 			result2 error
 		})
 	}
-	fake.createServiceInstanceReturnsOnCall[i] = struct {
+	fake.createManagedServiceInstanceReturnsOnCall[i] = struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServiceInstanceRepository) CreateUserProvidedServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 repositories.CreateUPSIMessage) (repositories.ServiceInstanceRecord, error) {
+	fake.createUserProvidedServiceInstanceMutex.Lock()
+	ret, specificReturn := fake.createUserProvidedServiceInstanceReturnsOnCall[len(fake.createUserProvidedServiceInstanceArgsForCall)]
+	fake.createUserProvidedServiceInstanceArgsForCall = append(fake.createUserProvidedServiceInstanceArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.CreateUPSIMessage
+	}{arg1, arg2, arg3})
+	stub := fake.CreateUserProvidedServiceInstanceStub
+	fakeReturns := fake.createUserProvidedServiceInstanceReturns
+	fake.recordInvocation("CreateUserProvidedServiceInstance", []interface{}{arg1, arg2, arg3})
+	fake.createUserProvidedServiceInstanceMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFServiceInstanceRepository) CreateUserProvidedServiceInstanceCallCount() int {
+	fake.createUserProvidedServiceInstanceMutex.RLock()
+	defer fake.createUserProvidedServiceInstanceMutex.RUnlock()
+	return len(fake.createUserProvidedServiceInstanceArgsForCall)
+}
+
+func (fake *CFServiceInstanceRepository) CreateUserProvidedServiceInstanceCalls(stub func(context.Context, authorization.Info, repositories.CreateUPSIMessage) (repositories.ServiceInstanceRecord, error)) {
+	fake.createUserProvidedServiceInstanceMutex.Lock()
+	defer fake.createUserProvidedServiceInstanceMutex.Unlock()
+	fake.CreateUserProvidedServiceInstanceStub = stub
+}
+
+func (fake *CFServiceInstanceRepository) CreateUserProvidedServiceInstanceArgsForCall(i int) (context.Context, authorization.Info, repositories.CreateUPSIMessage) {
+	fake.createUserProvidedServiceInstanceMutex.RLock()
+	defer fake.createUserProvidedServiceInstanceMutex.RUnlock()
+	argsForCall := fake.createUserProvidedServiceInstanceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServiceInstanceRepository) CreateUserProvidedServiceInstanceReturns(result1 repositories.ServiceInstanceRecord, result2 error) {
+	fake.createUserProvidedServiceInstanceMutex.Lock()
+	defer fake.createUserProvidedServiceInstanceMutex.Unlock()
+	fake.CreateUserProvidedServiceInstanceStub = nil
+	fake.createUserProvidedServiceInstanceReturns = struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServiceInstanceRepository) CreateUserProvidedServiceInstanceReturnsOnCall(i int, result1 repositories.ServiceInstanceRecord, result2 error) {
+	fake.createUserProvidedServiceInstanceMutex.Lock()
+	defer fake.createUserProvidedServiceInstanceMutex.Unlock()
+	fake.CreateUserProvidedServiceInstanceStub = nil
+	if fake.createUserProvidedServiceInstanceReturnsOnCall == nil {
+		fake.createUserProvidedServiceInstanceReturnsOnCall = make(map[int]struct {
+			result1 repositories.ServiceInstanceRecord
+			result2 error
+		})
+	}
+	fake.createUserProvidedServiceInstanceReturnsOnCall[i] = struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}{result1, result2}
@@ -418,8 +499,10 @@ func (fake *CFServiceInstanceRepository) PatchServiceInstanceReturnsOnCall(i int
 func (fake *CFServiceInstanceRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createServiceInstanceMutex.RLock()
-	defer fake.createServiceInstanceMutex.RUnlock()
+	fake.createManagedServiceInstanceMutex.RLock()
+	defer fake.createManagedServiceInstanceMutex.RUnlock()
+	fake.createUserProvidedServiceInstanceMutex.RLock()
+	defer fake.createUserProvidedServiceInstanceMutex.RUnlock()
 	fake.deleteServiceInstanceMutex.RLock()
 	defer fake.deleteServiceInstanceMutex.RUnlock()
 	fake.getServiceInstanceMutex.RLock()

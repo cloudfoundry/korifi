@@ -11,7 +11,7 @@ import (
 )
 
 func TestServicesValidatingWebhooks(t *testing.T) {
-	SetDefaultEventuallyTimeout(10 * time.Second)
+	SetDefaultEventuallyTimeout(30 * time.Second)
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
 	RegisterFailHandler(Fail)

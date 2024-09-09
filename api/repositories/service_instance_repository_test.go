@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -22,13 +23,13 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("ServiceInstanceRepository", func() {
 	var (
-		testCtx             context.Context
 		serviceInstanceRepo *repositories.ServiceInstanceRepo
 		conditionAwaiter    *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceInstance,
@@ -43,7 +44,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	)
 
 	BeforeEach(func() {
-		testCtx = context.Background()
 		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceInstance,
 			korifiv1alpha1.CFServiceInstance,
@@ -52,72 +52,246 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		]{}
 		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter)
 
-		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
-		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
-		serviceInstanceName = prefixedGUID("service-instance")
+		org = createOrgWithCleanup(ctx, uuid.NewString())
+		space = createSpaceWithCleanup(ctx, org.Name, uuid.NewString())
+		serviceInstanceName = uuid.NewString()
 	})
 
-	Describe("CreateServiceInstance", func() {
+	Describe("CreateUserProvidedServiceInstance", func() {
 		var (
-			serviceInstanceCreateMessage repositories.CreateServiceInstanceMessage
-			serviceInstanceTags          []string
-			serviceInstanceCredentials   map[string]any
-
-			createdServiceInstanceRecord repositories.ServiceInstanceRecord
+			serviceInstanceCreateMessage repositories.CreateUPSIMessage
+			record                       repositories.ServiceInstanceRecord
 			createErr                    error
 		)
 
 		BeforeEach(func() {
-			serviceInstanceTags = []string{"foo", "bar"}
-			serviceInstanceCredentials = map[string]any{
-				"object": map[string]any{"a": "b"},
+			serviceInstanceCreateMessage = repositories.CreateUPSIMessage{
+				Name:      serviceInstanceName,
+				SpaceGUID: space.Name,
+				Credentials: map[string]any{
+					"object": map[string]any{"a": "b"},
+				},
+				Tags: []string{"foo", "bar"},
 			}
-
-			serviceInstanceCreateMessage = initializeServiceInstanceCreateMessage(serviceInstanceName, space.Name, serviceInstanceTags, serviceInstanceCredentials)
 		})
 
 		JustBeforeEach(func() {
-			createdServiceInstanceRecord, createErr = serviceInstanceRepo.CreateServiceInstance(testCtx, authInfo, serviceInstanceCreateMessage)
+			record, createErr = serviceInstanceRepo.CreateUserProvidedServiceInstance(ctx, authInfo, serviceInstanceCreateMessage)
+		})
+
+		It("returns a Forbidden error", func() {
+			Expect(createErr).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
 		})
 
 		When("user has permissions to create ServiceInstances", func() {
-			var createdSecret *corev1.Secret
-
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			JustBeforeEach(func() {
+			It("returns a service instance record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				secretLookupKey := types.NamespacedName{Name: createdServiceInstanceRecord.SecretName, Namespace: createdServiceInstanceRecord.SpaceGUID}
-				createdSecret = &corev1.Secret{}
-				Expect(k8sClient.Get(context.Background(), secretLookupKey, createdSecret)).To(Succeed())
+				Expect(record.GUID).NotTo(BeEmpty())
+				Expect(record.SpaceGUID).To(Equal(space.Name))
+				Expect(record.Name).To(Equal(serviceInstanceName))
+				Expect(record.Type).To(Equal("user-provided"))
+				Expect(record.Tags).To(ConsistOf([]string{"foo", "bar"}))
+				Expect(record.SecretName).NotTo(BeEmpty())
+				Expect(record.Relationships()).To(Equal(map[string]string{
+					"space": space.Name,
+				}))
+
+				Expect(record.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(record.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
-			It("creates a new ServiceInstance CR", func() {
-				Expect(createdServiceInstanceRecord.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
-				Expect(createdServiceInstanceRecord.SpaceGUID).To(Equal(space.Name), "SpaceGUID in record did not match input")
-				Expect(createdServiceInstanceRecord.Name).To(Equal(serviceInstanceName), "Name in record did not match input")
-				Expect(createdServiceInstanceRecord.Type).To(Equal("user-provided"), "Type in record did not match input")
-				Expect(createdServiceInstanceRecord.Tags).To(ConsistOf([]string{"foo", "bar"}), "Tags in record did not match input")
+			It("creates a CFServiceInstance resource", func() {
+				Expect(createErr).NotTo(HaveOccurred())
 
-				Expect(createdServiceInstanceRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-				Expect(createdServiceInstanceRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: record.SpaceGUID,
+						Name:      record.GUID,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance)).To(Succeed())
+
+				Expect(cfServiceInstance.Spec.DisplayName).To(Equal(serviceInstanceName))
+				Expect(cfServiceInstance.Spec.SecretName).NotTo(BeEmpty())
+				Expect(cfServiceInstance.Spec.Type).To(BeEquivalentTo(korifiv1alpha1.UserProvidedType))
+				Expect(cfServiceInstance.Spec.Tags).To(ConsistOf("foo", "bar"))
 			})
 
 			It("creates the credentials secret", func() {
-				Expect(createdSecret.Type).To(Equal(corev1.SecretTypeOpaque))
-				Expect(createdSecret.Data).To(MatchAllKeys(Keys{tools.CredentialsSecretKey: Not(BeEmpty())}))
+				Expect(createErr).NotTo(HaveOccurred())
+
+				credentialsSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: record.SpaceGUID,
+						Name:      record.SecretName,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
+
+				Expect(credentialsSecret.Type).To(Equal(corev1.SecretTypeOpaque))
+				Expect(credentialsSecret.Data).To(MatchAllKeys(Keys{tools.CredentialsSecretKey: Not(BeEmpty())}))
 				credentials := map[string]any{}
-				Expect(json.Unmarshal(createdSecret.Data[tools.CredentialsSecretKey], &credentials)).To(Succeed())
-				Expect(credentials).To(Equal(serviceInstanceCredentials))
+				Expect(json.Unmarshal(credentialsSecret.Data[tools.CredentialsSecretKey], &credentials)).To(Succeed())
+				Expect(credentials).To(Equal(map[string]any{
+					"object": map[string]any{"a": "b"},
+				}))
 			})
 		})
+	})
 
-		When("user does not have permissions to create ServiceInstances", func() {
-			It("returns a Forbidden error", func() {
-				Expect(createErr).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
+	Describe("CreateManagedServiceInstance", func() {
+		var (
+			serviceInstanceCreateMessage repositories.CreateManagedSIMessage
+			record                       repositories.ServiceInstanceRecord
+			createErr                    error
+		)
+
+		BeforeEach(func() {
+			serviceInstanceCreateMessage = repositories.CreateManagedSIMessage{
+				Name:      serviceInstanceName,
+				SpaceGUID: space.Name,
+				PlanGUID:  "plan-guid",
+				Tags:      []string{"foo", "bar"},
+				Parameters: map[string]any{
+					"p1": map[string]any{
+						"p11": "v11",
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			record, createErr = serviceInstanceRepo.CreateManagedServiceInstance(ctx, authInfo, serviceInstanceCreateMessage)
+		})
+
+		It("returns a Forbidden error", func() {
+			Expect(createErr).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("user has permissions to create ServiceInstances", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("returns a service instance record", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
+				Expect(record.GUID).NotTo(BeEmpty())
+				Expect(record.SpaceGUID).To(Equal(space.Name))
+				Expect(record.Name).To(Equal(serviceInstanceName))
+				Expect(record.Type).To(Equal("managed"))
+				Expect(record.Tags).To(ConsistOf([]string{"foo", "bar"}))
+				Expect(record.SecretName).To(BeEmpty())
+				Expect(record.Relationships()).To(Equal(map[string]string{
+					"service_plan": "plan-guid",
+					"space":        space.Name,
+				}))
+				Expect(record.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+				Expect(record.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+			})
+
+			It("creates a CFServiceInstance resource", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
+				cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: record.SpaceGUID,
+						Name:      record.GUID,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance)).To(Succeed())
+
+				Expect(cfServiceInstance.Spec.DisplayName).To(Equal(serviceInstanceName))
+				Expect(cfServiceInstance.Spec.SecretName).To(BeEmpty())
+				Expect(cfServiceInstance.Spec.Type).To(BeEquivalentTo(korifiv1alpha1.ManagedType))
+				Expect(cfServiceInstance.Spec.Tags).To(ConsistOf("foo", "bar"))
+				Expect(cfServiceInstance.Spec.PlanGUID).To(Equal("plan-guid"))
+				Expect(cfServiceInstance.Spec.Parameters).NotTo(BeNil())
+
+				actualParams := map[string]any{}
+				Expect(json.Unmarshal(cfServiceInstance.Spec.Parameters.Raw, &actualParams)).To(Succeed())
+				Expect(actualParams).To(Equal(map[string]any{
+					"p1": map[string]any{
+						"p11": "v11",
+					},
+				}))
+			})
+		})
+	})
+
+	Describe("GetState", func() {
+		var (
+			cfServiceInstance *korifiv1alpha1.CFServiceInstance
+			state             model.CFResourceState
+			stateErr          error
+		)
+		BeforeEach(func() {
+			cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					Type: "managed",
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cfServiceInstance)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			state, stateErr = serviceInstanceRepo.GetState(ctx, authInfo, cfServiceInstance.Name)
+		})
+
+		It("returns a forbidden error", func() {
+			Expect(stateErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user can get CFServiceInstance", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, cfServiceInstance.Namespace)
+			})
+
+			It("returns unknown state", func() {
+				Expect(stateErr).NotTo(HaveOccurred())
+				Expect(state).To(Equal(model.CFResourceStateUnknown))
+			})
+
+			When("the service instance is ready", func() {
+				BeforeEach(func() {
+					Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance, func() {
+						meta.SetStatusCondition(&cfServiceInstance.Status.Conditions, metav1.Condition{
+							Type:    korifiv1alpha1.StatusConditionReady,
+							Status:  metav1.ConditionTrue,
+							Message: "Ready",
+							Reason:  "Ready",
+						})
+						cfServiceInstance.Status.ObservedGeneration = cfServiceInstance.Generation
+					})).To(Succeed())
+				})
+
+				It("returns ready state", func() {
+					Expect(stateErr).NotTo(HaveOccurred())
+					Expect(state).To(Equal(model.CFResourceStateReady))
+				})
+
+				When("the ready status is stale ", func() {
+					BeforeEach(func() {
+						Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance, func() {
+							cfServiceInstance.Status.ObservedGeneration = -1
+						})).To(Succeed())
+					})
+
+					It("returns unknown state", func() {
+						Expect(stateErr).NotTo(HaveOccurred())
+						Expect(state).To(Equal(model.CFResourceStateUnknown))
+					})
+				})
 			})
 		})
 	})
@@ -165,13 +339,13 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			serviceInstanceRecord, err = serviceInstanceRepo.PatchServiceInstance(testCtx, authInfo, patchMessage)
+			serviceInstanceRecord, err = serviceInstanceRepo.PatchServiceInstance(ctx, authInfo, patchMessage)
 		})
 
 		When("authorized in the space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, orgUserRole.Name, org.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("returns the updated record", func() {
@@ -329,7 +503,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
+			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
 
 			cfServiceInstance1 = &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -367,7 +541,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			}
 			Expect(k8sClient.Create(ctx, cfServiceInstance3)).To(Succeed())
 
-			space3 := createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space3"))
+			space3 := createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space3"))
 			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: space3.Name,
@@ -381,9 +555,10 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			nonCFNamespace := uuid.NewString()
 			Expect(k8sClient.Create(
-				testCtx,
+				ctx,
 				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
 			)).To(Succeed())
+
 			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: nonCFNamespace,
@@ -399,7 +574,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			serviceInstanceList, listErr = serviceInstanceRepo.ListServiceInstances(testCtx, authInfo, filters)
+			serviceInstanceList, listErr = serviceInstanceRepo.ListServiceInstances(ctx, authInfo, filters)
 		})
 
 		It("returns an empty list of ServiceInstanceRecord", func() {
@@ -409,8 +584,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("user is allowed to list service instances ", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
 
 			It("returns the service instances from the allowed namespaces", func() {
@@ -534,15 +709,15 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space2"))
+			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
 
-			serviceInstance = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
-			createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space2.Name, "some-other-service-instance", prefixedGUID("secret"))
+			serviceInstance = createServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
+			createServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space2.Name, "some-other-service-instance", prefixedGUID("secret"))
 			getGUID = serviceInstance.Name
 		})
 
 		JustBeforeEach(func() {
-			record, getErr = serviceInstanceRepo.GetServiceInstance(testCtx, authInfo, getGUID)
+			record, getErr = serviceInstanceRepo.GetServiceInstance(ctx, authInfo, getGUID)
 		})
 
 		When("there are no permissions on service instances", func() {
@@ -553,8 +728,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("the user has permissions to get the service instance", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
 
 			It("returns the correct service instance", func() {
@@ -604,9 +779,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("more than one service instance with the same guid exists", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
-				createServiceInstanceCR(testCtx, k8sClient, getGUID, space2.Name, "the-service-instance", prefixedGUID("secret"))
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
+				createServiceInstanceCR(ctx, k8sClient, getGUID, space2.Name, "the-service-instance", prefixedGUID("secret"))
 			})
 
 			It("returns a error", func() {
@@ -617,7 +792,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		When("the context has expired", func() {
 			BeforeEach(func() {
 				var cancel context.CancelFunc
-				testCtx, cancel = context.WithCancel(testCtx)
+				ctx, cancel = context.WithCancel(ctx)
 				cancel()
 			})
 
@@ -635,7 +810,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			serviceInstance = createServiceInstanceCR(testCtx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
+			serviceInstance = createServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
 
 			deleteMessage = repositories.DeleteServiceInstanceMessage{
 				GUID:      serviceInstance.Name,
@@ -644,12 +819,12 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			deleteErr = serviceInstanceRepo.DeleteServiceInstance(testCtx, authInfo, deleteMessage)
+			deleteErr = serviceInstanceRepo.DeleteServiceInstance(ctx, authInfo, deleteMessage)
 		})
 
 		When("the user has permissions to delete service instances", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("deletes the service instance", func() {
@@ -682,13 +857,3 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 	})
 })
-
-func initializeServiceInstanceCreateMessage(serviceInstanceName string, spaceGUID string, tags []string, credentials map[string]any) repositories.CreateServiceInstanceMessage {
-	return repositories.CreateServiceInstanceMessage{
-		Name:        serviceInstanceName,
-		SpaceGUID:   spaceGUID,
-		Type:        "user-provided",
-		Credentials: credentials,
-		Tags:        tags,
-	}
-}

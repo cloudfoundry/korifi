@@ -21,11 +21,17 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
 	UserProvidedType = "user-provided"
 	ManagedType      = "managed"
+
+	CFManagedServiceInstanceFinalizerName = "managed.cfServiceInstance.korifi.cloudfoundry.org"
+
+	ProvisionRequestedCondition = "ProvisionRequested"
+	ProvisioningFailedCondition = "ProvisioningFailed"
 )
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
@@ -48,6 +54,8 @@ type CFServiceInstanceSpec struct {
 	Tags []string `json:"tags,omitempty"`
 
 	PlanGUID string `json:"plan_guid"`
+
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // InstanceType defines the type of the Service Instance
@@ -71,6 +79,8 @@ type CFServiceInstanceStatus struct {
 	// This will ensure that interested contollers are notified on instance credentials change
 	//+kubebuilder:validation:Optional
 	CredentialsObservedVersion string `json:"credentialsObservedVersion,omitempty"`
+
+	ProvisionOperation string `json:"provisionOperation,omitempty"`
 }
 
 //+kubebuilder:object:root=true
