@@ -27,6 +27,7 @@ const (
 type CFDeploymentRepository interface {
 	GetDeployment(context.Context, authorization.Info, string) (repositories.DeploymentRecord, error)
 	CreateDeployment(context.Context, authorization.Info, repositories.CreateDeploymentMessage) (repositories.DeploymentRecord, error)
+	ListDeployments(context.Context, authorization.Info, repositories.ListDeploymentsMessage) ([]repositories.DeploymentRecord, error)
 }
 
 //counterfeiter:generate -o fake -fake-name RunnerInfoRepository . RunnerInfoRepository
@@ -106,6 +107,23 @@ func (h *Deployment) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDeployment(deployment, h.serverURL)), nil
 }
 
+func (h *Deployment) list(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.deployment.list")
+
+	payload := new(payloads.DeploymentList)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
+	deployments, err := h.deploymentRepo.ListDeployments(r.Context(), authInfo, payload.ToMessage())
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch deployments from Kubernetes")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDeployment, deployments, h.serverURL, *r.URL)), nil
+}
+
 func (h *Deployment) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -114,5 +132,6 @@ func (h *Deployment) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: DeploymentPath, Handler: h.get},
 		{Method: "POST", Pattern: DeploymentsPath, Handler: h.create},
+		{Method: "GET", Pattern: DeploymentsPath, Handler: h.list},
 	}
 }

@@ -117,14 +117,8 @@ func (p *PackageList) DecodeFromURLValues(values url.Values) error {
 }
 
 func (p PackageList) Validate() error {
-	validOrderBys := []string{"created_at", "updated_at"}
-	var allowed []any
-	for _, a := range validOrderBys {
-		allowed = append(allowed, a, "-"+a)
-	}
-
 	return jellidation.ValidateStruct(&p,
-		jellidation.Field(&p.OrderBy, validation.OneOf(allowed...)),
+		jellidation.Field(&p.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
 	)
 }
 
