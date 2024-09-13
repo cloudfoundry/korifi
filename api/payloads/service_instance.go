@@ -177,6 +177,12 @@ func (l ServiceInstanceList) Validate() error {
 
 			relationshipsPath := strings.Join(rule.RelationshipPath, ".")
 			switch relationshipsPath {
+			case "service_plan":
+				return jellidation.Each(validation.OneOf(
+					"guid",
+					"name",
+					"relationships.service_offering",
+				)).Validate(rule.Fields)
 			case "service_plan.service_offering":
 				return jellidation.Each(validation.OneOf(
 					"guid",
@@ -191,6 +197,7 @@ func (l ServiceInstanceList) Validate() error {
 			}
 
 			return validation.OneOf(
+				"service_plan",
 				"service_plan.service_offering",
 				"service_plan.service_offering.service_broker",
 			).Validate(relationshipsPath)
@@ -216,6 +223,7 @@ func (l *ServiceInstanceList) SupportedKeys() []string {
 		"label_selector",
 		"fields[service_plan.service_offering]",
 		"fields[service_plan.service_offering.service_broker]",
+		"fields[service_plan]",
 	}
 }
 

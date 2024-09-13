@@ -1,8 +1,6 @@
 package smoke_test
 
 import (
-	"strings"
-
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"github.com/BooleanCat/go-functional/v2/it"
@@ -10,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
-	"github.com/onsi/gomega/types"
 )
 
 var _ = Describe("Service Catalog", func() {
@@ -36,7 +33,7 @@ var _ = Describe("Service Catalog", func() {
 			session := helpers.Cf("service-brokers")
 			Expect(session).To(Exit(0))
 
-			lines, _ := it.Collect2(it.LinesString(session.Out))
+			lines := it.MustCollect(it.LinesString(session.Out))
 			Expect(lines).To(ContainElement(
 				matchSubstrings(brokerName, helpers.GetInClusterURL(getAppGUID(brokerAppName)))))
 		})
@@ -50,7 +47,7 @@ var _ = Describe("Service Catalog", func() {
 			session = helpers.Cf("service-brokers")
 			Expect(session).To(Exit(0))
 
-			lines, _ := it.Collect2(it.LinesString(session.Out))
+			lines := it.MustCollect(it.LinesString(session.Out))
 			Expect(lines).NotTo(ContainElement(ContainSubstring(brokerName)))
 		})
 	})
@@ -60,7 +57,7 @@ var _ = Describe("Service Catalog", func() {
 			session := helpers.Cf("service-access", "-b", brokerName)
 			Expect(session).To(Exit(0))
 
-			lines, _ := it.Collect2(it.LinesString(session.Out))
+			lines := it.MustCollect(it.LinesString(session.Out))
 			Expect(lines).To(ContainElements(
 				matchSubstrings("sample-service", "sample", "none"),
 			))
@@ -75,7 +72,7 @@ var _ = Describe("Service Catalog", func() {
 			session = helpers.Cf("service-access")
 			Expect(session).To(Exit(0))
 
-			lines, _ := it.Collect2(it.LinesString(session.Out))
+			lines := it.MustCollect(it.LinesString(session.Out))
 			Expect(lines).To(ContainElements(
 				matchSubstrings("sample-service", "sample", "all"),
 			))
@@ -87,14 +84,10 @@ var _ = Describe("Service Catalog", func() {
 			session := helpers.Cf("marketplace", "-b", brokerName, "--show-unavailable")
 			Expect(session).To(Exit(0))
 
-			lines, _ := it.Collect2(it.LinesString(session.Out))
+			lines := it.MustCollect(it.LinesString(session.Out))
 			Expect(lines).To(ContainElement(
 				matchSubstrings("sample-service", "A sample service that does nothing", brokerName),
 			))
 		})
 	})
 })
-
-func matchSubstrings(substrings ...string) types.GomegaMatcher {
-	return MatchRegexp(strings.Join(substrings, ".*"))
-}

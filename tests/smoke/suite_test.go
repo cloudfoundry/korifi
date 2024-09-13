@@ -186,3 +186,7 @@ func cleanupBroker(brokerName string) {
 	Expect(helpers.Cf("delete-service-broker", "-f", brokerName)).To(Exit(0))
 	broker.NewCatalogPurger(rootNamespace).ForBrokerName(brokerName).Purge()
 }
+
+func matchSubstrings(substrings ...string) types.GomegaMatcher {
+	return MatchRegexp(strings.Join(substrings, ".*"))
+}
