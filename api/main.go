@@ -169,6 +169,8 @@ func main() {
 	deploymentRepo := repositories.NewDeploymentRepo(
 		userClientFactory,
 		namespaceRetriever,
+		nsPermissions,
+		repositories.NewDeploymentSorter(),
 	)
 	buildRepo := repositories.NewBuildRepo(
 		namespaceRetriever,

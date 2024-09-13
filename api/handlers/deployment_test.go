@@ -213,4 +213,51 @@ var _ = Describe("Deployment", func() {
 			})
 		})
 	})
+
+	Describe("GET /v3/deployments", func() {
+		var deploymentRecord repositories.DeploymentRecord
+
+		BeforeEach(func() {
+			deploymentRecord = repositories.DeploymentRecord{
+				GUID: "deployment-guid",
+			}
+			deploymentsRepo.ListDeploymentsReturns([]repositories.DeploymentRecord{deploymentRecord}, nil)
+
+			payload := &payloads.DeploymentList{AppGUIDs: "bob,alice"}
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(payload)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/deployments", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the list of deployments", func() {
+			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+			Expect(actualReq.URL).To(Equal(req.URL))
+
+			Expect(deploymentsRepo.ListDeploymentsCallCount()).To(Equal(1))
+			_, _, listMessage := deploymentsRepo.ListDeploymentsArgsForCall(0)
+			Expect(listMessage).To(Equal(repositories.ListDeploymentsMessage{
+				AppGUIDs: []string{"bob", "alice"},
+			}))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.resources", HaveLen(1)),
+				MatchJSONPath("$.resources[0].guid", "deployment-guid"),
+			)))
+		})
+
+		When("there is an error listing deployments", func() {
+			BeforeEach(func() {
+				deploymentsRepo.ListDeploymentsReturns(nil, errors.New("unexpected error!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
 })

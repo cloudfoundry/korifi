@@ -25,6 +25,8 @@ type DeploymentResponse struct {
 	Droplet       DropletGUID                        `json:"droplet"`
 	Relationships map[string]model.ToOneRelationship `json:"relationships"`
 	Links         DeploymentLinks                    `json:"links"`
+	CreatedAt     string                             `json:"created_at"`
+	UpdatedAt     string                             `json:"updated_at"`
 }
 
 type DeploymentLinks struct {
@@ -43,6 +45,8 @@ func ForDeployment(responseDeployment repositories.DeploymentRecord, baseURL url
 			Guid: responseDeployment.DropletGUID,
 		},
 		Relationships: ForRelationships(responseDeployment.Relationships()),
+		CreatedAt:     formatTimestamp(&responseDeployment.CreatedAt),
+		UpdatedAt:     formatTimestamp(responseDeployment.UpdatedAt),
 		Links: DeploymentLinks{
 			Self: Link{
 				HRef: buildURL(baseURL).appendPath(deploymentsBase, responseDeployment.GUID).build(),

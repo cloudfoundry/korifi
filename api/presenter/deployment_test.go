@@ -3,9 +3,11 @@ package presenter_test
 import (
 	"encoding/json"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,6 +27,8 @@ var _ = Describe("Deployments", func() {
 		record = repositories.DeploymentRecord{
 			GUID:        "app-guid",
 			DropletGUID: "droplet-guid",
+			CreatedAt:   time.UnixMilli(1000),
+			UpdatedAt:   tools.PtrTo(time.UnixMilli(2000)),
 			Status: repositories.DeploymentStatus{
 				Value:  "deployment-status-value",
 				Reason: "deployment-status-reason",
@@ -56,6 +60,8 @@ var _ = Describe("Deployments", func() {
 					}
 				}
 			},
+			"created_at": "1970-01-01T00:00:01Z",
+			"updated_at": "1970-01-01T00:00:02Z",
 			"links": {
 				"self": {
 					"href": "https://api.example.org/v3/deployments/app-guid"
