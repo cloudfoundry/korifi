@@ -6,9 +6,9 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -48,7 +48,7 @@ var _ = Describe("ClientFactory", func() {
 				tools.CredentialsSecretKey: []byte(`{"username": "broker-user", "password": "broker-password"}`),
 			},
 		}
-		Expect(adminClient.Create(ctx, credentialsSecret)).To(Succeed())
+		Expect(k8sClient.Create(ctx, credentialsSecret)).To(Succeed())
 
 		cfServiceBroker = &korifiv1alpha1.CFServiceBroker{
 			ObjectMeta: metav1.ObjectMeta{
@@ -65,9 +65,9 @@ var _ = Describe("ClientFactory", func() {
 				},
 			},
 		}
-		Expect(adminClient.Create(ctx, cfServiceBroker)).To(Succeed())
+		Expect(k8sClient.Create(ctx, cfServiceBroker)).To(Succeed())
 
-		factory = osbapi.NewClientFactory(adminClient, true)
+		factory = osbapi.NewClientFactory(k8sClient, true)
 	})
 
 	JustBeforeEach(func() {
@@ -84,9 +84,9 @@ var _ = Describe("ClientFactory", func() {
 
 	When("the credentials secret cannot be found", func() {
 		BeforeEach(func() {
-			Expect(k8s.PatchResource(ctx, adminClient, cfServiceBroker, func() {
-				cfServiceBroker.Spec.Credentials.Name = "i-do-not-exist"
-			})).To(Succeed())
+			helpers.EnsurePatch(k8sClient, cfServiceBroker, func(b *korifiv1alpha1.CFServiceBroker) {
+				b.Spec.Credentials.Name = "i-do-not-exist"
+			})
 		})
 
 		It("returns an error", func() {
@@ -104,12 +104,12 @@ var _ = Describe("ClientFactory", func() {
 					Name:      cfServiceBroker.Spec.Credentials.Name,
 				},
 			}
-			Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
-			Expect(k8s.PatchResource(ctx, adminClient, credentialsSecret, func() {
-				credentialsSecret.Data = map[string][]byte{
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
+			helpers.EnsurePatch(k8sClient, credentialsSecret, func(s *corev1.Secret) {
+				s.Data = map[string][]byte{
 					"foo": []byte("bar"),
 				}
-			})).To(Succeed())
+			})
 		})
 
 		It("returns an error", func() {
@@ -118,11 +118,11 @@ var _ = Describe("ClientFactory", func() {
 
 		When("username is not set", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, adminClient, credentialsSecret, func() {
-					credentialsSecret.Data = map[string][]byte{
+				helpers.EnsurePatch(k8sClient, credentialsSecret, func(s *corev1.Secret) {
+					s.Data = map[string][]byte{
 						tools.CredentialsSecretKey: []byte(`{"password": "my-password"}`),
 					}
-				})).To(Succeed())
+				})
 			})
 
 			It("returns an error", func() {
@@ -132,11 +132,11 @@ var _ = Describe("ClientFactory", func() {
 
 		When("password is not set", func() {
 			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, adminClient, credentialsSecret, func() {
-					credentialsSecret.Data = map[string][]byte{
+				helpers.EnsurePatch(k8sClient, credentialsSecret, func(s *corev1.Secret) {
+					s.Data = map[string][]byte{
 						tools.CredentialsSecretKey: []byte(`{"username": "my-user"}`),
 					}
-				})).To(Succeed())
+				})
 			})
 
 			It("returns an error", func() {
@@ -147,7 +147,7 @@ var _ = Describe("ClientFactory", func() {
 
 	When("the client does not trust insecure brokers", func() {
 		BeforeEach(func() {
-			factory = osbapi.NewClientFactory(adminClient, false)
+			factory = osbapi.NewClientFactory(k8sClient, false)
 		})
 
 		It("creates a client that does not trust insecure brokers", func() {

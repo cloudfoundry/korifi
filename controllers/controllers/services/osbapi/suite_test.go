@@ -22,12 +22,11 @@ import (
 )
 
 var (
-	ctx             context.Context
-	stopManager     context.CancelFunc
-	stopClientCache context.CancelFunc
-	testEnv         *envtest.Environment
-	adminClient     client.Client
-	rootNamespace   string
+	ctx           context.Context
+	stopManager   context.CancelFunc
+	testEnv       *envtest.Environment
+	k8sClient     client.Client
+	rootNamespace string
 )
 
 func TestOSBAPI(t *testing.T) {
@@ -55,12 +54,12 @@ var _ = BeforeSuite(func() {
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
-	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
+	k8sClient = helpers.NewSyncClient(k8sManager.GetClient())
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 
 	rootNamespace = uuid.NewString()
-	Expect(adminClient.Create(ctx, &corev1.Namespace{
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: rootNamespace,
 		},
@@ -68,7 +67,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	stopClientCache()
 	stopManager()
 	Expect(testEnv.Stop()).To(Succeed())
 })

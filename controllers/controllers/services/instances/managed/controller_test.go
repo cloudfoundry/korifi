@@ -419,6 +419,11 @@ var _ = Describe("CFServiceInstance", func() {
 					Status: metav1.ConditionTrue,
 					Reason: "ProvisionFailed",
 				})
+				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+					Type:   korifiv1alpha1.StatusConditionReady,
+					Status: metav1.ConditionFalse,
+					Reason: "ProvisionFailed",
+				})
 			})).To(Succeed())
 		})
 
