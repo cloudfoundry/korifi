@@ -21,6 +21,8 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
+BIN_PATH = $(shell pwd)/bin
+export PATH := $(shell pwd)/bin:$(PATH)
 
 CONTROLLERS=controllers job-task-runner kpack-image-builder statefulset-runner
 COMPONENTS=api $(CONTROLLERS)
@@ -76,7 +78,7 @@ test-e2e: build-dorifi
 test-crds: build-dorifi
 	./scripts/run-tests.sh tests/crds
 
-test-smoke: build-dorifi
+test-smoke: build-dorifi bin/cf
 	./scripts/run-tests.sh tests/smoke
 
 
@@ -108,6 +110,14 @@ install-staticcheck:
 GOLANGCILINT = $(shell go env GOPATH)/bin/golangci-lint
 install-golangci-lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+bin/cf:
+	mkdir -p $(BIN_PATH)
+	curl -fsSL "https://packages.cloudfoundry.org/stable?release=linux64-binary&version=v8&source=github" \
+	  | tar -zx cf8 \
+	  && mv cf8 $(BIN_PATH)/cf \
+	  && chmod +x $(BIN_PATH)/cf
+
 
 vendir-update-dependencies: install-vendir
 	$(VENDIR) sync --chdir tests
