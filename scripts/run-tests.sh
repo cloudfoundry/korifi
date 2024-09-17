@@ -3,19 +3,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ENVTEST_ASSETS_DIR="${SCRIPT_DIR}/../testbin"
+ROOT_DIR="${SCRIPT_DIR}/.."
+ENVTEST_ASSETS_DIR="${ROOT_DIR}/testbin"
 mkdir -p "${ENVTEST_ASSETS_DIR}"
 extra_args=()
-
-function getTestDir() {
-  for arg in "$@"; do
-    if [[ -d "${arg}" ]]; then
-      echo "${arg}"
-      return
-    fi
-  done
-  echo "."
-}
 
 function deploy_korifi() {
   if [ -z "${SKIP_DEPLOY:-}" ]; then
@@ -51,16 +42,8 @@ function configure_smoke_tests() {
 }
 
 function configure_non_e2e_tests() {
-  grepFlags="-sq"
-
-  if [[ -z "${NON_RECURSIVE_TEST:-}" ]]; then
-    grepFlags+="r"
-  fi
-
-  if grep "${grepFlags}" sigs.k8s.io/controller-runtime/pkg/envtest -- "$(getTestDir "$@")"/*; then
-    go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-    source <(setup-envtest use -p env --bin-dir "${ENVTEST_ASSETS_DIR}")
-  fi
+  make -C "$ROOT_DIR" bin/setup-envtest
+  source <("$ROOT_DIR/bin/setup-envtest" use -p env --bin-dir "${ENVTEST_ASSETS_DIR}")
 
   extra_args+=("--poll-progress-after=60s" "--skip-package=e2e")
 }

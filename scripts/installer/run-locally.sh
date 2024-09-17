@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPT_DIR="${ROOT_DIR}/scripts"
+export PATH="${ROOT_DIR}/bin:$PATH"
 
 CLUSTER_NAME="installer"
 
@@ -15,11 +16,6 @@ trap "rm -rf $HELM_CHART_SOURCE $JOB_DEFINITION" EXIT
 # workaround for https://github.com/carvel-dev/kbld/issues/213
 # kbld fails with git error messages in languages than other english
 export LC_ALL=en_US.UTF-8
-
-function install_yq() {
-  GOBIN="${ROOT_DIR}/bin" go install github.com/mikefarah/yq/v4@latest
-  YQ="${ROOT_DIR}/bin/yq"
-}
 
 function ensure_kind_cluster() {
   kind delete cluster --name "$CLUSTER_NAME"
@@ -44,7 +40,7 @@ function build_korifi() {
     kbld_file="$SCRIPT_DIR/assets/korifi-kbld.yml"
     values_file="$HELM_CHART_SOURCE/values.yaml"
 
-    "$YQ" "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=dev\"])" $kbld_file |
+    yq "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=dev\"])" $kbld_file |
       kbld \
         --images-annotation=false \
         -f "${ROOT_DIR}/helm/korifi/values.yaml" \
@@ -63,7 +59,7 @@ run_installer() {
     local kbld_file
     kbld_file="$SCRIPT_DIR/installer/kbld.yaml"
 
-    "$YQ" "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"HELM_CHART_SOURCE=helm_chart_source\"])" $kbld_file |
+    yq "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"HELM_CHART_SOURCE=helm_chart_source\"])" $kbld_file |
       kbld \
         --images-annotation=false \
         -f "${ROOT_DIR}/scripts/installer/install-korifi-kind.yaml" \
@@ -79,7 +75,8 @@ run_installer() {
 }
 
 function main() {
-  install_yq
+  make -C "$ROOT_DIR" bin/yq
+
   ensure_kind_cluster
   clone_helm_chart
   build_korifi
