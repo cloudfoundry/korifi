@@ -32,22 +32,12 @@ help: ## Display this help.
 export GOBIN = $(shell pwd)/bin
 export PATH := $(shell pwd)/bin:$(PATH)
 
-webhooks-file = ../helm/korifi/statefulset-runner/manifests.yaml
 .PHONY: manifests
 manifests: bin/controller-gen bin/yq
 	controller-gen \
 		paths="./..." \
 		rbac:roleName=korifi-statefulset-runner-appworkload-manager-role \
-		webhook \
-		output:rbac:artifacts:config=../helm/korifi/statefulset-runner \
-		output:webhook:artifacts:config=../helm/korifi/statefulset-runner
-
-	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-controllers-serving-cert")' $(webhooks-file)
-	yq -i 'with(.metadata; .name="korifi-statefulset-runner-" + .name)' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-controllers-" + .clientConfig.service.name)' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .objectSelector.matchLabels["korifi.cloudfoundry.org/add-stsr-index"]="true")' $(webhooks-file)
-
+		output:rbac:artifacts:config=../helm/korifi/statefulset-runner
 
 .PHONY: generate
 generate: bin/controller-gen

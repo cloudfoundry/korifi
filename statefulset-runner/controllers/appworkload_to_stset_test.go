@@ -235,11 +235,6 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(controllers.LabelVersion, "version_1234"))
 	})
 
-	It("should set statefulset-runner-index as a label", func() {
-		Expect(statefulSet.Labels).To(HaveKeyWithValue(controllers.LabelStatefulSetRunnerIndex, "true"))
-		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(controllers.LabelStatefulSetRunnerIndex, "true"))
-	})
-
 	It("should set guid as a label selector", func() {
 		Expect(statefulSet.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelGUID, "guid_1234"))
 	})
@@ -337,6 +332,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 			Expect(container.Env).To(ContainElements(
 				corev1.EnvVar{Name: controllers.EnvPodName, ValueFrom: expectedValFrom("metadata.name")},
 				corev1.EnvVar{Name: controllers.EnvCFInstanceGUID, ValueFrom: expectedValFrom("metadata.uid")},
+				corev1.EnvVar{Name: controllers.EnvCFInstanceIndex, ValueFrom: expectedValFrom("metadata.labels['apps.kubernetes.io/pod-index']")},
 				corev1.EnvVar{Name: controllers.EnvCFInstanceInternalIP, ValueFrom: expectedValFrom("status.podIP")},
 				corev1.EnvVar{Name: controllers.EnvCFInstanceIP, ValueFrom: expectedValFrom("status.hostIP")},
 				corev1.EnvVar{Name: "bobs", ValueFrom: &corev1.EnvVarSource{
@@ -360,6 +356,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		It("produces a statefulset with sorted env vars", func() {
 			Expect(statefulSet.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
 				{Name: "CF_INSTANCE_GUID", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.uid"}}},
+				{Name: "CF_INSTANCE_INDEX", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.labels['apps.kubernetes.io/pod-index']"}}},
 				{Name: "CF_INSTANCE_INTERNAL_IP", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}}},
 				{Name: "CF_INSTANCE_IP", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"}}},
 				{Name: "POD_NAME", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}},

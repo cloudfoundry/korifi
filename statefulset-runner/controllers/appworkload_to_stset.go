@@ -72,6 +72,14 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 			},
 		},
 		{
+			Name: EnvCFInstanceIndex,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: fmt.Sprintf("metadata.labels['%s']", korifiv1alpha1.PodIndexLabelKey),
+				},
+			},
+		},
+		{
 			Name: EnvCFInstanceIP,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
@@ -178,12 +186,11 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 	}
 
 	labels := map[string]string{
-		LabelGUID:                   appWorkload.Spec.GUID,
-		LabelProcessType:            appWorkload.Spec.ProcessType,
-		LabelVersion:                appWorkload.Spec.Version,
-		LabelAppGUID:                appWorkload.Spec.AppGUID,
-		LabelAppWorkloadGUID:        appWorkload.Name,
-		LabelStatefulSetRunnerIndex: "true",
+		LabelGUID:            appWorkload.Spec.GUID,
+		LabelProcessType:     appWorkload.Spec.ProcessType,
+		LabelVersion:         appWorkload.Spec.Version,
+		LabelAppGUID:         appWorkload.Spec.AppGUID,
+		LabelAppWorkloadGUID: appWorkload.Name,
 	}
 
 	statefulSet.Spec.Template.Labels = labels
