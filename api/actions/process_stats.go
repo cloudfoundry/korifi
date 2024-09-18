@@ -19,7 +19,6 @@ import (
 
 const (
 	ApplicationContainerName = "application"
-	EnvCFInstanceIndex       = "CF_INSTANCE_INDEX"
 	LabelGUID                = "korifi.cloudfoundry.org/guid"
 	stateStarting            = "STARTING"
 	stateRunning             = "RUNNING"
@@ -155,45 +154,21 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 }
 
 func extractIndex(pod corev1.Pod) (int, error) {
-	container, err := extractProcessContainer(pod.Spec.Containers)
-	if err != nil {
-		return 0, err
-	}
-
-	indexString, err := extractEnvVarFromContainer(*container, EnvCFInstanceIndex)
-	if err != nil {
-		return 0, err
+	indexString, exists := pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey]
+	if !exists {
+		return 0, fmt.Errorf("%s label not found", korifiv1alpha1.PodIndexLabelKey)
 	}
 
 	index, err := strconv.Atoi(indexString)
 	if err != nil {
-		return 0, fmt.Errorf("%s is not a valid index: %w", EnvCFInstanceIndex, err)
+		return 0, fmt.Errorf("%s is not a valid index: %w", korifiv1alpha1.PodIndexLabelKey, err)
 	}
 
 	if index < 0 {
-		return 0, fmt.Errorf("%s is not a valid index: instance indexes can't be negative", EnvCFInstanceIndex)
+		return 0, fmt.Errorf("%s is not a valid index: instance indexes can't be negative", korifiv1alpha1.PodIndexLabelKey)
 	}
 
 	return index, nil
-}
-
-func extractProcessContainer(containers []corev1.Container) (*corev1.Container, error) {
-	for i, c := range containers {
-		if c.Name == ApplicationContainerName {
-			return &containers[i], nil
-		}
-	}
-	return nil, fmt.Errorf("container %q not found", ApplicationContainerName)
-}
-
-func extractEnvVarFromContainer(container corev1.Container, envVar string) (string, error) {
-	envs := container.Env
-	for _, e := range envs {
-		if e.Name == envVar {
-			return e.Value, nil
-		}
-	}
-	return "", fmt.Errorf("%s not set", envVar)
 }
 
 // Logic from Kubernetes in Action 2nd Edition - Ch 6.

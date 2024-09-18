@@ -206,32 +206,19 @@ var _ = Describe("ProcessStats", func() {
 		})
 	})
 
-	When("there are no stats for the application container", func() {
+	When("the pod-index label is not set", func() {
 		BeforeEach(func() {
-			podMetrics[0].Pod.Spec.Containers[0].Name = "i-contain-no-app"
+			delete(podMetrics[0].Pod.ObjectMeta.Labels, korifiv1alpha1.PodIndexLabelKey)
 		})
 
 		It("returns an error", func() {
-			Expect(responseErr).To(MatchError(`container "application" not found`))
+			Expect(responseErr).To(MatchError(ContainSubstring("label not found")))
 		})
 	})
 
-	When("the CF_INSTANCE_INDEX env var is not set", func() {
+	When("the pod-index label value cannot be parsed to an int", func() {
 		BeforeEach(func() {
-			podMetrics[0].Pod.Spec.Containers[0].Env = []corev1.EnvVar{}
-		})
-
-		It("returns an error", func() {
-			Expect(responseErr).To(MatchError(`CF_INSTANCE_INDEX not set`))
-		})
-	})
-
-	When("the CF_INSTANCE_INDEX env var value cannot be parsed to an int", func() {
-		BeforeEach(func() {
-			podMetrics[0].Pod.Spec.Containers[0].Env = []corev1.EnvVar{{
-				Name:  "CF_INSTANCE_INDEX",
-				Value: "one",
-			}}
+			podMetrics[0].Pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey] = "one"
 		})
 
 		It("returns an error", func() {
@@ -239,12 +226,9 @@ var _ = Describe("ProcessStats", func() {
 		})
 	})
 
-	When("the CF_INSTANCE_INDEX env var value is a negative integer", func() {
+	When("the pod-index label value is a negative integer", func() {
 		BeforeEach(func() {
-			podMetrics[0].Pod.Spec.Containers[0].Env = []corev1.EnvVar{{
-				Name:  "CF_INSTANCE_INDEX",
-				Value: "-1",
-			}}
+			podMetrics[0].Pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey] = "-1"
 		})
 
 		It("returns an error", func() {
@@ -316,7 +300,8 @@ func createPod(index, version string) corev1.Pod {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				LabelVersionKey: version,
+				LabelVersionKey:                 version,
+				korifiv1alpha1.PodIndexLabelKey: index,
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -324,12 +309,6 @@ func createPod(index, version string) corev1.Pod {
 				{
 					Name:  "application",
 					Image: "some-image",
-					Env: []corev1.EnvVar{
-						{
-							Name:  "CF_INSTANCE_INDEX",
-							Value: index,
-						},
-					},
 				},
 			},
 		},

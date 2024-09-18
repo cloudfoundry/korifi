@@ -62,7 +62,6 @@ import (
 	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	kpackimagebuilderfinalizer "code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
-	statesetfulrunnerv1 "code.cloudfoundry.org/korifi/statefulset-runner/api/v1"
 	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
@@ -554,13 +553,6 @@ func main() {
 		if err = packageswebhook.NewValidator().SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
 			os.Exit(1)
-		}
-
-		if controllerConfig.IncludeStatefulsetRunner {
-			if err = statesetfulrunnerv1.NewSTSPodDefaulter().SetupWebhookWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
-				os.Exit(1)
-			}
 		}
 
 		if controllerConfig.IncludeKpackImageBuilder {

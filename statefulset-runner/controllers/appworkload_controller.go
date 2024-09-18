@@ -49,12 +49,11 @@ const (
 	AnnotationAppID       = "korifi.cloudfoundry.org/application-id"
 	AnnotationProcessGUID = "korifi.cloudfoundry.org/process-guid"
 
-	LabelGUID                   = "korifi.cloudfoundry.org/guid"
-	LabelVersion                = "korifi.cloudfoundry.org/version"
-	LabelAppGUID                = "korifi.cloudfoundry.org/app-guid"
-	LabelAppWorkloadGUID        = "korifi.cloudfoundry.org/appworkload-guid"
-	LabelProcessType            = "korifi.cloudfoundry.org/process-type"
-	LabelStatefulSetRunnerIndex = "korifi.cloudfoundry.org/add-stsr-index"
+	LabelGUID            = "korifi.cloudfoundry.org/guid"
+	LabelVersion         = "korifi.cloudfoundry.org/version"
+	LabelAppGUID         = "korifi.cloudfoundry.org/app-guid"
+	LabelAppWorkloadGUID = "korifi.cloudfoundry.org/appworkload-guid"
+	LabelProcessType     = "korifi.cloudfoundry.org/process-type"
 
 	ApplicationContainerName  = "application"
 	AppWorkloadReconcilerName = "statefulset-runner"
