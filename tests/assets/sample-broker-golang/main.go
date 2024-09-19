@@ -21,6 +21,7 @@ func main() {
 	http.HandleFunc("GET /", helloWorldHandler)
 	http.HandleFunc("GET /v2/catalog", getCatalogHandler)
 	http.HandleFunc("PUT /v2/service_instances/{id}", provisionServiceInstanceHandler)
+	http.HandleFunc("DELETE /v2/service_instances/{id}", deprovisionServiceInstanceHandler)
 	http.HandleFunc("GET /v2/service_instances/{id}/last_operation", serviceInstanceLastOperationHandler)
 
 	port := os.Getenv("PORT")
@@ -75,6 +76,16 @@ func provisionServiceInstanceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintf(w, `{"operation":"provision-%s"}`, r.PathValue("id"))
+}
+
+func deprovisionServiceInstanceHandler(w http.ResponseWriter, r *http.Request) {
+	if status, err := checkCredentials(w, r); err != nil {
+		w.WriteHeader(status)
+		fmt.Fprintf(w, "Credentials check failed: %v", err)
+		return
+	}
+
+	fmt.Fprintf(w, `{"operation":"deprovision-%s"}`, r.PathValue("id"))
 }
 
 func serviceInstanceLastOperationHandler(w http.ResponseWriter, r *http.Request) {

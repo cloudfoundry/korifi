@@ -35,6 +35,21 @@ var _ = Describe("Services", func() {
 		})
 	})
 
+	Describe("cf delete-service", func() {
+		var serviceName string
+
+		BeforeEach(func() {
+			serviceName = uuid.NewString()
+			session := helpers.Cf("create-service", "sample-service", "sample", serviceName, "-b", brokerName)
+			Expect(session).To(Exit(0))
+		})
+
+		It("deletes the managed service", func() {
+			session := helpers.Cf("delete-service", "-f", serviceName)
+			Expect(session).To(Exit(0))
+		})
+	})
+
 	Describe("cf services", func() {
 		var serviceName string
 

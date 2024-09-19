@@ -355,13 +355,14 @@ func main() {
 		handlers.NewJob(
 			*serverURL,
 			map[string]handlers.DeletionRepository{
-				handlers.OrgDeleteJobType:           orgRepo,
-				handlers.SpaceDeleteJobType:         spaceRepo,
-				handlers.AppDeleteJobType:           appRepo,
-				handlers.RouteDeleteJobType:         routeRepo,
-				handlers.DomainDeleteJobType:        domainRepo,
-				handlers.RoleDeleteJobType:          roleRepo,
-				handlers.ServiceBrokerDeleteJobType: serviceBrokerRepo,
+				handlers.OrgDeleteJobType:                    orgRepo,
+				handlers.SpaceDeleteJobType:                  spaceRepo,
+				handlers.AppDeleteJobType:                    appRepo,
+				handlers.RouteDeleteJobType:                  routeRepo,
+				handlers.DomainDeleteJobType:                 domainRepo,
+				handlers.RoleDeleteJobType:                   roleRepo,
+				handlers.ServiceBrokerDeleteJobType:          serviceBrokerRepo,
+				handlers.ManagedServiceInstanceDeleteJobType: serviceInstanceRepo,
 			},
 			map[string]handlers.StateRepository{
 				handlers.ServiceBrokerCreateJobType:          serviceBrokerRepo,

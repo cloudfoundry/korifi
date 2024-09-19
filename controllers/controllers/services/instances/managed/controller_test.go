@@ -34,7 +34,7 @@ var _ = Describe("CFServiceInstance", func() {
 		brokerClient = new(fake.BrokerClient)
 		brokerClientFactory.CreateClientReturns(brokerClient, nil)
 
-		brokerClient.ProvisionReturns(osbapi.ProvisionServiceInstanceResponse{
+		brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{
 			Operation: "operation-1",
 		}, nil)
 
@@ -263,7 +263,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 	When("service provisioning fails", func() {
 		BeforeEach(func() {
-			brokerClient.ProvisionReturns(osbapi.ProvisionServiceInstanceResponse{}, errors.New("provision-failed"))
+			brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("provision-failed"))
 		})
 
 		It("sets the ready condition to false", func() {
@@ -499,15 +499,50 @@ var _ = Describe("CFServiceInstance", func() {
 	})
 
 	When("the instance is deleted", func() {
-		JustBeforeEach(func() {
-			Expect(adminClient.Delete(ctx, instance)).To(Succeed())
+		BeforeEach(func() {
+			brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{
+				Operation: "deprovision-op",
+			}, nil)
 		})
 
-		It("deletes the instance", func() {
+		JustBeforeEach(func() {
+			// For deletion test we want to request deletion and verify the behaviour when finalization fails.
+			// Therefore we use the standard k8s client instncea of `adminClient` as it ensures that the object is deleted
+			Expect(k8sManager.GetClient().Delete(ctx, instance)).To(Succeed())
+		})
+
+		It("deprovisions the instance with the broker", func() {
 			Eventually(func(g Gomega) {
 				err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
 				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+
+				g.Expect(brokerClient.DeprovisionCallCount()).To(Equal(1))
+				_, actualDeprovisionRequest := brokerClient.DeprovisionArgsForCall(0)
+				Expect(actualDeprovisionRequest).To(Equal(osbapi.InstanceDeprovisionPayload{
+					ID: instance.Name,
+					InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
+						ServiceId: "service-offering-id",
+						PlanID:    "service-plan-id",
+					},
+				}))
 			}).Should(Succeed())
+		})
+
+		When("deprovision fails", func() {
+			BeforeEach(func() {
+				brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("deprovision-failed"))
+			})
+
+			It("sets ready condition to false", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("DeprovisionFailed")),
+					)))
+				}).Should(Succeed())
+			})
 		})
 	})
 

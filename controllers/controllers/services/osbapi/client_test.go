@@ -133,7 +133,7 @@ var _ = Describe("OSBAPI Client", func() {
 	Describe("Instances", func() {
 		Describe("Provision", func() {
 			var (
-				provisionResp osbapi.ProvisionServiceInstanceResponse
+				provisionResp osbapi.ServiceInstanceOperationResponse
 				provisionErr  error
 			)
 
@@ -164,7 +164,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			It("provisions the service", func() {
 				Expect(provisionErr).NotTo(HaveOccurred())
-				Expect(provisionResp).To(Equal(osbapi.ProvisionServiceInstanceResponse{
+				Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
 					Operation: "provision_op1",
 				}))
 			})
@@ -212,6 +212,81 @@ var _ = Describe("OSBAPI Client", func() {
 
 				It("returns an error", func() {
 					Expect(provisionErr).To(MatchError(ContainSubstring("provision request failed")))
+				})
+			})
+		})
+
+		Describe("Deprovision", func() {
+			var (
+				deprovisionResp osbapi.ServiceInstanceOperationResponse
+				deprovisionErr  error
+			)
+
+			BeforeEach(func() {
+				brokerServer.WithResponse(
+					"/v2/service_instances/{id}",
+					map[string]any{
+						"operation": "provision_op1",
+					},
+					http.StatusOK,
+				)
+			})
+
+			JustBeforeEach(func() {
+				deprovisionResp, deprovisionErr = brokerClient.Deprovision(ctx, osbapi.InstanceDeprovisionPayload{
+					ID: "my-service-instance",
+					InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
+						ServiceId: "service-guid",
+						PlanID:    "plan-guid",
+					},
+				})
+			})
+
+			It("deprovisions the service", func() {
+				Expect(deprovisionErr).NotTo(HaveOccurred())
+				Expect(deprovisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+					Operation: "provision_op1",
+				}))
+			})
+
+			It("sends async deprovision request to broker", func() {
+				Expect(deprovisionErr).NotTo(HaveOccurred())
+				requests := brokerServer.ServedRequests()
+
+				Expect(requests).To(HaveLen(1))
+
+				Expect(requests[0].Method).To(Equal(http.MethodDelete))
+				Expect(requests[0].URL.Path).To(Equal("/v2/service_instances/my-service-instance"))
+
+				Expect(requests[0].URL.Query().Get("accepts_incomplete")).To(Equal("true"))
+			})
+
+			It("sends correct request body", func() {
+				Expect(deprovisionErr).NotTo(HaveOccurred())
+				requests := brokerServer.ServedRequests()
+
+				Expect(requests).To(HaveLen(1))
+
+				requestBytes, err := io.ReadAll(requests[0].Body)
+				Expect(err).NotTo(HaveOccurred())
+				requestBody := map[string]any{}
+				Expect(json.Unmarshal(requestBytes, &requestBody)).To(Succeed())
+
+				Expect(requestBody).To(MatchAllKeys(Keys{
+					"service_id": Equal("service-guid"),
+					"plan_id":    Equal("plan-guid"),
+				}))
+			})
+
+			When("the deprovision request fails", func() {
+				BeforeEach(func() {
+					brokerServer = broker.NewServer().WithHandler("/v2/service_instances/{id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+						w.WriteHeader(http.StatusTeapot)
+					}))
+				})
+
+				It("returns an error", func() {
+					Expect(deprovisionErr).To(MatchError(ContainSubstring("deprovision request failed")))
 				})
 			})
 		})

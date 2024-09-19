@@ -42,6 +42,7 @@ var _ = Describe("ServiceInstance", func() {
 		serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
 			GUID:      "service-instance-guid",
 			SpaceGUID: "space-guid",
+			Type:      korifiv1alpha1.UserProvidedType,
 		}, nil)
 
 		spaceRepo = new(fake.CFSpaceRepository)
@@ -564,6 +565,29 @@ var _ = Describe("ServiceInstance", func() {
 			Expect(message.SpaceGUID).To(Equal("space-guid"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
+		})
+
+		When("the service instance is managed", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+					GUID:      "service-instance-guid",
+					SpaceGUID: "space-guid",
+					Type:      korifiv1alpha1.ManagedType,
+				}, nil)
+			})
+
+			It("deletes the service instance", func() {
+				Expect(serviceInstanceRepo.DeleteServiceInstanceCallCount()).To(Equal(1))
+				_, actualAuthInfo, message := serviceInstanceRepo.DeleteServiceInstanceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(message.GUID).To(Equal("service-instance-guid"))
+				Expect(message.SpaceGUID).To(Equal("space-guid"))
+
+				Expect(rr).To(SatisfyAll(
+					HaveHTTPStatus(http.StatusAccepted),
+					HaveHTTPHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_instance.delete~service-instance-guid")),
+				))
+			})
 		})
 
 		When("getting the service instance fails with not found", func() {

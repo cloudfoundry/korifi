@@ -130,6 +130,7 @@ type ServiceInstanceRecord struct {
 	Annotations map[string]string
 	CreatedAt   time.Time
 	UpdatedAt   *time.Time
+	DeletedAt   *time.Time
 	Ready       bool
 }
 
@@ -405,6 +406,14 @@ func (r *ServiceInstanceRepo) GetState(ctx context.Context, authInfo authorizati
 	return model.CFResourceStateUnknown, nil
 }
 
+func (r *ServiceInstanceRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, instanceGUID string) (*time.Time, error) {
+	serviceInstance, err := r.GetServiceInstance(ctx, authInfo, instanceGUID)
+	if err != nil {
+		return nil, err
+	}
+	return serviceInstance.DeletedAt, nil
+}
+
 func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) ServiceInstanceRecord {
 	return ServiceInstanceRecord{
 		Name:        cfServiceInstance.Spec.DisplayName,
@@ -418,6 +427,7 @@ func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstanc
 		Annotations: cfServiceInstance.Annotations,
 		CreatedAt:   cfServiceInstance.CreationTimestamp.Time,
 		UpdatedAt:   getLastUpdatedTime(&cfServiceInstance),
+		DeletedAt:   golangTime(cfServiceInstance.DeletionTimestamp),
 		Ready:       isReady(cfServiceInstance),
 	}
 }

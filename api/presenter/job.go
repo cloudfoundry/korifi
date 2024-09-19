@@ -27,6 +27,7 @@ const (
 	ServiceBrokerDeleteOperation          = "service_broker.delete"
 	ServiceBrokerUpdateOperation          = "service_broker.update"
 	ManagedServiceInstanceCreateOperation = "managed_service_instance.create"
+	ManagedServiceInstanceDeleteOperation = "managed_service_instance.delete"
 )
 
 var (
