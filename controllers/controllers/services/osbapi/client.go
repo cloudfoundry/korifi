@@ -52,7 +52,7 @@ func (c *Client) GetCatalog(ctx context.Context) (Catalog, error) {
 	return catalog, nil
 }
 
-func (c *Client) Provision(ctx context.Context, payload InstanceProvisionPayload) (ProvisionServiceInstanceResponse, error) {
+func (c *Client) Provision(ctx context.Context, payload InstanceProvisionPayload) (ServiceInstanceOperationResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
 		async().
@@ -63,17 +63,44 @@ func (c *Client) Provision(ctx context.Context, payload InstanceProvisionPayload
 			payload.InstanceProvisionRequest,
 		)
 	if err != nil {
-		return ProvisionServiceInstanceResponse{}, fmt.Errorf("provision request failed: %w", err)
+		return ServiceInstanceOperationResponse{}, fmt.Errorf("provision request failed: %w", err)
 	}
 
 	if statusCode >= 300 {
-		return ProvisionServiceInstanceResponse{}, fmt.Errorf("provision request failed with status code: %d", statusCode)
+		return ServiceInstanceOperationResponse{}, fmt.Errorf("provision request failed with status code: %d", statusCode)
 	}
 
-	var response ProvisionServiceInstanceResponse
+	var response ServiceInstanceOperationResponse
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
-		return ProvisionServiceInstanceResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
+		return ServiceInstanceOperationResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return response, nil
+}
+
+func (c *Client) Deprovision(ctx context.Context, payload InstanceDeprovisionPayload) (ServiceInstanceOperationResponse, error) {
+	statusCode, respBytes, err := c.newBrokerRequester().
+		forBroker(c.broker).
+		async().
+		sendRequest(
+			ctx,
+			"/v2/service_instances/"+payload.ID,
+			http.MethodDelete,
+			payload.InstanceDeprovisionRequest,
+		)
+	if err != nil {
+		return ServiceInstanceOperationResponse{}, fmt.Errorf("deprovision request failed: %w", err)
+	}
+
+	if statusCode >= 300 {
+		return ServiceInstanceOperationResponse{}, fmt.Errorf("deprovision request failed with status code: %d", statusCode)
+	}
+
+	var response ServiceInstanceOperationResponse
+	err = json.Unmarshal(respBytes, &response)
+	if err != nil {
+		return ServiceInstanceOperationResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return response, nil

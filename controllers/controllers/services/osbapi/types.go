@@ -52,6 +52,16 @@ type GetLastOperationRequest struct {
 	Operation string `json:"operation"`
 }
 
+type InstanceDeprovisionPayload struct {
+	ID string
+	InstanceDeprovisionRequest
+}
+
+type InstanceDeprovisionRequest struct {
+	ServiceId string `json:"service_id"`
+	PlanID    string `json:"plan_id"`
+}
+
 type Plan struct {
 	ID               string                      `json:"id"`
 	Name             string                      `json:"name"`
@@ -64,7 +74,7 @@ type Plan struct {
 	Schemas          services.ServicePlanSchemas `json:"schemas"`
 }
 
-type ProvisionServiceInstanceResponse struct {
+type ServiceInstanceOperationResponse struct {
 	Operation string `json:"operation"`
 }
 

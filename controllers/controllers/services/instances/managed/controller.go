@@ -186,7 +186,7 @@ func (r *Reconciler) provisionServiceInstance(
 		return ctrl.Result{}, err
 	}
 
-	var provisionResponse osbapi.ProvisionServiceInstanceResponse
+	var provisionResponse osbapi.ServiceInstanceOperationResponse
 	provisionResponse, err = osbapiClient.Provision(ctx, osbapi.InstanceProvisionPayload{
 		InstanceID: serviceInstance.Name,
 		InstanceProvisionRequest: osbapi.InstanceProvisionRequest{
@@ -228,18 +228,81 @@ func getServiceInstanceParameters(serviceInstance *korifiv1alpha1.CFServiceInsta
 	return parametersMap, nil
 }
 
-func (r *Reconciler) finalizeCFServiceInstance(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+func (r *Reconciler) finalizeCFServiceInstance(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
 
-	if !controllerutil.ContainsFinalizer(cfServiceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName) {
+	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
-	if controllerutil.RemoveFinalizer(cfServiceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName) {
-		log.V(1).Info("finalizer removed")
+	if isDeprovisionRequested(serviceInstance) {
+		if controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+
+		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, nil
+	err := r.deprovisionServiceinstance(ctx, serviceInstance)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{Requeue: true}, nil
+}
+
+func (r *Reconciler) deprovisionServiceinstance(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
+
+	servicePlan, err := r.getServicePlan(ctx, serviceInstance.Spec.PlanGUID)
+	if err != nil {
+		log.Error(err, "failed to get service plan")
+		return nil
+	}
+
+	serviceBroker, err := r.getServiceBroker(ctx, servicePlan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel])
+	if err != nil {
+		log.Error(err, "failed to get service broker")
+		return nil
+	}
+
+	serviceOffering, err := r.getServiceOffering(ctx, servicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel])
+	if err != nil {
+		log.Error(err, "failed to get service offering")
+		return nil
+	}
+
+	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, serviceBroker)
+	if err != nil {
+		log.Error(err, "failed to create broker client", "broker", serviceBroker.Name)
+		return nil
+	}
+	var deprovisionResponse osbapi.ServiceInstanceOperationResponse
+	deprovisionResponse, err = osbapiClient.Deprovision(ctx, osbapi.InstanceDeprovisionPayload{
+		ID: serviceInstance.Name,
+		InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
+			ServiceId: serviceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    servicePlan.Spec.BrokerCatalog.ID,
+		},
+	})
+	if err != nil {
+		log.Error(err, "failed to deprovision service instance")
+		return k8s.NewNotReadyError().WithReason("DeprovisionFailed")
+	}
+
+	serviceInstance.Status.DeprovisionOperation = deprovisionResponse.Operation
+	meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+		Type:               korifiv1alpha1.DeprovisionRequestedCondition,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: serviceInstance.Generation,
+		LastTransitionTime: metav1.NewTime(time.Now()),
+		Reason:             "DeprovisionRequested",
+	})
+
+	return k8s.NewNotReadyError().WithReason("DeprovisionRequested").WithRequeue()
 }
 
 func (r *Reconciler) getNamespace(ctx context.Context, namespaceName string) (*corev1.Namespace, error) {
@@ -302,6 +365,10 @@ func (r *Reconciler) getServiceBroker(ctx context.Context, brokerGUID string) (*
 
 func isProvisionRequested(instance *korifiv1alpha1.CFServiceInstance) bool {
 	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.ProvisionRequestedCondition)
+}
+
+func isDeprovisionRequested(instance *korifiv1alpha1.CFServiceInstance) bool {
+	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.DeprovisionRequestedCondition)
 }
 
 func isFailed(instance *korifiv1alpha1.CFServiceInstance) bool {

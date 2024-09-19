@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/routing"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 
@@ -205,6 +206,10 @@ func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service instance", "guid", serviceInstanceGUID)
+	}
+
+	if serviceInstance.Type == korifiv1alpha1.ManagedType {
+		return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(serviceInstance.GUID, presenter.ManagedServiceInstanceDeleteOperation, h.serverURL)), nil
 	}
 
 	return routing.NewResponse(http.StatusNoContent), nil

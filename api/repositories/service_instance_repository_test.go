@@ -224,6 +224,63 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 	})
 
+	Describe("GetDeletedAt", func() {
+		var (
+			cfServiceInstance *korifiv1alpha1.CFServiceInstance
+			deletionTime      *time.Time
+			getErr            error
+		)
+
+		BeforeEach(func() {
+			cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					Type: "managed",
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cfServiceInstance)).To(Succeed())
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+		})
+
+		JustBeforeEach(func() {
+			deletionTime, getErr = serviceInstanceRepo.GetDeletedAt(ctx, authInfo, cfServiceInstance.Name)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletionTime).To(BeNil())
+		})
+
+		When("the instance is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance, func() {
+					cfServiceInstance.Finalizers = append(cfServiceInstance.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfServiceInstance)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the instance isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, cfServiceInstance)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+	})
+
 	Describe("GetState", func() {
 		var (
 			cfServiceInstance *korifiv1alpha1.CFServiceInstance

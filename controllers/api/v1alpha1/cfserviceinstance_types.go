@@ -30,8 +30,9 @@ const (
 
 	CFManagedServiceInstanceFinalizerName = "managed.cfServiceInstance.korifi.cloudfoundry.org"
 
-	ProvisionRequestedCondition = "ProvisionRequested"
-	ProvisioningFailedCondition = "ProvisioningFailed"
+	ProvisionRequestedCondition   = "ProvisionRequested"
+	ProvisioningFailedCondition   = "ProvisioningFailed"
+	DeprovisionRequestedCondition = "DeprovisionRequested"
 )
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
@@ -80,7 +81,8 @@ type CFServiceInstanceStatus struct {
 	//+kubebuilder:validation:Optional
 	CredentialsObservedVersion string `json:"credentialsObservedVersion,omitempty"`
 
-	ProvisionOperation string `json:"provisionOperation,omitempty"`
+	ProvisionOperation   string `json:"provisionOperation,omitempty"`
+	DeprovisionOperation string `json:"deprovisionOperation,omitempty"`
 }
 
 //+kubebuilder:object:root=true
