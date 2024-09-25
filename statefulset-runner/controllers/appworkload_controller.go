@@ -61,8 +61,6 @@ const (
 
 	LivenessFailureThreshold  = 4
 	ReadinessFailureThreshold = 1
-
-	PodAffinityTermWeight = 100
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate

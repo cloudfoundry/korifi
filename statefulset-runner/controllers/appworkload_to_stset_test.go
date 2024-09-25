@@ -270,21 +270,20 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(*statefulSet.Spec.Template.Spec.SecurityContext.RunAsNonRoot).To(BeTrue())
 	})
 
-	It("should set soft inter-pod anti-affinity", func() {
-		podAntiAffinity := statefulSet.Spec.Template.Spec.Affinity.PodAntiAffinity
-		Expect(podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(BeEmpty())
-		Expect(podAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+	It("should set topology spread constraint", func() {
+		topologySpreadConstraints := statefulSet.Spec.Template.Spec.TopologySpreadConstraints
+		Expect(topologySpreadConstraints).To(HaveLen(2))
+		keys := []string{}
 
-		weightedTerm := podAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0]
-		Expect(weightedTerm.Weight).To(Equal(int32(100)))
-		Expect(weightedTerm.PodAffinityTerm.TopologyKey).To(Equal("kubernetes.io/hostname"))
-		Expect(weightedTerm.PodAffinityTerm.LabelSelector.MatchExpressions).To(ConsistOf(
-			metav1.LabelSelectorRequirement{
-				Key:      controllers.LabelGUID,
-				Operator: metav1.LabelSelectorOpIn,
-				Values:   []string{"guid_1234"},
-			},
-		))
+		for _, constraint := range topologySpreadConstraints {
+			keys = append(keys, constraint.TopologyKey)
+			Expect(constraint.MaxSkew).To(BeEquivalentTo(1))
+			Expect(constraint.WhenUnsatisfiable).To(BeEquivalentTo("ScheduleAnyway"))
+			Expect(constraint.LabelSelector).To(Equal(statefulSet.Spec.Selector))
+			Expect(constraint.MatchLabelKeys).To(ConsistOf("pod-template-hash"))
+		}
+
+		Expect(keys).To(ConsistOf("topology.kubernetes.io/zone", "kubernetes.io/hostname"))
 	})
 
 	It("should set the container environment variables", func() {
