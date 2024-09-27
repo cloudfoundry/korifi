@@ -202,6 +202,10 @@ func (r *Reconciler) provisionServiceInstance(
 		return ctrl.Result{}, fmt.Errorf("failed to provision service: %w", err)
 	}
 
+	if provisionResponse.Complete {
+		return ctrl.Result{}, nil
+	}
+
 	serviceInstance.Status.ProvisionOperation = provisionResponse.Operation
 	meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
 		Type:               korifiv1alpha1.ProvisionRequestedCondition,
@@ -251,6 +255,13 @@ func (r *Reconciler) finalizeCFServiceInstance(
 		return ctrl.Result{}, err
 	}
 
+	meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+		Type:               korifiv1alpha1.DeprovisionRequestedCondition,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: serviceInstance.Generation,
+		LastTransitionTime: metav1.NewTime(time.Now()),
+		Reason:             "DeprovisionRequested",
+	})
 	return ctrl.Result{Requeue: true}, nil
 }
 
@@ -294,15 +305,7 @@ func (r *Reconciler) deprovisionServiceinstance(ctx context.Context, serviceInst
 	}
 
 	serviceInstance.Status.DeprovisionOperation = deprovisionResponse.Operation
-	meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
-		Type:               korifiv1alpha1.DeprovisionRequestedCondition,
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: serviceInstance.Generation,
-		LastTransitionTime: metav1.NewTime(time.Now()),
-		Reason:             "DeprovisionRequested",
-	})
-
-	return k8s.NewNotReadyError().WithReason("DeprovisionRequested").WithRequeue()
+	return nil
 }
 
 func (r *Reconciler) getNamespace(ctx context.Context, namespaceName string) (*corev1.Namespace, error) {

@@ -138,7 +138,7 @@ var _ = Describe("OSBAPI Client", func() {
 			)
 
 			BeforeEach(func() {
-				brokerServer.WithResponse(
+				brokerServer = broker.NewServer().WithResponse(
 					"/v2/service_instances/{id}",
 					map[string]any{
 						"operation": "provision_op1",
@@ -160,13 +160,6 @@ var _ = Describe("OSBAPI Client", func() {
 						},
 					},
 				})
-			})
-
-			It("provisions the service", func() {
-				Expect(provisionErr).NotTo(HaveOccurred())
-				Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
-					Operation: "provision_op1",
-				}))
 			})
 
 			It("sends async provision request to broker", func() {
@@ -201,6 +194,34 @@ var _ = Describe("OSBAPI Client", func() {
 						"foo": Equal("bar"),
 					}),
 				}))
+			})
+
+			It("provisions the service synchronously", func() {
+				Expect(provisionErr).NotTo(HaveOccurred())
+				Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+					Operation: "provision_op1",
+					Complete:  true,
+				}))
+			})
+
+			When("the broker accepts the provision request", func() {
+				BeforeEach(func() {
+					brokerServer = broker.NewServer().WithResponse(
+						"/v2/service_instances/{id}",
+						map[string]any{
+							"operation": "provision_op1",
+						},
+						http.StatusAccepted,
+					)
+				})
+
+				It("provisions the service asynchronously", func() {
+					Expect(provisionErr).NotTo(HaveOccurred())
+					Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+						Operation: "provision_op1",
+						Complete:  false,
+					}))
+				})
 			})
 
 			When("the provision request fails", func() {

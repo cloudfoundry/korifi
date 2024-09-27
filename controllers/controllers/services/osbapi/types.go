@@ -76,6 +76,7 @@ type Plan struct {
 
 type ServiceInstanceOperationResponse struct {
 	Operation string `json:"operation"`
+	Complete  bool
 }
 
 type LastOperationResponse struct {

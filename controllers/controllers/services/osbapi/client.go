@@ -70,7 +70,11 @@ func (c *Client) Provision(ctx context.Context, payload InstanceProvisionPayload
 		return ServiceInstanceOperationResponse{}, fmt.Errorf("provision request failed with status code: %d", statusCode)
 	}
 
-	var response ServiceInstanceOperationResponse
+	response := ServiceInstanceOperationResponse{}
+	if statusCode == http.StatusCreated {
+		response.Complete = true
+	}
+
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
 		return ServiceInstanceOperationResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
