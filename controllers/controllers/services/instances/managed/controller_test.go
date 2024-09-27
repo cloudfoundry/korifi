@@ -261,6 +261,32 @@ var _ = Describe("CFServiceInstance", func() {
 		})
 	})
 
+	When("the provisioning is synchronous", func() {
+		BeforeEach(func() {
+			brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{
+				Operation: "operation-1",
+				Complete:  true,
+			}, nil)
+		})
+
+		It("does not check last operation", func() {
+			Consistently(func(g Gomega) {
+				g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(Equal(0))
+			}).Should(Succeed())
+		})
+
+		It("set sets ready condition to true", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+					HasStatus(Equal(metav1.ConditionTrue)),
+				)))
+			}).Should(Succeed())
+		})
+	})
+
 	When("service provisioning fails", func() {
 		BeforeEach(func() {
 			brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("provision-failed"))
@@ -541,6 +567,64 @@ var _ = Describe("CFServiceInstance", func() {
 						HasStatus(Equal(metav1.ConditionFalse)),
 						HasReason(Equal("DeprovisionFailed")),
 					)))
+				}).Should(Succeed())
+			})
+		})
+
+		When("the service plan is not available", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+					instance.Spec.PlanGUID = "does-not-exist"
+				})).To(Succeed())
+			})
+
+			It("deletes the instance", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			})
+		})
+
+		When("the service offering does not exist", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, servicePlan, func() {
+					servicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel] = "does-not-exist"
+				})).To(Succeed())
+			})
+
+			It("deletes the instance", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			})
+		})
+
+		When("the service broker does not exist", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, servicePlan, func() {
+					servicePlan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] = "does-not-exist"
+				})).To(Succeed())
+			})
+
+			It("deletes the instance", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			})
+		})
+
+		When("creating the broker client fails", func() {
+			BeforeEach(func() {
+				brokerClientFactory.CreateClientReturns(nil, errors.New("client-create-err"))
+			})
+
+			It("deletes the instance", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 				}).Should(Succeed())
 			})
 		})

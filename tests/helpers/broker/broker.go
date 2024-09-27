@@ -32,8 +32,9 @@ func (b *BrokerServer) WithResponse(pattern string, response map[string]any, sta
 	Expect(err).NotTo(HaveOccurred())
 
 	return b.WithHandler(pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(respBytes)
 		w.WriteHeader(statusCode)
+		_, err := w.Write(respBytes)
+		Expect(err).NotTo(HaveOccurred())
 	}))
 }
 
