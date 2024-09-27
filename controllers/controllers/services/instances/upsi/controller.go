@@ -23,7 +23,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -144,7 +144,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *k
 }
 
 func (r *Reconciler) reconcileCredentials(ctx context.Context, credentialsSecret *corev1.Secret, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (*corev1.Secret, error) {
-	if !strings.HasPrefix(string(credentialsSecret.Type), bindings.ServiceBindingSecretTypePrefix) {
+	if !strings.HasPrefix(string(credentialsSecret.Type), credentials.ServiceBindingSecretTypePrefix) {
 		return credentialsSecret, nil
 	}
 
