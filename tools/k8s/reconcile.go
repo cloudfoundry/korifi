@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -75,7 +77,12 @@ func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Requ
 
 		var notReadyErr NotReadyError
 		if errors.As(delegateErr, &notReadyErr) {
-			readyConditionBuilder.WithReason(notReadyErr.reason).WithMessage(notReadyErr.message)
+			reason := notReadyErr.reason
+			if reason == "" {
+				reason = "Unknown"
+			}
+
+			readyConditionBuilder.WithReason(reason).WithMessage(notReadyErr.message)
 
 			if notReadyErr.noRequeue {
 				result = ctrl.Result{}
@@ -103,4 +110,60 @@ func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Requ
 
 func (r *PatchingReconciler[T, PT]) SetupWithManager(mgr ctrl.Manager) error {
 	return r.objectReconciler.SetupWithManager(mgr).Complete(r)
+}
+
+type NotReadyError struct {
+	cause        error
+	reason       string
+	message      string
+	requeueAfter *time.Duration
+	requeue      bool
+	noRequeue    bool
+}
+
+func (e NotReadyError) Error() string {
+	if e.cause == nil {
+		return e.message
+	}
+
+	message := e.message
+	if message != "" {
+		message = message + ": "
+	}
+
+	return fmt.Sprintf("%s%s", message, e.cause.Error())
+}
+
+func NewNotReadyError() NotReadyError {
+	return NotReadyError{}
+}
+
+func (e NotReadyError) WithCause(cause error) NotReadyError {
+	e.cause = cause
+	return e
+}
+
+func (e NotReadyError) WithRequeue() NotReadyError {
+	e.requeue = true
+	return e
+}
+
+func (e NotReadyError) WithRequeueAfter(duration time.Duration) NotReadyError {
+	e.requeueAfter = tools.PtrTo(duration)
+	return e
+}
+
+func (e NotReadyError) WithNoRequeue() NotReadyError {
+	e.noRequeue = true
+	return e
+}
+
+func (e NotReadyError) WithReason(reason string) NotReadyError {
+	e.reason = reason
+	return e
+}
+
+func (e NotReadyError) WithMessage(message string) NotReadyError {
+	e.message = message
+	return e
 }
