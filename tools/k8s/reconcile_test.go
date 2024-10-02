@@ -222,10 +222,10 @@ var _ = Describe("Reconcile", func() {
 
 		When("the object reconciliation fails with NotReady error", func() {
 			BeforeEach(func() {
-				objectReconciler.reconcileResourceError = k8s.NewNotReadyError().WithReason("TestReason").WithMessage("TestMessage")
+				objectReconciler.reconcileResourceError = k8s.NewNotReadyError()
 			})
 
-			It("sets the ready condition to false with the reason specified", func() {
+			It("sets the ready condition to false with unknown reason", func() {
 				Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
 				_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
 				updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
@@ -234,16 +234,72 @@ var _ = Describe("Reconcile", func() {
 				Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 					HasStatus(Equal(metav1.ConditionFalse)),
-					HasReason(Equal("TestReason")),
-					HasMessage(Equal("TestMessage")),
+					HasReason(Equal("Unknown")),
+					HasMessage(BeEmpty()),
 				)))
+			})
+
+			When("reason is specified", func() {
+				BeforeEach(func() {
+					objectReconciler.reconcileResourceError = k8s.NewNotReadyError().WithReason("TestReason")
+				})
+
+				It("sets the ready condition to false with the reason specified", func() {
+					Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+					_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+					updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
+					Expect(ok).To(BeTrue())
+
+					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("TestReason")),
+					)))
+				})
+			})
+
+			When("message is specified", func() {
+				BeforeEach(func() {
+					objectReconciler.reconcileResourceError = k8s.NewNotReadyError().WithMessage("TestMessage")
+				})
+
+				It("sets the ready condition to false with the message specified", func() {
+					Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+					_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+					updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
+					Expect(ok).To(BeTrue())
+
+					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasMessage(Equal("TestMessage")),
+					)))
+				})
 			})
 
 			When("cause is specified", func() {
 				BeforeEach(func() {
+					objectReconciler.reconcileResourceError = k8s.NewNotReadyError().WithCause(errors.New("test-err"))
+				})
+
+				It("sets the ready condition to false with the error as message", func() {
+					Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+					_, updatedObject, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+					updatedOrg, ok := updatedObject.(*korifiv1alpha1.CFOrg)
+					Expect(ok).To(BeTrue())
+
+					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasMessage(Equal("test-err")),
+					)))
+				})
+			})
+
+			When("cause and message are specified", func() {
+				BeforeEach(func() {
 					objectReconciler.reconcileResourceError = k8s.NewNotReadyError().
 						WithCause(errors.New("test-err")).
-						WithReason("TestReason").
 						WithMessage("TestMessage")
 				})
 
@@ -256,7 +312,6 @@ var _ = Describe("Reconcile", func() {
 					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
-						HasReason(Equal("TestReason")),
 						HasMessage(Equal("TestMessage: test-err")),
 					)))
 				})
