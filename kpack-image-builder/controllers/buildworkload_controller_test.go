@@ -2,6 +2,7 @@ package controllers_test
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -1147,6 +1148,58 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(kpackBuild), foundKpackBuild)).To(Succeed())
 				}).Should(Succeed())
 			})
+		})
+	})
+
+	FWhen("failure during generateDropletStatus call", func() {
+		var (
+			build *buildv1alpha2.Build
+		)
+		BeforeEach(func() {
+			fakeImageConfigGetter.ConfigReturns(image.Config{}, errors.New("fake error"))
+			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)
+			Expect(adminClient.Create(ctx, buildWorkload)).To(Succeed())
+
+			createdKpackImage := new(buildv1alpha2.Image)
+			Eventually(func() error {
+				return adminClient.Get(ctx, types.NamespacedName{Name: appGUID, Namespace: namespaceGUID}, createdKpackImage)
+			}).Should(Succeed())
+
+			build = &buildv1alpha2.Build{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "build",
+					Namespace: namespaceGUID,
+					Labels: map[string]string{
+						buildv1alpha2.ImageLabel:           appGUID,
+						buildv1alpha2.ImageGenerationLabel: "1",
+						buildv1alpha2.BuildNumberLabel:     "1",
+					},
+				},
+			}
+
+			Expect(adminClient.Create(ctx, build)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8s.Patch(ctx, adminClient, build, func() {
+				build.Status.Conditions = append(build.Status.Conditions, corev1alpha1.Condition{
+					Type:   corev1alpha1.ConditionType("Succeeded"),
+					Status: corev1.ConditionStatus("True"),
+					Reason: "",
+				})
+
+				build.Status.Stack.ID = "cflinux3"
+				build.Status.LatestImage = "foo/bar:asd"
+			})).To(Succeed())
+		})
+
+		It("does not set the Succeeded condition", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Ready").Status).To(Equal(metav1.ConditionFalse))
+				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Ready").Message).To(Equal("failed getting image config: fake error"))
+			}).Should(Succeed())
 		})
 	})
 })
