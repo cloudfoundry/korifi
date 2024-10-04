@@ -1151,7 +1151,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		})
 	})
 
-	FWhen("failure during generateDropletStatus call", func() {
+	When("failure during generateDropletStatus call", func() {
 		var (
 			build *buildv1alpha2.Build
 		)
