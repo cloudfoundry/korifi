@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package routes
+package controllers
 
 import (
 	"context"
@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -44,20 +43,22 @@ import (
 )
 
 type Reconciler struct {
-	client           client.Client
+	remoteClient     client.Client
+	localClient      client.Client
 	scheme           *runtime.Scheme
 	log              logr.Logger
-	controllerConfig *config.ControllerConfig
+	gatewayName      string
+	gatewayNamespace string
 }
 
 func NewReconciler(
-	client client.Client,
+	remoteClient, localClient client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-	controllerConfig *config.ControllerConfig,
+	gatewayName, gatewayNamespace string,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFRoute, *korifiv1alpha1.CFRoute] {
-	routeReconciler := Reconciler{client: client, scheme: scheme, log: log, controllerConfig: controllerConfig}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFRoute, *korifiv1alpha1.CFRoute](log, client, &routeReconciler)
+	routeReconciler := Reconciler{remoteClient: remoteClient, localClient: localClient, scheme: scheme, log: log, gatewayName: gatewayName, gatewayNamespace: gatewayNamespace}
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFRoute, *korifiv1alpha1.CFRoute](log, remoteClient, &routeReconciler)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
@@ -78,7 +79,7 @@ func (r *Reconciler) enqueueCFAppRequests(ctx context.Context, o client.Object) 
 	}
 
 	var appRoutes korifiv1alpha1.CFRouteList
-	err := r.client.List(
+	err := r.remoteClient.List(
 		ctx,
 		&appRoutes,
 		client.InNamespace(cfApp.Namespace),
@@ -125,7 +126,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alp
 	}
 
 	cfDomain := &korifiv1alpha1.CFDomain{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, cfDomain)
+	err := r.remoteClient.Get(ctx, types.NamespacedName{Name: cfRoute.Spec.DomainRef.Name, Namespace: cfRoute.Spec.DomainRef.Namespace}, cfDomain)
 	if err != nil {
 		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("InvalidDomainRef")
 	}
@@ -192,7 +193,7 @@ func (r *Reconciler) createOrPatchServices(ctx context.Context, cfRoute *korifiv
 			},
 		}
 
-		result, err := controllerutil.CreateOrPatch(ctx, r.client, service, func() error {
+		result, err := controllerutil.CreateOrPatch(ctx, r.localClient, service, func() error {
 			service.Labels = map[string]string{
 				korifiv1alpha1.CFAppGUIDLabelKey:   destination.AppRef.Name,
 				korifiv1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
@@ -265,7 +266,7 @@ func (r *Reconciler) getAppCurrentDroplet(ctx context.Context, appNamespace, app
 			Name:      appName,
 		},
 	}
-	err := r.client.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)
+	err := r.remoteClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +281,7 @@ func (r *Reconciler) getAppCurrentDroplet(ctx context.Context, appNamespace, app
 			Name:      cfApp.Spec.CurrentDropletRef.Name,
 		},
 	}
-	err = r.client.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)
+	err = r.remoteClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build for app %q: %w", cfApp.Name, err)
 	}
@@ -300,7 +301,7 @@ func (r *Reconciler) reconcileHTTPRoute(ctx context.Context, cfRoute *korifiv1al
 	}
 
 	if len(cfRoute.Status.Destinations) == 0 {
-		err := r.client.Delete(ctx, httpRoute)
+		err := r.localClient.Delete(ctx, httpRoute)
 		if client.IgnoreNotFound(err) != nil {
 			log.Info("failed to delete existing HTTPRoutes", "reason", err)
 			return err
@@ -308,12 +309,12 @@ func (r *Reconciler) reconcileHTTPRoute(ctx context.Context, cfRoute *korifiv1al
 		return nil
 	}
 
-	result, err := controllerutil.CreateOrPatch(ctx, r.client, httpRoute, func() error {
+	result, err := controllerutil.CreateOrPatch(ctx, r.localClient, httpRoute, func() error {
 		httpRoute.Spec.ParentRefs = []gatewayv1beta1.ParentReference{{
 			Group:     tools.PtrTo(gatewayv1beta1.Group("gateway.networking.k8s.io")),
 			Kind:      tools.PtrTo(gatewayv1beta1.Kind("Gateway")),
-			Namespace: tools.PtrTo(gatewayv1beta1.Namespace(r.controllerConfig.Networking.GatewayNamespace)),
-			Name:      gatewayv1beta1.ObjectName(r.controllerConfig.Networking.GatewayName),
+			Namespace: tools.PtrTo(gatewayv1beta1.Namespace(r.gatewayNamespace)),
+			Name:      gatewayv1beta1.ObjectName(r.gatewayName),
 		}}
 
 		httpRoute.Spec.Hostnames = []gatewayv1beta1.Hostname{
@@ -368,7 +369,7 @@ func (r *Reconciler) deleteOrphanedServices(ctx context.Context, cfRoute *korifi
 		}
 
 		if isOrphan {
-			err = r.client.Delete(ctx, &serviceList.Items[i])
+			err = r.localClient.Delete(ctx, &serviceList.Items[i])
 			if err != nil {
 				loopLog.Info("failed to delete service", "reason", err)
 				return err
@@ -389,7 +390,7 @@ func (r *Reconciler) fetchServicesByMatchingLabels(ctx context.Context, labelSet
 	}
 
 	serviceList := corev1.ServiceList{}
-	err = r.client.List(ctx, &serviceList, &client.ListOptions{LabelSelector: selector, Namespace: namespace})
+	err = r.localClient.List(ctx, &serviceList, &client.ListOptions{LabelSelector: selector, Namespace: namespace})
 	if err != nil {
 		log.Info("failed to list services", "reason", err)
 		return nil, err
