@@ -242,31 +242,29 @@ func (r *Reconciler) finalizeCFServiceInstance(
 		return ctrl.Result{}, nil
 	}
 
-	if isDeprovisionRequested(serviceInstance) {
-		if controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName) {
-			log.V(1).Info("finalizer removed")
+	if !isDeprovisionRequested(serviceInstance) {
+		err := r.deprovisionServiceInstance(ctx, serviceInstance)
+		if err != nil {
+			return ctrl.Result{}, err
 		}
 
-		return ctrl.Result{}, nil
+		meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.DeprovisionRequestedCondition,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: serviceInstance.Generation,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			Reason:             "DeprovisionRequested",
+		})
 	}
 
-	err := r.deprovisionServiceinstance(ctx, serviceInstance)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+	log.V(1).Info("finalizer removed")
 
-	meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
-		Type:               korifiv1alpha1.DeprovisionRequestedCondition,
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: serviceInstance.Generation,
-		LastTransitionTime: metav1.NewTime(time.Now()),
-		Reason:             "DeprovisionRequested",
-	})
-	return ctrl.Result{Requeue: true}, nil
+	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) deprovisionServiceinstance(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance) error {
-	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
+func (r *Reconciler) deprovisionServiceInstance(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance) error {
+	log := logr.FromContextOrDiscard(ctx).WithName("deprovisionServiceInstance")
 
 	servicePlan, err := r.getServicePlan(ctx, serviceInstance.Spec.PlanGUID)
 	if err != nil {
