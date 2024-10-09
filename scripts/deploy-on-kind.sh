@@ -128,10 +128,6 @@ function install_dependencies() {
 }
 
 function configure_contour() {
-  kubectl -n korifi-gateway patch gateway korifi --type='json' -p='[{"op": "replace", "path": "/spec/listeners/0/port", "value":32080}]'
-  kubectl -n korifi-gateway patch gateway korifi --type='json' -p='[{"op": "replace", "path": "/spec/listeners/1/port", "value":32443}]'
-  kubectl -n korifi-gateway patch gateway korifi --type='json' -p='[{"op": "replace", "path": "/spec/listeners/2/port", "value":32443}]'
-
   kubectl apply -f - <<EOF
 kind: GatewayClass
 apiVersion: gateway.networking.k8s.io/v1beta1
@@ -207,6 +203,8 @@ function deploy_korifi() {
       --set=kpackImageBuilder.clusterStackRunImage="paketobuildpacks/run-jammy-base" \
       --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
       --set=networking.gatewayClass="contour" \
+      --set=networking.gatewayPorts.http="32080" \
+      --set=networking.gatewayPorts.https="32443" \
       --set=experimental.managedServices.include="true" \
       --set=experimental.managedServices.trustInsecureBrokers="true" \
       --wait

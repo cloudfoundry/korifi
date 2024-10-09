@@ -139,6 +139,10 @@ helm:
   hooksImage: alpine/k8s:1.25.2
 
 networking:
+  gatewayPorts:
+    http: 80
+    https: 443
+  gatewayInfrastructure:
   gatewayClass:
 
 experimental:
