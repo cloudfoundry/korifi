@@ -25,19 +25,23 @@ metadata:
   namespace: {{ .Release.Namespace }}-gateway
 spec:
   gatewayClassName: {{ .Values.networking.gatewayClass }}
+  {{- if .Values.networking.gatewayInfrastructure }}
+  infrastructure:
+    {{- .Values.networking.gatewayInfrastructure | toYaml | nindent 4 }}
+  {{- end }}
   listeners:
   - allowedRoutes:
       namespaces:
         from: All
     name: http-apps
-    port: 80
+    port: {{ .Values.networking.gatewayPorts.http }}
     protocol: HTTP
   - allowedRoutes:
       namespaces:
         from: All
     hostname: {{ .Values.api.apiServer.url }}
     name: https-api
-    port: 443
+    port: {{ .Values.networking.gatewayPorts.https }}
     protocol: TLS
     tls:
       mode: Passthrough
@@ -46,7 +50,7 @@ spec:
         from: All
     hostname: "*.{{ .Values.defaultAppDomainName }}"
     name: https-apps
-    port: 443
+    port: {{ .Values.networking.gatewayPorts.https }}
     protocol: HTTPS
     tls:
       certificateRefs:
