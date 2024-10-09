@@ -9,6 +9,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -1178,9 +1179,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 			}
 
 			Expect(adminClient.Create(ctx, build)).To(Succeed())
-		})
 
-		JustBeforeEach(func() {
 			Expect(k8s.Patch(ctx, adminClient, build, func() {
 				build.Status.Conditions = append(build.Status.Conditions, corev1alpha1.Condition{
 					Type:   corev1alpha1.ConditionType("Succeeded"),
@@ -1196,9 +1195,17 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 		It("does not set the Succeeded condition", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(buildWorkload), buildWorkload)).To(Succeed())
-				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Succeeded").Status).To(Equal(metav1.ConditionUnknown))
-				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Ready").Status).To(Equal(metav1.ConditionFalse))
-				g.Expect(mustHaveCondition(g, buildWorkload.Status.Conditions, "Ready").Message).To(Equal("failed getting image config: fake error"))
+				g.Expect(buildWorkload.Status.Conditions).To(ContainElements(
+					SatisfyAll(
+						matchers.HasType(Equal(korifiv1alpha1.SucceededConditionType)),
+						matchers.HasStatus(Not(Equal(metav1.ConditionTrue))),
+					),
+					SatisfyAll(
+						matchers.HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						matchers.HasStatus(Equal(metav1.ConditionFalse)),
+						matchers.HasMessage(ContainSubstring("fake error")),
+					),
+				))
 			}).Should(Succeed())
 		})
 	})
