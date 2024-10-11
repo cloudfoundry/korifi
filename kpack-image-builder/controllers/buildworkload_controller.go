@@ -257,14 +257,6 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 			ObservedGeneration: buildWorkload.Generation,
 		})
 	} else if latestBuildSuccessful.IsTrue() {
-		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
-			Type:               korifiv1alpha1.SucceededConditionType,
-			Status:             metav1.ConditionTrue,
-			Reason:             "BuildSucceeded",
-			Message:            "Image built successfully",
-			ObservedGeneration: buildWorkload.Generation,
-		})
-
 		foundServiceAccount := corev1.ServiceAccount{}
 		err = r.k8sClient.Get(ctx, types.NamespacedName{
 			Namespace: buildWorkload.Namespace,
@@ -280,6 +272,14 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 			log.Info("error when compiling the DropletStatus", "reason", err)
 			return ctrl.Result{}, err
 		}
+
+		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.SucceededConditionType,
+			Status:             metav1.ConditionTrue,
+			Reason:             "BuildSucceeded",
+			Message:            "Image built successfully",
+			ObservedGeneration: buildWorkload.Generation,
+		})
 	}
 
 	return ctrl.Result{}, nil
