@@ -112,6 +112,10 @@ Here are all the values that can be set for the chart:
 - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
 - `networking`: Networking configuration
   - `gatewayClass` (_String_): The name of the GatewayClass Korifi Gateway references
+  - `gatewayInfrastructure`: GatewayInfrastructure property of the Gateway, see https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.GatewayInfrastructure for contents
+  - `gatewayPorts`: Ports for the Gateway listeners
+    - `http` (_Integer_): HTTP port
+    - `https` (_Integer_): HTTPS port
 - `reconcilers`:
   - `app` (_String_): ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.
   - `build` (_String_): ID of the image builder to set on all `BuildWorkload` objects. Defaults to `kpack-image-builder`.
