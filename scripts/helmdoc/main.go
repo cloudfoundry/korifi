@@ -19,12 +19,6 @@ func printDocForSchema(schema map[string]any, indentLevel int) {
 	indentStr := strings.Repeat("  ", indentLevel)
 	names := slices.Collect(maps.Keys(schema))
 	sort.Slice(names, func(a, b int) bool {
-		if names[a] == "global" {
-			return true
-		}
-		if names[b] == "global" {
-			return false
-		}
 		return names[a] < names[b]
 	})
 
