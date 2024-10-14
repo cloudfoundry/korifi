@@ -199,7 +199,16 @@ func (r *Reconciler) provisionServiceInstance(
 	})
 	if err != nil {
 		log.Error(err, "failed to provision service")
-		return ctrl.Result{}, fmt.Errorf("failed to provision service: %w", err)
+
+		meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.ProvisioningFailedCondition,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: serviceInstance.Generation,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			Reason:             "ProvisionFailed",
+			Message:            err.Error(),
+		})
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionFailed")
 	}
 
 	if provisionResponse.Complete {
