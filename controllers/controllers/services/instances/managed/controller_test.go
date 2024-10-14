@@ -292,14 +292,22 @@ var _ = Describe("CFServiceInstance", func() {
 			brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("provision-failed"))
 		})
 
-		It("sets the ready condition to false", func() {
+		It("fails the instance", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 
-				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-					HasStatus(Equal(metav1.ConditionFalse)),
-				)))
+				g.Expect(instance.Status.Conditions).To(ContainElements(
+					SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+					),
+					SatisfyAll(
+						HasType(Equal(korifiv1alpha1.ProvisioningFailedCondition)),
+						HasStatus(Equal(metav1.ConditionTrue)),
+						HasReason(Equal("ProvisionFailed")),
+						HasMessage(ContainSubstring("provision-failed")),
+					),
+				))
 			}).Should(Succeed())
 		})
 	})
