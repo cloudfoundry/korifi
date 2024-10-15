@@ -212,7 +212,7 @@ var _ = Describe("CFServiceBinding", func() {
 		}).Should(Succeed())
 	})
 
-	XWhen("the service instance is managed", func() {
+	When("the service instance is managed", func() {
 		BeforeEach(func() {
 			Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
 				instance.Spec.Type = korifiv1alpha1.ManagedType
@@ -469,54 +469,6 @@ var _ = Describe("CFServiceBinding", func() {
 					HasStatus(Equal(metav1.ConditionFalse)),
 				)))
 			}).Should(Succeed())
-		})
-	})
-
-	When("the binding references a 'legacy' instance credentials secret", func() {
-		JustBeforeEach(func() {
-			Expect(k8s.Patch(ctx, adminClient, instance, func() {
-				instance.Spec.SecretName = instance.Name
-				instance.Status.Credentials.Name = instance.Name
-			})).To(Succeed())
-
-			Eventually(func(g Gomega) {
-				g.Expect(k8s.Patch(ctx, adminClient, binding, func() {
-					binding.Status.Binding.Name = instance.Name
-				})).To(Succeed())
-
-				// Ensure that the binding controller has observed the patch operation above
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-				g.Expect(binding.Generation).To(Equal(binding.Status.ObservedGeneration))
-				g.Expect(binding.Status.Binding.Name).To(Equal(instance.Name))
-			}).Should(Succeed())
-		})
-
-		It("sets the binding Ready status condition to false", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-				g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-					HasStatus(Equal(metav1.ConditionFalse)),
-				)))
-			}).Should(Succeed())
-		})
-
-		When("the referenced legacy binding secret exists", func() {
-			BeforeEach(func() {
-				Expect(adminClient.Create(ctx, &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      instance.Name,
-						Namespace: testNamespace,
-					},
-				})).To(Succeed())
-			})
-
-			It("does not update the binding status", func() {
-				Consistently(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					g.Expect(binding.Status.Binding.Name).To(Equal(instance.Name))
-				}).Should(Succeed())
-			})
 		})
 	})
 })
