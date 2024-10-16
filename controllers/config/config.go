@@ -30,11 +30,7 @@ type ControllerConfig struct {
 	SpaceFinalizerAppDeletionTimeout *int32             `yaml:"spaceFinalizerAppDeletionTimeout"`
 
 	// job-task-runner
-	JobTTL                                     string `yaml:"jobTTL"`
-	JobTaskRunnerTemporarySetPodSeccompProfile bool   `yaml:"jobTaskRunnerTemporarySetPodSeccompProfile"`
-
-	// statefulset-runner
-	StatefulsetRunnerTemporarySetPodSeccompProfile bool `yaml:"statefulsetRunnerTemporarySetPodSeccompProfile"`
+	JobTTL string `yaml:"jobTTL"`
 
 	// kpack-image-builder
 	ClusterBuilderName        string     `yaml:"clusterBuilderName"`
