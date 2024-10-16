@@ -6,7 +6,6 @@ metadata:
 data:
   config.yaml: |-
     includeKpackImageBuilder: {{ .Values.kpackImageBuilder.include }}
-    includeJobTaskRunner: {{ .Values.jobTaskRunner.include }}
     includeStatefulsetRunner: {{ .Values.statefulsetRunner.include }}
     builderName: {{ .Values.reconcilers.build }}
     runnerName: {{ .Values.reconcilers.run }}
@@ -50,9 +49,6 @@ data:
     {{- if .Values.eksContainerRegistryRoleARN }}
     containerRegistryType: "ECR"
     {{- end }}
-    {{- end }}
-    {{- if .Values.jobTaskRunner.include }}
-    jobTTL: {{ required "jobTTL is required" .Values.jobTaskRunner.jobTTL }}
     {{- end }}
     networking:
       gatewayNamespace: {{ .Release.Namespace }}-gateway
