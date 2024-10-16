@@ -22,7 +22,7 @@ In Kofiri `--strategy=rolling` is implemented using k8S rolling update capabilit
 ### Stack Changes
 While in CF for VMs the staging process yields a droplet, which is a stripped container image without base layer/operating system.
 In Korifi a fully fledged image is created which includes the base operating system(stack). 
-This alters the behaviour in case of stack updates. CF for VMs does purposefully combine stack and droplet at container instance creation time - thus a restart of an app consumes a new stack. In Korifi only a restage of an app consumes thew new stack. One might need to detect that and dynamically rebase a droplet onto a new stack in korifi before starting the container to yield the same behaviour here. 
+This alters the behaviour in case of stack updates. CF for VMs does purposefully combine stack and droplet at container instance creation time - thus a restart of an app consumes a new stack. In Korifi only a restage of an app consumes the new stack. One might need to detect that and dynamically rebase a droplet onto a new stack in korifi before starting the container to yield the same behaviour here. 
 
 ## Apps
 ### App Security Groups
