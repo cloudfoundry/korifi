@@ -93,6 +93,7 @@ controllers:
 
 kpackImageBuilder:
   include: true
+  image: cloudfoundry/kpack-image-builder:latest
   replicas: 1
   resources:
     limits:
