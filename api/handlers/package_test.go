@@ -7,7 +7,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"time"
 
@@ -218,24 +217,6 @@ var _ = Describe("Package", func() {
 					},
 				}, nil)
 			})
-
-			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(
-					&payloads.PackageList{
-						OrderBy: orderBy,
-					},
-				)
-
-				req := createHttpRequest("GET", "/v3/packages?order_by=not-used", nil)
-				rr = httptest.NewRecorder()
-				routerBuilder.Build().ServeHTTP(rr, req)
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].guid", expectedOrder)))
-			},
-				Entry("created_at ASC", "created_at", "3", "2", "1"),
-				Entry("created_at DESC", "-created_at", "1", "2", "3"),
-				Entry("updated_at ASC", "updated_at", "2", "1", "3"),
-				Entry("updated_at DESC", "-updated_at", "3", "1", "2"),
-			)
 		})
 
 		When("the 'states' parameter is sent", func() {
