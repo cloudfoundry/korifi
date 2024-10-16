@@ -14,6 +14,12 @@ sources:
     buildx:
       file: controllers/remote-debug/Dockerfile
 
+- image: cloudfoundry/kpack-image-builder:latest
+  path: .
+  docker:
+    buildx:
+      file: kpack-image-builder/remote-debug/Dockerfile
+
 - image: cloudfoundry/job-task-runner:latest
   path: .
   docker:

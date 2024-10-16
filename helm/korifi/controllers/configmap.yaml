@@ -5,7 +5,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   config.yaml: |-
-    includeKpackImageBuilder: {{ .Values.kpackImageBuilder.include }}
     includeStatefulsetRunner: {{ .Values.statefulsetRunner.include }}
     builderName: {{ .Values.reconcilers.build }}
     runnerName: {{ .Values.reconcilers.run }}
@@ -37,19 +36,6 @@ data:
     maxRetainedPackagesPerApp: {{ .Values.controllers.maxRetainedPackagesPerApp }}
     maxRetainedBuildsPerApp: {{ .Values.controllers.maxRetainedBuildsPerApp }}
     logLevel: {{ .Values.logLevel }}
-    {{- if .Values.kpackImageBuilder.include }}
-    clusterBuilderName: {{ .Values.kpackImageBuilder.clusterBuilderName | default "cf-kpack-cluster-builder" }}
-    builderReadinessTimeout: {{ required "builderReadinessTimeout is required" .Values.kpackImageBuilder.builderReadinessTimeout }}
-    containerRepositoryPrefix: {{ .Values.containerRepositoryPrefix | quote }}
-    builderServiceAccount: kpack-service-account
-    cfStagingResources:
-      buildCacheMB: {{ .Values.stagingRequirements.buildCacheMB }}
-      diskMB: {{ .Values.stagingRequirements.diskMB }}
-      memoryMB: {{ .Values.stagingRequirements.memoryMB }}
-    {{- if .Values.eksContainerRegistryRoleARN }}
-    containerRegistryType: "ECR"
-    {{- end }}
-    {{- end }}
     networking:
       gatewayNamespace: {{ .Release.Namespace }}-gateway
       gatewayName: korifi
