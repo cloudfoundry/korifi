@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	gomega_types "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +36,7 @@ var _ = Describe("PackageRepository", func() {
 			korifiv1alpha1.CFPackageList,
 			*korifiv1alpha1.CFPackageList,
 		]
+		sorter      *fake.PackageSorter
 		packageRepo *repositories.PackageRepo
 		org         *korifiv1alpha1.CFOrg
 		space       *korifiv1alpha1.CFSpace
@@ -50,6 +52,11 @@ var _ = Describe("PackageRepository", func() {
 			korifiv1alpha1.CFPackageList,
 			*korifiv1alpha1.CFPackageList,
 		]{}
+		sorter = new(fake.PackageSorter)
+		sorter.SortStub = func(records []repositories.PackageRecord, _ string) []repositories.PackageRecord {
+			return records
+		}
+
 		packageRepo = repositories.NewPackageRepo(
 			userClientFactory,
 			namespaceRetriever,
@@ -57,6 +64,7 @@ var _ = Describe("PackageRepository", func() {
 			repoCreator,
 			"container.registry/foo/my/prefix-",
 			conditionAwaiter,
+			sorter,
 		)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
@@ -867,3 +875,33 @@ var _ = Describe("PackageRepository", func() {
 		})
 	})
 })
+
+var _ = DescribeTable("PackageSorter",
+	func(p1, p2 repositories.PackageRecord, field string, match gomega_types.GomegaMatcher) {
+		Expect(repositories.PackageComparator(field)(p1, p2)).To(match)
+	},
+	Entry("created_at",
+		repositories.PackageRecord{CreatedAt: time.UnixMilli(1)},
+		repositories.PackageRecord{CreatedAt: time.UnixMilli(2)},
+		"created_at",
+		BeNumerically("<", 0),
+	),
+	Entry("-created_at",
+		repositories.PackageRecord{CreatedAt: time.UnixMilli(1)},
+		repositories.PackageRecord{CreatedAt: time.UnixMilli(2)},
+		"-created_at",
+		BeNumerically(">", 0),
+	),
+	Entry("updated_at",
+		repositories.PackageRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
+		repositories.PackageRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
+		"updated_at",
+		BeNumerically("<", 0),
+	),
+	Entry("-updated_at",
+		repositories.PackageRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
+		repositories.PackageRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
+		"-updated_at",
+		BeNumerically(">", 0),
+	),
+)

@@ -8,6 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/packages"
 	"code.cloudfoundry.org/korifi/tools"
@@ -49,6 +50,7 @@ type PackageRepo struct {
 	repositoryCreator    RepositoryCreator
 	repositoryPrefix     string
 	awaiter              Awaiter[*korifiv1alpha1.CFPackage]
+	sorter               PackageSorter
 }
 
 func NewPackageRepo(
@@ -58,6 +60,7 @@ func NewPackageRepo(
 	repositoryCreator RepositoryCreator,
 	repositoryPrefix string,
 	awaiter Awaiter[*korifiv1alpha1.CFPackage],
+	sorter PackageSorter,
 ) *PackageRepo {
 	return &PackageRepo{
 		userClientFactory:    userClientFactory,
@@ -66,6 +69,7 @@ func NewPackageRepo(
 		repositoryCreator:    repositoryCreator,
 		repositoryPrefix:     repositoryPrefix,
 		awaiter:              awaiter,
+		sorter:               sorter,
 	}
 }
 
@@ -89,10 +93,46 @@ func (r PackageRecord) Relationships() map[string]string {
 	}
 }
 
+//counterfeiter:generate -o fake -fake-name PackageSorter . PackageSorter
+type PackageSorter interface {
+	Sort(records []PackageRecord, order string) []PackageRecord
+}
+
+type packageSorter struct {
+	sorter *compare.Sorter[PackageRecord]
+}
+
+func NewPackageSorter() *packageSorter {
+	return &packageSorter{
+		sorter: compare.NewSorter(PackageComparator),
+	}
+}
+
+func (s *packageSorter) Sort(records []PackageRecord, order string) []PackageRecord {
+	return s.sorter.Sort(records, order)
+}
+
+func PackageComparator(fieldName string) func(PackageRecord, PackageRecord) int {
+	return func(d1, d2 PackageRecord) int {
+		switch fieldName {
+		case "created_at":
+			return tools.CompareTimePtr(&d1.CreatedAt, &d2.CreatedAt)
+		case "-created_at":
+			return tools.CompareTimePtr(&d2.CreatedAt, &d1.CreatedAt)
+		case "updated_at":
+			return tools.CompareTimePtr(d1.UpdatedAt, d2.UpdatedAt)
+		case "-updated_at":
+			return tools.CompareTimePtr(d2.UpdatedAt, d1.UpdatedAt)
+		}
+		return 0
+	}
+}
+
 type ListPackagesMessage struct {
 	GUIDs    []string
 	AppGUIDs []string
 	States   []string
+	OrderBy  string
 }
 
 func (m *ListPackagesMessage) matches(p korifiv1alpha1.CFPackage) bool {
@@ -343,7 +383,7 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 	}
 
 	filteredPackages := itx.FromSlice(packages).Filter(message.matches)
-	return slices.Collect(it.Map(filteredPackages, r.cfPackageToPackageRecord)), nil
+	return r.sorter.Sort(slices.Collect(it.Map(filteredPackages, r.cfPackageToPackageRecord)), message.OrderBy), nil
 }
 
 func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message UpdatePackageSourceMessage) (PackageRecord, error) {
