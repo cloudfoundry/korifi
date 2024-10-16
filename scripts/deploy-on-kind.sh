@@ -189,7 +189,7 @@ function deploy_korifi() {
     helm upgrade --install korifi helm/korifi \
       --namespace korifi \
       --values="$values_file" \
-      --set=adminUserName="cf-admin" \
+      --set=adminUserName="kubernetes-admin" \
       --set=defaultAppDomainName="apps-127-0-0-1.nip.io" \
       --set=generateIngressCertificates="true" \
       --set=logLevel="debug" \
@@ -216,6 +216,11 @@ function create_namespaces() {
   local security_policy
 
   security_policy="restricted"
+
+  if [[ "$DEBUG" == "true" ]]; then
+    security_policy="privileged"
+  fi
+
   for ns in cf korifi; do
     cat <<EOF | kubectl apply -f -
 apiVersion: v1
