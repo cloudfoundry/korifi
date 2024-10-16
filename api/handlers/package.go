@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"sort"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -89,34 +88,18 @@ func (h Package) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.list")
 
-	packageList := new(payloads.PackageList)
-	err := h.requestValidator.DecodeAndValidateURLValues(r, packageList)
+	payload := new(payloads.PackageList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, payload)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, packageList.ToMessage())
+	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching package with repository")
 	}
 
-	h.sortList(records, packageList.OrderBy)
-
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForPackage, records, h.serverURL, *r.URL)), nil
-}
-
-func (h Package) sortList(records []repositories.PackageRecord, order string) {
-	switch order {
-	case "":
-	case "created_at":
-		sort.Slice(records, func(i, j int) bool { return timePtrAfter(&records[j].CreatedAt, &records[i].CreatedAt) })
-	case "-created_at":
-		sort.Slice(records, func(i, j int) bool { return timePtrAfter(&records[i].CreatedAt, &records[j].CreatedAt) })
-	case "updated_at":
-		sort.Slice(records, func(i, j int) bool { return timePtrAfter(records[j].UpdatedAt, records[i].UpdatedAt) })
-	case "-updated_at":
-		sort.Slice(records, func(i, j int) bool { return timePtrAfter(records[i].UpdatedAt, records[j].UpdatedAt) })
-	}
 }
 
 func (h Package) create(r *http.Request) (*routing.Response, error) {
