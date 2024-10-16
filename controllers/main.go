@@ -62,7 +62,6 @@ import (
 	packageswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/packages"
 	spaceswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/spaces"
 	taskswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/tasks"
-	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	kpackimagebuilderfinalizer "code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
 	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
@@ -384,26 +383,6 @@ func main() {
 				controllerConfig.BuilderServiceAccount,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "KpackBuild")
-				os.Exit(1)
-			}
-		}
-
-		if controllerConfig.IncludeJobTaskRunner {
-			var jobTTL time.Duration
-			jobTTL, err = controllerConfig.ParseJobTTL()
-			if err != nil {
-				panic(err)
-			}
-
-			taskWorkloadReconciler := jobtaskrunnercontrollers.NewTaskWorkloadReconciler(
-				controllersLog,
-				mgr.GetClient(),
-				mgr.GetScheme(),
-				jobtaskrunnercontrollers.NewStatusGetter(mgr.GetClient()),
-				jobTTL,
-			)
-			if err = taskWorkloadReconciler.SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "TaskWorkload")
 				os.Exit(1)
 			}
 		}

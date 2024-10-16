@@ -11,7 +11,6 @@ import (
 type ControllerConfig struct {
 	// components
 	IncludeKpackImageBuilder bool `yaml:"includeKpackImageBuilder"`
-	IncludeJobTaskRunner     bool `yaml:"includeJobTaskRunner"`
 	IncludeStatefulsetRunner bool `yaml:"includeStatefulsetRunner"`
 
 	// core controllers
@@ -28,9 +27,6 @@ type ControllerConfig struct {
 	MaxRetainedBuildsPerApp          int                `yaml:"maxRetainedBuildsPerApp"`
 	LogLevel                         zapcore.Level      `yaml:"logLevel"`
 	SpaceFinalizerAppDeletionTimeout *int32             `yaml:"spaceFinalizerAppDeletionTimeout"`
-
-	// job-task-runner
-	JobTTL string `yaml:"jobTTL"`
 
 	// kpack-image-builder
 	ClusterBuilderName        string     `yaml:"clusterBuilderName"`
@@ -109,12 +105,4 @@ func (c ControllerConfig) ParseTaskTTL() (time.Duration, error) {
 
 func (c ControllerConfig) ParseBuilderReadinessTimeout() (time.Duration, error) {
 	return tools.ParseDuration(c.BuilderReadinessTimeout)
-}
-
-func (c ControllerConfig) ParseJobTTL() (time.Duration, error) {
-	if c.JobTTL == "" {
-		return defaultJobTTL, nil
-	}
-
-	return tools.ParseDuration(c.JobTTL)
 }

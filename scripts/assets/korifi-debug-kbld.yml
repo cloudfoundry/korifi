@@ -13,3 +13,9 @@ sources:
   docker:
     buildx:
       file: controllers/remote-debug/Dockerfile
+
+- image: cloudfoundry/job-task-runner:latest
+  path: .
+  docker:
+    buildx:
+      file: job-task-runner/remote-debug/Dockerfile
