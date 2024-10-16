@@ -20,6 +20,12 @@ sources:
     buildx:
       file: kpack-image-builder/remote-debug/Dockerfile
 
+- image: cloudfoundry/statefulset-runner:latest
+  path: .
+  docker:
+    buildx:
+      file: statefulset-runner/remote-debug/Dockerfile
+
 - image: cloudfoundry/job-task-runner:latest
   path: .
   docker:
