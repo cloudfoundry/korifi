@@ -20,17 +20,12 @@ import (
 )
 
 type AppWorkloadToStatefulsetConverter struct {
-	scheme                                         *runtime.Scheme
-	statefulsetRunnerTemporarySetPodSeccompProfile bool
+	scheme *runtime.Scheme
 }
 
-func NewAppWorkloadToStatefulsetConverter(
-	scheme *runtime.Scheme,
-	statefulsetRunnerTemporarySetPodSeccompProfile bool,
-) *AppWorkloadToStatefulsetConverter {
+func NewAppWorkloadToStatefulsetConverter(scheme *runtime.Scheme) *AppWorkloadToStatefulsetConverter {
 	return &AppWorkloadToStatefulsetConverter{
 		scheme: scheme,
-		statefulsetRunnerTemporarySetPodSeccompProfile: statefulsetRunnerTemporarySetPodSeccompProfile,
 	}
 }
 
@@ -147,17 +142,14 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 					ImagePullSecrets: appWorkload.Spec.ImagePullSecrets,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: tools.PtrTo(true),
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
 					},
 					ServiceAccountName: ServiceAccountName,
 				},
 			},
 		},
-	}
-
-	if r.statefulsetRunnerTemporarySetPodSeccompProfile {
-		statefulSet.Spec.Template.Spec.SecurityContext.SeccompProfile = &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeRuntimeDefault,
-		}
 	}
 
 	statefulSet.Spec.Template.Spec.AutomountServiceAccountToken = tools.PtrTo(false)

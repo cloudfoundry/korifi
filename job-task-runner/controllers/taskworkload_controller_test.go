@@ -8,10 +8,10 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/job-task-runner/controllers/fake"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,16 +27,16 @@ var _ = Describe("TaskworkloadController", func() {
 	var (
 		statusGetter *fake.TaskStatusGetter
 
-		reconcileResult                            ctrl.Result
-		reconcileErr                               error
-		req                                        ctrl.Request
-		taskWorkload                               *korifiv1alpha1.TaskWorkload
-		getTaskWorkloadError                       error
-		createdJob                                 *batchv1.Job
-		existingJob                                *batchv1.Job
-		getExistingJobError                        error
-		createJobError                             error
-		jobTaskRunnerTemporarySetPodSeccompProfile bool
+		reconciler           *k8s.PatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload]
+		reconcileResult      ctrl.Result
+		reconcileErr         error
+		req                  ctrl.Request
+		taskWorkload         *korifiv1alpha1.TaskWorkload
+		getTaskWorkloadError error
+		createdJob           *batchv1.Job
+		existingJob          *batchv1.Job
+		getExistingJobError  error
+		createJobError       error
 	)
 
 	BeforeEach(func() {
@@ -98,13 +98,12 @@ var _ = Describe("TaskworkloadController", func() {
 			Reason:             "something",
 		}}, nil)
 
-		jobTaskRunnerTemporarySetPodSeccompProfile = false
+		reconciler = controllers.NewTaskWorkloadReconciler(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)), fakeClient, scheme.Scheme, statusGetter, time.Hour)
 
 		req = ctrl.Request{NamespacedName: client.ObjectKeyFromObject(taskWorkload)}
 	})
 
 	JustBeforeEach(func() {
-		reconciler := controllers.NewTaskWorkloadReconciler(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)), fakeClient, scheme.Scheme, statusGetter, time.Hour, jobTaskRunnerTemporarySetPodSeccompProfile)
 		reconcileResult, reconcileErr = reconciler.Reconcile(context.Background(), req)
 	})
 
@@ -223,35 +222,6 @@ var _ = Describe("TaskworkloadController", func() {
 
 		It("returns the error", func() {
 			Expect(reconcileErr).To(MatchError(ContainSubstring("get-conditions-error")))
-		})
-	})
-
-	Describe("jobTaskRunnerTemporarySetPodSeccompProfile", func() {
-		var (
-			job                                        *batchv1.Job
-			jobTaskRunnerTemporarySetPodSeccompProfile bool
-		)
-
-		BeforeEach(func() {
-			jobTaskRunnerTemporarySetPodSeccompProfile = false
-		})
-
-		JustBeforeEach(func() {
-			job = controllers.WorkloadToJob(taskWorkload, 123, jobTaskRunnerTemporarySetPodSeccompProfile)
-		})
-
-		It("does not set spec.securityContext.seccompProfile", func() {
-			Expect(job.Spec.Template.Spec.SecurityContext.SeccompProfile).To(BeNil())
-		})
-
-		When("jobTaskRunnerTemporarySetPodSeccompProfile is set to true", func() {
-			BeforeEach(func() {
-				jobTaskRunnerTemporarySetPodSeccompProfile = true
-			})
-
-			It("sets spec.securityContext.seccompProfile to RuntimeDefault", func() {
-				Expect(job.Spec.Template.Spec.SecurityContext.SeccompProfile.Type).To(Equal(corev1.SeccompProfileTypeRuntimeDefault))
-			})
 		})
 	})
 })

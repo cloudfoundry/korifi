@@ -1153,9 +1153,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 	})
 
 	When("failure during generateDropletStatus call", func() {
-		var (
-			build *buildv1alpha2.Build
-		)
+		var build *buildv1alpha2.Build
 		BeforeEach(func() {
 			fakeImageConfigGetter.ConfigReturns(image.Config{}, errors.New("fake error"))
 			buildWorkload = buildWorkloadObject(buildWorkloadGUID, namespaceGUID, source, env, services, reconcilerName, buildpacks)

@@ -53,10 +53,6 @@ data:
     {{- end }}
     {{- if .Values.jobTaskRunner.include }}
     jobTTL: {{ required "jobTTL is required" .Values.jobTaskRunner.jobTTL }}
-    jobTaskRunnerTemporarySetPodSeccompProfile: {{ .Values.jobTaskRunner.temporarySetPodSeccompProfile }}
-    {{- end }}
-    {{- if .Values.statefulsetRunner.include }}
-    statefulsetRunnerTemporarySetPodSeccompProfile: {{ .Values.statefulsetRunner.temporarySetPodSeccompProfile }}
     {{- end }}
     networking:
       gatewayNamespace: {{ .Release.Namespace }}-gateway

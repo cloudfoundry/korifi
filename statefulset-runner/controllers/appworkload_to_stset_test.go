@@ -19,10 +19,9 @@ import (
 
 var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	var (
-		statefulSet                                    *appsv1.StatefulSet
-		appWorkload                                    *korifiv1alpha1.AppWorkload
-		converter                                      *controllers.AppWorkloadToStatefulsetConverter
-		statefulsetRunnerTemporarySetPodSeccompProfile bool
+		statefulSet *appsv1.StatefulSet
+		appWorkload *korifiv1alpha1.AppWorkload
+		converter   *controllers.AppWorkloadToStatefulsetConverter
 	)
 
 	BeforeEach(func() {
@@ -85,15 +84,11 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 			},
 		}
 
-		statefulsetRunnerTemporarySetPodSeccompProfile = false
+		converter = controllers.NewAppWorkloadToStatefulsetConverter(scheme.Scheme)
 	})
 
 	JustBeforeEach(func() {
 		var err error
-		converter = controllers.NewAppWorkloadToStatefulsetConverter(
-			scheme.Scheme,
-			statefulsetRunnerTemporarySetPodSeccompProfile,
-		)
 		statefulSet, err = converter.Convert(appWorkload)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -270,6 +265,11 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(*statefulSet.Spec.Template.Spec.SecurityContext.RunAsNonRoot).To(BeTrue())
 	})
 
+	It("should set the seccomp profile on the pod", func() {
+		Expect(statefulSet.Spec.Template.Spec.SecurityContext.SeccompProfile).NotTo(BeNil())
+		Expect(*statefulSet.Spec.Template.Spec.SecurityContext.SeccompProfile).To(Equal(corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}))
+	})
+
 	It("should set topology spread constraint", func() {
 		topologySpreadConstraints := statefulSet.Spec.Template.Spec.TopologySpreadConstraints
 		Expect(topologySpreadConstraints).To(HaveLen(2))
@@ -374,19 +374,5 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 				return fmt.Sprintf("failed on iteration %d", i)
 			})
 		}
-	})
-
-	It("does not set spec.securityContext.seccompProfile", func() {
-		Expect(statefulSet.Spec.Template.Spec.SecurityContext.SeccompProfile).To(BeNil())
-	})
-
-	When("statefulsetRunnerTemporarySetPodSeccompProfile is set to true", func() {
-		BeforeEach(func() {
-			statefulsetRunnerTemporarySetPodSeccompProfile = true
-		})
-
-		It("sets spec.securityContext.seccompProfile to RuntimeDefault", func() {
-			Expect(statefulSet.Spec.Template.Spec.SecurityContext.SeccompProfile.Type).To(Equal(corev1.SeccompProfileTypeRuntimeDefault))
-		})
 	})
 })
