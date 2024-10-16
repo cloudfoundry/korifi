@@ -187,6 +187,7 @@ rules:
   - korifi.cloudfoundry.org
   resources:
   - cfdomains
+  - runnerinfos
   - taskworkloads
   verbs:
   - create
@@ -216,6 +217,13 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - runnerinfos/status
+  verbs:
+  - get
+  - patch
 - apiGroups:
   - kpack.io
   resources:
