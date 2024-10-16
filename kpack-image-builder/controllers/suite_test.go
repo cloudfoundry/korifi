@@ -105,11 +105,12 @@ var _ = BeforeSuite(func() {
 
 	finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(k8sManager)
 
-	controllerConfig := &config.ControllerConfig{
+	controllerConfig := &controllers.Config{
 		CFRootNamespace:           PrefixedGUID("cf"),
 		ClusterBuilderName:        "cf-kpack-builder",
-		ContainerRepositoryPrefix: "image/registry/tag",
 		BuilderServiceAccount:     "builder-service-account",
+		BuilderReadinessTimeout:   4 * time.Second,
+		ContainerRepositoryPrefix: "my.repository/my-prefix/",
 		CFStagingResources: config.CFStagingResources{
 			BuildCacheMB: 1024,
 			DiskMB:       2048,
@@ -125,9 +126,7 @@ var _ = BeforeSuite(func() {
 		ctrl.Log.WithName("kpack-image-builder").WithName("BuildWorkload"),
 		controllerConfig,
 		fakeImageConfigGetter,
-		"my.repository/my-prefix/",
 		imageRepoCreator,
-		4*time.Second,
 	)
 	err = buildWorkloadReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

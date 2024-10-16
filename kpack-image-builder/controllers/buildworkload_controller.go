@@ -74,39 +74,43 @@ type RepositoryCreator interface {
 	CreateRepository(ctx context.Context, name string) error
 }
 
+type Config struct {
+	CFRootNamespace           string                    `yaml:"cfRootNamespace"`
+	CFStagingResources        config.CFStagingResources `yaml:"cfStagingResources"`
+	ClusterBuilderName        string                    `yaml:"clusterBuilderName"`
+	BuilderServiceAccount     string                    `yaml:"builderServiceAccount"`
+	BuilderReadinessTimeout   time.Duration             `yaml:"builderReadinessTimeout"`
+	ContainerRepositoryPrefix string                    `yaml:"containerRepositoryPrefix"`
+	ContainerRegistryType     string                    `yaml:"containerRegistryType"`
+}
+
 func NewBuildWorkloadReconciler(
 	c client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-	config *config.ControllerConfig,
+	config *Config,
 	imageConfigGetter ImageConfigGetter,
-	imageRepoPrefix string,
 	imageRepoCreator RepositoryCreator,
-	builderReadinessTimeout time.Duration,
 ) *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload] {
 	buildWorkloadReconciler := BuildWorkloadReconciler{
-		k8sClient:               c,
-		scheme:                  scheme,
-		log:                     log,
-		controllerConfig:        config,
-		imageConfigGetter:       imageConfigGetter,
-		imageRepoPrefix:         imageRepoPrefix,
-		imageRepoCreator:        imageRepoCreator,
-		builderReadinessTimeout: builderReadinessTimeout,
+		k8sClient:         c,
+		scheme:            scheme,
+		log:               log,
+		controllerConfig:  config,
+		imageConfigGetter: imageConfigGetter,
+		imageRepoCreator:  imageRepoCreator,
 	}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload](log, c, &buildWorkloadReconciler)
 }
 
 // BuildWorkloadReconciler reconciles a BuildWorkload object
 type BuildWorkloadReconciler struct {
-	k8sClient               client.Client
-	scheme                  *runtime.Scheme
-	log                     logr.Logger
-	controllerConfig        *config.ControllerConfig
-	imageConfigGetter       ImageConfigGetter
-	imageRepoPrefix         string
-	imageRepoCreator        RepositoryCreator
-	builderReadinessTimeout time.Duration
+	k8sClient         client.Client
+	scheme            *runtime.Scheme
+	log               logr.Logger
+	controllerConfig  *Config
+	imageConfigGetter ImageConfigGetter
+	imageRepoCreator  RepositoryCreator
 }
 
 func (r *BuildWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
@@ -210,7 +214,7 @@ func (r *BuildWorkloadReconciler) ReconcileResource(ctx context.Context, buildWo
 	}
 
 	if !builderReadyCondition.IsTrue() {
-		if time.Since(buildWorkload.CreationTimestamp.Time) < r.builderReadinessTimeout {
+		if time.Since(buildWorkload.CreationTimestamp.Time) < r.controllerConfig.BuilderReadinessTimeout {
 			log.Info("waiting for builder to be ready")
 			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
@@ -440,7 +444,7 @@ func (r *BuildWorkloadReconciler) ensureKpackBuilderForBuildpacks(ctx context.Co
 	}
 
 	builderName := ComputeBuilderName(buildWorkload.Spec.Buildpacks)
-	builderRepo := fmt.Sprintf("%sbuilders-%s", r.imageRepoPrefix, builderName)
+	builderRepo := fmt.Sprintf("%sbuilders-%s", r.controllerConfig.ContainerRepositoryPrefix, builderName)
 	err = r.imageRepoCreator.CreateRepository(ctx, builderRepo)
 	if err != nil {
 		log.Info("failed creating builder repo", "reason", err)
@@ -930,5 +934,5 @@ func (r *BuildWorkloadReconciler) hasRemainingBuilds(ctx context.Context, buildW
 }
 
 func (r *BuildWorkloadReconciler) repositoryRef(appGUID string) string {
-	return r.imageRepoPrefix + appGUID + "-droplets"
+	return r.controllerConfig.ContainerRepositoryPrefix + appGUID + "-droplets"
 }

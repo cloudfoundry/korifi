@@ -10,7 +10,6 @@ import (
 
 type ControllerConfig struct {
 	// components
-	IncludeKpackImageBuilder bool `yaml:"includeKpackImageBuilder"`
 	IncludeStatefulsetRunner bool `yaml:"includeStatefulsetRunner"`
 
 	// core controllers
@@ -28,13 +27,7 @@ type ControllerConfig struct {
 	LogLevel                         zapcore.Level      `yaml:"logLevel"`
 	SpaceFinalizerAppDeletionTimeout *int32             `yaml:"spaceFinalizerAppDeletionTimeout"`
 
-	// kpack-image-builder
-	ClusterBuilderName        string     `yaml:"clusterBuilderName"`
-	BuilderServiceAccount     string     `yaml:"builderServiceAccount"`
-	BuilderReadinessTimeout   string     `yaml:"builderReadinessTimeout"`
-	ContainerRepositoryPrefix string     `yaml:"containerRepositoryPrefix"`
-	ContainerRegistryType     string     `yaml:"containerRegistryType"`
-	Networking                Networking `yaml:"networking"`
+	Networking Networking `yaml:"networking"`
 
 	ExperimentalManagedServicesEnabled bool `yaml:"experimentalManagedServicesEnabled"`
 	TrustInsecureServiceBrokers        bool `yaml:"trustInsecureServiceBrokers"`
@@ -101,8 +94,4 @@ func (c ControllerConfig) ParseTaskTTL() (time.Duration, error) {
 	}
 
 	return tools.ParseDuration(c.TaskTTL)
-}
-
-func (c ControllerConfig) ParseBuilderReadinessTimeout() (time.Duration, error) {
-	return tools.ParseDuration(c.BuilderReadinessTimeout)
 }
