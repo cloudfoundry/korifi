@@ -62,7 +62,6 @@ import (
 	packageswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/packages"
 	spaceswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/spaces"
 	taskswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/tasks"
-	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/version"
@@ -339,28 +338,6 @@ func main() {
 		if err != nil {
 			setupLog.Error(err, "unable to setup index on manager")
 			os.Exit(1)
-		}
-
-		if controllerConfig.IncludeStatefulsetRunner {
-			if err = statefulsetcontrollers.NewAppWorkloadReconciler(
-				mgr.GetClient(),
-				mgr.GetScheme(),
-				statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme()),
-				statefulsetcontrollers.NewPDBUpdater(mgr.GetClient()),
-				controllersLog,
-			).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "AppWorkload")
-				os.Exit(1)
-			}
-
-			if err = statefulsetcontrollers.NewRunnerInfoReconciler(
-				mgr.GetClient(),
-				mgr.GetScheme(),
-				controllersLog,
-			).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "RunnerInfo")
-				os.Exit(1)
-			}
 		}
 
 		if err = routes.NewReconciler(

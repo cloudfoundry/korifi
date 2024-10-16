@@ -9,9 +9,6 @@ import (
 )
 
 type ControllerConfig struct {
-	// components
-	IncludeStatefulsetRunner bool `yaml:"includeStatefulsetRunner"`
-
 	// core controllers
 	CFProcessDefaults                CFProcessDefaults  `yaml:"cfProcessDefaults"`
 	CFStagingResources               CFStagingResources `yaml:"cfStagingResources"`
