@@ -10,8 +10,6 @@ eksContainerRegistryRoleARN: ""
 containerRegistryCACertSecret:
 systemImagePullSecrets: []
 
-experimentalManagedServicesEnabled: false
-
 reconcilers:
   build: kpack-image-builder
   run: statefulset-runner
@@ -145,5 +143,5 @@ networking:
 
 experimental:
   managedServices:
-    include: false
+    enabled: false
     trustInsecureBrokers: false
