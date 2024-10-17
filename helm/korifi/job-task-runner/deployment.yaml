@@ -38,13 +38,11 @@ spec:
         - "--health-probe-bind-address=:8081"
         - "--leader-elect"
         - "--ttl={{ required "jobTTL is required" .Values.jobTaskRunner.jobTTL }}"
-        - "--add-seccomp-profile={{ .Values.jobTaskRunner.temporarySetPodSeccompProfile }}"
 {{- else }}
         args:
         - --health-probe-bind-address=:8081
         - --leader-elect
         - --ttl={{ required "jobTTL is required" .Values.jobTaskRunner.jobTTL }}
-        - --add-seccomp-profile={{ .Values.jobTaskRunner.temporarySetPodSeccompProfile }}
 {{- end }}
         livenessProbe:
           httpGet:

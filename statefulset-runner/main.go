@@ -99,10 +99,7 @@ func setupControllers(mgr manager.Manager) error {
 	if err := statefulsetcontrollers.NewAppWorkloadReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
-		statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(
-			mgr.GetScheme(),
-			false,
-		),
+		statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme()),
 		statefulsetcontrollers.NewPDBUpdater(mgr.GetClient()),
 		controllersLog,
 	).SetupWithManager(mgr); err != nil {

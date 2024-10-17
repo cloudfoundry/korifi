@@ -35,13 +35,11 @@ func main() {
 		enableLeaderElection bool
 		probeAddr            string
 		ttl                  string
-		addSeccompProfile    bool
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&ttl, "ttl", "24h", "The time to live for a task job.")
-	flag.BoolVar(&addSeccompProfile, "add-seccomp-profile", false, "Add temporary seccomp profile to the task job.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -82,7 +80,6 @@ func main() {
 		mgr.GetScheme(),
 		jobtaskcontrollers.NewStatusGetter(mgr.GetClient()),
 		jobTTL,
-		addSeccompProfile,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TaskWorkload")
 		os.Exit(1)
