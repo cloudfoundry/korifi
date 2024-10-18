@@ -101,6 +101,7 @@ func (p *PackageList) ToMessage() repositories.ListPackagesMessage {
 		GUIDs:    parse.ArrayParam(p.GUIDs),
 		AppGUIDs: parse.ArrayParam(p.AppGUIDs),
 		States:   parse.ArrayParam(p.States),
+		OrderBy:  p.OrderBy,
 	}
 }
 
