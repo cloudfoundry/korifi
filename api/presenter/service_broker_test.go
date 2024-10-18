@@ -32,8 +32,8 @@ var _ = Describe("Service Broker", func() {
 			},
 			CFResource: model.CFResource{
 				GUID:      "resource-guid",
-				CreatedAt: time.UnixMilli(1000),
-				UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
+				CreatedAt: time.UnixMilli(1000).UTC(),
+				UpdatedAt: tools.PtrTo(time.UnixMilli(2000).UTC()),
 				Metadata: model.Metadata{
 					Labels: map[string]string{
 						"label": "broker-label",
