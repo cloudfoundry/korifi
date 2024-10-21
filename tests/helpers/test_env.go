@@ -81,7 +81,10 @@ func StartK8sManager(k8sManager manager.Manager) context.CancelFunc {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		defer GinkgoRecover()
-		Expect(k8sManager.Start(ctx)).To(Succeed())
+
+		Eventually(func(g Gomega) {
+			g.Expect(k8sManager.Start(ctx)).To(Succeed())
+		}).Should(Succeed())
 	}()
 
 	Eventually(func(g Gomega) {
