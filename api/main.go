@@ -209,6 +209,7 @@ func main() {
 	buildpackRepo := repositories.NewBuildpackRepository(cfg.BuilderName,
 		userClientFactory,
 		cfg.RootNamespace,
+		repositories.NewBuildpackSorter(),
 	)
 	roleRepo := repositories.NewRoleRepo(
 		userClientFactory,

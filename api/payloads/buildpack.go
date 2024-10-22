@@ -4,11 +4,18 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	jellidation "github.com/jellydator/validation"
 )
 
 type BuildpackList struct {
 	OrderBy string
+}
+
+func (b BuildpackList) ToMessage() repositories.ListBuildpacksMessage {
+	return repositories.ListBuildpacksMessage{
+		OrderBy: b.OrderBy,
+	}
 }
 
 func (d BuildpackList) SupportedKeys() []string {

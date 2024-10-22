@@ -5,9 +5,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
-var _ = Describe("Buildpack", func() {
+var _ = Describe("BuildpackList", func() {
 	Describe("Validation", func() {
 		DescribeTable("valid query",
 			func(query string, expectedBuildpackList payloads.BuildpackList) {
@@ -34,4 +35,13 @@ var _ = Describe("Buildpack", func() {
 			Entry("invalid order_by", "order_by=foo", "value must be one of"),
 		)
 	})
+
+	DescribeTable("ToMessage",
+		func(buildpackList payloads.BuildpackList, expectedListBuildpacksMessage repositories.ListBuildpacksMessage) {
+			actualListBuildpacksMessage := buildpackList.ToMessage()
+
+			Expect(actualListBuildpacksMessage).To(Equal(expectedListBuildpacksMessage))
+		},
+		Entry("created_at", payloads.BuildpackList{OrderBy: "created_at"}, repositories.ListBuildpacksMessage{OrderBy: "created_at"}),
+	)
 })
