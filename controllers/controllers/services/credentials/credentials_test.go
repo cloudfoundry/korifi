@@ -106,7 +106,7 @@ var _ = Describe("Credentials", func() {
 		var bindingSecretData map[string][]byte
 
 		JustBeforeEach(func() {
-			bindingSecretData, err = credentials.GetServiceBindingIOSecretData(credentialsSecret)
+			bindingSecretData, err = credentials.GetUserProvidedServiceBindingIOSecretData(credentialsSecret)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

@@ -27,6 +27,7 @@ const (
 	ServiceBrokerDeleteOperation          = "service_broker.delete"
 	ServiceBrokerUpdateOperation          = "service_broker.update"
 	ManagedServiceInstanceCreateOperation = "managed_service_instance.create"
+	ManagedServiceBindingCreateOperation  = "managed_service_binding.create"
 	ManagedServiceInstanceDeleteOperation = "managed_service_instance.delete"
 )
 

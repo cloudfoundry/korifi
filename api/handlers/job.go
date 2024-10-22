@@ -30,6 +30,7 @@ const (
 	ServiceBrokerDeleteJobType          = "service_broker.delete"
 	ManagedServiceInstanceDeleteJobType = "managed_service_instance.delete"
 	ManagedServiceInstanceCreateJobType = "managed_service_instance.create"
+	ManagedServiceBindingCreateJobType  = "managed_service_binding.create"
 	JobTimeoutDuration                  = 120.0
 )
 

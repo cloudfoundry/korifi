@@ -11,18 +11,18 @@ import (
 
 var _ = Describe("Service Bindings", func() {
 	var (
-		appGUID      string
-		spaceGUID    string
-		bindingGUID  string
-		instanceGUID string
-		httpResp     *resty.Response
-		httpError    error
+		appGUID     string
+		spaceGUID   string
+		bindingGUID string
+		upsiGUID    string
+		httpResp    *resty.Response
+		httpError   error
 	)
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 		appGUID = createBuildpackApp(spaceGUID, generateGUID("app"))
-		instanceGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"), nil)
+		upsiGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"), nil)
 	})
 
 	AfterEach(func() {
@@ -30,20 +30,59 @@ var _ = Describe("Service Bindings", func() {
 	})
 
 	Describe("POST /v3/service_credential_bindings/{guid}", func() {
+		var instanceGUID string
+
 		JustBeforeEach(func() {
 			httpResp, httpError = adminClient.R().
 				SetBody(typedResource{
 					Type: "app",
 					resource: resource{
-						Relationships: relationships{"app": {Data: resource{GUID: appGUID}}, "service_instance": {Data: resource{GUID: instanceGUID}}},
+						Relationships: relationships{
+							"app":              {Data: resource{GUID: appGUID}},
+							"service_instance": {Data: resource{GUID: instanceGUID}},
+						},
 					},
 				}).
 				Post("/v3/service_credential_bindings")
 		})
 
-		It("succeeds", func() {
-			Expect(httpError).NotTo(HaveOccurred())
-			Expect(httpResp).To(HaveRestyStatusCode(http.StatusCreated))
+		When("binding to a user-provided service instance", func() {
+			BeforeEach(func() {
+				instanceGUID = upsiGUID
+			})
+
+			It("succeeds", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusCreated))
+			})
+		})
+
+		When("binding to a managed service instance", func() {
+			BeforeEach(func() {
+				brokerGUID := createBroker(serviceBrokerURL)
+				DeferCleanup(func() {
+					cleanupBroker(brokerGUID)
+				})
+
+				instanceGUID = createManagedServiceInstance(brokerGUID, spaceGUID)
+			})
+
+			It("succeeds with a job redirect", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusAccepted))
+
+				Expect(httpResp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusAccepted),
+					HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_binding.create~")),
+				))
+
+				jobURL := httpResp.Header().Get("Location")
+				Eventually(func(g Gomega) {
+					jobResp, err := adminClient.R().Get(jobURL)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+				}).Should(Succeed())
+			})
 		})
 	})
 
@@ -51,7 +90,7 @@ var _ = Describe("Service Bindings", func() {
 		var respResource responseResource
 
 		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
+			bindingGUID = createServiceBinding(appGUID, upsiGUID, "")
 		})
 
 		JustBeforeEach(func() {
@@ -68,7 +107,7 @@ var _ = Describe("Service Bindings", func() {
 
 	Describe("DELETE /v3/service_credential_bindings/{guid}", func() {
 		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
+			bindingGUID = createServiceBinding(appGUID, upsiGUID, "")
 		})
 
 		JustBeforeEach(func() {
@@ -89,7 +128,7 @@ var _ = Describe("Service Bindings", func() {
 		)
 
 		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
+			bindingGUID = createServiceBinding(appGUID, upsiGUID, "")
 
 			anotherInstanceGUID = createServiceInstance(spaceGUID, generateGUID("another-service-instance"), nil)
 			anotherBindingGUID = createServiceBinding(appGUID, anotherInstanceGUID, "")
@@ -115,7 +154,7 @@ var _ = Describe("Service Bindings", func() {
 		var respResource responseResource
 
 		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
+			bindingGUID = createServiceBinding(appGUID, upsiGUID, "")
 		})
 
 		JustBeforeEach(func() {

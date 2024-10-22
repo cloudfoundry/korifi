@@ -24,13 +24,18 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/managed"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/upsi"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,12 +46,14 @@ import (
 )
 
 var (
-	ctx             context.Context
-	stopManager     context.CancelFunc
-	stopClientCache context.CancelFunc
-	testEnv         *envtest.Environment
-	adminClient     client.Client
-	k8sManager      manager.Manager
+	ctx                 context.Context
+	stopManager         context.CancelFunc
+	stopClientCache     context.CancelFunc
+	testEnv             *envtest.Environment
+	adminClient         client.Client
+	k8sManager          manager.Manager
+	brokerClientFactory *fake.BrokerClientFactory
+	rootNamespace       string
 )
 
 func TestAPIs(t *testing.T) {
@@ -87,11 +94,21 @@ var _ = BeforeEach(func() {
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
+	rootNamespace = uuid.NewString()
+	Expect(adminClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: rootNamespace,
+		},
+	})).To(Succeed())
+
+	brokerClientFactory = new(fake.BrokerClientFactory)
+
 	err := bindings.NewReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFServiceBinding"),
 		upsi.NewReconciler(k8sManager.GetClient(), k8sManager.GetScheme()),
+		managed.NewReconciler(k8sManager.GetClient(), brokerClientFactory, rootNamespace, k8sManager.GetScheme()),
 	).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 })

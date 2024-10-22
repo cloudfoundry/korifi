@@ -50,10 +50,11 @@ type CredentialsReconciler interface {
 }
 
 type Reconciler struct {
-	k8sClient                 client.Client
-	scheme                    *runtime.Scheme
-	log                       logr.Logger
-	upsiCredentialsReconciler CredentialsReconciler
+	k8sClient                    client.Client
+	scheme                       *runtime.Scheme
+	log                          logr.Logger
+	upsiCredentialsReconciler    CredentialsReconciler
+	managedCredentialsReconciler CredentialsReconciler
 }
 
 func NewReconciler(
@@ -61,8 +62,15 @@ func NewReconciler(
 	scheme *runtime.Scheme,
 	log logr.Logger,
 	upsiCredentialsReconciler CredentialsReconciler,
+	managedCredentialsReconciler CredentialsReconciler,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBinding, *korifiv1alpha1.CFServiceBinding] {
-	cfBindingReconciler := &Reconciler{k8sClient: k8sClient, scheme: scheme, log: log, upsiCredentialsReconciler: upsiCredentialsReconciler}
+	cfBindingReconciler := &Reconciler{
+		k8sClient:                    k8sClient,
+		scheme:                       scheme,
+		log:                          log,
+		upsiCredentialsReconciler:    upsiCredentialsReconciler,
+		managedCredentialsReconciler: managedCredentialsReconciler,
+	}
 	return k8s.NewPatchingReconciler(log, k8sClient, cfBindingReconciler)
 }
 
@@ -152,8 +160,8 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 		return ctrl.Result{}, err
 	}
 
-	res, err := r.upsiCredentialsReconciler.ReconcileResource(ctx, cfServiceBinding)
-	if needsRequeue(res) || err != nil {
+	res, err := r.reconcileCredentialsSecrets(ctx, cfServiceInstance.Spec.Type, cfServiceBinding)
+	if needsRequeue(res, err) {
 		return res, err
 	}
 
@@ -177,7 +185,19 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 	return ctrl.Result{}, nil
 }
 
-func needsRequeue(res ctrl.Result) bool {
+func (r *Reconciler) reconcileCredentialsSecrets(ctx context.Context, instanceType korifiv1alpha1.InstanceType, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+	if instanceType == korifiv1alpha1.UserProvidedType {
+		return r.upsiCredentialsReconciler.ReconcileResource(ctx, cfServiceBinding)
+	}
+
+	return r.managedCredentialsReconciler.ReconcileResource(ctx, cfServiceBinding)
+}
+
+func needsRequeue(res ctrl.Result, err error) bool {
+	if err != nil {
+		return true
+	}
+
 	return !res.IsZero()
 }
 
