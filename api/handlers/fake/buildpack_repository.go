@@ -11,11 +11,12 @@ import (
 )
 
 type BuildpackRepository struct {
-	ListBuildpacksStub        func(context.Context, authorization.Info) ([]repositories.BuildpackRecord, error)
+	ListBuildpacksStub        func(context.Context, authorization.Info, repositories.ListBuildpacksMessage) ([]repositories.BuildpackRecord, error)
 	listBuildpacksMutex       sync.RWMutex
 	listBuildpacksArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
+		arg3 repositories.ListBuildpacksMessage
 	}
 	listBuildpacksReturns struct {
 		result1 []repositories.BuildpackRecord
@@ -29,19 +30,20 @@ type BuildpackRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *BuildpackRepository) ListBuildpacks(arg1 context.Context, arg2 authorization.Info) ([]repositories.BuildpackRecord, error) {
+func (fake *BuildpackRepository) ListBuildpacks(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListBuildpacksMessage) ([]repositories.BuildpackRecord, error) {
 	fake.listBuildpacksMutex.Lock()
 	ret, specificReturn := fake.listBuildpacksReturnsOnCall[len(fake.listBuildpacksArgsForCall)]
 	fake.listBuildpacksArgsForCall = append(fake.listBuildpacksArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-	}{arg1, arg2})
+		arg3 repositories.ListBuildpacksMessage
+	}{arg1, arg2, arg3})
 	stub := fake.ListBuildpacksStub
 	fakeReturns := fake.listBuildpacksReturns
-	fake.recordInvocation("ListBuildpacks", []interface{}{arg1, arg2})
+	fake.recordInvocation("ListBuildpacks", []interface{}{arg1, arg2, arg3})
 	fake.listBuildpacksMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -55,17 +57,17 @@ func (fake *BuildpackRepository) ListBuildpacksCallCount() int {
 	return len(fake.listBuildpacksArgsForCall)
 }
 
-func (fake *BuildpackRepository) ListBuildpacksCalls(stub func(context.Context, authorization.Info) ([]repositories.BuildpackRecord, error)) {
+func (fake *BuildpackRepository) ListBuildpacksCalls(stub func(context.Context, authorization.Info, repositories.ListBuildpacksMessage) ([]repositories.BuildpackRecord, error)) {
 	fake.listBuildpacksMutex.Lock()
 	defer fake.listBuildpacksMutex.Unlock()
 	fake.ListBuildpacksStub = stub
 }
 
-func (fake *BuildpackRepository) ListBuildpacksArgsForCall(i int) (context.Context, authorization.Info) {
+func (fake *BuildpackRepository) ListBuildpacksArgsForCall(i int) (context.Context, authorization.Info, repositories.ListBuildpacksMessage) {
 	fake.listBuildpacksMutex.RLock()
 	defer fake.listBuildpacksMutex.RUnlock()
 	argsForCall := fake.listBuildpacksArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *BuildpackRepository) ListBuildpacksReturns(result1 []repositories.BuildpackRecord, result2 error) {

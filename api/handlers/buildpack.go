@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"sort"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -22,7 +21,7 @@ const (
 
 //counterfeiter:generate -o fake -fake-name BuildpackRepository . BuildpackRepository
 type BuildpackRepository interface {
-	ListBuildpacks(ctx context.Context, authInfo authorization.Info) ([]repositories.BuildpackRecord, error)
+	ListBuildpacks(ctx context.Context, authInfo authorization.Info, message repositories.ListBuildpacksMessage) ([]repositories.BuildpackRecord, error)
 }
 
 type Buildpack struct {
@@ -47,38 +46,17 @@ func (h *Buildpack) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.build.list")
 
-	buildpackListFilter := new(payloads.BuildpackList)
-	if err := h.requestValidator.DecodeAndValidateURLValues(r, buildpackListFilter); err != nil {
+	payload := new(payloads.BuildpackList)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
-	buildpacks, err := h.buildpackRepo.ListBuildpacks(r.Context(), authInfo)
+	buildpacks, err := h.buildpackRepo.ListBuildpacks(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch buildpacks from Kubernetes")
 	}
 
-	h.sortList(buildpacks, buildpackListFilter.OrderBy)
-
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForBuildpack, buildpacks, h.serverURL, *r.URL)), nil
-}
-
-// nolint:dupl
-func (h *Buildpack) sortList(bpList []repositories.BuildpackRecord, order string) {
-	switch order {
-	case "":
-	case "created_at":
-		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(&bpList[j].CreatedAt, &bpList[i].CreatedAt) })
-	case "-created_at":
-		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(&bpList[i].CreatedAt, &bpList[j].CreatedAt) })
-	case "updated_at":
-		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(bpList[j].UpdatedAt, bpList[i].UpdatedAt) })
-	case "-updated_at":
-		sort.Slice(bpList, func(i, j int) bool { return timePtrAfter(bpList[i].UpdatedAt, bpList[j].UpdatedAt) })
-	case "position":
-		sort.Slice(bpList, func(i, j int) bool { return bpList[i].Position < bpList[j].Position })
-	case "-position":
-		sort.Slice(bpList, func(i, j int) bool { return bpList[i].Position > bpList[j].Position })
-	}
 }
 
 func (h *Buildpack) UnauthenticatedRoutes() []routing.Route {
