@@ -128,7 +128,7 @@ func (r *CredentialsReconciler) reconcileCredentials(ctx context.Context, cfServ
 		if err != nil {
 			return err
 		}
-		bindingSecret.Data, err = credentials.GetServiceBindingIOSecretData(credentialsSecret)
+		bindingSecret.Data, err = credentials.GetUserProvidedServiceBindingIOSecretData(credentialsSecret)
 		if err != nil {
 			return err
 		}

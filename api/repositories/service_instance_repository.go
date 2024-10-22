@@ -428,11 +428,11 @@ func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstanc
 		CreatedAt:   cfServiceInstance.CreationTimestamp.Time,
 		UpdatedAt:   getLastUpdatedTime(&cfServiceInstance),
 		DeletedAt:   golangTime(cfServiceInstance.DeletionTimestamp),
-		Ready:       isReady(cfServiceInstance),
+		Ready:       isInstanceReady(cfServiceInstance),
 	}
 }
 
-func isReady(cfServiceInstance korifiv1alpha1.CFServiceInstance) bool {
+func isInstanceReady(cfServiceInstance korifiv1alpha1.CFServiceInstance) bool {
 	if cfServiceInstance.Generation != cfServiceInstance.Status.ObservedGeneration {
 		return false
 	}

@@ -20,6 +20,7 @@ type BrokerClient interface {
 	Deprovision(context.Context, InstanceDeprovisionPayload) (ServiceInstanceOperationResponse, error)
 	GetServiceInstanceLastOperation(context.Context, GetLastOperationPayload) (LastOperationResponse, error)
 	GetCatalog(context.Context) (Catalog, error)
+	Bind(context.Context, BindPayload) (BindResponse, error)
 }
 
 type BrokerClientFactory interface {

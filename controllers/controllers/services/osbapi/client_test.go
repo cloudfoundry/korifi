@@ -393,5 +393,101 @@ var _ = Describe("OSBAPI Client", func() {
 				})
 			})
 		})
+
+		Describe("Bind", func() {
+			var (
+				bindResp osbapi.BindResponse
+				bindErr  error
+			)
+
+			BeforeEach(func() {
+				brokerServer.WithResponse(
+					"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
+					map[string]any{
+						"credentials": map[string]string{
+							"foo": "bar",
+						},
+					},
+					http.StatusOK,
+				)
+			})
+
+			JustBeforeEach(func() {
+				bindResp, bindErr = brokerClient.Bind(ctx, osbapi.BindPayload{
+					InstanceID: "instance-id",
+					BindingID:  "binding-id",
+					BindRequest: osbapi.BindRequest{
+						ServiceId: "service-guid",
+						PlanID:    "plan-guid",
+						AppGUID:   "app-guid",
+						BindResource: osbapi.BindResource{
+							AppGUID: "app-guid",
+						},
+						Parameters: map[string]any{
+							"foo": "bar",
+						},
+					},
+				})
+			})
+			It("binds the service", func() {
+				Expect(bindErr).NotTo(HaveOccurred())
+				Expect(bindResp).To(Equal(osbapi.BindResponse{
+					Credentials: map[string]any{
+						"foo": "bar",
+					},
+				}))
+			})
+
+			It("sends correct request to broker", func() {
+				Expect(bindErr).NotTo(HaveOccurred())
+				requests := brokerServer.ServedRequests()
+
+				Expect(requests).To(HaveLen(1))
+
+				Expect(requests[0].Method).To(Equal(http.MethodPut))
+				Expect(requests[0].URL.Path).To(Equal("/v2/service_instances/instance-id/service_bindings/binding-id"))
+
+				requestBytes, err := io.ReadAll(requests[0].Body)
+				Expect(err).NotTo(HaveOccurred())
+				requestBody := map[string]any{}
+				Expect(json.Unmarshal(requestBytes, &requestBody)).To(Succeed())
+
+				Expect(requestBody).To(MatchAllKeys(Keys{
+					"service_id": Equal("service-guid"),
+					"plan_id":    Equal("plan-guid"),
+					"app_guid":   Equal("app-guid"),
+					"bind_resource": MatchAllKeys(Keys{
+						"app_guid": Equal("app-guid"),
+					}),
+					"parameters": MatchAllKeys(Keys{
+						"foo": Equal("bar"),
+					}),
+				}))
+			})
+
+			When("binding request fails", func() {
+				BeforeEach(func() {
+					brokerServer = broker.NewServer().WithHandler("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+						w.WriteHeader(http.StatusTeapot)
+					}))
+				})
+
+				It("returns an error", func() {
+					Expect(bindErr).To(MatchError(ContainSubstring("binding request failed")))
+				})
+			})
+
+			When("binding request fails with 409 Confilct", func() {
+				BeforeEach(func() {
+					brokerServer = broker.NewServer().WithHandler("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+						w.WriteHeader(http.StatusConflict)
+					}))
+				})
+
+				It("returns a confilct error", func() {
+					Expect(bindErr).To(BeAssignableToTypeOf(osbapi.ConflictError{}))
+				})
+			})
+		})
 	})
 })

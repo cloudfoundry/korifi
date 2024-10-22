@@ -30,6 +30,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/domains"
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/routes"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
+	managed_bindings "code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/managed"
 	upsi_bindings "code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/upsi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances/managed"
@@ -243,6 +244,12 @@ func main() {
 			mgr.GetScheme(),
 			controllersLog,
 			upsi_bindings.NewReconciler(mgr.GetClient(), mgr.GetScheme()),
+			managed_bindings.NewReconciler(
+				mgr.GetClient(),
+				osbapi.NewClientFactory(mgr.GetClient(), controllerConfig.TrustInsecureServiceBrokers),
+				controllerConfig.CFRootNamespace,
+				mgr.GetScheme(),
+			),
 		)).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
 			os.Exit(1)

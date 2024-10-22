@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
 const (
@@ -75,12 +76,42 @@ func (h *ServiceBinding) create(r *http.Request) (*routing.Response, error) {
 		)
 	}
 
-	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(r.Context(), authInfo, payload.ToMessage(app.SpaceGUID))
+	ctx := logr.NewContext(r.Context(), logger.WithValues("app", app.GUID, "service-instance", serviceInstance.GUID))
+
+	if serviceInstance.Type == korifiv1alpha1.ManagedType {
+		return h.createManagedServiceBinding(ctx, authInfo, payload, app)
+	}
+
+	return h.createUserProvidedServiceBinding(ctx, authInfo, payload, app)
+}
+
+func (h *ServiceBinding) createUserProvidedServiceBinding(
+	ctx context.Context,
+	authInfo authorization.Info,
+	payload payloads.ServiceBindingCreate,
+	app repositories.AppRecord,
+) (*routing.Response, error) {
+	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(app.SpaceGUID))
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to create ServiceBinding", "App GUID", app.GUID, "ServiceInstance GUID", serviceInstance.GUID)
+		return nil, apierrors.LogAndReturn(logr.FromContextOrDiscard(ctx), err, "failed to create ServiceBinding")
 	}
 
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
+}
+
+func (h *ServiceBinding) createManagedServiceBinding(
+	ctx context.Context,
+	authInfo authorization.Info,
+	payload payloads.ServiceBindingCreate,
+	app repositories.AppRecord,
+) (*routing.Response, error) {
+	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(app.SpaceGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logr.FromContextOrDiscard(ctx), err, "failed to create ServiceBinding")
+	}
+
+	return routing.NewResponse(http.StatusAccepted).
+		WithHeader("Location", presenter.JobURLForRedirects(serviceBinding.GUID, presenter.ManagedServiceBindingCreateOperation, h.serverURL)), nil
 }
 
 func (h *ServiceBinding) delete(r *http.Request) (*routing.Response, error) {

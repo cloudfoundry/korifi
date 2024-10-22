@@ -43,14 +43,13 @@ import (
 )
 
 var (
-	ctx             context.Context
-	stopManager     context.CancelFunc
-	stopClientCache context.CancelFunc
-	testEnv         *envtest.Environment
-	adminClient     client.Client
-	k8sManager      manager.Manager
-	rootNamespace   string
-
+	ctx                 context.Context
+	stopManager         context.CancelFunc
+	stopClientCache     context.CancelFunc
+	testEnv             *envtest.Environment
+	adminClient         client.Client
+	k8sManager          manager.Manager
+	rootNamespace       string
 	brokerClientFactory *fake.BrokerClientFactory
 )
 

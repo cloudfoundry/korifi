@@ -19,6 +19,12 @@ func (g GoneError) Error() string {
 	return "The operation resource is gone"
 }
 
+type ConflictError struct{}
+
+func (c ConflictError) Error() string {
+	return "The service binding already exists"
+}
+
 type Client struct {
 	broker     Broker
 	httpClient *http.Client
@@ -135,6 +141,36 @@ func (c *Client) GetServiceInstanceLastOperation(ctx context.Context, payload Ge
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
 		return LastOperationResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return response, nil
+}
+
+func (c *Client) Bind(ctx context.Context, payload BindPayload) (BindResponse, error) {
+	statusCode, respBytes, err := c.newBrokerRequester().
+		forBroker(c.broker).
+		sendRequest(
+			ctx,
+			"/v2/service_instances/"+payload.InstanceID+"/service_bindings/"+payload.BindingID,
+			http.MethodPut,
+			payload.BindRequest,
+		)
+	if err != nil {
+		return BindResponse{}, fmt.Errorf("bind request failed: %w", err)
+	}
+
+	if statusCode == http.StatusConflict {
+		return BindResponse{}, ConflictError{}
+	}
+
+	if statusCode >= 300 {
+		return BindResponse{}, fmt.Errorf("binding request failed with code: %d", statusCode)
+	}
+
+	var response BindResponse
+	err = json.Unmarshal(respBytes, &response)
+	if err != nil {
+		return BindResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return response, nil

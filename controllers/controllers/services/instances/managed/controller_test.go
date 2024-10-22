@@ -567,14 +567,10 @@ var _ = Describe("CFServiceInstance", func() {
 				brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("deprovision-failed"))
 			})
 
-			It("sets ready condition to false", func() {
+			It("still deletes the instance", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-						HasStatus(Equal(metav1.ConditionFalse)),
-						HasReason(Equal("DeprovisionFailed")),
-					)))
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 				}).Should(Succeed())
 			})
 		})

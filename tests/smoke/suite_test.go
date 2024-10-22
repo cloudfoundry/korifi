@@ -106,6 +106,8 @@ func sessionOutput(session *Session) (string, error) {
 }
 
 func appResponseShould(appName, requestPath string, matchExpectations types.GomegaMatcher) {
+	GinkgoHelper()
+
 	var httpClient http.Client
 	httpClient.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},

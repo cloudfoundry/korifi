@@ -369,6 +369,7 @@ func main() {
 				handlers.ServiceBrokerCreateJobType:          serviceBrokerRepo,
 				handlers.ServiceBrokerUpdateJobType:          serviceBrokerRepo,
 				handlers.ManagedServiceInstanceCreateJobType: serviceInstanceRepo,
+				handlers.ManagedServiceBindingCreateJobType:  serviceBindingRepo,
 			},
 			500*time.Millisecond,
 		),
