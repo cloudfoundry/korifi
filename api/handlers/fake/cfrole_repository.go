@@ -54,11 +54,12 @@ type CFRoleRepository struct {
 		result1 repositories.RoleRecord
 		result2 error
 	}
-	ListRolesStub        func(context.Context, authorization.Info) ([]repositories.RoleRecord, error)
+	ListRolesStub        func(context.Context, authorization.Info, repositories.ListRolesMessage) ([]repositories.RoleRecord, error)
 	listRolesMutex       sync.RWMutex
 	listRolesArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
+		arg3 repositories.ListRolesMessage
 	}
 	listRolesReturns struct {
 		result1 []repositories.RoleRecord
@@ -267,19 +268,20 @@ func (fake *CFRoleRepository) GetRoleReturnsOnCall(i int, result1 repositories.R
 	}{result1, result2}
 }
 
-func (fake *CFRoleRepository) ListRoles(arg1 context.Context, arg2 authorization.Info) ([]repositories.RoleRecord, error) {
+func (fake *CFRoleRepository) ListRoles(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListRolesMessage) ([]repositories.RoleRecord, error) {
 	fake.listRolesMutex.Lock()
 	ret, specificReturn := fake.listRolesReturnsOnCall[len(fake.listRolesArgsForCall)]
 	fake.listRolesArgsForCall = append(fake.listRolesArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-	}{arg1, arg2})
+		arg3 repositories.ListRolesMessage
+	}{arg1, arg2, arg3})
 	stub := fake.ListRolesStub
 	fakeReturns := fake.listRolesReturns
-	fake.recordInvocation("ListRoles", []interface{}{arg1, arg2})
+	fake.recordInvocation("ListRoles", []interface{}{arg1, arg2, arg3})
 	fake.listRolesMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -293,17 +295,17 @@ func (fake *CFRoleRepository) ListRolesCallCount() int {
 	return len(fake.listRolesArgsForCall)
 }
 
-func (fake *CFRoleRepository) ListRolesCalls(stub func(context.Context, authorization.Info) ([]repositories.RoleRecord, error)) {
+func (fake *CFRoleRepository) ListRolesCalls(stub func(context.Context, authorization.Info, repositories.ListRolesMessage) ([]repositories.RoleRecord, error)) {
 	fake.listRolesMutex.Lock()
 	defer fake.listRolesMutex.Unlock()
 	fake.ListRolesStub = stub
 }
 
-func (fake *CFRoleRepository) ListRolesArgsForCall(i int) (context.Context, authorization.Info) {
+func (fake *CFRoleRepository) ListRolesArgsForCall(i int) (context.Context, authorization.Info, repositories.ListRolesMessage) {
 	fake.listRolesMutex.RLock()
 	defer fake.listRolesMutex.RUnlock()
 	argsForCall := fake.listRolesArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFRoleRepository) ListRolesReturns(result1 []repositories.RoleRecord, result2 error) {

@@ -9,6 +9,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -206,4 +207,14 @@ var _ = Describe("role list", func() {
 		},
 		Entry("invalid order_by", "order_by=foo", "value must be one of"),
 	)
+
+	DescribeTable("ToMessage",
+		func(roleList payloads.RoleList, expectedListRolesMessage repositories.ListRolesMessage) {
+			actualListRolesMessage := roleList.ToMessage()
+
+			Expect(actualListRolesMessage).To(Equal(expectedListRolesMessage))
+		},
+		Entry("created_at", payloads.RoleList{OrderBy: "created_at"}, repositories.ListRolesMessage{OrderBy: "created_at"}),
+	)
+
 })

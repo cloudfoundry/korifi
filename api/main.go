@@ -219,6 +219,7 @@ func main() {
 		cfg.RootNamespace,
 		cfg.RoleMappings,
 		namespaceRetriever,
+		repositories.NewRoleSorter(),
 	)
 	imageClient := image.NewClient(privilegedK8sClient)
 	imageRepo := repositories.NewImageRepository(
