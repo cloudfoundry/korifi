@@ -314,8 +314,9 @@ var _ = Describe("OSBAPI Client", func() {
 
 		Describe("GetLastOperation", func() {
 			var (
-				lastOpResp osbapi.LastOperationResponse
-				lastOpErr  error
+				lastOpResp           osbapi.LastOperationResponse
+				lastOpErr            error
+				lastOperationRequest osbapi.GetLastOperationRequest
 			)
 
 			BeforeEach(func() {
@@ -327,17 +328,19 @@ var _ = Describe("OSBAPI Client", func() {
 					},
 					http.StatusOK,
 				)
-			})
 
-			JustBeforeEach(func() {
-				lastOpResp, lastOpErr = brokerClient.GetServiceInstanceLastOperation(ctx, osbapi.GetLastOperationPayload{
+				lastOperationRequest = osbapi.GetLastOperationRequest{
 					ID: "my-service-instance",
-					GetLastOperationRequest: osbapi.GetLastOperationRequest{
+					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 						ServiceId: "service-guid",
 						PlanID:    "plan-guid",
 						Operation: "op-guid",
 					},
-				})
+				}
+			})
+
+			JustBeforeEach(func() {
+				lastOpResp, lastOpErr = brokerClient.GetServiceInstanceLastOperation(ctx, lastOperationRequest)
 			})
 
 			It("gets the last operation", func() {
@@ -356,17 +359,31 @@ var _ = Describe("OSBAPI Client", func() {
 
 				Expect(requests[0].Method).To(Equal(http.MethodGet))
 				Expect(requests[0].URL.Path).To(Equal("/v2/service_instances/my-service-instance/last_operation"))
+				Expect(requests[0].URL.Query()).To(BeEquivalentTo(map[string][]string{
+					"service_id": {"service-guid"},
+					"plan_id":    {"plan-guid"},
+					"operation":  {"op-guid"},
+				}))
 
 				requestBytes, err := io.ReadAll(requests[0].Body)
 				Expect(err).NotTo(HaveOccurred())
-				requestBody := map[string]any{}
-				Expect(json.Unmarshal(requestBytes, &requestBody)).To(Succeed())
+				Expect(requestBytes).To(BeEmpty())
+			})
 
-				Expect(requestBody).To(MatchAllKeys(Keys{
-					"service_id": Equal("service-guid"),
-					"plan_id":    Equal("plan-guid"),
-					"operation":  Equal("op-guid"),
-				}))
+			When("request parameters are not specified", func() {
+				BeforeEach(func() {
+					lastOperationRequest = osbapi.GetLastOperationRequest{
+						ID: "my-service-instance",
+					}
+				})
+
+				It("does not specify http request query parameters", func() {
+					Expect(lastOpErr).NotTo(HaveOccurred())
+					requests := brokerServer.ServedRequests()
+
+					Expect(requests).To(HaveLen(1))
+					Expect(requests[0].URL.Query()).To(BeEmpty())
+				})
 			})
 
 			When("getting the last operation request fails", func() {

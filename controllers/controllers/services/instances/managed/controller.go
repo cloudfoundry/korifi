@@ -135,9 +135,9 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return r.provisionServiceInstance(ctx, osbapiClient, serviceInstance, servicePlan, serviceOffering)
 	}
 
-	lastOpResponse, err := osbapiClient.GetServiceInstanceLastOperation(ctx, osbapi.GetLastOperationPayload{
+	lastOpResponse, err := osbapiClient.GetServiceInstanceLastOperation(ctx, osbapi.GetLastOperationRequest{
 		ID: serviceInstance.Name,
-		GetLastOperationRequest: osbapi.GetLastOperationRequest{
+		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 			ServiceId: serviceOffering.Spec.BrokerCatalog.ID,
 			PlanID:    servicePlan.Spec.BrokerCatalog.ID,
 			Operation: serviceInstance.Status.ProvisionOperation,

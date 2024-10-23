@@ -50,11 +50,11 @@ type BrokerClient struct {
 		result1 osbapi.Catalog
 		result2 error
 	}
-	GetServiceInstanceLastOperationStub        func(context.Context, osbapi.GetLastOperationPayload) (osbapi.LastOperationResponse, error)
+	GetServiceInstanceLastOperationStub        func(context.Context, osbapi.GetLastOperationRequest) (osbapi.LastOperationResponse, error)
 	getServiceInstanceLastOperationMutex       sync.RWMutex
 	getServiceInstanceLastOperationArgsForCall []struct {
 		arg1 context.Context
-		arg2 osbapi.GetLastOperationPayload
+		arg2 osbapi.GetLastOperationRequest
 	}
 	getServiceInstanceLastOperationReturns struct {
 		result1 osbapi.LastOperationResponse
@@ -276,12 +276,12 @@ func (fake *BrokerClient) GetCatalogReturnsOnCall(i int, result1 osbapi.Catalog,
 	}{result1, result2}
 }
 
-func (fake *BrokerClient) GetServiceInstanceLastOperation(arg1 context.Context, arg2 osbapi.GetLastOperationPayload) (osbapi.LastOperationResponse, error) {
+func (fake *BrokerClient) GetServiceInstanceLastOperation(arg1 context.Context, arg2 osbapi.GetLastOperationRequest) (osbapi.LastOperationResponse, error) {
 	fake.getServiceInstanceLastOperationMutex.Lock()
 	ret, specificReturn := fake.getServiceInstanceLastOperationReturnsOnCall[len(fake.getServiceInstanceLastOperationArgsForCall)]
 	fake.getServiceInstanceLastOperationArgsForCall = append(fake.getServiceInstanceLastOperationArgsForCall, struct {
 		arg1 context.Context
-		arg2 osbapi.GetLastOperationPayload
+		arg2 osbapi.GetLastOperationRequest
 	}{arg1, arg2})
 	stub := fake.GetServiceInstanceLastOperationStub
 	fakeReturns := fake.getServiceInstanceLastOperationReturns
@@ -302,13 +302,13 @@ func (fake *BrokerClient) GetServiceInstanceLastOperationCallCount() int {
 	return len(fake.getServiceInstanceLastOperationArgsForCall)
 }
 
-func (fake *BrokerClient) GetServiceInstanceLastOperationCalls(stub func(context.Context, osbapi.GetLastOperationPayload) (osbapi.LastOperationResponse, error)) {
+func (fake *BrokerClient) GetServiceInstanceLastOperationCalls(stub func(context.Context, osbapi.GetLastOperationRequest) (osbapi.LastOperationResponse, error)) {
 	fake.getServiceInstanceLastOperationMutex.Lock()
 	defer fake.getServiceInstanceLastOperationMutex.Unlock()
 	fake.GetServiceInstanceLastOperationStub = stub
 }
 
-func (fake *BrokerClient) GetServiceInstanceLastOperationArgsForCall(i int) (context.Context, osbapi.GetLastOperationPayload) {
+func (fake *BrokerClient) GetServiceInstanceLastOperationArgsForCall(i int) (context.Context, osbapi.GetLastOperationRequest) {
 	fake.getServiceInstanceLastOperationMutex.RLock()
 	defer fake.getServiceInstanceLastOperationMutex.RUnlock()
 	argsForCall := fake.getServiceInstanceLastOperationArgsForCall[i]
