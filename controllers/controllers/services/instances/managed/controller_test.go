@@ -171,9 +171,9 @@ var _ = Describe("CFServiceInstance", func() {
 
 			g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 0))
 			_, lastOp := brokerClient.GetServiceInstanceLastOperationArgsForCall(brokerClient.GetServiceInstanceLastOperationCallCount() - 1)
-			g.Expect(lastOp).To(Equal(osbapi.GetLastOperationPayload{
+			g.Expect(lastOp).To(Equal(osbapi.GetLastOperationRequest{
 				ID: instance.Name,
-				GetLastOperationRequest: osbapi.GetLastOperationRequest{
+				GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 					ServiceId: "service-offering-id",
 					PlanID:    "service-plan-id",
 					Operation: "operation-1",
@@ -351,9 +351,9 @@ var _ = Describe("CFServiceInstance", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 1))
 				_, actualLastOpPayload := brokerClient.GetServiceInstanceLastOperationArgsForCall(1)
-				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetLastOperationPayload{
+				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetLastOperationRequest{
 					ID: instance.Name,
-					GetLastOperationRequest: osbapi.GetLastOperationRequest{
+					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 						ServiceId: "service-offering-id",
 						PlanID:    "service-plan-id",
 						Operation: "operation-1",
@@ -516,9 +516,9 @@ var _ = Describe("CFServiceInstance", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(Equal(1))
 				_, actualLastOpPayload := brokerClient.GetServiceInstanceLastOperationArgsForCall(0)
-				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetLastOperationPayload{
+				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetLastOperationRequest{
 					ID: instance.Name,
-					GetLastOperationRequest: osbapi.GetLastOperationRequest{
+					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 						ServiceId: "service-offering-id",
 						PlanID:    "service-plan-id",
 						Operation: "operation-1",

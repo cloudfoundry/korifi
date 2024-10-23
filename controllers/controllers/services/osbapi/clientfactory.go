@@ -18,7 +18,7 @@ import (
 type BrokerClient interface {
 	Provision(context.Context, InstanceProvisionPayload) (ServiceInstanceOperationResponse, error)
 	Deprovision(context.Context, InstanceDeprovisionPayload) (ServiceInstanceOperationResponse, error)
-	GetServiceInstanceLastOperation(context.Context, GetLastOperationPayload) (LastOperationResponse, error)
+	GetServiceInstanceLastOperation(context.Context, GetLastOperationRequest) (LastOperationResponse, error)
 	GetCatalog(context.Context) (Catalog, error)
 	Bind(context.Context, BindPayload) (BindResponse, error)
 }

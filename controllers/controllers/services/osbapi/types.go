@@ -41,12 +41,12 @@ type InstanceProvisionRequest struct {
 	Parameters map[string]any `json:"parameters"`
 }
 
-type GetLastOperationPayload struct {
+type GetLastOperationRequest struct {
 	ID string
-	GetLastOperationRequest
+	GetLastOperationRequestParameters
 }
 
-type GetLastOperationRequest struct {
+type GetLastOperationRequestParameters struct {
 	ServiceId string `json:"service_id"`
 	PlanID    string `json:"plan_id"`
 	Operation string `json:"operation"`
