@@ -20,8 +20,10 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	"code.cloudfoundry.org/korifi/api/tools/singleton"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -92,6 +94,46 @@ type RoleRepo struct {
 	userClientFactory    authorization.UserK8sClientFactory
 	spaceRepo            *SpaceRepo
 	namespaceRetriever   NamespaceRetriever
+	sorter               RoleSorter
+}
+
+//counterfeiter:generate -o fake -fake-name RoleSorter . RoleSorter
+type RoleSorter interface {
+	Sort(records []RoleRecord, order string) []RoleRecord
+}
+
+type roleSorter struct {
+	sorter *compare.Sorter[RoleRecord]
+}
+
+func NewRoleSorter() *roleSorter {
+	return &roleSorter{
+		sorter: compare.NewSorter(RoleComparator),
+	}
+}
+
+func (s *roleSorter) Sort(records []RoleRecord, order string) []RoleRecord {
+	return s.sorter.Sort(records, order)
+}
+
+func RoleComparator(fieldName string) func(RoleRecord, RoleRecord) int {
+	return func(r1, r2 RoleRecord) int {
+		switch fieldName {
+		case "created_at":
+			return tools.CompareTimePtr(&r1.CreatedAt, &r2.CreatedAt)
+		case "-created_at":
+			return tools.CompareTimePtr(&r2.CreatedAt, &r1.CreatedAt)
+		case "updated_at":
+			return tools.CompareTimePtr(r1.UpdatedAt, r2.UpdatedAt)
+		case "-updated_at":
+			return tools.CompareTimePtr(r2.UpdatedAt, r1.UpdatedAt)
+		}
+		return 0
+	}
+}
+
+type ListRolesMessage struct {
+	OrderBy string
 }
 
 func NewRoleRepo(
@@ -102,6 +144,7 @@ func NewRoleRepo(
 	rootNamespace string,
 	roleMappings map[string]config.Role,
 	namespaceRetriever NamespaceRetriever,
+	sorter RoleSorter,
 ) *RoleRepo {
 	return &RoleRepo{
 		rootNamespace:        rootNamespace,
@@ -111,6 +154,7 @@ func NewRoleRepo(
 		userClientFactory:    userClientFactory,
 		spaceRepo:            spaceRepo,
 		namespaceRetriever:   namespaceRetriever,
+		sorter:               sorter,
 	}
 }
 
@@ -244,7 +288,7 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleServiceAccou
 	}
 }
 
-func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info) ([]RoleRecord, error) {
+func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info, message ListRolesMessage) ([]RoleRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
@@ -274,7 +318,7 @@ func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info) (
 	}
 
 	cfRoleBindings := itx.FromSlice(roleBindings).Filter(r.isCFRole)
-	return slices.Collect(it.Map(cfRoleBindings, r.toRoleRecord)), nil
+	return r.sorter.Sort(slices.Collect(it.Map(cfRoleBindings, r.toRoleRecord)), message.OrderBy), nil
 }
 
 func (r *RoleRepo) isCFRole(rb rbacv1.RoleBinding) bool {
@@ -324,7 +368,7 @@ func (r *RoleRepo) toRoleRecord(roleBinding rbacv1.RoleBinding) RoleRecord {
 }
 
 func (r *RoleRepo) GetRole(ctx context.Context, authInfo authorization.Info, roleGUID string) (RoleRecord, error) {
-	roles, err := r.ListRoles(ctx, authInfo)
+	roles, err := r.ListRoles(ctx, authInfo, ListRolesMessage{})
 	if err != nil {
 		return RoleRecord{}, err
 	}

@@ -129,6 +129,12 @@ type RoleList struct {
 	OrderBy    string
 }
 
+func (r RoleList) ToMessage() repositories.ListRolesMessage {
+	return repositories.ListRolesMessage{
+		OrderBy: r.OrderBy,
+	}
+}
+
 func (r RoleList) SupportedKeys() []string {
 	return []string{"guids", "types", "space_guids", "organization_guids", "user_guids", "order_by", "include", "per_page", "page"}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"sort"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -25,7 +24,7 @@ const (
 
 type CFRoleRepository interface {
 	CreateRole(context.Context, authorization.Info, repositories.CreateRoleMessage) (repositories.RoleRecord, error)
-	ListRoles(context.Context, authorization.Info) ([]repositories.RoleRecord, error)
+	ListRoles(context.Context, authorization.Info, repositories.ListRolesMessage) ([]repositories.RoleRecord, error)
 	GetRole(context.Context, authorization.Info, string) (repositories.RoleRecord, error)
 	DeleteRole(context.Context, authorization.Info, repositories.DeleteRoleMessage) error
 }
@@ -68,19 +67,18 @@ func (h *Role) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.role.list")
 
-	roleListFilter := new(payloads.RoleList)
-	err := h.requestValidator.DecodeAndValidateURLValues(r, roleListFilter)
+	payload := new(payloads.RoleList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, payload)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	roles, err := h.roleRepo.ListRoles(r.Context(), authInfo)
+	roles, err := h.roleRepo.ListRoles(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list roles")
 	}
 
-	filteredRoles := filterRoles(roleListFilter, roles)
-	h.sortList(filteredRoles, roleListFilter.OrderBy)
+	filteredRoles := filterRoles(payload, roles)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForRole, filteredRoles, h.apiBaseURL, *r.URL)), nil
 }
@@ -101,20 +99,6 @@ func filterRoles(roleListFilter *payloads.RoleList, roles []repositories.RoleRec
 
 func match(allowedValues map[string]bool, val string) bool {
 	return len(allowedValues) == 0 || allowedValues[val]
-}
-
-func (h *Role) sortList(roles []repositories.RoleRecord, order string) {
-	switch order {
-	case "":
-	case "created_at":
-		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(&roles[j].CreatedAt, &roles[i].CreatedAt) })
-	case "-created_at":
-		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(&roles[i].CreatedAt, &roles[j].CreatedAt) })
-	case "updated_at":
-		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(roles[j].UpdatedAt, roles[i].UpdatedAt) })
-	case "-updated_at":
-		sort.Slice(roles, func(i, j int) bool { return timePtrAfter(roles[i].UpdatedAt, roles[j].UpdatedAt) })
-	}
 }
 
 func (h *Role) delete(r *http.Request) (*routing.Response, error) {

@@ -179,7 +179,7 @@ var _ = Describe("Role", func() {
 			Expect(req.URL.String()).To(HaveSuffix(rolesBase + "?foo=bar"))
 
 			Expect(roleRepo.ListRolesCallCount()).To(Equal(1))
-			_, actualAuthInfo := roleRepo.ListRolesArgsForCall(0)
+			_, actualAuthInfo, _ := roleRepo.ListRolesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
@@ -194,7 +194,7 @@ var _ = Describe("Role", func() {
 			)))
 		})
 
-		Describe("filtering and ordering", func() {
+		Describe("filtering", func() {
 			BeforeEach(func() {
 				roleRepo.ListRolesReturns([]repositories.RoleRecord{
 					{GUID: "1", CreatedAt: time.UnixMilli(5000), UpdatedAt: tools.PtrTo(time.UnixMilli(4000)), Type: "a", Space: "space1", Org: "", User: "user1"},
@@ -226,23 +226,6 @@ var _ = Describe("Role", func() {
 				Entry("organization_guids2", payloads.RoleList{OrgGUIDs: map[string]bool{"org1": true, "org2": true}}, "3", "4"),
 				Entry("user_guids1", payloads.RoleList{UserGUIDs: map[string]bool{"user1": true}}, "1", "2", "3"),
 				Entry("user_guids2", payloads.RoleList{UserGUIDs: map[string]bool{"user1": true, "user2": true}}, "1", "2", "3", "4"),
-			)
-
-			DescribeTable("ordering", func(order string, expectedGUIDs ...any) {
-				req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+"?order_by=not-used-in-test", nil)
-				Expect(err).NotTo(HaveOccurred())
-
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.RoleList{OrderBy: order})
-				rr = httptest.NewRecorder()
-				routerBuilder.Build().ServeHTTP(rr, req)
-
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].guid", expectedGUIDs)))
-			},
-				Entry("created_at ASC", "created_at", "4", "3", "1", "2"),
-				Entry("created_at DESC", "-created_at", "2", "1", "3", "4"),
-				Entry("updated_at ASC", "updated_at", "2", "1", "4", "3"),
-				Entry("updated_at DESC", "-updated_at", "3", "4", "1", "2"),
 			)
 		})
 
