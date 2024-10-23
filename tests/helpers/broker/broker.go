@@ -13,15 +13,15 @@ import (
 )
 
 type BrokerServer struct {
-	mux        *http.ServeMux
 	httpServer *httptest.Server
 	requests   []*http.Request
+	handlers   map[string]http.Handler
 }
 
 func NewServer() *BrokerServer {
 	return &BrokerServer{
-		mux:      http.NewServeMux(),
 		requests: []*http.Request{},
+		handlers: map[string]http.Handler{},
 	}
 }
 
@@ -39,7 +39,7 @@ func (b *BrokerServer) WithResponse(pattern string, response map[string]any, sta
 }
 
 func (b *BrokerServer) WithHandler(pattern string, handler http.Handler) *BrokerServer {
-	b.mux.Handle(pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	b.handlers[pattern] = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, err := io.ReadAll(r.Body)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -50,13 +50,17 @@ func (b *BrokerServer) WithHandler(pattern string, handler http.Handler) *Broker
 		executedRequest := r.Clone(r.Context())
 		executedRequest.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		handler.ServeHTTP(w, executedRequest)
-	}))
+	})
 
 	return b
 }
 
 func (b *BrokerServer) Start() *BrokerServer {
-	b.httpServer = httptest.NewTLSServer(b.mux)
+	mux := http.NewServeMux()
+	for pattern, handler := range b.handlers {
+		mux.Handle(pattern, handler)
+	}
+	b.httpServer = httptest.NewTLSServer(mux)
 	return b
 }
 

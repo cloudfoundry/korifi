@@ -107,7 +107,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 		When("getting the catalog fails", func() {
 			BeforeEach(func() {
-				brokerServer = broker.NewServer().WithHandler("/v2/catalog", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				brokerServer = brokerServer.WithHandler("/v2/catalog", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusTeapot)
 				}))
 			})
@@ -119,7 +119,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 		When("the catalog response cannot be unmarshalled", func() {
 			BeforeEach(func() {
-				brokerServer = broker.NewServer().WithHandler("/v2/catalog", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				brokerServer = brokerServer.WithHandler("/v2/catalog", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					_, _ = w.Write([]byte("hello"))
 				}))
 			})
@@ -138,7 +138,7 @@ var _ = Describe("OSBAPI Client", func() {
 			)
 
 			BeforeEach(func() {
-				brokerServer = broker.NewServer().WithResponse(
+				brokerServer = brokerServer.WithResponse(
 					"/v2/service_instances/{id}",
 					map[string]any{
 						"operation": "provision_op1",
@@ -206,7 +206,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			When("the broker accepts the provision request", func() {
 				BeforeEach(func() {
-					brokerServer = broker.NewServer().WithResponse(
+					brokerServer = brokerServer.WithResponse(
 						"/v2/service_instances/{id}",
 						map[string]any{
 							"operation": "provision_op1",
@@ -226,7 +226,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			When("the provision request fails", func() {
 				BeforeEach(func() {
-					brokerServer = broker.NewServer().WithHandler("/v2/service_instances/{id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					brokerServer = brokerServer.WithHandler("/v2/service_instances/{id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 						w.WriteHeader(http.StatusTeapot)
 					}))
 				})
@@ -301,7 +301,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			When("the deprovision request fails", func() {
 				BeforeEach(func() {
-					brokerServer = broker.NewServer().WithHandler("/v2/service_instances/{id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					brokerServer = brokerServer.WithHandler("/v2/service_instances/{id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 						w.WriteHeader(http.StatusTeapot)
 					}))
 				})
@@ -388,7 +388,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			When("getting the last operation request fails", func() {
 				BeforeEach(func() {
-					brokerServer = broker.NewServer().WithHandler("/v2/service_instances/{id}/last_operation", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					brokerServer = brokerServer.WithHandler("/v2/service_instances/{id}/last_operation", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 						w.WriteHeader(http.StatusTeapot)
 					}))
 				})
@@ -400,7 +400,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			When("getting the last operation request fails with 410 Gone", func() {
 				BeforeEach(func() {
-					brokerServer = broker.NewServer().WithHandler("/v2/service_instances/{id}/last_operation", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					brokerServer = brokerServer.WithHandler("/v2/service_instances/{id}/last_operation", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 						w.WriteHeader(http.StatusGone)
 					}))
 				})
@@ -484,7 +484,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			When("binding request fails", func() {
 				BeforeEach(func() {
-					brokerServer = broker.NewServer().WithHandler("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					brokerServer = brokerServer.WithHandler("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 						w.WriteHeader(http.StatusTeapot)
 					}))
 				})
@@ -496,7 +496,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			When("binding request fails with 409 Confilct", func() {
 				BeforeEach(func() {
-					brokerServer = broker.NewServer().WithHandler("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					brokerServer = brokerServer.WithHandler("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 						w.WriteHeader(http.StatusConflict)
 					}))
 				})
