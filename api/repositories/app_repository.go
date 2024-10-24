@@ -11,6 +11,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
@@ -47,6 +48,50 @@ type AppRepo struct {
 	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 	appAwaiter           Awaiter[*korifiv1alpha1.CFApp]
+	sorter               AppSorter
+}
+
+//counterfeiter:generate -o fake -fake-name AppSorter . AppSorter
+type AppSorter interface {
+	Sort(records []AppRecord, order string) []AppRecord
+}
+
+type appSorter struct {
+	sorter *compare.Sorter[AppRecord]
+}
+
+func NewAppSorter() *appSorter {
+	return &appSorter{
+		sorter: compare.NewSorter(AppComparator),
+	}
+}
+
+func (s *appSorter) Sort(records []AppRecord, order string) []AppRecord {
+	return s.sorter.Sort(records, order)
+}
+
+func AppComparator(fieldName string) func(AppRecord, AppRecord) int {
+	return func(a1, a2 AppRecord) int {
+		switch fieldName {
+		case "", "name":
+			return strings.Compare(a1.Name, a2.Name)
+		case "-name":
+			return strings.Compare(a2.Name, a1.Name)
+		case "created_at":
+			return tools.CompareTimePtr(&a1.CreatedAt, &a2.CreatedAt)
+		case "-created_at":
+			return tools.CompareTimePtr(&a2.CreatedAt, &a1.CreatedAt)
+		case "updated_at":
+			return tools.CompareTimePtr(a1.UpdatedAt, a2.UpdatedAt)
+		case "-updated_at":
+			return tools.CompareTimePtr(a2.UpdatedAt, a1.UpdatedAt)
+		case "state":
+			return strings.Compare(string(a1.State), string(a2.State))
+		case "-state":
+			return strings.Compare(string(a2.State), string(a1.State))
+		}
+		return 0
+	}
 }
 
 func NewAppRepo(
@@ -54,12 +99,14 @@ func NewAppRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	authPerms *authorization.NamespacePermissions,
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp],
+	sorter AppSorter,
 ) *AppRepo {
 	return &AppRepo{
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: authPerms,
 		appAwaiter:           appAwaiter,
+		sorter:               sorter,
 	}
 }
 
@@ -188,6 +235,7 @@ type ListAppsMessage struct {
 	Guids         []string
 	SpaceGUIDs    []string
 	LabelSelector string
+	OrderBy       string
 }
 
 func (m *ListAppsMessage) matchesNamespace(ns string) bool {
@@ -334,15 +382,9 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		apps = append(apps, appList.Items...)
 	}
 
-	// By default sort it by App.DisplayName
-	appRecords := slices.SortedFunc(
-		it.Map(itx.FromSlice(apps).Filter(message.matches), cfAppToAppRecord),
-		func(a, b AppRecord) int {
-			return strings.Compare(a.Name, b.Name)
-		},
-	)
+	appRecords := it.Map(itx.FromSlice(apps).Filter(message.matches), cfAppToAppRecord)
 
-	return appRecords, nil
+	return f.sorter.Sort(slices.Collect(appRecords), message.OrderBy), nil
 }
 
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {

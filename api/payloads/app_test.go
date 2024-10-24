@@ -55,6 +55,7 @@ var _ = Describe("AppList", func() {
 				Names:         []string{"n1", "n2"},
 				Guids:         []string{"g1", "g2"},
 				SpaceGUIDs:    []string{"s1", "s2"},
+				OrderBy:       "created_at",
 				LabelSelector: "foo=bar",
 			}))
 		})

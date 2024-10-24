@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"time"
 
@@ -383,60 +382,6 @@ var _ = Describe("App", func() {
 				Expect(message.SpaceGUIDs).To(ConsistOf("s1", "s2"))
 				Expect(message.Guids).To(ConsistOf("g1", "g2"))
 			})
-		})
-
-		Describe("Order results", func() {
-			BeforeEach(func() {
-				appRepo.ListAppsReturns([]repositories.AppRecord{
-					{
-						GUID:      "1",
-						Name:      "first-test-app",
-						State:     "STOPPED",
-						CreatedAt: time.UnixMilli(4000),
-						UpdatedAt: tools.PtrTo(time.UnixMilli(5000)),
-					},
-					{
-						GUID:      "2",
-						Name:      "second-test-app",
-						State:     "BROKEN",
-						CreatedAt: time.UnixMilli(3000),
-						UpdatedAt: tools.PtrTo(time.UnixMilli(6000)),
-					},
-					{
-						GUID:      "3",
-						Name:      "third-test-app",
-						State:     "STARTED",
-						CreatedAt: time.UnixMilli(1000),
-						UpdatedAt: tools.PtrTo(time.UnixMilli(8000)),
-					},
-					{
-						GUID:      "4",
-						Name:      "fourth-test-app",
-						State:     "FIXED",
-						CreatedAt: time.UnixMilli(2000),
-						UpdatedAt: tools.PtrTo(time.UnixMilli(7000)),
-					},
-				}, nil)
-			})
-
-			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.AppList{
-					OrderBy: orderBy,
-				})
-				req = createHttpRequest("GET", "/v3/apps?order_by=whatever", nil)
-				rr = httptest.NewRecorder()
-				routerBuilder.Build().ServeHTTP(rr, req)
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].guid", expectedOrder)))
-			},
-				Entry("created_at ASC", "created_at", "3", "4", "2", "1"),
-				Entry("created_at DESC", "-created_at", "1", "2", "4", "3"),
-				Entry("updated_at ASC", "updated_at", "1", "2", "4", "3"),
-				Entry("updated_at DESC", "-updated_at", "3", "4", "2", "1"),
-				Entry("name ASC", "name", "1", "4", "2", "3"),
-				Entry("name DESC", "-name", "3", "2", "4", "1"),
-				Entry("state ASC", "state", "2", "4", "3", "1"),
-				Entry("state DESC", "-state", "1", "3", "4", "2"),
-			)
 		})
 
 		When("no apps can be found", func() {

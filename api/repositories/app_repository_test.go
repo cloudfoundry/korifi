@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"sort"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
@@ -22,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	gomega_types "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +42,7 @@ var _ = Describe("AppRepository", func() {
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]
+		sorter  *fake.AppSorter
 		appRepo *repositories.AppRepo
 		cfOrg   *korifiv1alpha1.CFOrg
 		cfSpace *korifiv1alpha1.CFSpace
@@ -55,7 +56,11 @@ var _ = Describe("AppRepository", func() {
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]{}
-		appRepo = repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, appAwaiter)
+		sorter = new(fake.AppSorter)
+		sorter.SortStub = func(records []repositories.AppRecord, _ string) []repositories.AppRecord {
+			return records
+		}
+		appRepo = repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, appAwaiter, sorter)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
@@ -194,7 +199,7 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		BeforeEach(func() {
-			message = repositories.ListAppsMessage{}
+			message = repositories.ListAppsMessage{OrderBy: "foo"}
 
 			space2 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space2"))
 			space3 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space3"))
@@ -215,12 +220,17 @@ var _ = Describe("AppRepository", func() {
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
 			))
+		})
 
-			sortedByName := sort.SliceIsSorted(appList, func(i, j int) bool {
-				return appList[i].Name < appList[j].Name
-			})
+		It("sorts the apps", func() {
+			Expect(sorter.SortCallCount()).To(Equal(1))
+			sortedApps, field := sorter.SortArgsForCall(0)
+			Expect(field).To(Equal("foo"))
 
-			Expect(sortedByName).To(BeTrue(), fmt.Sprintf("AppList was not sorted by Name : App1 : %s , App2: %s", appList[0].Name, appList[1].Name))
+			Expect(sortedApps).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
+				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
+			))
 		})
 
 		When("there are apps in non-cf namespaces", func() {
@@ -1386,3 +1396,63 @@ func asMapOfStrings(data map[string][]byte) map[string]string {
 
 	return result
 }
+
+var _ = DescribeTable("AppSorter",
+	func(a1, a2 repositories.AppRecord, field string, match gomega_types.GomegaMatcher) {
+		Expect(repositories.AppComparator(field)(a1, a2)).To(match)
+	},
+	Entry("default sorting",
+		repositories.AppRecord{Name: "first-app"},
+		repositories.AppRecord{Name: "second-app"},
+		"",
+		BeNumerically("<", 0),
+	),
+	Entry("name",
+		repositories.AppRecord{Name: "first-app"},
+		repositories.AppRecord{Name: "second-app"},
+		"name",
+		BeNumerically("<", 0),
+	),
+	Entry("-name",
+		repositories.AppRecord{Name: "first-app"},
+		repositories.AppRecord{Name: "second-app"},
+		"-name",
+		BeNumerically(">", 0),
+	),
+	Entry("created_at",
+		repositories.AppRecord{CreatedAt: time.UnixMilli(1)},
+		repositories.AppRecord{CreatedAt: time.UnixMilli(2)},
+		"created_at",
+		BeNumerically("<", 0),
+	),
+	Entry("-created_at",
+		repositories.AppRecord{CreatedAt: time.UnixMilli(1)},
+		repositories.AppRecord{CreatedAt: time.UnixMilli(2)},
+		"-created_at",
+		BeNumerically(">", 0),
+	),
+	Entry("updated_at",
+		repositories.AppRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
+		repositories.AppRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
+		"updated_at",
+		BeNumerically("<", 0),
+	),
+	Entry("-updated_at",
+		repositories.AppRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
+		repositories.AppRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
+		"-updated_at",
+		BeNumerically(">", 0),
+	),
+	Entry("state",
+		repositories.AppRecord{State: repositories.StartedState},
+		repositories.AppRecord{State: repositories.StoppedState},
+		"state",
+		BeNumerically("<", 0),
+	),
+	Entry("-state",
+		repositories.AppRecord{State: repositories.StartedState},
+		repositories.AppRecord{State: repositories.StoppedState},
+		"-state",
+		BeNumerically(">", 0),
+	),
+)
