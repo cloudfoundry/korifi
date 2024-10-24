@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"time"
 
@@ -160,18 +159,16 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.list")
 
-	appListFilter := new(payloads.AppList)
-	err := h.requestValidator.DecodeAndValidateURLValues(r, appListFilter)
+	payload := new(payloads.AppList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, payload)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	appList, err := h.appRepo.ListApps(r.Context(), authInfo, appListFilter.ToMessage())
+	appList, err := h.appRepo.ListApps(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app(s) from Kubernetes")
 	}
-
-	h.sortList(appList, appListFilter.OrderBy)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForApp, appList, h.serverURL, *r.URL)), nil
 }
@@ -182,28 +179,6 @@ func timePtrAfter(t1, t2 *time.Time) bool {
 	}
 
 	return (*t1).After(*t2)
-}
-
-func (h *App) sortList(appList []repositories.AppRecord, order string) {
-	switch order {
-	case "":
-	case "created_at":
-		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(&appList[j].CreatedAt, &appList[i].CreatedAt) })
-	case "-created_at":
-		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(&appList[i].CreatedAt, &appList[j].CreatedAt) })
-	case "updated_at":
-		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(appList[j].UpdatedAt, appList[i].UpdatedAt) })
-	case "-updated_at":
-		sort.Slice(appList, func(i, j int) bool { return timePtrAfter(appList[i].UpdatedAt, appList[j].UpdatedAt) })
-	case "name":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].Name < appList[j].Name })
-	case "-name":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].Name > appList[j].Name })
-	case "state":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].State < appList[j].State })
-	case "-state":
-		sort.Slice(appList, func(i, j int) bool { return appList[i].State > appList[j].State })
-	}
 }
 
 func (h *App) setCurrentDroplet(r *http.Request) (*routing.Response, error) {

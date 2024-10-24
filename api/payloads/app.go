@@ -101,6 +101,7 @@ func (a *AppList) ToMessage() repositories.ListAppsMessage {
 		Guids:         parse.ArrayParam(a.GUIDs),
 		SpaceGUIDs:    parse.ArrayParam(a.SpaceGUIDs),
 		LabelSelector: a.LabelSelector,
+		OrderBy:       a.OrderBy,
 	}
 }
 
