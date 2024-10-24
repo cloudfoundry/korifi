@@ -216,5 +216,4 @@ var _ = Describe("role list", func() {
 		},
 		Entry("created_at", payloads.RoleList{OrderBy: "created_at"}, repositories.ListRolesMessage{OrderBy: "created_at"}),
 	)
-
 })

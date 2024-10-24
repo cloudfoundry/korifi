@@ -24,7 +24,8 @@ import (
 )
 
 const (
-	BindingFailedCondition = "BindingFailed"
+	BindingFailedCondition    = "BindingFailed"
+	BindingRequestedCondition = "BindingRequested"
 )
 
 // CFServiceBindingSpec defines the desired state of CFServiceBinding
@@ -47,6 +48,13 @@ type CFServiceBindingStatus struct {
 	// servicebinding.io [spec](https://servicebinding.io/spec/core/1.0.0-rc3/#Duck%20Type)
 	// +optional
 	Binding v1.LocalObjectReference `json:"binding"`
+
+	// The
+	// [operation](https://github.com/openservicebrokerapi/servicebroker/blob/master/spec.md#binding)
+	// of the bind request to the the OSBAPI broker. Only makes sense for
+	// bindings to managed service instances
+	// +optional
+	BindingOperation string `json:"bindingOperation"`
 
 	// A reference to the Secret containing the binding Credentials object. For
 	// bindings to user-provided services this refers to the credentials secret

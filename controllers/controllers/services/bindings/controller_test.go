@@ -7,8 +7,8 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
 	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -593,6 +593,7 @@ var _ = Describe("CFServiceBinding", func() {
 				Credentials: map[string]any{
 					"foo": "bar",
 				},
+				Complete: true,
 			}, nil)
 
 			instance = &korifiv1alpha1.CFServiceInstance{
@@ -640,9 +641,20 @@ var _ = Describe("CFServiceBinding", func() {
 						BindResource: osbapi.BindResource{
 							AppGUID: cfApp.Name,
 						},
-						Parameters: map[string]any{},
 					},
 				}))
+			}).Should(Succeed())
+		})
+
+		It("does not check for binding last operation", func() {
+			Consistently(func(g Gomega) {
+				g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeZero())
+			}).Should(Succeed())
+		})
+
+		It("does not get the binding", func() {
+			Consistently(func(g Gomega) {
+				g.Expect(brokerClient.GetServiceBindingCallCount()).To(BeZero())
 			}).Should(Succeed())
 		})
 
@@ -691,10 +703,228 @@ var _ = Describe("CFServiceBinding", func() {
 			}).Should(Succeed())
 		})
 
+		When("the binding credentials have been reconciled", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, binding, func() {
+					binding.Status.Credentials.Name = uuid.NewString()
+					binding.Status.Binding.Name = uuid.NewString()
+				})).To(Succeed())
+			})
+
+			It("does not request bind", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(brokerClient.BindCallCount()).To(BeZero())
+					g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeZero())
+					g.Expect(brokerClient.GetServiceBindingCallCount()).To(BeZero())
+				}).Should(Succeed())
+			})
+		})
+
+		When("the binding has failed", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, binding, func() {
+					meta.SetStatusCondition(&binding.Status.Conditions, metav1.Condition{
+						Type:   korifiv1alpha1.BindingFailedCondition,
+						Status: metav1.ConditionTrue,
+						Reason: "BindingFailed",
+					})
+				})).To(Succeed())
+			})
+
+			It("does not request bind", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(brokerClient.BindCallCount()).To(BeZero())
+					g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeZero())
+					g.Expect(brokerClient.GetServiceBindingCallCount()).To(BeZero())
+				}).Should(Succeed())
+			})
+		})
+
+		When("binding is asynchronous", func() {
+			BeforeEach(func() {
+				brokerClient.BindReturns(osbapi.BindResponse{
+					Operation: "operation-1",
+					Complete:  false,
+				}, nil)
+
+				brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
+					State: "in progress",
+				}, nil)
+			})
+
+			It("sets the ready condition to false", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+
+					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+					)))
+				}).Should(Succeed())
+			})
+
+			It("sets the BindRequested condition", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.BindingRequestedCondition)),
+						HasStatus(Equal(metav1.ConditionTrue)),
+					)))
+				}).Should(Succeed())
+
+				Consistently(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.BindingRequestedCondition)),
+						HasStatus(Equal(metav1.ConditionTrue)),
+					)))
+				}).Should(Succeed())
+			})
+
+			It("keeps checking last operation", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeNumerically(">", 1))
+					_, actualLastOpPayload := brokerClient.GetServiceBindingLastOperationArgsForCall(1)
+					g.Expect(actualLastOpPayload).To(Equal(osbapi.GetServiceBindingLastOperationRequest{
+						InstanceID: instance.Name,
+						BindingID:  binding.Name,
+						GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
+							ServiceId: "service-offering-id",
+							PlanID:    "service-plan-id",
+							Operation: "operation-1",
+						},
+					}))
+				}).Should(Succeed())
+			})
+
+			When("getting binding last operation fails", func() {
+				BeforeEach(func() {
+					brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{}, errors.New("get-last-op-failed"))
+				})
+
+				It("sets the ready condition to false", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+
+						g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+							HasStatus(Equal(metav1.ConditionFalse)),
+							HasMessage(ContainSubstring("get-last-op-failed")),
+						)))
+					}).Should(Succeed())
+				})
+			})
+
+			When("the last operation is failed", func() {
+				BeforeEach(func() {
+					brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
+						State:       "failed",
+						Description: "last-operation-failed",
+					}, nil)
+				})
+
+				It("fails the binding", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+						g.Expect(binding.Status.Conditions).To(ContainElements(
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+							),
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.BindingFailedCondition)),
+								HasStatus(Equal(metav1.ConditionTrue)),
+								HasReason(Equal("BindingFailed")),
+								HasMessage(ContainSubstring("last-operation-failed")),
+							),
+						))
+					}).Should(Succeed())
+				})
+			})
+
+			When("last operation has succeeded", func() {
+				BeforeEach(func() {
+					brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
+						State: "succeeded",
+					}, nil)
+
+					brokerClient.GetServiceBindingReturns(osbapi.GetBindingResponse{
+						Credentials: map[string]any{
+							"foo": "bar",
+						},
+					}, nil)
+				})
+
+				It("creates the credentials secret", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+						g.Expect(binding.Status.Credentials.Name).To(Equal(binding.Name))
+
+						credentialsSecret := &corev1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: binding.Namespace,
+								Name:      binding.Status.Credentials.Name,
+							},
+						}
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
+						g.Expect(credentialsSecret.Type).To(BeEquivalentTo("Opaque"))
+						g.Expect(credentialsSecret.Data).To(MatchKeys(IgnoreExtras, Keys{
+							tools.CredentialsSecretKey: BeEquivalentTo(`{"foo":"bar"}`),
+						}))
+						g.Expect(credentialsSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+							"Name": Equal(binding.Name),
+						})))
+					}).Should(Succeed())
+				})
+
+				It("creates the servicebinding.io secret", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+						g.Expect(binding.Status.Binding.Name).NotTo(BeEmpty())
+
+						bindingSecret := &corev1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: binding.Namespace,
+								Name:      binding.Status.Binding.Name,
+							},
+						}
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(bindingSecret), bindingSecret)).To(Succeed())
+						g.Expect(bindingSecret.Type).To(BeEquivalentTo("servicebinding.io/managed"))
+						g.Expect(bindingSecret.Data).To(MatchKeys(IgnoreExtras, Keys{
+							"foo": BeEquivalentTo("bar"),
+						}))
+
+						g.Expect(bindingSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+							"Name": Equal(binding.Name),
+						})))
+					}).Should(Succeed())
+				})
+
+				When("getting the binding fails", func() {
+					BeforeEach(func() {
+						brokerClient.GetServiceBindingReturns(osbapi.GetBindingResponse{}, errors.New("get-binding-err"))
+					})
+
+					It("sets the ready condition to false", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+
+							g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+								HasMessage(ContainSubstring("get-binding-err")),
+							)))
+						}).Should(Succeed())
+					})
+				})
+			})
+		})
+
 		When("binding fails with the broker", func() {
 			BeforeEach(func() {
 				brokerClient.BindReturns(osbapi.BindResponse{}, errors.New("binding-failed"))
 			})
+
 			It("fails the binding", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())

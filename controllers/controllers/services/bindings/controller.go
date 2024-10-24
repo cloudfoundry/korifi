@@ -162,6 +162,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 
 	res, err := r.reconcileCredentialsSecrets(ctx, cfServiceInstance.Spec.Type, cfServiceBinding)
 	if needsRequeue(res, err) {
+		log.Error(err, "failed to reconcile binding credentials")
 		return res, err
 	}
 

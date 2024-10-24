@@ -134,6 +134,13 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              bindingOperation:
+                description: |-
+                  The
+                  [operation](https://github.com/openservicebrokerapi/servicebroker/blob/master/spec.md#binding)
+                  of the bind request to the the OSBAPI broker. Only makes sense for
+                  bindings to managed service instances
+                type: string
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current

@@ -163,6 +163,9 @@ spec:
                   This will ensure that interested contollers are notified on instance credentials change
                 type: string
               deprovisionOperation:
+                description: |-
+                  The operation returned by the OSBAPI broker when instance deprovisioning
+                  is requested. Only makes sense for managed service instances
                 type: string
               observedGeneration:
                 description: ObservedGeneration captures the latest generation of
@@ -170,6 +173,9 @@ spec:
                 format: int64
                 type: integer
               provisionOperation:
+                description: |-
+                  The operation returned by the OSBAPI broker when instance provisioning
+                  is requested. Only makes sense for managed service instances
                 type: string
             type: object
         type: object

@@ -41,9 +41,26 @@ type InstanceProvisionRequest struct {
 	Parameters map[string]any `json:"parameters"`
 }
 
-type GetLastOperationRequest struct {
-	ID string
+type GetServiceInstanceLastOperationRequest struct {
+	InstanceID string
 	GetLastOperationRequestParameters
+}
+
+type GetServiceBindingLastOperationRequest struct {
+	InstanceID string
+	BindingID  string
+	GetLastOperationRequestParameters
+}
+
+type GetServiceBindingRequest struct {
+	InstanceID string
+	BindingID  string
+	ServiceId  string `json:"service_id"`
+	PlanID     string `json:"plan_id"`
+}
+
+type GetBindingResponse struct {
+	Credentials map[string]any `json:"credentials"`
 }
 
 type GetLastOperationRequestParameters struct {
@@ -78,6 +95,8 @@ type BindPayload struct {
 
 type BindResponse struct {
 	Credentials map[string]any `json:"credentials"`
+	Operation   string         `json:"operation"`
+	Complete    bool
 }
 
 type BindResource struct {

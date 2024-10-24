@@ -8,8 +8,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances/managed/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
 	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -171,8 +171,8 @@ var _ = Describe("CFServiceInstance", func() {
 
 			g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 0))
 			_, lastOp := brokerClient.GetServiceInstanceLastOperationArgsForCall(brokerClient.GetServiceInstanceLastOperationCallCount() - 1)
-			g.Expect(lastOp).To(Equal(osbapi.GetLastOperationRequest{
-				ID: instance.Name,
+			g.Expect(lastOp).To(Equal(osbapi.GetServiceInstanceLastOperationRequest{
+				InstanceID: instance.Name,
 				GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 					ServiceId: "service-offering-id",
 					PlanID:    "service-plan-id",
@@ -351,8 +351,8 @@ var _ = Describe("CFServiceInstance", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 1))
 				_, actualLastOpPayload := brokerClient.GetServiceInstanceLastOperationArgsForCall(1)
-				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetLastOperationRequest{
-					ID: instance.Name,
+				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetServiceInstanceLastOperationRequest{
+					InstanceID: instance.Name,
 					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 						ServiceId: "service-offering-id",
 						PlanID:    "service-plan-id",
@@ -516,8 +516,8 @@ var _ = Describe("CFServiceInstance", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(Equal(1))
 				_, actualLastOpPayload := brokerClient.GetServiceInstanceLastOperationArgsForCall(0)
-				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetLastOperationRequest{
-					ID: instance.Name,
+				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetServiceInstanceLastOperationRequest{
+					InstanceID: instance.Name,
 					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 						ServiceId: "service-offering-id",
 						PlanID:    "service-plan-id",

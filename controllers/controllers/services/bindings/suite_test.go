@@ -26,7 +26,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/managed"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/upsi"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/brokers/fake"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
@@ -59,6 +59,8 @@ var (
 func TestAPIs(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
+	SetDefaultConsistentlyDuration(5 * time.Second)
+	SetDefaultConsistentlyPollingInterval(250 * time.Millisecond)
 
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "USPI Controller Integration Suite")
