@@ -81,7 +81,14 @@ type CFServiceInstanceStatus struct {
 	//+kubebuilder:validation:Optional
 	CredentialsObservedVersion string `json:"credentialsObservedVersion,omitempty"`
 
-	ProvisionOperation   string `json:"provisionOperation,omitempty"`
+	// The operation returned by the OSBAPI broker when instance provisioning
+	// is requested. Only makes sense for managed service instances
+	//+kubebuilder:validation:Optional
+	ProvisionOperation string `json:"provisionOperation,omitempty"`
+
+	// The operation returned by the OSBAPI broker when instance deprovisioning
+	// is requested. Only makes sense for managed service instances
+	//+kubebuilder:validation:Optional
 	DeprovisionOperation string `json:"deprovisionOperation,omitempty"`
 }
 

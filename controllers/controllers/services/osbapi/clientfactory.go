@@ -15,14 +15,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//counterfeiter:generate -o fake -fake-name BrokerClient code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi.BrokerClient
 type BrokerClient interface {
 	Provision(context.Context, InstanceProvisionPayload) (ServiceInstanceOperationResponse, error)
 	Deprovision(context.Context, InstanceDeprovisionPayload) (ServiceInstanceOperationResponse, error)
-	GetServiceInstanceLastOperation(context.Context, GetLastOperationRequest) (LastOperationResponse, error)
+	GetServiceInstanceLastOperation(context.Context, GetServiceInstanceLastOperationRequest) (LastOperationResponse, error)
 	GetCatalog(context.Context) (Catalog, error)
 	Bind(context.Context, BindPayload) (BindResponse, error)
+	GetServiceBindingLastOperation(context.Context, GetServiceBindingLastOperationRequest) (LastOperationResponse, error)
+	GetServiceBinding(context.Context, GetServiceBindingRequest) (GetBindingResponse, error)
 }
 
+//counterfeiter:generate -o fake -fake-name BrokerClientFactory code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi.BrokerClientFactory
 type BrokerClientFactory interface {
 	CreateClient(context.Context, *korifiv1alpha1.CFServiceBroker) (BrokerClient, error)
 }

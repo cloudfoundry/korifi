@@ -39,10 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-//counterfeiter:generate -o fake -fake-name BrokerClient code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi.BrokerClient
-
-//counterfeiter:generate -o fake -fake-name BrokerClientFactory code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi.BrokerClientFactory
-
 type Reconciler struct {
 	k8sClient           client.Client
 	osbapiClientFactory osbapi.BrokerClientFactory
@@ -135,8 +131,8 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return r.provisionServiceInstance(ctx, osbapiClient, serviceInstance, servicePlan, serviceOffering)
 	}
 
-	lastOpResponse, err := osbapiClient.GetServiceInstanceLastOperation(ctx, osbapi.GetLastOperationRequest{
-		ID: serviceInstance.Name,
+	lastOpResponse, err := osbapiClient.GetServiceInstanceLastOperation(ctx, osbapi.GetServiceInstanceLastOperationRequest{
+		InstanceID: serviceInstance.Name,
 		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 			ServiceId: serviceOffering.Spec.BrokerCatalog.ID,
 			PlanID:    servicePlan.Spec.BrokerCatalog.ID,
