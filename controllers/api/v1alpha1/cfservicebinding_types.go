@@ -26,6 +26,8 @@ import (
 const (
 	BindingFailedCondition    = "BindingFailed"
 	BindingRequestedCondition = "BindingRequested"
+
+	ServiceInstanceTypeAnnotationKey = "korifi.cloudfoundry.org/service-instance-type"
 )
 
 // CFServiceBindingSpec defines the desired state of CFServiceBinding
