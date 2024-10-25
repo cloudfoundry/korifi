@@ -15,8 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const UserProvided = "user-provided"
-
 type VCAPServicesEnvValueBuilder struct {
 	k8sClient client.Client
 }
@@ -71,7 +69,7 @@ func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, service
 		return ServiceDetails{}, "", fmt.Errorf("credentials secret name not set for service binding %q", serviceBinding.Name)
 	}
 
-	serviceLabel := UserProvided
+	serviceLabel := serviceBinding.Annotations[korifiv1alpha1.ServiceInstanceTypeAnnotationKey]
 
 	serviceInstance := korifiv1alpha1.CFServiceInstance{}
 	err := k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Spec.Service.Name}, &serviceInstance)
