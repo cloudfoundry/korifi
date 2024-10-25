@@ -56,6 +56,8 @@ var (
 func TestAPIs(t *testing.T) {
 	SetDefaultEventuallyTimeout(30 * time.Second)
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
+	SetDefaultConsistentlyDuration(5 * time.Second)
+	SetDefaultConsistentlyPollingInterval(250 * time.Millisecond)
 
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Services Instance Controller Integration Suite")

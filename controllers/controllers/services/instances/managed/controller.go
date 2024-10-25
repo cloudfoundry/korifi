@@ -24,6 +24,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -119,6 +120,10 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	if err != nil {
 		log.Error(err, "failed to get service offering")
 		return ctrl.Result{}, err
+	}
+
+	if serviceInstance.Spec.ServiceLabel == nil {
+		serviceInstance.Spec.ServiceLabel = tools.PtrTo(serviceOffering.Spec.Name)
 	}
 
 	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, serviceBroker)
