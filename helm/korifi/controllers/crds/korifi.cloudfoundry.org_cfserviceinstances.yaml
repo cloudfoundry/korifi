@@ -62,7 +62,8 @@ spec:
               serviceLabel:
                 description: |-
                   Service label to use when adding this instance to VCAP_SERVICES. If not
-                  set, the service instance Type would be used.
+                  set, the service instance Type would be used. For managed services the
+                  value is defaulted to the offering name
                 type: string
               tags:
                 description: Tags are used by apps to identify service instances

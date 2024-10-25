@@ -12,9 +12,11 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
 	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -79,6 +81,7 @@ var _ = Describe("CFServiceInstance", func() {
 			},
 			Spec: korifiv1alpha1.CFServiceOfferingSpec{
 				ServiceOffering: services.ServiceOffering{
+					Name: "service-offering-name",
 					BrokerCatalog: services.ServiceBrokerCatalog{
 						ID: "service-offering-id",
 					},
@@ -150,6 +153,28 @@ var _ = Describe("CFServiceInstance", func() {
 				HasStatus(Equal(metav1.ConditionTrue)),
 			)))
 		}).Should(Succeed())
+	})
+
+	It("defaults the service label to the service offering name", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+			g.Expect(instance.Spec.ServiceLabel).To(PointTo(Equal("service-offering-name")))
+		}).Should(Succeed())
+	})
+
+	When("the service label is set", func() {
+		BeforeEach(func() {
+			Expect(k8s.Patch(ctx, adminClient, instance, func() {
+				instance.Spec.ServiceLabel = tools.PtrTo("custom-service-label")
+			})).To(Succeed())
+		})
+
+		It("does not override it", func() {
+			Consistently(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+				g.Expect(instance.Spec.ServiceLabel).To(PointTo(Equal("custom-service-label")))
+			}).Should(Succeed())
+		})
 	})
 
 	It("provisions the service", func() {
