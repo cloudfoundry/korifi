@@ -50,6 +50,7 @@ type TaskWorkloadStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // TaskWorkload is the Schema for the taskworkloads API
 type TaskWorkload struct {
@@ -61,6 +62,7 @@ type TaskWorkload struct {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // TaskWorkloadList contains a list of TaskWorkload
 type TaskWorkloadList struct {
