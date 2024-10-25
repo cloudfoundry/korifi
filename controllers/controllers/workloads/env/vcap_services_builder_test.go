@@ -2,6 +2,8 @@ package env_test
 
 import (
 	"encoding/json"
+	"maps"
+	"slices"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
@@ -63,6 +65,9 @@ var _ = Describe("Builder", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfSpace.Status.GUID,
 				Name:      "my-service-binding-guid",
+				Annotations: map[string]string{
+					korifiv1alpha1.ServiceInstanceTypeAnnotationKey: "sb-1-type",
+				},
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
 				DisplayName: &serviceBindingName,
@@ -101,6 +106,9 @@ var _ = Describe("Builder", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfSpace.Status.GUID,
 				Name:      "my-service-binding-guid-2",
+				Annotations: map[string]string{
+					korifiv1alpha1.ServiceInstanceTypeAnnotationKey: "sb-2-type",
+				},
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
 				DisplayName: &serviceBindingName2,
@@ -145,8 +153,8 @@ var _ = Describe("Builder", func() {
 			Expect(buildVCAPServicesEnvValueErr).NotTo(HaveOccurred())
 
 			Expect(parseVcapServices(vcapServices)).To(MatchAllKeys(Keys{
-				"user-provided": ConsistOf(MatchAllKeys(Keys{
-					"label":         Equal("user-provided"),
+				"sb-1-type": ConsistOf(MatchAllKeys(Keys{
+					"label":         Equal("sb-1-type"),
 					"name":          Equal("my-service-binding"),
 					"tags":          ConsistOf("t1", "t2"),
 					"instance_guid": Equal("my-service-instance-guid"),
@@ -185,7 +193,7 @@ var _ = Describe("Builder", func() {
 
 			It("uses the service instance name as name", func() {
 				Expect(parseVcapServices(vcapServices)).To(MatchKeys(IgnoreExtras, Keys{
-					"user-provided": ConsistOf(MatchKeys(IgnoreExtras, Keys{
+					"sb-1-type": ConsistOf(MatchKeys(IgnoreExtras, Keys{
 						"name": Equal(serviceInstance.Spec.DisplayName),
 					})),
 				}))
@@ -193,7 +201,7 @@ var _ = Describe("Builder", func() {
 
 			It("sets the binding name to nil", func() {
 				Expect(parseVcapServices(vcapServices)).To(MatchKeys(IgnoreExtras, Keys{
-					"user-provided": ConsistOf(MatchKeys(IgnoreExtras, Keys{
+					"sb-1-type": ConsistOf(MatchKeys(IgnoreExtras, Keys{
 						"binding_name": BeNil(),
 					})),
 				}))
@@ -209,7 +217,7 @@ var _ = Describe("Builder", func() {
 
 			It("sets an empty array to tags", func() {
 				Expect(parseVcapServices(vcapServices)).To(MatchKeys(IgnoreExtras, Keys{
-					"user-provided": ConsistOf(MatchKeys(IgnoreExtras, Keys{
+					"sb-1-type": ConsistOf(MatchKeys(IgnoreExtras, Keys{
 						"tags": BeEmpty(),
 					})),
 				}))
@@ -223,10 +231,8 @@ var _ = Describe("Builder", func() {
 				})
 			})
 
-			It("defaults the label to user-provided", func() {
-				Expect(parseVcapServices(vcapServices)).To(MatchKeys(IgnoreExtras, Keys{
-					"user-provided": Not(BeEmpty()),
-				}))
+			It("defaults the label to the instance type binding annotation", func() {
+				Expect(slices.Collect(maps.Keys(parseVcapServices(vcapServices)))).To(ContainElement("sb-1-type"))
 			})
 		})
 
@@ -237,10 +243,8 @@ var _ = Describe("Builder", func() {
 				})
 			})
 
-			It("defaults the label to user-provided", func() {
-				Expect(parseVcapServices(vcapServices)).To(MatchKeys(IgnoreExtras, Keys{
-					"custom-service-2": Not(BeEmpty()),
-				}))
+			It("uses the service label", func() {
+				Expect(slices.Collect(maps.Keys(parseVcapServices(vcapServices)))).To(ConsistOf("custom-service-2"))
 			})
 		})
 

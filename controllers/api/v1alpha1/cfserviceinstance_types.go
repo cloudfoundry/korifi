@@ -46,8 +46,8 @@ type CFServiceInstanceSpec struct {
 	// Type of the Service Instance. Must be `user-provided` or `managed`
 	Type InstanceType `json:"type"`
 
-	// Service label to use when adding this instance to VCAP_Services
-	// Defaults to `user-provided` when this field is not set
+	// Service label to use when adding this instance to VCAP_SERVICES. If not
+	// set, the service instance Type would be used.
 	// +optional
 	ServiceLabel *string `json:"serviceLabel,omitempty"`
 
