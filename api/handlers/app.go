@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -171,14 +170,6 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForApp, appList, h.serverURL, *r.URL)), nil
-}
-
-func timePtrAfter(t1, t2 *time.Time) bool {
-	if t1 == nil || t2 == nil {
-		return false
-	}
-
-	return (*t1).After(*t2)
 }
 
 func (h *App) setCurrentDroplet(r *http.Request) (*routing.Response, error) {
