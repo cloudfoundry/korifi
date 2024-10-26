@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tools"
@@ -43,6 +45,46 @@ type ServiceInstanceRepo struct {
 	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 	awaiter              Awaiter[*korifiv1alpha1.CFServiceInstance]
+	sorter               ServiceInstanceSorter
+}
+
+//counterfeiter:generate -o fake -fake-name ServiceInstanceSorter . ServiceInstanceSorter
+type ServiceInstanceSorter interface {
+	Sort(records []ServiceInstanceRecord, order string) []ServiceInstanceRecord
+}
+
+type serviceInstanceSorter struct {
+	sorter *compare.Sorter[ServiceInstanceRecord]
+}
+
+func NewServiceInstanceSorter() *serviceInstanceSorter {
+	return &serviceInstanceSorter{
+		sorter: compare.NewSorter(ServiceInstanceComparator),
+	}
+}
+
+func (s *serviceInstanceSorter) Sort(records []ServiceInstanceRecord, order string) []ServiceInstanceRecord {
+	return s.sorter.Sort(records, order)
+}
+
+func ServiceInstanceComparator(fieldName string) func(ServiceInstanceRecord, ServiceInstanceRecord) int {
+	return func(s1, s2 ServiceInstanceRecord) int {
+		switch fieldName {
+		case "created_at":
+			return tools.CompareTimePtr(&s1.CreatedAt, &s2.CreatedAt)
+		case "-created_at":
+			return tools.CompareTimePtr(&s2.CreatedAt, &s1.CreatedAt)
+		case "updated_at":
+			return tools.CompareTimePtr(s1.UpdatedAt, s2.UpdatedAt)
+		case "-updated_at":
+			return tools.CompareTimePtr(s2.UpdatedAt, s1.UpdatedAt)
+		case "name":
+			return strings.Compare(s1.Name, s2.Name)
+		case "-name":
+			return strings.Compare(s2.Name, s1.Name)
+		}
+		return 0
+	}
 }
 
 func NewServiceInstanceRepo(
@@ -50,12 +92,14 @@ func NewServiceInstanceRepo(
 	userClientFactory authorization.UserK8sClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
 	awaiter Awaiter[*korifiv1alpha1.CFServiceInstance],
+	sorter ServiceInstanceSorter,
 ) *ServiceInstanceRepo {
 	return &ServiceInstanceRepo{
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: namespacePermissions,
 		awaiter:              awaiter,
+		sorter:               sorter,
 	}
 }
 
@@ -102,6 +146,7 @@ type ListServiceInstanceMessage struct {
 	SpaceGUIDs    []string
 	GUIDs         []string
 	LabelSelector string
+	OrderBy       string
 }
 
 func (m *ListServiceInstanceMessage) matches(serviceInstance korifiv1alpha1.CFServiceInstance) bool {
@@ -347,7 +392,7 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 	}
 
 	filteredServiceInstances := itx.FromSlice(serviceInstances).Filter(message.matches)
-	return slices.Collect(it.Map(filteredServiceInstances, cfServiceInstanceToRecord)), nil
+	return r.sorter.Sort(slices.Collect(it.Map(filteredServiceInstances, cfServiceInstanceToRecord)), message.OrderBy), nil
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {

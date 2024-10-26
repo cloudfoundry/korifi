@@ -9,6 +9,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
@@ -21,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	gomega_types "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -37,6 +39,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			korifiv1alpha1.CFServiceInstanceList,
 			*korifiv1alpha1.CFServiceInstanceList,
 		]
+		sorter *fake.ServiceInstanceSorter
 
 		org                 *korifiv1alpha1.CFOrg
 		space               *korifiv1alpha1.CFSpace
@@ -50,7 +53,12 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			korifiv1alpha1.CFServiceInstanceList,
 			*korifiv1alpha1.CFServiceInstanceList,
 		]{}
-		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter)
+		sorter = new(fake.ServiceInstanceSorter)
+		sorter.SortStub = func(records []repositories.ServiceInstanceRecord, _ string) []repositories.ServiceInstanceRecord {
+			return records
+		}
+
+		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter, sorter)
 
 		org = createOrgWithCleanup(ctx, uuid.NewString())
 		space = createSpaceWithCleanup(ctx, org.Name, uuid.NewString())
@@ -627,7 +635,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				},
 			})).To(Succeed())
 
-			filters = repositories.ListServiceInstanceMessage{}
+			filters = repositories.ListServiceInstanceMessage{OrderBy: "foo"}
 		})
 
 		JustBeforeEach(func() {
@@ -648,6 +656,17 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("returns the service instances from the allowed namespaces", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(serviceInstanceList).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
+				))
+			})
+
+			It("sort the service instances", func() {
+				Expect(sorter.SortCallCount()).To(Equal(1))
+				sortedServiceInstances, field := sorter.SortArgsForCall(0)
+				Expect(field).To(Equal("foo"))
+				Expect(sortedServiceInstances).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
@@ -914,3 +933,45 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 	})
 })
+
+var _ = DescribeTable("ServiceInstanceSorter",
+	func(s1, s2 repositories.ServiceInstanceRecord, field string, match gomega_types.GomegaMatcher) {
+		Expect(repositories.ServiceInstanceComparator(field)(s1, s2)).To(match)
+	},
+	Entry("created_at",
+		repositories.ServiceInstanceRecord{CreatedAt: time.UnixMilli(1)},
+		repositories.ServiceInstanceRecord{CreatedAt: time.UnixMilli(2)},
+		"created_at",
+		BeNumerically("<", 0),
+	),
+	Entry("-created_at",
+		repositories.ServiceInstanceRecord{CreatedAt: time.UnixMilli(1)},
+		repositories.ServiceInstanceRecord{CreatedAt: time.UnixMilli(2)},
+		"-created_at",
+		BeNumerically(">", 0),
+	),
+	Entry("updated_at",
+		repositories.ServiceInstanceRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
+		repositories.ServiceInstanceRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
+		"updated_at",
+		BeNumerically("<", 0),
+	),
+	Entry("-updated_at",
+		repositories.ServiceInstanceRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
+		repositories.ServiceInstanceRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
+		"-updated_at",
+		BeNumerically(">", 0),
+	),
+	Entry("name",
+		repositories.ServiceInstanceRecord{Name: "first-instance"},
+		repositories.ServiceInstanceRecord{Name: "second-instance"},
+		"name",
+		BeNumerically("<", 0),
+	),
+	Entry("-name",
+		repositories.ServiceInstanceRecord{Name: "first-instance"},
+		repositories.ServiceInstanceRecord{Name: "second-instance"},
+		"-name",
+		BeNumerically(">", 0),
+	),
+)
