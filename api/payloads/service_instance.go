@@ -210,6 +210,7 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 		Names:         parse.ArrayParam(l.Names),
 		SpaceGUIDs:    parse.ArrayParam(l.SpaceGUIDs),
 		GUIDs:         parse.ArrayParam(l.GUIDs),
+		OrderBy:       l.OrderBy,
 		LabelSelector: l.LabelSelector,
 	}
 }

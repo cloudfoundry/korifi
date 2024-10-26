@@ -3,9 +3,7 @@ package handlers_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strings"
-	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
@@ -386,46 +384,6 @@ var _ = Describe("ServiceInstance", func() {
 					})
 				})
 			})
-		})
-
-		Describe("Order results", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
-					{
-						GUID:      "1",
-						Name:      "first-test-si",
-						CreatedAt: time.UnixMilli(3000),
-						UpdatedAt: tools.PtrTo(time.UnixMilli(4000)),
-					},
-					{
-						GUID:      "2",
-						Name:      "second-test-si",
-						CreatedAt: time.UnixMilli(2000),
-						UpdatedAt: tools.PtrTo(time.UnixMilli(5000)),
-					},
-					{
-						GUID:      "3",
-						Name:      "third-test-si",
-						CreatedAt: time.UnixMilli(1000),
-						UpdatedAt: tools.PtrTo(time.UnixMilli(6000)),
-					},
-				}, nil)
-			})
-
-			DescribeTable("ordering results", func(orderBy string, expectedOrder ...any) {
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{OrderBy: orderBy})
-				req := createHttpRequest("GET", "/v3/service_instances?order_by=not-used", nil)
-				rr = httptest.NewRecorder()
-				routerBuilder.Build().ServeHTTP(rr, req)
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].guid", expectedOrder)))
-			},
-				Entry("created_at ASC", "created_at", "3", "2", "1"),
-				Entry("created_at DESC", "-created_at", "1", "2", "3"),
-				Entry("updated_at ASC", "updated_at", "1", "2", "3"),
-				Entry("updated_at DESC", "-updated_at", "3", "2", "1"),
-				Entry("name ASC", "name", "1", "2", "3"),
-				Entry("name DESC", "-name", "3", "2", "1"),
-			)
 		})
 
 		When("there is an error fetching service instances", func() {

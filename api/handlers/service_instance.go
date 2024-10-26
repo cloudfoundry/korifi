@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"sort"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers/include"
@@ -160,33 +159,12 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service instance")
 	}
 
-	h.sortList(serviceInstances, payload.OrderBy)
-
 	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, serviceInstances, payload.IncludeResourceRules)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceInstance, serviceInstances, h.serverURL, *r.URL, includedResources...)), nil
-}
-
-// nolint:dupl
-func (h *ServiceInstance) sortList(siList []repositories.ServiceInstanceRecord, order string) {
-	switch order {
-	case "":
-	case "created_at":
-		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(&siList[j].CreatedAt, &siList[i].CreatedAt) })
-	case "-created_at":
-		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(&siList[i].CreatedAt, &siList[j].CreatedAt) })
-	case "updated_at":
-		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(siList[j].UpdatedAt, siList[i].UpdatedAt) })
-	case "-updated_at":
-		sort.Slice(siList, func(i, j int) bool { return timePtrAfter(siList[i].UpdatedAt, siList[j].UpdatedAt) })
-	case "name":
-		sort.Slice(siList, func(i, j int) bool { return siList[i].Name < siList[j].Name })
-	case "-name":
-		sort.Slice(siList, func(i, j int) bool { return siList[i].Name > siList[j].Name })
-	}
 }
 
 func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {
