@@ -182,7 +182,7 @@ You can then specify the `<registry-ca-secret-name>` using the `containerRegistr
 > **Warning**
 > Kpack does not support self-signed/internal CA configuration out of the box (see [pivotal/kpack#207](https://github.com/pivotal/kpack/issues/207)).
 > In order to make Kpack trust your CA certificate, you will have to inject it in both the Kpack controller and the Kpack build pods.
-> * The [`kpack-controller` `Deployment`](https://github.com/pivotal/kpack/blob/main/config/controller.yaml) can be modified to mount a `Secret` similar to the one created above: see the [Korifi API `Deployment`](https://github.com/cloudfoundry/korifi/blob/registry-ca/helm/api/templates/deployment.yaml) for an example of how to do this.
+> * The [`kpack-controller` `Deployment`](https://github.com/pivotal/kpack/blob/main/config/controller.yaml) can be modified to mount a `Secret` similar to the one created above: see the [Korifi API `Deployment`](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/api/deployment.yaml) for an example of how to do this.
 > * For the build pods you can use the [cert-injection-webhook](https://github.com/vmware-tanzu/cert-injection-webhook), configured on the `kpack.io/build` label.
 
 ## Install Korifi
