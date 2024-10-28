@@ -123,6 +123,16 @@ var _ = Describe("Manifest payload", func() {
 				})
 			})
 
+			When("the disk quota is a floating point number", func() {
+				BeforeEach(func() {
+					testManifest.DiskQuota = tools.PtrTo("1.5G")
+				})
+
+				It("does not return a validation error", func() {
+					Expect(validateErr).NotTo(HaveOccurred())
+				})
+			})
+
 			When("the alt disk quota doesn't supply a unit", func() {
 				BeforeEach(func() {
 					testManifest.AltDiskQuota = tools.PtrTo("1024")
@@ -201,6 +211,16 @@ var _ = Describe("Manifest payload", func() {
 
 				It("returns a validation error", func() {
 					expectUnprocessableEntityError(validateErr, "memory must be greater than 0MB")
+				})
+			})
+
+			When("the memory is a floating point number", func() {
+				BeforeEach(func() {
+					testManifest.Memory = tools.PtrTo("0.5G")
+				})
+
+				It("does not return a validation error", func() {
+					Expect(validateErr).NotTo(HaveOccurred())
 				})
 			})
 
@@ -436,6 +456,16 @@ var _ = Describe("Manifest payload", func() {
 				})
 			})
 
+			When("the disk quota is a floating point number", func() {
+				BeforeEach(func() {
+					testManifestProcess.DiskQuota = tools.PtrTo("1.5G")
+				})
+
+				It("does not return a validation error", func() {
+					Expect(validateErr).NotTo(HaveOccurred())
+				})
+			})
+
 			When("the alt disk quota doesn't supply a unit", func() {
 				BeforeEach(func() {
 					testManifestProcess.AltDiskQuota = tools.PtrTo("1024")
@@ -514,6 +544,16 @@ var _ = Describe("Manifest payload", func() {
 
 				It("returns a validation error", func() {
 					expectUnprocessableEntityError(validateErr, "memory must be greater than 0MB")
+				})
+			})
+
+			When("the memory is a floating point number", func() {
+				BeforeEach(func() {
+					testManifestProcess.Memory = tools.PtrTo("0.5G")
+				})
+
+				It("does not return a validation error", func() {
+					Expect(validateErr).NotTo(HaveOccurred())
 				})
 			})
 

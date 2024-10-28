@@ -256,7 +256,7 @@ func (s ManifestApplicationService) Validate() error {
 	return validation.ValidateStruct(&s, validation.Field(&s.Name, validation.Required))
 }
 
-var unitAmount = regexp.MustCompile(`^\d+(?:B|K|KB|M|m|MB|mb|G|g|GB|gb|T|t|TB|tb)$`)
+var unitAmount = regexp.MustCompile(`^\d+(?:\.\d+)?(?:B|K|KB|M|m|MB|mb|G|g|GB|gb|T|t|TB|tb)$`)
 
 func validateAmountWithUnit(value any) error {
 	v, isNil := validation.Indirect(value)
