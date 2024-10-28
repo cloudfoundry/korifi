@@ -36,7 +36,6 @@ function configure_crd_tests() {
 function configure_smoke_tests() {
   export API_SERVER_ROOT="${API_SERVER_ROOT:-https://localhost}"
   export APP_FQDN="${APP_FQDN:-apps-127-0-0-1.nip.io}"
-  export NO_PARALLEL=true
 
   deploy_korifi
 }

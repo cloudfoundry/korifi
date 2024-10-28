@@ -20,7 +20,7 @@ var _ = Describe("Service Catalog", func() {
 			brokerName,
 			"broker-user",
 			"broker-password",
-			helpers.GetInClusterURL(getAppGUID(brokerAppName)),
+			helpers.GetInClusterURL(getAppGUID(sharedData.BrokerAppName)),
 		)).To(Exit(0))
 	})
 
@@ -35,7 +35,7 @@ var _ = Describe("Service Catalog", func() {
 
 			lines := it.MustCollect(it.LinesString(session.Out))
 			Expect(lines).To(ContainElement(
-				matchSubstrings(brokerName, helpers.GetInClusterURL(getAppGUID(brokerAppName)))))
+				matchSubstrings(brokerName, helpers.GetInClusterURL(getAppGUID(sharedData.BrokerAppName)))))
 		})
 	})
 
