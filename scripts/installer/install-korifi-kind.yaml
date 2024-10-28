@@ -88,6 +88,11 @@ spec:
             --set persistence.deleteEnabled=true \
             --set secrets.htpasswd='user:$2y$05$Ue5dboOfmqk6Say31Sin9uVbHWTl8J1Sgq9QyAEmFQRnq1TPfP1n2'
 
+          while ! curl -o /dev/null http://localregistry-docker-registry.default.svc.cluster.local:30050/v2/_catalog 2>/dev/null; do
+            echo Waiting for the local docker registry to respond...
+            sleep 1
+          done
+
           registry_status_code=""
           while [[ "$registry_status_code" != "200" ]]; do
             echo Waiting for the local docker registry to start...
