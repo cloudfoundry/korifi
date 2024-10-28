@@ -51,7 +51,7 @@ var _ = Describe("Processes", func() {
 		})
 	})
 
-	Describe("List sidecars", Ordered, func() {
+	Describe("List sidecars", func() {
 		var list resourceList[resource]
 
 		JustBeforeEach(func() {

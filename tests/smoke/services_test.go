@@ -20,7 +20,7 @@ var _ = Describe("Services", func() {
 			brokerName,
 			"broker-user",
 			"broker-password",
-			helpers.GetInClusterURL(getAppGUID(brokerAppName)),
+			helpers.GetInClusterURL(getAppGUID(sharedData.BrokerAppName)),
 		)).To(Exit(0))
 	})
 

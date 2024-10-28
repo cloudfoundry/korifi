@@ -14,13 +14,13 @@ import (
 var _ = Describe("cf logs", func() {
 	Describe("cf logs --recent", func() {
 		It("prints app recent logs", func() {
-			Eventually(helpers.Cf("logs", buildpackAppName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
+			Eventually(helpers.Cf("logs", sharedData.BuildpackAppName, "--recent")).Should(gbytes.Say("Listening on port 8080"))
 		})
 	})
 
 	Describe("cf logs", func() {
 		It("blocks waiting for new log entries", func() {
-			logsSession := cf.Cf("logs", buildpackAppName)
+			logsSession := cf.Cf("logs", sharedData.BuildpackAppName)
 			defer logsSession.Signal(syscall.SIGTERM)
 
 			Eventually(logsSession).Should(gbytes.Say("Listening on port 8080"))
