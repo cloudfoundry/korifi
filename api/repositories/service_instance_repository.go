@@ -164,8 +164,8 @@ func (m *ListServiceInstanceMessage) matchesNamespace(ns string) bool {
 }
 
 type DeleteServiceInstanceMessage struct {
-	GUID      string
-	SpaceGUID string
+	GUID  string
+	Purge bool
 }
 
 type ServiceInstanceRecord struct {
@@ -462,11 +462,23 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	serviceInstance := &korifiv1alpha1.CFServiceInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      message.GUID,
-			Namespace: message.SpaceGUID,
-		},
+	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, message.GUID, ServiceInstanceResourceType)
+	if err != nil {
+		return fmt.Errorf("failed to get namespace for service instance: %w", err)
+	}
+
+	serviceInstance := &korifiv1alpha1.CFServiceInstance{}
+	if err := userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: message.GUID}, serviceInstance); err != nil {
+		return fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
+	}
+
+	if message.Purge {
+		err := k8s.PatchResource(ctx, userClient, serviceInstance, func() {
+			controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+		})
+		if err != nil {
+			return fmt.Errorf("failed to remove finalizer for service instance: %s, %w", message.GUID, apierrors.FromK8sError(err, ServiceInstanceResourceType))
+		}
 	}
 
 	if err := userClient.Delete(ctx, serviceInstance); err != nil {

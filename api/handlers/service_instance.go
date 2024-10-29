@@ -173,14 +173,19 @@ func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {
 
 	serviceInstanceGUID := routing.URLParam(r, "guid")
 
+	payload := new(payloads.ServiceInstanceDelete)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceInstanceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance")
 	}
 
 	err = h.serviceInstanceRepo.DeleteServiceInstance(r.Context(), authInfo, repositories.DeleteServiceInstanceMessage{
-		GUID:      serviceInstanceGUID,
-		SpaceGUID: serviceInstance.SpaceGUID,
+		GUID:  serviceInstanceGUID,
+		Purge: payload.Purge,
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service instance", "guid", serviceInstanceGUID)

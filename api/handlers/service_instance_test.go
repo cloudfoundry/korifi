@@ -522,7 +522,7 @@ var _ = Describe("ServiceInstance", func() {
 			_, actualAuthInfo, message := serviceInstanceRepo.DeleteServiceInstanceArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(message.GUID).To(Equal("service-instance-guid"))
-			Expect(message.SpaceGUID).To(Equal("space-guid"))
+			Expect(message.Purge).To(BeFalse())
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
 		})
@@ -541,7 +541,7 @@ var _ = Describe("ServiceInstance", func() {
 				_, actualAuthInfo, message := serviceInstanceRepo.DeleteServiceInstanceArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 				Expect(message.GUID).To(Equal("service-instance-guid"))
-				Expect(message.SpaceGUID).To(Equal("space-guid"))
+				Expect(message.Purge).To(BeFalse())
 
 				Expect(rr).To(SatisfyAll(
 					HaveHTTPStatus(http.StatusAccepted),

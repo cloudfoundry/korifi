@@ -982,8 +982,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			serviceInstance = createServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
 
 			deleteMessage = repositories.DeleteServiceInstanceMessage{
-				GUID:      serviceInstance.Name,
-				SpaceGUID: space.Name,
+				GUID:  serviceInstance.Name,
+				Purge: false,
 			}
 		})
 
