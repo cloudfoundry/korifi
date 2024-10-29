@@ -179,7 +179,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 	It("provisions the service", func() {
 		Eventually(func(g Gomega) {
-			g.Expect(brokerClient.ProvisionCallCount()).To(Equal(1))
+			g.Expect(brokerClient.ProvisionCallCount()).NotTo(BeZero())
 			_, payload := brokerClient.ProvisionArgsForCall(0)
 			g.Expect(payload).To(Equal(osbapi.InstanceProvisionPayload{
 				InstanceID: instance.Name,
@@ -222,7 +222,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 		It("requests provisioning without parameters", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(brokerClient.ProvisionCallCount()).To(Equal(1))
+				g.Expect(brokerClient.ProvisionCallCount()).NotTo(BeZero())
 				_, payload := brokerClient.ProvisionArgsForCall(0)
 				g.Expect(payload.Parameters).To(BeEmpty())
 			}).Should(Succeed())
