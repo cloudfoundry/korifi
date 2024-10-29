@@ -24,6 +24,7 @@ const (
 	AppsPath                          = "/v3/apps"
 	AppPath                           = "/v3/apps/{guid}"
 	AppCurrentDropletRelationshipPath = "/v3/apps/{guid}/relationships/current_droplet"
+	AppDropletsPath                   = "/v3/apps/{guid}/droplets"
 	AppCurrentDropletPath             = "/v3/apps/{guid}/droplets/current"
 	AppProcessesPath                  = "/v3/apps/{guid}/processes"
 	AppProcessByTypePath              = "/v3/apps/{guid}/processes/{type}"
@@ -215,6 +216,24 @@ func (h *App) setCurrentDroplet(r *http.Request) (*routing.Response, error) {
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForCurrentDroplet(currentDroplet, h.serverURL)), nil
+}
+
+func (h *App) listDroplets(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-droplets")
+	appGUID := routing.URLParam(r, "guid")
+
+	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+	}
+
+	droplets, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, repositories.ListDropletsMessage{AppGUIDs: []string{appGUID}})
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch droplet from Kubernetes", "dropletGUID", app.DropletGUID)
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDroplet, droplets, h.serverURL, *r.URL)), nil
 }
 
 func (h *App) getCurrentDroplet(r *http.Request) (*routing.Response, error) {
@@ -725,6 +744,7 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: AppsPath, Handler: h.list},
 		{Method: "POST", Pattern: AppsPath, Handler: h.create},
 		{Method: "PATCH", Pattern: AppCurrentDropletRelationshipPath, Handler: h.setCurrentDroplet},
+		{Method: "GET", Pattern: AppDropletsPath, Handler: h.listDroplets},
 		{Method: "GET", Pattern: AppCurrentDropletPath, Handler: h.getCurrentDroplet},
 		{Method: "POST", Pattern: AppStartPath, Handler: h.start},
 		{Method: "POST", Pattern: AppStopPath, Handler: h.stop},

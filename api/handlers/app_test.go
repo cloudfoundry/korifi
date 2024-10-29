@@ -1306,6 +1306,91 @@ var _ = Describe("App", func() {
 		})
 	})
 
+	Describe("GET /v3/apps/:guid/droplets", func() {
+		BeforeEach(func() {
+			dropletRepo.ListDropletsReturns([]repositories.DropletRecord{{
+				GUID:    dropletGUID,
+				State:   "STAGED",
+				AppGUID: appGUID,
+			}}, nil)
+
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/droplets", nil)
+		})
+
+		It("returns the list of droplets", func() {
+			Expect(dropletRepo.ListDropletsCallCount()).To(Equal(1))
+			_, actualAuthInfo, dropletListMessage := dropletRepo.ListDropletsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+
+			Expect(dropletListMessage).To(Equal(repositories.ListDropletsMessage{
+				AppGUIDs: []string{appGUID},
+			}))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/droplets"),
+				MatchJSONPath("$.resources", HaveLen(1)),
+				MatchJSONPath("$.resources[0].guid", Equal(dropletGUID)),
+				MatchJSONPath("$.resources[0].relationships.app.data.guid", Equal(appGUID)),
+				MatchJSONPath("$.resources[0].state", Equal("STAGED")),
+			)))
+		})
+
+		When("the app is not accessible", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(
+					repositories.AppRecord{},
+					apierrors.NewForbiddenError(nil, repositories.AppResourceType),
+				)
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App")
+			})
+		})
+
+		When("there is some other error fetching the app", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(
+					repositories.AppRecord{},
+					errors.New("unknown!"),
+				)
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the droplet is not accessible", func() {
+			BeforeEach(func() {
+				dropletRepo.ListDropletsReturns(
+					[]repositories.DropletRecord{},
+					apierrors.NewForbiddenError(nil, repositories.DropletResourceType),
+				)
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("Droplet")
+			})
+		})
+
+		When("there is some other error fetching the droplet", func() {
+			BeforeEach(func() {
+				dropletRepo.ListDropletsReturns(
+					[]repositories.DropletRecord{},
+					errors.New("unknown!"),
+				)
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("GET /v3/apps/:guid/actions/restart", func() {
 		BeforeEach(func() {
 			updatedAppRecord := appRecord
