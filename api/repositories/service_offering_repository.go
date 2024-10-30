@@ -14,6 +14,7 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -59,6 +60,30 @@ func NewServiceOfferingRepo(
 		rootNamespace:     rootNamespace,
 		brokerRepo:        brokerRepo,
 	}
+}
+
+func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo authorization.Info, guid string) (ServiceOfferingRecord, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return ServiceOfferingRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	offering := &korifiv1alpha1.CFServiceOffering{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      guid,
+		},
+	}
+
+	if err = userClient.Get(ctx, client.ObjectKeyFromObject(offering), offering); err != nil {
+		if k8serrors.IsForbidden(err) {
+			return ServiceOfferingRecord{}, nil
+		}
+
+		return ServiceOfferingRecord{}, fmt.Errorf("failed to get service offering: %s %w", guid, apierrors.FromK8sError(err, ServiceOfferingResourceType))
+	}
+
+	return offeringToRecord(*offering), nil
 }
 
 func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {

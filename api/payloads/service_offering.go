@@ -10,6 +10,25 @@ import (
 	jellidation "github.com/jellydator/validation"
 )
 
+type ServiceOfferingGet struct {
+	IncludeBrokerFields []string
+}
+
+func (g ServiceOfferingGet) Validate() error {
+	return jellidation.ValidateStruct(&g,
+		jellidation.Field(&g.IncludeBrokerFields, jellidation.Each(validation.OneOf("guid", "name"))),
+	)
+}
+
+func (g ServiceOfferingGet) SupportedKeys() []string {
+	return []string{"fields[service_broker]"}
+}
+
+func (l *ServiceOfferingGet) DecodeFromURLValues(values url.Values) error {
+	l.IncludeBrokerFields = parse.ArrayParam(values.Get("fields[service_broker]"))
+	return nil
+}
+
 type ServiceOfferingList struct {
 	Names               string
 	BrokerNames         string

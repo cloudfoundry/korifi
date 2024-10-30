@@ -37,6 +37,123 @@ var _ = Describe("ServiceOffering", func() {
 		routerBuilder.LoadRoutes(apiHandler)
 	})
 
+	Describe("GET /v3/service_offering/:guid", func() {
+		BeforeEach(func() {
+			serviceOfferingRepo.GetServiceOfferingReturns(repositories.ServiceOfferingRecord{
+				ServiceOffering: services.ServiceOffering{},
+				CFResource: model.CFResource{
+					GUID: "offering-guid",
+				},
+				ServiceBrokerGUID: "broker-guid",
+			}, nil)
+		})
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/service_offerings/offering-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
+
+		It("returns the service offering", func() {
+			Expect(serviceOfferingRepo.GetServiceOfferingCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualOfferingGUID := serviceOfferingRepo.GetServiceOfferingArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualOfferingGUID).To(Equal("offering-guid"))
+
+			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "offering-guid"),
+			)))
+		})
+
+		Describe("include broker field", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
+					ServiceBroker: services.ServiceBroker{
+						Name: "broker-name",
+					},
+					CFResource: model.CFResource{
+						GUID: "broker-guid",
+					},
+				}}, nil)
+
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingGet{
+					IncludeBrokerFields: []string{"foo"},
+				})
+			})
+
+			It("lists the broker", func() {
+				Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
+				_, _, actualListMessage := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
+				Expect(actualListMessage).To(Equal(repositories.ListServiceBrokerMessage{
+					GUIDs: []string{"broker-guid"},
+				}))
+			})
+
+			When("listing brokers fails", func() {
+				BeforeEach(func() {
+					serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{}, errors.New("list-broker-err"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+
+			Describe("broker name", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingGet{
+						IncludeBrokerFields: []string{"name"},
+					})
+				})
+
+				It("includes broker fields in the response", func() {
+					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.included.service_brokers[0].name", "broker-name"),
+					)))
+				})
+			})
+
+			Describe("broker guid", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingGet{
+						IncludeBrokerFields: []string{"guid"},
+					})
+				})
+
+				It("includes broker fields in the response", func() {
+					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.included.service_brokers[0].guid", "broker-guid"),
+					)))
+				})
+			})
+		})
+
+		When("the request is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("invalid-request"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("getting the offering fails", func() {
+			BeforeEach(func() {
+				serviceOfferingRepo.GetServiceOfferingReturns(repositories.ServiceOfferingRecord{}, errors.New("get-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("GET /v3/service_offerings", func() {
 		BeforeEach(func() {
 			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{

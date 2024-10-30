@@ -22,10 +22,12 @@ import (
 
 const (
 	ServiceOfferingsPath = "/v3/service_offerings"
+	ServiceOfferingPath  = "/v3/service_offerings/{guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServiceOfferingRepository . CFServiceOfferingRepository
 type CFServiceOfferingRepository interface {
+	GetServiceOffering(context.Context, authorization.Info, string) (repositories.ServiceOfferingRecord, error)
 	ListOfferings(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)
 }
 
@@ -48,6 +50,30 @@ func NewServiceOffering(
 		serviceOfferingRepo: serviceOfferingRepo,
 		serviceBrokerRepo:   serviceBrokerRepo,
 	}
+}
+
+func (h *ServiceOffering) get(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-offering.create")
+
+	payload := new(payloads.ServiceOfferingGet)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
+	serviceOfferingGUID := routing.URLParam(r, "guid")
+
+	serviceOffering, err := h.serviceOfferingRepo.GetServiceOffering(r.Context(), authInfo, serviceOfferingGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get service offering: %s", serviceOfferingGUID)
+	}
+
+	brokerIncludes, err := h.getBrokerIncludes(r.Context(), authInfo, []repositories.ServiceOfferingRecord{serviceOffering}, payload.IncludeBrokerFields, h.serverURL)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get broker includes")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceOfferingWithIncluded(serviceOffering, h.serverURL, brokerIncludes...)), nil
 }
 
 func (h *ServiceOffering) list(r *http.Request) (*routing.Response, error) {
@@ -116,6 +142,7 @@ func (h *ServiceOffering) UnauthenticatedRoutes() []routing.Route {
 
 func (h *ServiceOffering) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
+		{Method: "GET", Pattern: ServiceOfferingPath, Handler: h.get},
 		{Method: "GET", Pattern: ServiceOfferingsPath, Handler: h.list},
 	}
 }
