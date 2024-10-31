@@ -46,6 +46,7 @@ type ServiceInstanceRepo struct {
 	namespacePermissions *authorization.NamespacePermissions
 	awaiter              Awaiter[*korifiv1alpha1.CFServiceInstance]
 	sorter               ServiceInstanceSorter
+	rootNamespace        string
 }
 
 //counterfeiter:generate -o fake -fake-name ServiceInstanceSorter . ServiceInstanceSorter
@@ -93,6 +94,7 @@ func NewServiceInstanceRepo(
 	namespacePermissions *authorization.NamespacePermissions,
 	awaiter Awaiter[*korifiv1alpha1.CFServiceInstance],
 	sorter ServiceInstanceSorter,
+	rootNamespace string,
 ) *ServiceInstanceRepo {
 	return &ServiceInstanceRepo{
 		namespaceRetriever:   namespaceRetriever,
@@ -100,6 +102,7 @@ func NewServiceInstanceRepo(
 		namespacePermissions: namespacePermissions,
 		awaiter:              awaiter,
 		sorter:               sorter,
+		rootNamespace:        rootNamespace,
 	}
 }
 
@@ -230,6 +233,15 @@ func (r *ServiceInstanceRepo) CreateManagedServiceInstance(ctx context.Context, 
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	planVisible, err := r.servicePlanVisible(ctx, userClient, message.PlanGUID, message.SpaceGUID)
+	if err != nil {
+		return ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, "Invalid service plan. Ensure that the service plan exists, is available, and you have access to it.")
+	}
+
+	if !planVisible {
+		return ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(nil, "Invalid service plan. Ensure that the service plan exists, is available, and you have access to it.")
+	}
+
 	parameterBytes, err := json.Marshal(message.Parameters)
 	if err != nil {
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to marshal parameters: %w", err)
@@ -258,6 +270,34 @@ func (r *ServiceInstanceRepo) CreateManagedServiceInstance(ctx context.Context, 
 	}
 
 	return cfServiceInstanceToRecord(*cfServiceInstance), nil
+}
+
+func (r *ServiceInstanceRepo) servicePlanVisible(ctx context.Context, userClient client.Client, planGUID string, spaceGUID string) (bool, error) {
+	servicePlan := &korifiv1alpha1.CFServicePlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      planGUID,
+			Namespace: r.rootNamespace,
+		},
+	}
+	err := userClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)
+	if err != nil {
+		return false, err
+	}
+
+	if servicePlan.Spec.Visibility.Type == korifiv1alpha1.PublicServicePlanVisibilityType {
+		return true, nil
+	}
+
+	if servicePlan.Spec.Visibility.Type == korifiv1alpha1.AdminServicePlanVisibilityType {
+		return false, nil
+	}
+
+	orgGUID, err := r.namespaceRetriever.NamespaceFor(ctx, spaceGUID, SpaceResourceType)
+	if err != nil {
+		return false, err
+	}
+
+	return slices.Contains(servicePlan.Spec.Visibility.Organizations, orgGUID), nil
 }
 
 func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo authorization.Info, message PatchServiceInstanceMessage) (ServiceInstanceRecord, error) {

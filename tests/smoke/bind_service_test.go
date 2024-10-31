@@ -46,6 +46,7 @@ var _ = Describe("cf bind-service", func() {
 				helpers.GetInClusterURL(getAppGUID(sharedData.BrokerAppName)),
 			)).To(Exit(0))
 
+			Expect(helpers.Cf("enable-service-access", "sample-service", "-b", brokerName)).To(Exit(0))
 			session := helpers.Cf("create-service", "sample-service", "sample", serviceName, "-b", brokerName)
 			Expect(session).To(Exit(0))
 		})

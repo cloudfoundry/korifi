@@ -21,6 +21,7 @@ import (
 
 	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -1182,6 +1183,25 @@ func createBroker(brokerURL string) string {
 		jobRespBody := string(resp.Body())
 		g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
 	}).Should(Succeed())
+
+	plans := resourceList[resource]{}
+	listResp, err := adminClient.R().SetResult(&plans).Get("/v3/service_plans")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(listResp).To(HaveRestyStatusCode(http.StatusOK))
+
+	itx.FromSlice(plans.Resources).Filter(func(r resource) bool {
+		return r.Metadata.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] == brokerGUID
+	}).ForEach(func(plan resource) {
+		resp, err := adminClient.R().
+			SetBody(planVisibilityResource{
+				Type: "public",
+			}).
+			Post(fmt.Sprintf("/v3/service_plans/%s/visibility", plan.GUID))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp).To(SatisfyAll(
+			HaveRestyStatusCode(http.StatusOK),
+		))
+	})
 
 	return brokerGUID
 }
