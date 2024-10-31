@@ -387,6 +387,36 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 	return f.sorter.Sort(slices.Collect(appRecords), message.OrderBy), nil
 }
 
+func (f *AppRepo) GetAppEnvVars(ctx context.Context, authInfo authorization.Info, appGUID string) (AppEnvVarsRecord, error) {
+	app, err := f.GetApp(ctx, authInfo, appGUID)
+	if err != nil {
+		return AppEnvVarsRecord{}, err
+	}
+
+	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return AppEnvVarsRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	appEnvVarMap := map[string]string{}
+	if app.envSecretName != "" {
+		appEnvVarSecret := new(corev1.Secret)
+		err = userClient.Get(ctx, types.NamespacedName{Name: app.envSecretName, Namespace: app.SpaceGUID}, appEnvVarSecret)
+		if err != nil {
+			return AppEnvVarsRecord{}, fmt.Errorf("error finding environment variable Secret %q for App %q: %w",
+				app.envSecretName,
+				app.GUID,
+				apierrors.FromK8sError(err, AppEnvResourceType))
+		}
+		appEnvVarMap = convertByteSliceValuesToStrings(appEnvVarSecret.Data)
+	}
+
+	return AppEnvVarsRecord{
+		AppGUID:              app.GUID,
+		EnvironmentVariables: appEnvVarMap,
+	}, nil
+}
+
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
 	secretObj := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

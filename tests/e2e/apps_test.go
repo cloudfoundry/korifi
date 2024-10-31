@@ -689,6 +689,28 @@ var _ = Describe("Apps", func() {
 	})
 
 	Describe("Fetching app environment variables", func() {
+		var result map[string]interface{}
+
+		BeforeEach(func() {
+			appGUID, _ = pushTestApp(space1GUID, defaultAppBitsFile)
+			setEnv(appGUID, map[string]interface{}{
+				"foo": "var",
+			})
+		})
+
+		It("succeeds", func() {
+			var err error
+			resp, err = adminClient.R().
+				SetResult(&result).
+				Get("/v3/apps/" + appGUID + "/environment_variables")
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result).To(HaveKeyWithValue("var", HaveKeyWithValue("foo", "var")))
+		})
+	})
+
+	Describe("Fetching app environment", func() {
 		var (
 			result                      map[string]interface{}
 			instanceGUID, instanceGUID2 string
