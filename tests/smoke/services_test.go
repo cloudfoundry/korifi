@@ -22,6 +22,7 @@ var _ = Describe("Services", func() {
 			"broker-password",
 			helpers.GetInClusterURL(getAppGUID(sharedData.BrokerAppName)),
 		)).To(Exit(0))
+		Expect(helpers.Cf("enable-service-access", "sample-service", "-b", brokerName)).To(Exit(0))
 	})
 
 	AfterEach(func() {

@@ -75,7 +75,7 @@ var _ = Describe("Service Plans", func() {
 			It("returns the service plan visibility", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(result).To(Equal(planVisibilityResource{
-					Type: korifiv1alpha1.AdminServicePlanVisibilityType,
+					Type: "public",
 				}))
 			})
 		})
@@ -86,7 +86,7 @@ var _ = Describe("Service Plans", func() {
 				resp, err = adminClient.R().
 					SetResult(&result).
 					SetBody(planVisibilityResource{
-						Type: "public",
+						Type: "admin",
 					}).
 					Post(fmt.Sprintf("/v3/service_plans/%s/visibility", planGUID))
 				Expect(err).NotTo(HaveOccurred())
@@ -96,7 +96,7 @@ var _ = Describe("Service Plans", func() {
 				Expect(resp).To(SatisfyAll(
 					HaveRestyStatusCode(http.StatusOK),
 					HaveRestyBody(MatchJSON(`{
-						"type": "public"
+						"type": "admin"
 					}`)),
 				))
 			})
@@ -108,7 +108,7 @@ var _ = Describe("Service Plans", func() {
 				resp, err = adminClient.R().
 					SetResult(&result).
 					SetBody(planVisibilityResource{
-						Type: "public",
+						Type: "admin",
 					}).
 					Patch(fmt.Sprintf("/v3/service_plans/%s/visibility", planGUID))
 				Expect(err).NotTo(HaveOccurred())
@@ -118,7 +118,7 @@ var _ = Describe("Service Plans", func() {
 				Expect(resp).To(SatisfyAll(
 					HaveRestyStatusCode(http.StatusOK),
 					HaveRestyBody(MatchJSON(`{
-						"type": "public"
+						"type": "admin"
 					}`)),
 				))
 			})

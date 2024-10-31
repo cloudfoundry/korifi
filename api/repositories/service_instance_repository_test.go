@@ -58,7 +58,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			return records
 		}
 
-		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter, sorter)
+		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter, sorter, rootNamespace)
 
 		org = createOrgWithCleanup(ctx, uuid.NewString())
 		space = createSpaceWithCleanup(ctx, org.Name, uuid.NewString())
@@ -154,16 +154,30 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("CreateManagedServiceInstance", func() {
 		var (
+			servicePlan                  *korifiv1alpha1.CFServicePlan
 			serviceInstanceCreateMessage repositories.CreateManagedSIMessage
 			record                       repositories.ServiceInstanceRecord
 			createErr                    error
 		)
 
 		BeforeEach(func() {
+			servicePlan = &korifiv1alpha1.CFServicePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      uuid.NewString(),
+				},
+				Spec: korifiv1alpha1.CFServicePlanSpec{
+					Visibility: korifiv1alpha1.ServicePlanVisibility{
+						Type: korifiv1alpha1.PublicServicePlanVisibilityType,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, servicePlan)).To(Succeed())
+
 			serviceInstanceCreateMessage = repositories.CreateManagedSIMessage{
 				Name:      serviceInstanceName,
 				SpaceGUID: space.Name,
-				PlanGUID:  "plan-guid",
+				PlanGUID:  servicePlan.Name,
 				Tags:      []string{"foo", "bar"},
 				Parameters: map[string]any{
 					"p1": map[string]any{
@@ -196,7 +210,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(record.Tags).To(ConsistOf([]string{"foo", "bar"}))
 				Expect(record.SecretName).To(BeEmpty())
 				Expect(record.Relationships()).To(Equal(map[string]string{
-					"service_plan": "plan-guid",
+					"service_plan": servicePlan.Name,
 					"space":        space.Name,
 				}))
 				Expect(record.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
@@ -218,7 +232,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(cfServiceInstance.Spec.SecretName).To(BeEmpty())
 				Expect(cfServiceInstance.Spec.Type).To(BeEquivalentTo(korifiv1alpha1.ManagedType))
 				Expect(cfServiceInstance.Spec.Tags).To(ConsistOf("foo", "bar"))
-				Expect(cfServiceInstance.Spec.PlanGUID).To(Equal("plan-guid"))
+				Expect(cfServiceInstance.Spec.PlanGUID).To(Equal(servicePlan.Name))
 				Expect(cfServiceInstance.Spec.Parameters).NotTo(BeNil())
 
 				actualParams := map[string]any{}
@@ -228,6 +242,66 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						"p11": "v11",
 					},
 				}))
+			})
+
+			When("the service plan visibility type is admin", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, servicePlan, func() {
+						servicePlan.Spec.Visibility.Type = korifiv1alpha1.AdminServicePlanVisibilityType
+					})).To(Succeed())
+				})
+
+				It("returns unprocessable entity error", func() {
+					Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+				})
+			})
+
+			When("the service plan visibility type is organization", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, k8sClient, servicePlan, func() {
+						servicePlan.Spec.Visibility.Type = korifiv1alpha1.OrganizationServicePlanVisibilityType
+					})).To(Succeed())
+				})
+
+				It("returns unprocessable entity error", func() {
+					Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+				})
+
+				When("the plan is enabled for the current organization", func() {
+					BeforeEach(func() {
+						Expect(k8s.PatchResource(ctx, k8sClient, servicePlan, func() {
+							servicePlan.Spec.Visibility.Organizations = append(servicePlan.Spec.Visibility.Organizations, org.Name)
+						})).To(Succeed())
+					})
+
+					It("succeeds", func() {
+						Expect(createErr).NotTo(HaveOccurred())
+					})
+
+					When("the space does not exist", func() {
+						BeforeEach(func() {
+							serviceInstanceCreateMessage.SpaceGUID = "does-not-exist"
+						})
+
+						It("returns unprocessable entity error", func() {
+							var unprocessableEntityErr apierrors.UnprocessableEntityError
+							Expect(errors.As(createErr, &unprocessableEntityErr)).To(BeTrue())
+							Expect(unprocessableEntityErr).To(MatchError(ContainSubstring("does-not-exist")))
+						})
+					})
+				})
+			})
+
+			When("the service plan does not exist", func() {
+				BeforeEach(func() {
+					serviceInstanceCreateMessage.PlanGUID = "does-not-exist"
+				})
+
+				It("returns unprocessable entity error", func() {
+					var unprocessableEntityErr apierrors.UnprocessableEntityError
+					Expect(errors.As(createErr, &unprocessableEntityErr)).To(BeTrue())
+					Expect(unprocessableEntityErr).To(MatchError(ContainSubstring("does-not-exist")))
+				})
 			})
 		})
 	})
