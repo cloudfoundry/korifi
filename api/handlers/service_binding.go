@@ -78,40 +78,17 @@ func (h *ServiceBinding) create(r *http.Request) (*routing.Response, error) {
 
 	ctx := logr.NewContext(r.Context(), logger.WithValues("app", app.GUID, "service-instance", serviceInstance.GUID))
 
-	if serviceInstance.Type == korifiv1alpha1.ManagedType {
-		return h.createManagedServiceBinding(ctx, authInfo, payload, app)
-	}
-
-	return h.createUserProvidedServiceBinding(ctx, authInfo, payload, app)
-}
-
-func (h *ServiceBinding) createUserProvidedServiceBinding(
-	ctx context.Context,
-	authInfo authorization.Info,
-	payload payloads.ServiceBindingCreate,
-	app repositories.AppRecord,
-) (*routing.Response, error) {
 	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(app.SpaceGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logr.FromContextOrDiscard(ctx), err, "failed to create ServiceBinding")
+	}
+
+	if serviceInstance.Type == korifiv1alpha1.ManagedType {
+		return routing.NewResponse(http.StatusAccepted).
+			WithHeader("Location", presenter.JobURLForRedirects(serviceBinding.GUID, presenter.ManagedServiceBindingCreateOperation, h.serverURL)), nil
 	}
 
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
-}
-
-func (h *ServiceBinding) createManagedServiceBinding(
-	ctx context.Context,
-	authInfo authorization.Info,
-	payload payloads.ServiceBindingCreate,
-	app repositories.AppRecord,
-) (*routing.Response, error) {
-	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(app.SpaceGUID))
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logr.FromContextOrDiscard(ctx), err, "failed to create ServiceBinding")
-	}
-
-	return routing.NewResponse(http.StatusAccepted).
-		WithHeader("Location", presenter.JobURLForRedirects(serviceBinding.GUID, presenter.ManagedServiceBindingCreateOperation, h.serverURL)), nil
 }
 
 func (h *ServiceBinding) delete(r *http.Request) (*routing.Response, error) {
@@ -119,10 +96,29 @@ func (h *ServiceBinding) delete(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-binding.delete")
 
 	serviceBindingGUID := routing.URLParam(r, "guid")
+	serviceBinding, err := h.serviceBindingRepo.GetServiceBinding(r.Context(), authInfo, serviceBindingGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get "+repositories.ServiceBindingResourceType)
+	}
 
-	err := h.serviceBindingRepo.DeleteServiceBinding(r.Context(), authInfo, serviceBindingGUID)
+	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceBinding.ServiceInstanceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewUnprocessableEntityError(err, "failed to get service instance"),
+			"failed to get "+repositories.ServiceInstanceResourceType,
+			"instance-guid", serviceBinding.ServiceInstanceGUID,
+		)
+	}
+
+	err = h.serviceBindingRepo.DeleteServiceBinding(r.Context(), authInfo, serviceBindingGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service binding", "guid", serviceBindingGUID)
+	}
+
+	if serviceInstance.Type == korifiv1alpha1.ManagedType {
+		return routing.NewResponse(http.StatusAccepted).
+			WithHeader("Location", presenter.JobURLForRedirects(serviceBinding.GUID, presenter.ManagedServiceBindingDeleteOperation, h.serverURL)), nil
 	}
 
 	return routing.NewResponse(http.StatusNoContent), nil

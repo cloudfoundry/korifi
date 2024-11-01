@@ -164,13 +164,7 @@ var _ = Describe("Routes", func() {
 				HavePrefix(apiServerRoot),
 				ContainSubstring("/v3/jobs/route.delete~"+routeGUID),
 			)))
-
-			jobURL := resp.Header().Get("Location")
-			Eventually(func(g Gomega) {
-				jobResp, err := adminClient.R().Get(jobURL)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-			}).Should(Succeed())
+			expectJobCompletes(resp)
 
 			getRouteResp, err := adminClient.R().Get("/v3/routes/" + routeGUID)
 			Expect(err).NotTo(HaveOccurred())

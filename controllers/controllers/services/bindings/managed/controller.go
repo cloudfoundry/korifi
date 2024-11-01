@@ -2,6 +2,7 @@ package managed
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
@@ -21,15 +22,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type ManagedCredentialsReconciler struct {
+type ManagedBindingsReconciler struct {
 	k8sClient           client.Client
 	osbapiClientFactory osbapi.BrokerClientFactory
 	scheme              *runtime.Scheme
 	assets              *osbapi.Assets
 }
 
-func NewReconciler(k8sClient client.Client, brokerClientFactory osbapi.BrokerClientFactory, rootNamespace string, scheme *runtime.Scheme) *ManagedCredentialsReconciler {
-	return &ManagedCredentialsReconciler{
+func NewReconciler(k8sClient client.Client, brokerClientFactory osbapi.BrokerClientFactory, rootNamespace string, scheme *runtime.Scheme) *ManagedBindingsReconciler {
+	return &ManagedBindingsReconciler{
 		k8sClient:           k8sClient,
 		osbapiClientFactory: brokerClientFactory,
 		scheme:              scheme,
@@ -37,7 +38,25 @@ func NewReconciler(k8sClient client.Client, brokerClientFactory osbapi.BrokerCli
 	}
 }
 
-func (r *ManagedCredentialsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("reconcile-managed-service-binding")
+
+	assets, err := r.assets.GetServiceBindingAssets(ctx, cfServiceBinding)
+	if err != nil {
+		log.Error(err, "failed to get service binding assets")
+		return ctrl.Result{}, err
+	}
+
+	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, assets.ServiceBroker)
+	if err != nil {
+		log.Error(err, "failed to create broker client", "broker", assets.ServiceBroker.Name)
+		return ctrl.Result{}, err
+	}
+
+	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
+		return r.finalizeCFServiceBinding(ctx, cfServiceBinding, assets, osbapiClient)
+	}
+
 	if isReconciled(cfServiceBinding) {
 		return ctrl.Result{}, nil
 	}
@@ -46,7 +65,7 @@ func (r *ManagedCredentialsReconciler) ReconcileResource(ctx context.Context, cf
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingFailed").WithNoRequeue()
 	}
 
-	credentials, err := r.bind(ctx, cfServiceBinding)
+	credentials, err := r.bind(ctx, cfServiceBinding, assets, osbapiClient)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -59,68 +78,33 @@ func (r *ManagedCredentialsReconciler) ReconcileResource(ctx context.Context, cf
 	return ctrl.Result{}, nil
 }
 
-func (r *ManagedCredentialsReconciler) bind(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (map[string]any, error) {
-	log := logr.FromContextOrDiscard(ctx)
-
-	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cfServiceBinding.Namespace,
-			Name:      cfServiceBinding.Spec.Service.Name,
-		},
-	}
-	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance)
-	if err != nil {
-		log.Error(err, "failed to get service instance", "service-instance", cfServiceInstance.Name)
-		return nil, err
-	}
-
-	servicePlan, err := r.assets.GetServicePlan(ctx, cfServiceInstance.Spec.PlanGUID)
-	if err != nil {
-		log.Error(err, "failed to get service plan", "service-plan", cfServiceInstance.Spec.PlanGUID)
-		return nil, err
-	}
-
-	serviceBroker, err := r.assets.GetServiceBroker(ctx, servicePlan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel])
-	if err != nil {
-		log.Error(err, "failed to get service broker", "service-broker", servicePlan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel])
-		return nil, err
-	}
-
-	serviceOffering, err := r.assets.GetServiceOffering(ctx, servicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel])
-	if err != nil {
-		log.Error(err, "failed to get service offering", "service-offering", servicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel])
-		return nil, err
-	}
-
-	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, serviceBroker)
-	if err != nil {
-		log.Error(err, "failed to create broker client", "broker", serviceBroker.Name)
-		return nil, err
-	}
-
-	if !isBindRequested(cfServiceBinding) {
-		return r.requestBinding(ctx, cfServiceBinding, cfServiceInstance, serviceOffering, servicePlan, osbapiClient)
-	}
-
-	return r.pollBinding(ctx, cfServiceBinding, serviceOffering, servicePlan, osbapiClient)
-}
-
-func (r *ManagedCredentialsReconciler) requestBinding(
+func (r *ManagedBindingsReconciler) bind(
 	ctx context.Context,
 	cfServiceBinding *korifiv1alpha1.CFServiceBinding,
-	cfServiceInstance *korifiv1alpha1.CFServiceInstance,
-	serviceOffering *korifiv1alpha1.CFServiceOffering,
-	servicePlan *korifiv1alpha1.CFServicePlan,
+	assets osbapi.ServiceBindingAssets,
+	osbapiClient osbapi.BrokerClient,
+) (map[string]any, error) {
+	if !isBindRequested(cfServiceBinding) {
+		return r.requestBind(ctx, cfServiceBinding, assets, osbapiClient)
+	}
+
+	return r.pollBindOperation(ctx, cfServiceBinding, assets, osbapiClient)
+}
+
+func (r *ManagedBindingsReconciler) requestBind(
+	ctx context.Context,
+	cfServiceBinding *korifiv1alpha1.CFServiceBinding,
+	assets osbapi.ServiceBindingAssets,
 	osbapiClient osbapi.BrokerClient,
 ) (map[string]any, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
 	bindResponse, err := osbapiClient.Bind(ctx, osbapi.BindPayload{
 		BindingID:  cfServiceBinding.Name,
-		InstanceID: cfServiceInstance.Name,
+		InstanceID: assets.ServiceInstance.Name,
 		BindRequest: osbapi.BindRequest{
-			ServiceId: serviceOffering.Spec.BrokerCatalog.ID,
-			PlanID:    servicePlan.Spec.BrokerCatalog.ID,
+			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
 			AppGUID:   cfServiceBinding.Spec.AppRef.Name,
 			BindResource: osbapi.BindResource{
 				AppGUID: cfServiceBinding.Spec.AppRef.Name,
@@ -158,11 +142,10 @@ func (r *ManagedCredentialsReconciler) requestBinding(
 	return nil, k8s.NewNotReadyError().WithReason("BindingInProgress").WithRequeue()
 }
 
-func (r *ManagedCredentialsReconciler) pollBinding(
+func (r *ManagedBindingsReconciler) pollBindOperation(
 	ctx context.Context,
 	cfServiceBinding *korifiv1alpha1.CFServiceBinding,
-	serviceOffering *korifiv1alpha1.CFServiceOffering,
-	servicePlan *korifiv1alpha1.CFServicePlan,
+	assets osbapi.ServiceBindingAssets,
 	osbapiClient osbapi.BrokerClient,
 ) (map[string]any, error) {
 	log := logr.FromContextOrDiscard(ctx)
@@ -171,8 +154,8 @@ func (r *ManagedCredentialsReconciler) pollBinding(
 		InstanceID: cfServiceBinding.Spec.Service.Name,
 		BindingID:  cfServiceBinding.Name,
 		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
-			ServiceId: serviceOffering.Spec.BrokerCatalog.ID,
-			PlanID:    servicePlan.Spec.BrokerCatalog.ID,
+			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
 			Operation: cfServiceBinding.Status.BindingOperation,
 		},
 	})
@@ -201,8 +184,8 @@ func (r *ManagedCredentialsReconciler) pollBinding(
 	binding, err := osbapiClient.GetServiceBinding(ctx, osbapi.GetServiceBindingRequest{
 		InstanceID: cfServiceBinding.Spec.Service.Name,
 		BindingID:  cfServiceBinding.Name,
-		ServiceId:  serviceOffering.Spec.BrokerCatalog.ID,
-		PlanID:     servicePlan.Spec.BrokerCatalog.ID,
+		ServiceId:  assets.ServiceOffering.Spec.BrokerCatalog.ID,
+		PlanID:     assets.ServicePlan.Spec.BrokerCatalog.ID,
 	})
 	if err != nil {
 		log.Error(err, "failed to get binding")
@@ -212,19 +195,7 @@ func (r *ManagedCredentialsReconciler) pollBinding(
 	return binding.Credentials, nil
 }
 
-func isBindRequested(binding *korifiv1alpha1.CFServiceBinding) bool {
-	return meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.BindingRequestedCondition)
-}
-
-func isFailed(binding *korifiv1alpha1.CFServiceBinding) bool {
-	return meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.BindingFailedCondition)
-}
-
-func isReconciled(binding *korifiv1alpha1.CFServiceBinding) bool {
-	return binding.Status.Credentials.Name != "" && binding.Status.Binding.Name != ""
-}
-
-func (r *ManagedCredentialsReconciler) reconcileCredentials(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, creds map[string]any) error {
+func (r *ManagedBindingsReconciler) reconcileCredentials(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, creds map[string]any) error {
 	log := logr.FromContextOrDiscard(ctx)
 
 	credentialsSecret := &corev1.Secret{
@@ -270,4 +241,110 @@ func (r *ManagedCredentialsReconciler) reconcileCredentials(ctx context.Context,
 	cfServiceBinding.Status.Binding.Name = bindingSecret.Name
 
 	return nil
+}
+
+func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
+	ctx context.Context,
+	serviceBinding *korifiv1alpha1.CFServiceBinding,
+	assets osbapi.ServiceBindingAssets,
+	osbapiClient osbapi.BrokerClient,
+) (ctrl.Result, error) {
+	if !isUnbindRequested(serviceBinding) {
+		return r.requestUnbind(ctx, serviceBinding, assets, osbapiClient)
+	}
+
+	return r.pollUnbindOperation(ctx, serviceBinding, assets, osbapiClient)
+}
+
+func (r *ManagedBindingsReconciler) requestUnbind(
+	ctx context.Context,
+	serviceBinding *korifiv1alpha1.CFServiceBinding,
+	assets osbapi.ServiceBindingAssets,
+	osbapiClient osbapi.BrokerClient,
+) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("unbind")
+
+	unbindResponse, err := osbapiClient.Unbind(ctx, osbapi.UnbindPayload{
+		BindingID:  serviceBinding.Name,
+		InstanceID: assets.ServiceInstance.Name,
+		UnbindRequest: osbapi.UnbindRequest{
+			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
+		},
+	})
+
+	if osbapi.IgnoreGone(err) != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to unbind service instance: %w", err)
+	}
+
+	if unbindResponse.IsComplete() || osbapi.IsGone(err) {
+		if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+		return ctrl.Result{}, nil
+	}
+
+	meta.SetStatusCondition(&serviceBinding.Status.Conditions, metav1.Condition{
+		Type:               korifiv1alpha1.UnbindingRequestedCondition,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: serviceBinding.Generation,
+		LastTransitionTime: metav1.Now(),
+		Reason:             "UnbindingRequested",
+	})
+	serviceBinding.Status.UnbindingOperation = unbindResponse.Operation
+
+	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindingRequested").WithRequeue()
+}
+
+func (r *ManagedBindingsReconciler) pollUnbindOperation(
+	ctx context.Context,
+	serviceBinding *korifiv1alpha1.CFServiceBinding,
+	assets osbapi.ServiceBindingAssets,
+	osbapiClient osbapi.BrokerClient,
+) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("pollUnbindOperation")
+
+	lastOpResp, err := osbapiClient.GetServiceBindingLastOperation(ctx, osbapi.GetServiceBindingLastOperationRequest{
+		InstanceID: assets.ServiceInstance.Name,
+		BindingID:  serviceBinding.Name,
+		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
+			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
+			Operation: serviceBinding.Status.UnbindingOperation,
+		},
+	})
+	if osbapi.IgnoreGone(err) != nil {
+		return ctrl.Result{}, err
+	}
+
+	if osbapi.IsGone(err) || lastOpResp.State == "succeeded" {
+		if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+		return ctrl.Result{}, nil
+	}
+
+	if lastOpResp.State == "failed" {
+		meta.RemoveStatusCondition(&serviceBinding.Status.Conditions, korifiv1alpha1.UnbindingRequestedCondition)
+		serviceBinding.Status.UnbindingOperation = ""
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindingFailed").WithRequeue()
+	}
+
+	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindingInProgress").WithRequeue()
+}
+
+func isBindRequested(binding *korifiv1alpha1.CFServiceBinding) bool {
+	return meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.BindingRequestedCondition)
+}
+
+func isUnbindRequested(binding *korifiv1alpha1.CFServiceBinding) bool {
+	return meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.UnbindingRequestedCondition)
+}
+
+func isFailed(binding *korifiv1alpha1.CFServiceBinding) bool {
+	return meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.BindingFailedCondition)
+}
+
+func isReconciled(binding *korifiv1alpha1.CFServiceBinding) bool {
+	return binding.Status.Credentials.Name != "" && binding.Status.Binding.Name != ""
 }

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -21,6 +22,7 @@ import (
 
 	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
@@ -742,7 +744,7 @@ func listServiceInstances(names ...string) resourceList[serviceInstanceResource]
 	return serviceInstances
 }
 
-func createServiceBinding(appGUID, instanceGUID, bindingName string) string {
+func createUPSIServiceBinding(appGUID, instanceGUID, bindingName string) string {
 	GinkgoHelper()
 
 	var serviceCredentialBinding resource
@@ -762,6 +764,32 @@ func createServiceBinding(appGUID, instanceGUID, bindingName string) string {
 	Expect(resp.StatusCode()).To(Equal(http.StatusCreated), string(resp.Body()))
 
 	return serviceCredentialBinding.GUID
+}
+
+func createManagedServiceBinding(appGUID, instanceGUID, bindingName string) string {
+	GinkgoHelper()
+
+	resp, err := adminClient.R().
+		SetBody(typedResource{
+			Type: "app",
+			resource: resource{
+				Name:          bindingName,
+				Relationships: relationships{"app": {Data: resource{GUID: appGUID}}, "service_instance": {Data: resource{GUID: instanceGUID}}},
+			},
+		}).
+		Post("/v3/service_credential_bindings")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(SatisfyAll(
+		HaveRestyStatusCode(http.StatusAccepted),
+		HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_binding.create~")),
+	))
+	jobURL := resp.Header().Get("Location")
+	expectJobCompletes(resp)
+
+	jobURLSplit := strings.Split(jobURL, "~")
+	Expect(jobURLSplit).To(HaveLen(2))
+	return jobURLSplit[1]
 }
 
 func getServiceBindingsForApp(appGUID string) []resource {
@@ -1185,13 +1213,11 @@ func createBroker(brokerURL string) string {
 	}).Should(Succeed())
 
 	plans := resourceList[resource]{}
-	listResp, err := adminClient.R().SetResult(&plans).Get("/v3/service_plans")
+	listResp, err := adminClient.R().SetResult(&plans).Get("/v3/service_plans?service_broker_guids=" + brokerGUID)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(listResp).To(HaveRestyStatusCode(http.StatusOK))
 
-	itx.FromSlice(plans.Resources).Filter(func(r resource) bool {
-		return r.Metadata.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] == brokerGUID
-	}).ForEach(func(plan resource) {
+	for _, plan := range plans.Resources {
 		resp, err := adminClient.R().
 			SetBody(planVisibilityResource{
 				Type: "public",
@@ -1201,7 +1227,7 @@ func createBroker(brokerURL string) string {
 		Expect(resp).To(SatisfyAll(
 			HaveRestyStatusCode(http.StatusOK),
 		))
-	})
+	}
 
 	return brokerGUID
 }
@@ -1209,10 +1235,72 @@ func createBroker(brokerURL string) string {
 func cleanupBroker(brokerGUID string) {
 	GinkgoHelper()
 
+	deleteBindingsForBroker(brokerGUID)
+	deleteInstancesForBroker(brokerGUID)
+
 	Expect(brokerGUID).NotTo(BeEmpty())
 	_, err := adminClient.R().
 		Delete("/v3/service_brokers/" + brokerGUID)
 	Expect(err).NotTo(HaveOccurred())
 
 	broker.NewCatalogPurger(rootNamespace).ForBrokerGUID(brokerGUID).Purge()
+}
+
+func deleteBindingsForBroker(brokerGUID string) {
+	plans := resourceList[resource]{}
+	listPlanResp, err := adminClient.R().SetResult(&plans).Get("/v3/service_plans?service_broker_guids=" + brokerGUID)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(listPlanResp).To(HaveRestyStatusCode(http.StatusOK))
+
+	planGUIDs := slices.Collect(it.Map(itx.FromSlice(plans.Resources), func(r resource) string {
+		return r.GUID
+	}))
+
+	bindings := resourceList[resource]{}
+	listBindingsResp, err := adminClient.R().SetResult(&bindings).Get("/v3/service_credential_bindings?service_plan_guids=" + strings.Join(planGUIDs, ","))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(listBindingsResp).To(HaveRestyStatusCode(http.StatusOK))
+
+	for _, binding := range bindings.Resources {
+		resp, err := adminClient.R().Delete(fmt.Sprintf("/v3/service_credential_bindings/%s", binding.GUID))
+		Expect(err).NotTo(HaveOccurred())
+		expectJobCompletes(resp)
+	}
+}
+
+func deleteInstancesForBroker(brokerGUID string) {
+	plans := resourceList[resource]{}
+	listPlanResp, err := adminClient.R().SetResult(&plans).Get("/v3/service_plans?service_broker_guids=" + brokerGUID)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(listPlanResp).To(HaveRestyStatusCode(http.StatusOK))
+
+	planGUIDs := slices.Collect(it.Map(itx.FromSlice(plans.Resources), func(r resource) string {
+		return r.GUID
+	}))
+
+	instances := resourceList[resource]{}
+	listInstancesResp, err := adminClient.R().SetResult(&instances).Get("/v3/service_instances?service_plan_guids=" + strings.Join(planGUIDs, ","))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(listInstancesResp).To(HaveRestyStatusCode(http.StatusOK))
+
+	for _, binding := range instances.Resources {
+		resp, err := adminClient.R().Delete(fmt.Sprintf("/v3/service_instances/%s", binding.GUID))
+		Expect(err).NotTo(HaveOccurred())
+		expectJobCompletes(resp)
+	}
+}
+
+func expectJobCompletes(resp *resty.Response) {
+	GinkgoHelper()
+
+	Expect(resp).To(SatisfyAll(
+		HaveRestyHeaderWithValue("Location", Not(BeEmpty())),
+	))
+
+	jobURL := resp.Header().Get("Location")
+	Eventually(func(g Gomega) {
+		jobResp, err := adminClient.R().Get(jobURL)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
+	}).Should(Succeed())
 }

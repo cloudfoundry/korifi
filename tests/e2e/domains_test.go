@@ -163,14 +163,7 @@ var _ = Describe("Domain", func() {
 				HaveRestyStatusCode(http.StatusAccepted),
 				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/domain.delete~"+domainGUID)),
 			))
-
-			jobURL := resp.Header().Get("Location")
-			Eventually(func(g Gomega) {
-				var err error
-				resp, err = adminClient.R().Get(jobURL)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(string(resp.Body())).To(ContainSubstring("COMPLETE"))
-			}).Should(Succeed())
+			expectJobCompletes(resp)
 		})
 
 		It("deletes the domain", func() {

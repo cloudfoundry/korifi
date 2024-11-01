@@ -75,13 +75,7 @@ var _ = Describe("Service Bindings", func() {
 					HaveRestyStatusCode(http.StatusAccepted),
 					HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_binding.create~")),
 				))
-
-				jobURL := httpResp.Header().Get("Location")
-				Eventually(func(g Gomega) {
-					jobResp, err := adminClient.R().Get(jobURL)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-				}).Should(Succeed())
+				expectJobCompletes(httpResp)
 			})
 		})
 	})
@@ -90,7 +84,7 @@ var _ = Describe("Service Bindings", func() {
 		var respResource responseResource
 
 		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, upsiGUID, "")
+			bindingGUID = createUPSIServiceBinding(appGUID, upsiGUID, "")
 		})
 
 		JustBeforeEach(func() {
@@ -106,17 +100,40 @@ var _ = Describe("Service Bindings", func() {
 	})
 
 	Describe("DELETE /v3/service_credential_bindings/{guid}", func() {
-		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, upsiGUID, "")
-		})
-
 		JustBeforeEach(func() {
 			httpResp, httpError = adminClient.R().Delete("/v3/service_credential_bindings/" + bindingGUID)
 		})
 
-		It("succeeds", func() {
-			Expect(httpError).NotTo(HaveOccurred())
-			Expect(httpResp).To(HaveRestyStatusCode(http.StatusNoContent))
+		When("bound to a user provided service", func() {
+			BeforeEach(func() {
+				bindingGUID = createUPSIServiceBinding(appGUID, upsiGUID, "")
+			})
+
+			It("succeeds", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusNoContent))
+			})
+		})
+
+		When("bound to a managed service instance", func() {
+			BeforeEach(func() {
+				brokerGUID := createBroker(serviceBrokerURL)
+				DeferCleanup(func() {
+					cleanupBroker(brokerGUID)
+				})
+
+				instanceGUID := createManagedServiceInstance(brokerGUID, spaceGUID)
+				bindingGUID = createManagedServiceBinding(appGUID, instanceGUID, "")
+			})
+
+			It("succeeds with a job redirect", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusAccepted),
+					HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_binding.delete~")),
+				))
+				expectJobCompletes(httpResp)
+			})
 		})
 	})
 
@@ -128,10 +145,10 @@ var _ = Describe("Service Bindings", func() {
 		)
 
 		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, upsiGUID, "")
+			bindingGUID = createUPSIServiceBinding(appGUID, upsiGUID, "")
 
 			anotherInstanceGUID = createServiceInstance(spaceGUID, generateGUID("another-service-instance"), nil)
-			anotherBindingGUID = createServiceBinding(appGUID, anotherInstanceGUID, "")
+			anotherBindingGUID = createUPSIServiceBinding(appGUID, anotherInstanceGUID, "")
 
 			result = resourceListWithInclusion{}
 		})
@@ -154,7 +171,7 @@ var _ = Describe("Service Bindings", func() {
 		var respResource responseResource
 
 		BeforeEach(func() {
-			bindingGUID = createServiceBinding(appGUID, upsiGUID, "")
+			bindingGUID = createUPSIServiceBinding(appGUID, upsiGUID, "")
 		})
 
 		JustBeforeEach(func() {

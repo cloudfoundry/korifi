@@ -103,6 +103,25 @@ type BindResource struct {
 	AppGUID string `json:"app_guid"`
 }
 
+type UnbindPayload struct {
+	BindingID  string
+	InstanceID string
+	UnbindRequest
+}
+
+type UnbindRequest struct {
+	ServiceId string `json:"service_id"`
+	PlanID    string `json:"plan_id"`
+}
+
+type UnbindResponse struct {
+	Operation string `json:"operation,omitempty"`
+}
+
+func (r UnbindResponse) IsComplete() bool {
+	return r.Operation == ""
+}
+
 type Plan struct {
 	ID               string                      `json:"id"`
 	Name             string                      `json:"name"`

@@ -118,13 +118,7 @@ var _ = Describe("Service Instances", func() {
 					HaveRestyStatusCode(http.StatusAccepted),
 					HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_instance.create~")),
 				))
-
-				jobURL := httpResp.Header().Get("Location")
-				Eventually(func(g Gomega) {
-					jobResp, err := adminClient.R().Get(jobURL)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-				}).Should(Succeed())
+				expectJobCompletes(httpResp)
 			})
 		})
 	})
@@ -204,13 +198,7 @@ var _ = Describe("Service Instances", func() {
 					HaveRestyStatusCode(http.StatusAccepted),
 					HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_instance.delete~")),
 				))
-
-				jobURL := httpResp.Header().Get("Location")
-				Eventually(func(g Gomega) {
-					jobResp, err := adminClient.R().Get(jobURL)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-				}).Should(Succeed())
+				expectJobCompletes(httpResp)
 			})
 		})
 	})
@@ -285,13 +273,8 @@ func createManagedServiceInstance(brokerGUID, spaceGUID string) string {
 		HaveRestyStatusCode(http.StatusAccepted),
 		HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_instance.create~")),
 	))
-
 	jobURL := httpResp.Header().Get("Location")
-	Eventually(func(g Gomega) {
-		jobResp, err := adminClient.R().Get(jobURL)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-	}).Should(Succeed())
+	expectJobCompletes(httpResp)
 
 	return strings.Split(jobURL, "~")[1]
 }

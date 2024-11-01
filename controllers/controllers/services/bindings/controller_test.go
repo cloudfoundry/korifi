@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -64,6 +65,9 @@ var _ = Describe("CFServiceBinding", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
 				Namespace: testNamespace,
+				Finalizers: []string{
+					korifiv1alpha1.CFServiceBindingFinalizerName,
+				},
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
 				Service: corev1.ObjectReference{
@@ -534,6 +538,19 @@ var _ = Describe("CFServiceBinding", func() {
 						g.Expect(binding.Status.Binding.Name).To(Equal(instance.Name))
 					}).Should(Succeed())
 				})
+			})
+		})
+
+		When("the binding is deleted", func() {
+			JustBeforeEach(func() {
+				Expect(adminClient.Delete(ctx, binding)).To(Succeed())
+			})
+
+			It("is deleted", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
 			})
 		})
 	})
@@ -1048,6 +1065,204 @@ var _ = Describe("CFServiceBinding", func() {
 						),
 					))
 				}).Should(Succeed())
+			})
+		})
+
+		When("the binding is deleted", func() {
+			BeforeEach(func() {
+				brokerClient.UnbindReturns(osbapi.UnbindResponse{}, nil)
+			})
+
+			JustBeforeEach(func() {
+				// For deletion test we want to request deletion and verify the behaviour when finalization fails.
+				// Therefore we use the standard k8s client instead  of `adminClient` as it ensures that the object is deleted
+				Expect(k8sManager.GetClient().Delete(ctx, binding)).To(Succeed())
+			})
+
+			It("deletes the binding", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			})
+
+			It("calls the unbind endpoint of the osbapi broker", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(brokerClient.UnbindCallCount()).NotTo(BeZero())
+					_, actualUnbindRequest := brokerClient.UnbindArgsForCall(0)
+					Expect(actualUnbindRequest).To(Equal(osbapi.UnbindPayload{
+						InstanceID: instance.Name,
+						BindingID:  binding.Name,
+						UnbindRequest: osbapi.UnbindRequest{
+							ServiceId: "service-offering-id",
+							PlanID:    "service-plan-id",
+						},
+					}))
+				}).Should(Succeed())
+			})
+
+			When("broker returns gone error on unbind", func() {
+				BeforeEach(func() {
+					brokerClient.UnbindReturns(osbapi.UnbindResponse{}, osbapi.GoneError{})
+				})
+
+				It("deletes the binding", func() {
+					Eventually(func(g Gomega) {
+						err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+					}).Should(Succeed())
+				})
+			})
+
+			When("the broker responds asynchronously", func() {
+				BeforeEach(func() {
+					brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
+						State: "in progress",
+					}, nil)
+					brokerClient.UnbindReturns(osbapi.UnbindResponse{
+						Operation: "unbind-id",
+					}, nil)
+				})
+
+				It("sets UnbindingRequested condition", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+						g.Expect(binding.Status.Conditions).To(ContainElements(
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+							),
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.UnbindingRequestedCondition)),
+								HasStatus(Equal(metav1.ConditionTrue)),
+							),
+						))
+						g.Expect(binding.Status.UnbindingOperation).To(Equal("unbind-id"))
+					}).Should(Succeed())
+				})
+
+				When("unbind has been already requested", func() {
+					BeforeEach(func() {
+						Expect(k8s.Patch(ctx, adminClient, binding, func() {
+							meta.SetStatusCondition(&binding.Status.Conditions, metav1.Condition{
+								Type:   korifiv1alpha1.UnbindingRequestedCondition,
+								Status: metav1.ConditionTrue,
+								Reason: "UnbindingRequested",
+							})
+							binding.Status.UnbindingOperation = "unbind-id"
+						})).To(Succeed())
+					})
+
+					It("does not request unbinding anymore", func() {
+						Consistently(func(g Gomega) {
+							g.Expect(brokerClient.UnbindCallCount()).To(BeZero())
+						}).Should(Succeed())
+					})
+
+					When("the unbind operation succeeds", func() {
+						BeforeEach(func() {
+							brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
+								State: "succeeded",
+							}, nil)
+						})
+
+						It("deletes the binding", func() {
+							Eventually(func(g Gomega) {
+								err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+								g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+							}).Should(Succeed())
+						})
+					})
+
+					When("the unbind operation is gone", func() {
+						BeforeEach(func() {
+							brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{}, osbapi.GoneError{})
+						})
+
+						It("deletes the binding", func() {
+							Eventually(func(g Gomega) {
+								err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+								g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+							}).Should(Succeed())
+						})
+					})
+
+					When("the unbind operation fails", func() {
+						BeforeEach(func() {
+							brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
+								State: "failed",
+							}, nil)
+						})
+
+						It("requests unbind again", func() {
+							Eventually(func(g Gomega) {
+								g.Expect(brokerClient.UnbindCallCount()).NotTo(BeZero())
+							}).Should(Succeed())
+						})
+					})
+
+					When("the last operation is gone", func() {
+						BeforeEach(func() {
+							brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{}, osbapi.GoneError{})
+						})
+
+						It("deletes the binding", func() {
+							Eventually(func(g Gomega) {
+								err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+								g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+							}).Should(Succeed())
+						})
+					})
+
+					When("getting the last operation fails", func() {
+						BeforeEach(func() {
+							brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{}, errors.New("get-lastop-failed"))
+						})
+
+						It("keeps trying to get it", func() {
+							getLastOpCallCount := 0
+							Eventually(func(g Gomega) {
+								getLastOpCallCount = brokerClient.GetServiceBindingLastOperationCallCount()
+								g.Expect(getLastOpCallCount).NotTo(BeZero())
+							}).Should(Succeed())
+
+							Eventually(func(g Gomega) {
+								g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeNumerically(">", getLastOpCallCount))
+							}).Should(Succeed())
+						})
+					})
+				})
+			})
+
+			When("binding is already gone", func() {
+				BeforeEach(func() {
+					brokerClient.UnbindReturns(osbapi.UnbindResponse{}, osbapi.GoneError{})
+				})
+
+				It("still deletes the binding", func() {
+					Eventually(func(g Gomega) {
+						err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+					}).Should(Succeed())
+				})
+			})
+
+			When("broker responds with error", func() {
+				BeforeEach(func() {
+					brokerClient.UnbindReturns(osbapi.UnbindResponse{}, errors.New("failed-to-unbind"))
+				})
+
+				It("keeps trying to unbind", func() {
+					unbindCallCount := 0
+					Eventually(func(g Gomega) {
+						unbindCallCount = brokerClient.UnbindCallCount()
+						g.Expect(unbindCallCount).NotTo(BeZero())
+					}).Should(Succeed())
+
+					Eventually(func(g Gomega) {
+						g.Expect(brokerClient.UnbindCallCount()).To(BeNumerically(">", unbindCallCount))
+					}).Should(Succeed())
+				})
 			})
 		})
 	})

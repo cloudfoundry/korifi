@@ -369,6 +369,7 @@ func main() {
 				handlers.RoleDeleteJobType:                   roleRepo,
 				handlers.ServiceBrokerDeleteJobType:          serviceBrokerRepo,
 				handlers.ManagedServiceInstanceDeleteJobType: serviceInstanceRepo,
+				handlers.ManagedServiceBindingDeleteJobType:  serviceBindingRepo,
 			},
 			map[string]handlers.StateRepository{
 				handlers.ServiceBrokerCreateJobType:          serviceBrokerRepo,
