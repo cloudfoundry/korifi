@@ -1,6 +1,9 @@
 package repositories_test
 
 import (
+	"errors"
+
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model/services"
@@ -129,6 +132,16 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					"ServiceBrokerGUID": Equal(broker.Name),
 				}),
 			)
+		})
+
+		When("the service offering does not exist", func() {
+			BeforeEach(func() {
+				offeringGUID = "does-not-exist"
+			})
+			It("returns a not found error", func() {
+				notFoundError := apierrors.NotFoundError{}
+				Expect(errors.As(getErr, &notFoundError)).To(BeTrue())
+			})
 		})
 	})
 

@@ -76,10 +76,6 @@ func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo a
 	}
 
 	if err = userClient.Get(ctx, client.ObjectKeyFromObject(offering), offering); err != nil {
-		if k8serrors.IsForbidden(err) {
-			return ServiceOfferingRecord{}, nil
-		}
-
 		return ServiceOfferingRecord{}, fmt.Errorf("failed to get service offering: %s %w", guid, apierrors.FromK8sError(err, ServiceOfferingResourceType))
 	}
 

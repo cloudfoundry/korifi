@@ -1,8 +1,6 @@
 package payloads_test
 
 import (
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "github.com/onsi/ginkgo/v2"
@@ -27,17 +25,8 @@ var _ = Describe("ServiceOfferingGet", func() {
 			Expect(decodeErr).To(errMatcher)
 		},
 		Entry("invalid service broker field", "fields[service_broker]=foo", MatchError(ContainSubstring("value must be one of: guid, name"))),
+		Entry("invalid fields", "fields[space]=foo", MatchError(ContainSubstring("unsupported query parameter: fields[space]"))),
 	)
-
-	It("returns an error if a unsupported param is passed", func() {
-		serviceOfferingGet := payloads.ServiceOfferingGet{}
-		req, err := http.NewRequest("DELETE", "http://foo.com/bar?field[space]=name,guid", nil)
-		Expect(err).ToNot(HaveOccurred())
-		err = validator.DecodeAndValidateURLValues(req, &serviceOfferingGet)
-
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("unsupported query parameter"))
-	})
 })
 
 var _ = Describe("ServiceOfferingList", func() {

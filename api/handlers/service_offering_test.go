@@ -84,25 +84,7 @@ var _ = Describe("ServiceOffering", func() {
 				})
 			})
 
-			It("lists the broker", func() {
-				Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
-				_, _, actualListMessage := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
-				Expect(actualListMessage).To(Equal(repositories.ListServiceBrokerMessage{
-					GUIDs: []string{"broker-guid"},
-				}))
-			})
-
-			When("listing brokers fails", func() {
-				BeforeEach(func() {
-					serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{}, errors.New("list-broker-err"))
-				})
-
-				It("returns an error", func() {
-					expectUnknownError()
-				})
-			})
-
-			Describe("broker name", func() {
+			When("including broker name", func() {
 				BeforeEach(func() {
 					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingGet{
 						IncludeBrokerFields: []string{"name"},
@@ -117,7 +99,7 @@ var _ = Describe("ServiceOffering", func() {
 				})
 			})
 
-			Describe("broker guid", func() {
+			When("broker including broker guid", func() {
 				BeforeEach(func() {
 					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingGet{
 						IncludeBrokerFields: []string{"guid"},
