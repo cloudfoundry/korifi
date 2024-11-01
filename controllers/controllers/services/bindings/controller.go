@@ -165,7 +165,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 		return ctrl.Result{}, err
 	}
 
-	res, err := r.reconcileCredentialsSecrets(ctx, cfServiceInstance.Spec.Type, cfServiceBinding)
+	res, err := r.reconcileByType(ctx, cfServiceInstance, cfServiceBinding)
 	if needsRequeue(res, err) {
 		log.Error(err, "failed to reconcile binding credentials")
 		return res, err
@@ -191,11 +191,15 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) reconcileCredentialsSecrets(ctx context.Context, instanceType korifiv1alpha1.InstanceType, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
-	if instanceType == korifiv1alpha1.UserProvidedType {
+func (r *Reconciler) reconcileByType(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+	if cfServiceInstance.Spec.Type == korifiv1alpha1.UserProvidedType {
 		return r.upsiCredentialsReconciler.ReconcileResource(ctx, cfServiceBinding)
 	}
 
+	if cfServiceBinding.Labels == nil {
+		cfServiceBinding.Labels = map[string]string{}
+	}
+	cfServiceBinding.Labels[korifiv1alpha1.PlanGUIDLabelKey] = cfServiceInstance.Spec.PlanGUID
 	return r.managedCredentialsReconciler.ReconcileResource(ctx, cfServiceBinding)
 }
 

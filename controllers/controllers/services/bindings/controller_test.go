@@ -146,6 +146,15 @@ var _ = Describe("CFServiceBinding", func() {
 			}).Should(Succeed())
 		})
 
+		It("does not set the plan-guid label", func() {
+			Consistently(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.Labels).NotTo(HaveKey(
+					korifiv1alpha1.PlanGUIDLabelKey,
+				))
+			}).Should(Succeed())
+		})
+
 		It("sets the binding status credentials name to the instance credentials secret", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
@@ -642,6 +651,15 @@ var _ = Describe("CFServiceBinding", func() {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Annotations).To(HaveKeyWithValue(
 					korifiv1alpha1.ServiceInstanceTypeAnnotationKey, "managed",
+				))
+			}).Should(Succeed())
+		})
+
+		It("sets the plan-guid label", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.Labels).To(HaveKeyWithValue(
+					korifiv1alpha1.PlanGUIDLabelKey, servicePlan.Name,
 				))
 			}).Should(Succeed())
 		})

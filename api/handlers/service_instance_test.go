@@ -267,6 +267,7 @@ var _ = Describe("ServiceInstance", func() {
 					Names:         "sc1,sc2",
 					SpaceGUIDs:    "space1,space2",
 					GUIDs:         "g1,g2",
+					PlanGUIDs:     "p1,p2",
 					LabelSelector: "label=value",
 				})
 			})
@@ -279,6 +280,7 @@ var _ = Describe("ServiceInstance", func() {
 				Expect(message.SpaceGUIDs).To(ConsistOf("space1", "space2"))
 				Expect(message.GUIDs).To(ConsistOf("g1", "g2"))
 				Expect(message.LabelSelector).To(Equal("label=value"))
+				Expect(message.PlanGUIDs).To(ConsistOf("p1", "p2"))
 			})
 
 			It("correctly sets query parameters in response pagination links", func() {

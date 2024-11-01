@@ -614,19 +614,75 @@ var _ = Describe("ServiceBindingRepo", func() {
 			cfApp1 = createAppCR(testCtx, k8sClient, "app-1-name", prefixedGUID("app-1"), space.Name, "STOPPED")
 			serviceInstance1GUID = prefixedGUID("instance-1")
 			cfServiceInstance1 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance1GUID, space.Name, "service-instance-1-name", "secret-1-name")
-			serviceBinding1Name := "service-binding-1-name"
-			serviceBinding1 = createServiceBindingCR(testCtx, k8sClient, prefixedGUID("binding-1"), space.Name, &serviceBinding1Name, cfServiceInstance1.Name, cfApp1.Name)
+			serviceBinding1 = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      prefixedGUID("binding-1"),
+					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.PlanGUIDLabelKey: "plan-1",
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "ServiceInstance",
+						Name:       cfServiceInstance1.Name,
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp1.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceBinding1)).To(Succeed())
 
 			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space-2"))
 			cfApp2 = createAppCR(testCtx, k8sClient, "app-2-name", prefixedGUID("app-2"), space2.Name, "STOPPED")
 			serviceInstance2GUID = prefixedGUID("instance-2")
 			cfServiceInstance2 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance2GUID, space2.Name, "service-instance-2-name", "secret-2-name")
-			serviceBinding2 = createServiceBindingCR(testCtx, k8sClient, prefixedGUID("binding-2"), space2.Name, nil, cfServiceInstance2.Name, cfApp2.Name)
+			serviceBinding2 = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      prefixedGUID("binding-2"),
+					Namespace: space2.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.PlanGUIDLabelKey: "plan-2",
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "ServiceInstance",
+						Name:       cfServiceInstance2.Name,
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp2.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceBinding2)).To(Succeed())
 
 			cfApp3 = createAppCR(testCtx, k8sClient, "app-3-name", prefixedGUID("app-3"), space2.Name, "STOPPED")
 			serviceInstance3GUID = prefixedGUID("instance-3")
 			cfServiceInstance3 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance3GUID, space2.Name, "service-instance-3-name", "secret-3-name")
-			serviceBinding3 = createServiceBindingCR(testCtx, k8sClient, prefixedGUID("binding-3"), space2.Name, nil, cfServiceInstance3.Name, cfApp3.Name)
+			serviceBinding3 = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      prefixedGUID("binding-3"),
+					Namespace: space2.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.PlanGUIDLabelKey: "plan-3",
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "ServiceInstance",
+						Name:       cfServiceInstance3.Name,
+						APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: cfApp3.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceBinding3)).To(Succeed())
 
 			requestMessage = repositories.ListServiceBindingsMessage{}
 		})
@@ -777,6 +833,21 @@ var _ = Describe("ServiceBindingRepo", func() {
 							"GUID":                Equal(serviceBinding2.Name),
 							"ServiceInstanceGUID": Equal(serviceInstance2GUID),
 						}),
+					))
+				})
+			})
+
+			When("filtered by plan guid", func() {
+				BeforeEach(func() {
+					requestMessage = repositories.ListServiceBindingsMessage{
+						PlanGUIDs: []string{"plan-1", "plan-3"},
+					}
+				})
+
+				It("returns only the ServiceBindings that match the provided plan guids", func() {
+					Expect(responseServiceBindings).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(serviceBinding1.Name)}),
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(serviceBinding3.Name)}),
 					))
 				})
 			})

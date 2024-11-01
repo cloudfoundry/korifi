@@ -150,11 +150,13 @@ type ListServiceInstanceMessage struct {
 	GUIDs         []string
 	LabelSelector string
 	OrderBy       string
+	PlanGUIDs     []string
 }
 
 func (m *ListServiceInstanceMessage) matches(serviceInstance korifiv1alpha1.CFServiceInstance) bool {
 	return tools.EmptyOrContains(m.Names, serviceInstance.Spec.DisplayName) &&
-		tools.EmptyOrContains(m.GUIDs, serviceInstance.Name)
+		tools.EmptyOrContains(m.GUIDs, serviceInstance.Name) &&
+		tools.EmptyOrContains(m.PlanGUIDs, serviceInstance.Spec.PlanGUID)
 }
 
 func (m *ListServiceInstanceMessage) matchesNamespace(ns string) bool {

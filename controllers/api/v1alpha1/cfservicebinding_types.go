@@ -28,6 +28,7 @@ const (
 	BindingRequestedCondition = "BindingRequested"
 
 	ServiceInstanceTypeAnnotationKey = "korifi.cloudfoundry.org/service-instance-type"
+	PlanGUIDLabelKey                 = "korifi.cloudfoundry.org/plan-guid"
 )
 
 // CFServiceBindingSpec defines the desired state of CFServiceBinding

@@ -306,6 +306,7 @@ var _ = Describe("ServiceBinding", func() {
 				AppGUIDs:             "a1,a2",
 				ServiceInstanceGUIDs: "s1,s2",
 				LabelSelector:        "label=value",
+				PlanGUIDs:            "p1,p2",
 			}
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payload)
 		})
@@ -320,6 +321,7 @@ var _ = Describe("ServiceBinding", func() {
 			Expect(message.AppGUIDs).To(ConsistOf([]string{"a1", "a2"}))
 			Expect(message.ServiceInstanceGUIDs).To(ConsistOf([]string{"s1", "s2"}))
 			Expect(message.LabelSelector).To(Equal("label=value"))
+			Expect(message.PlanGUIDs).To(ConsistOf("p1", "p2"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))

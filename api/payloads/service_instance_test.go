@@ -50,6 +50,7 @@ var _ = Describe("ServiceInstanceList", func() {
 				Fields:           []string{"guid", "name", "relationships.service_offering"},
 			}}}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceInstanceList{LabelSelector: "foo"}),
+		Entry("service_plan_guids=plan-guid", "service_plan_guids=plan-guid", payloads.ServiceInstanceList{PlanGUIDs: "plan-guid"}),
 	)
 
 	DescribeTable("invalid query",
@@ -77,6 +78,7 @@ var _ = Describe("ServiceInstanceList", func() {
 				SpaceGUIDs:    "sg1,sg2",
 				OrderBy:       "order",
 				LabelSelector: "foo=bar",
+				PlanGUIDs:     "p1,p2",
 			}
 		})
 
@@ -91,6 +93,7 @@ var _ = Describe("ServiceInstanceList", func() {
 				GUIDs:         []string{"g1", "g2"},
 				OrderBy:       "order",
 				LabelSelector: "foo=bar",
+				PlanGUIDs:     []string{"p1", "p2"},
 			}))
 		})
 	})

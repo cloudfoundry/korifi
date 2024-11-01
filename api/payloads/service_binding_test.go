@@ -22,6 +22,7 @@ var _ = Describe("ServiceBindingList", func() {
 		Entry("service_instance_guids", "service_instance_guids=si_guid", payloads.ServiceBindingList{ServiceInstanceGUIDs: "si_guid"}),
 		Entry("include", "include=include", payloads.ServiceBindingList{Include: "include"}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceBindingList{LabelSelector: "foo"}),
+		Entry("service_plan_guids=plan-guid", "service_plan_guids=plan-guid", payloads.ServiceBindingList{PlanGUIDs: "plan-guid"}),
 	)
 
 	Describe("ToMessage", func() {
@@ -36,6 +37,7 @@ var _ = Describe("ServiceBindingList", func() {
 				ServiceInstanceGUIDs: "s1,s2",
 				Include:              "include",
 				LabelSelector:        "foo=bar",
+				PlanGUIDs:            "p1,p2",
 			}
 		})
 
@@ -48,6 +50,7 @@ var _ = Describe("ServiceBindingList", func() {
 				AppGUIDs:             []string{"app1", "app2"},
 				ServiceInstanceGUIDs: []string{"s1", "s2"},
 				LabelSelector:        "foo=bar",
+				PlanGUIDs:            []string{"p1", "p2"},
 			}))
 		})
 	})
