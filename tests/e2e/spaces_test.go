@@ -157,13 +157,7 @@ var _ = Describe("Spaces", func() {
 				HaveRestyStatusCode(http.StatusAccepted),
 				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.delete~"+spaceGUID)),
 			))
-
-			jobURL := resp.Header().Get("Location")
-			Eventually(func(g Gomega) {
-				jobResp, err := adminClient.R().Get(jobURL)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-			}).Should(Succeed())
+			expectJobCompletes(resp)
 
 			spaceResp, err := adminClient.R().Get("/v3/spaces/" + spaceGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -239,13 +233,7 @@ var _ = Describe("Spaces", func() {
 					HaveRestyStatusCode(http.StatusAccepted),
 					HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
 				))
-
-				jobURL := resp.Header().Get("Location")
-				Eventually(func(g Gomega) {
-					jobResp, err := adminClient.R().Get(jobURL)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-				}).Should(Succeed())
+				expectJobCompletes(resp)
 
 				app1GUID := getAppGUIDFromName(app1Name)
 
@@ -300,13 +288,7 @@ var _ = Describe("Spaces", func() {
 					Expect(requestErr).NotTo(HaveOccurred())
 
 					Expect(r).To(HaveRestyStatusCode(http.StatusAccepted))
-
-					jobURL := r.Header().Get("Location")
-					Eventually(func(g Gomega) {
-						jobResp, err := adminClient.R().Get(jobURL)
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-					}).Should(Succeed())
+					expectJobCompletes(r)
 				}
 
 				BeforeEach(func() {
@@ -328,13 +310,7 @@ var _ = Describe("Spaces", func() {
 
 				It("applies the changes correctly", func() {
 					Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
-
-					jobURL := resp.Header().Get("Location")
-					Eventually(func(g Gomega) {
-						jobResp, err := adminClient.R().Get(jobURL)
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-					}).Should(Succeed())
+					expectJobCompletes(resp)
 
 					app1GUID := getAppGUIDFromName(app1Name)
 
@@ -379,14 +355,7 @@ var _ = Describe("Spaces", func() {
 						HaveRestyStatusCode(http.StatusAccepted),
 						HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/space.apply_manifest~"+spaceGUID)),
 					))
-
-					jobURL := resp.Header().Get("Location")
-					Eventually(func(g Gomega) {
-						jobResp, err := adminClient.R().Get(jobURL)
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-						Expect(getAppGUIDFromName(app1Name)).NotTo(BeEmpty())
-					}).Should(Succeed())
+					expectJobCompletes(resp)
 
 					app1GUID := getAppGUIDFromName(app1Name)
 					app1 := getApp(app1GUID)

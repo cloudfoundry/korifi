@@ -132,5 +132,14 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 				},
 			},
 		),
+		Entry("cfservicebinding",
+			&korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-org-" + uuid.NewString(),
+					Name:      uuid.NewString(),
+				},
+			},
+			korifiv1alpha1.CFServiceBindingFinalizerName,
+		),
 	)
 })

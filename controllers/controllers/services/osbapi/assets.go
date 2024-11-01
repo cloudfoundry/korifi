@@ -64,3 +64,60 @@ func (r *Assets) GetServiceBroker(ctx context.Context, brokerGUID string) (*kori
 
 	return serviceBroker, nil
 }
+
+type ServiceInstanceAssets struct {
+	ServiceBroker   *korifiv1alpha1.CFServiceBroker
+	ServiceOffering *korifiv1alpha1.CFServiceOffering
+	ServicePlan     *korifiv1alpha1.CFServicePlan
+}
+
+func (r *Assets) GetServiceInstanceAssets(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance) (ServiceInstanceAssets, error) {
+	servicePlan, err := r.GetServicePlan(ctx, serviceInstance.Spec.PlanGUID)
+	if err != nil {
+		return ServiceInstanceAssets{}, err
+	}
+
+	serviceBroker, err := r.GetServiceBroker(ctx, servicePlan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel])
+	if err != nil {
+		return ServiceInstanceAssets{}, err
+	}
+
+	serviceOffering, err := r.GetServiceOffering(ctx, servicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel])
+	if err != nil {
+		return ServiceInstanceAssets{}, err
+	}
+
+	return ServiceInstanceAssets{
+		ServiceBroker:   serviceBroker,
+		ServiceOffering: serviceOffering,
+		ServicePlan:     servicePlan,
+	}, nil
+}
+
+type ServiceBindingAssets struct {
+	ServiceInstanceAssets
+	ServiceInstance *korifiv1alpha1.CFServiceInstance
+}
+
+func (r *Assets) GetServiceBindingAssets(ctx context.Context, serviceBinding *korifiv1alpha1.CFServiceBinding) (ServiceBindingAssets, error) {
+	serviceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: serviceBinding.Namespace,
+			Name:      serviceBinding.Spec.Service.Name,
+		},
+	}
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(serviceInstance), serviceInstance)
+	if err != nil {
+		return ServiceBindingAssets{}, err
+	}
+
+	serviceInstanceAssets, err := r.GetServiceInstanceAssets(ctx, serviceInstance)
+	if err != nil {
+		return ServiceBindingAssets{}, err
+	}
+
+	return ServiceBindingAssets{
+		ServiceInstanceAssets: serviceInstanceAssets,
+		ServiceInstance:       serviceInstance,
+	}, nil
+}

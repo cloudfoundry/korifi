@@ -106,6 +106,20 @@ type BrokerClient struct {
 		result1 osbapi.ServiceInstanceOperationResponse
 		result2 error
 	}
+	UnbindStub        func(context.Context, osbapi.UnbindPayload) (osbapi.UnbindResponse, error)
+	unbindMutex       sync.RWMutex
+	unbindArgsForCall []struct {
+		arg1 context.Context
+		arg2 osbapi.UnbindPayload
+	}
+	unbindReturns struct {
+		result1 osbapi.UnbindResponse
+		result2 error
+	}
+	unbindReturnsOnCall map[int]struct {
+		result1 osbapi.UnbindResponse
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -564,6 +578,71 @@ func (fake *BrokerClient) ProvisionReturnsOnCall(i int, result1 osbapi.ServiceIn
 	}{result1, result2}
 }
 
+func (fake *BrokerClient) Unbind(arg1 context.Context, arg2 osbapi.UnbindPayload) (osbapi.UnbindResponse, error) {
+	fake.unbindMutex.Lock()
+	ret, specificReturn := fake.unbindReturnsOnCall[len(fake.unbindArgsForCall)]
+	fake.unbindArgsForCall = append(fake.unbindArgsForCall, struct {
+		arg1 context.Context
+		arg2 osbapi.UnbindPayload
+	}{arg1, arg2})
+	stub := fake.UnbindStub
+	fakeReturns := fake.unbindReturns
+	fake.recordInvocation("Unbind", []interface{}{arg1, arg2})
+	fake.unbindMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *BrokerClient) UnbindCallCount() int {
+	fake.unbindMutex.RLock()
+	defer fake.unbindMutex.RUnlock()
+	return len(fake.unbindArgsForCall)
+}
+
+func (fake *BrokerClient) UnbindCalls(stub func(context.Context, osbapi.UnbindPayload) (osbapi.UnbindResponse, error)) {
+	fake.unbindMutex.Lock()
+	defer fake.unbindMutex.Unlock()
+	fake.UnbindStub = stub
+}
+
+func (fake *BrokerClient) UnbindArgsForCall(i int) (context.Context, osbapi.UnbindPayload) {
+	fake.unbindMutex.RLock()
+	defer fake.unbindMutex.RUnlock()
+	argsForCall := fake.unbindArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *BrokerClient) UnbindReturns(result1 osbapi.UnbindResponse, result2 error) {
+	fake.unbindMutex.Lock()
+	defer fake.unbindMutex.Unlock()
+	fake.UnbindStub = nil
+	fake.unbindReturns = struct {
+		result1 osbapi.UnbindResponse
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *BrokerClient) UnbindReturnsOnCall(i int, result1 osbapi.UnbindResponse, result2 error) {
+	fake.unbindMutex.Lock()
+	defer fake.unbindMutex.Unlock()
+	fake.UnbindStub = nil
+	if fake.unbindReturnsOnCall == nil {
+		fake.unbindReturnsOnCall = make(map[int]struct {
+			result1 osbapi.UnbindResponse
+			result2 error
+		})
+	}
+	fake.unbindReturnsOnCall[i] = struct {
+		result1 osbapi.UnbindResponse
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *BrokerClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -581,6 +660,8 @@ func (fake *BrokerClient) Invocations() map[string][][]interface{} {
 	defer fake.getServiceInstanceLastOperationMutex.RUnlock()
 	fake.provisionMutex.RLock()
 	defer fake.provisionMutex.RUnlock()
+	fake.unbindMutex.RLock()
+	defer fake.unbindMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

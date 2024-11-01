@@ -156,14 +156,7 @@ var _ = Describe("Apps", func() {
 				HaveRestyStatusCode(http.StatusAccepted),
 				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/app.delete~"+appGUID)),
 			))
-
-			jobURL := resp.Header().Get("Location")
-			Eventually(func(g Gomega) {
-				resp, err = adminClient.R().Get(jobURL)
-				g.Expect(err).NotTo(HaveOccurred())
-				jobRespBody := string(resp.Body())
-				g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
-			}).Should(Succeed())
+			expectJobCompletes(resp)
 
 			resp, err = adminClient.R().Get("/v3/apps/" + appGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -632,7 +625,7 @@ var _ = Describe("Apps", func() {
 				"baz": "qux",
 			}
 			serviceInstanceGUID = createServiceInstance(space1GUID, generateGUID("service-instance"), credentials)
-			bindingGUID = createServiceBinding(appGUID, serviceInstanceGUID, "")
+			bindingGUID = createUPSIServiceBinding(appGUID, serviceInstanceGUID, "")
 
 			moreCredentials := map[string]string{
 				"hello":  "there",
@@ -640,7 +633,7 @@ var _ = Describe("Apps", func() {
 			}
 			secondServiceInstanceGUID = createServiceInstance(space1GUID, generateGUID("service-instance"), moreCredentials)
 			bindingName = "custom-named-binding"
-			namedBindingGUID = createServiceBinding(appGUID, secondServiceInstanceGUID, bindingName)
+			namedBindingGUID = createUPSIServiceBinding(appGUID, secondServiceInstanceGUID, bindingName)
 
 			var httpResp *resty.Response
 			httpResp, httpError = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
@@ -712,10 +705,10 @@ var _ = Describe("Apps", func() {
 			})
 			instanceName = generateGUID("service-instance")
 			instanceGUID = createServiceInstance(space1GUID, instanceName, nil)
-			bindingGUID = createServiceBinding(appGUID, instanceGUID, "")
+			bindingGUID = createUPSIServiceBinding(appGUID, instanceGUID, "")
 			instanceName2 = generateGUID("service-instance")
 			instanceGUID2 = createServiceInstance(space1GUID, instanceName2, nil)
-			bindingGUID2 = createServiceBinding(appGUID, instanceGUID2, "")
+			bindingGUID2 = createUPSIServiceBinding(appGUID, instanceGUID2, "")
 		})
 
 		JustBeforeEach(func() {

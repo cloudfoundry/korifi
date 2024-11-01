@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,6 +24,21 @@ type ConflictError struct{}
 
 func (c ConflictError) Error() string {
 	return "The service binding already exists"
+}
+
+func IgnoreGone(err error) error {
+	if IsGone(err) {
+		return nil
+	}
+	return err
+}
+
+func IsGone(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return errors.As(err, &GoneError{})
 }
 
 type Client struct {
@@ -249,6 +265,41 @@ func (c *Client) GetServiceBindingLastOperation(ctx context.Context, request Get
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
 		return LastOperationResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return response, nil
+}
+
+func (c *Client) Unbind(ctx context.Context, payload UnbindPayload) (UnbindResponse, error) {
+	statusCode, respBytes, err := c.newBrokerRequester().
+		forBroker(c.broker).
+		async().
+		sendRequest(
+			ctx,
+			"/v2/service_instances/"+payload.InstanceID+"/service_bindings/"+payload.BindingID,
+			http.MethodDelete,
+			map[string]string{
+				"service_id": payload.ServiceId,
+				"plan_id":    payload.PlanID,
+			},
+			nil,
+		)
+	if err != nil {
+		return UnbindResponse{}, fmt.Errorf("unbind request failed: %w", err)
+	}
+
+	if statusCode == http.StatusGone {
+		return UnbindResponse{}, GoneError{}
+	}
+
+	if statusCode >= 300 {
+		return UnbindResponse{}, fmt.Errorf("unbind request failed with status code: %d", statusCode)
+	}
+
+	var response UnbindResponse
+	err = json.Unmarshal(respBytes, &response)
+	if err != nil {
+		return UnbindResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return response, nil

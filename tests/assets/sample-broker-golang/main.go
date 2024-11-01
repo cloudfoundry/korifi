@@ -26,6 +26,7 @@ func main() {
 	http.HandleFunc("PUT /v2/service_instances/{instance_id}/service_bindings/{binding_id}", bindHandler)
 	http.HandleFunc("GET /v2/service_instances/{instance_id}/service_bindings/{binding_id}/last_operation", serviceBindingLastOperationHandler)
 	http.HandleFunc("GET /v2/service_instances/{instance_id}/service_bindings/{binding_id}", getServiceBindingHandler)
+	http.HandleFunc("DELETE /v2/service_instances/{instance_id}/service_bindings/{binding_id}", unbindHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -135,6 +136,16 @@ func getServiceBindingHandler(w http.ResponseWriter, r *http.Request) {
 		"user":"my-user",
 		"password":"my-password"
 	}}`)
+}
+
+func unbindHandler(w http.ResponseWriter, r *http.Request) {
+	if status, err := checkCredentials(w, r); err != nil {
+		w.WriteHeader(status)
+		fmt.Fprintf(w, "Credentials check failed: %v", err)
+		return
+	}
+
+	fmt.Fprintf(w, `{"operation":"unbind-%s"}`, r.PathValue("binding_id"))
 }
 
 func checkCredentials(_ http.ResponseWriter, r *http.Request) (int, error) {

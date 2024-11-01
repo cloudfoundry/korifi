@@ -22,6 +22,7 @@ type BrokerClient interface {
 	GetServiceInstanceLastOperation(context.Context, GetServiceInstanceLastOperationRequest) (LastOperationResponse, error)
 	GetCatalog(context.Context) (Catalog, error)
 	Bind(context.Context, BindPayload) (BindResponse, error)
+	Unbind(context.Context, UnbindPayload) (UnbindResponse, error)
 	GetServiceBindingLastOperation(context.Context, GetServiceBindingLastOperationRequest) (LastOperationResponse, error)
 	GetServiceBinding(context.Context, GetServiceBindingRequest) (GetBindingResponse, error)
 }

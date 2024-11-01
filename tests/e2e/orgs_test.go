@@ -161,13 +161,7 @@ var _ = Describe("Orgs", func() {
 				HaveRestyStatusCode(http.StatusAccepted),
 				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/org.delete~"+orgGUID)),
 			))
-
-			jobURL := resp.Header().Get("Location")
-			Eventually(func(g Gomega) {
-				jobResp, err := adminClient.R().Get(jobURL)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-			}).Should(Succeed())
+			expectJobCompletes(resp)
 
 			orgResp, err := adminClient.R().Get("/v3/organizations/" + orgGUID)
 			Expect(err).NotTo(HaveOccurred())
@@ -184,13 +178,7 @@ var _ = Describe("Orgs", func() {
 					HaveRestyStatusCode(http.StatusAccepted),
 					HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/org.delete~"+orgGUID)),
 				))
-
-				jobURL := resp.Header().Get("Location")
-				Eventually(func(g Gomega) {
-					jobResp, err := adminClient.R().Get(jobURL)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-				}).Should(Succeed())
+				expectJobCompletes(resp)
 
 				orgResp, err := adminClient.R().Get("/v3/organizations/" + orgGUID)
 				Expect(err).NotTo(HaveOccurred())

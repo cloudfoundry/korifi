@@ -31,14 +31,14 @@ func (b *BrokerServer) WithResponse(pattern string, response map[string]any, sta
 	respBytes, err := json.Marshal(response)
 	Expect(err).NotTo(HaveOccurred())
 
-	return b.WithHandler(pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return b.withHandler(pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(statusCode)
 		_, err := w.Write(respBytes)
 		Expect(err).NotTo(HaveOccurred())
 	}))
 }
 
-func (b *BrokerServer) WithHandler(pattern string, handler http.Handler) *BrokerServer {
+func (b *BrokerServer) withHandler(pattern string, handler http.Handler) *BrokerServer {
 	b.handlers[pattern] = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, err := io.ReadAll(r.Body)
 		Expect(err).NotTo(HaveOccurred())

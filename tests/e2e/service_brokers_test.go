@@ -45,12 +45,7 @@ var _ = Describe("Service Brokers", func() {
 			))
 
 			jobURL := resp.Header().Get("Location")
-			Eventually(func(g Gomega) {
-				resp, err = adminClient.R().Get(jobURL)
-				g.Expect(err).NotTo(HaveOccurred())
-				jobRespBody := string(resp.Body())
-				g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
-			}).Should(Succeed())
+			expectJobCompletes(resp)
 
 			jobURLSplit := strings.Split(jobURL, "~")
 			Expect(jobURLSplit).To(HaveLen(2))
@@ -123,14 +118,7 @@ var _ = Describe("Service Brokers", func() {
 				HaveRestyStatusCode(http.StatusAccepted),
 				HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/service_broker.update~")),
 			))
-
-			jobURL := resp.Header().Get("Location")
-			Eventually(func(g Gomega) {
-				jobResp, jobErr := adminClient.R().Get(jobURL)
-				g.Expect(jobErr).NotTo(HaveOccurred())
-				jobRespBody := string(jobResp.Body())
-				g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
-			}).Should(Succeed())
+			expectJobCompletes(resp)
 
 			var servicePlans resourceList[resource]
 			resp, err = adminClient.R().SetResult(&servicePlans).Get("/v3/service_plans")
@@ -165,14 +153,7 @@ var _ = Describe("Service Brokers", func() {
 				HaveRestyStatusCode(http.StatusAccepted),
 				HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/service_broker.delete~")),
 			))
-
-			jobURL := resp.Header().Get("Location")
-			Eventually(func(g Gomega) {
-				resp, err = adminClient.R().Get(jobURL)
-				g.Expect(err).NotTo(HaveOccurred())
-				jobRespBody := string(resp.Body())
-				g.Expect(jobRespBody).To(ContainSubstring("COMPLETE"))
-			}).Should(Succeed())
+			expectJobCompletes(resp)
 		})
 	})
 })

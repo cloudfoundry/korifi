@@ -21,21 +21,28 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type CredentialsReconciler struct {
+type UPSIBindingReconciler struct {
 	k8sClient client.Client
 	scheme    *runtime.Scheme
 }
 
-func NewReconciler(k8sClient client.Client, scheme *runtime.Scheme) *CredentialsReconciler {
-	return &CredentialsReconciler{
+func NewReconciler(k8sClient client.Client, scheme *runtime.Scheme) *UPSIBindingReconciler {
+	return &UPSIBindingReconciler{
 		k8sClient: k8sClient,
 		scheme:    scheme,
 	}
 }
 
-func (r *CredentialsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
-	// start upsiCredentialsReconsiler.ReconcileResource
+
+	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
+		if controllerutil.RemoveFinalizer(cfServiceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+
+		return ctrl.Result{}, nil
+	}
 
 	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
@@ -67,8 +74,6 @@ func (r *CredentialsReconciler) ReconcileResource(ctx context.Context, cfService
 		return ctrl.Result{}, err
 	}
 
-	// end of upsiCredentialsReconsiler.ReconcileResource
-
 	return ctrl.Result{}, nil
 }
 
@@ -84,7 +89,7 @@ func isLegacyServiceBinding(cfServiceBinding *korifiv1alpha1.CFServiceBinding, c
 	return cfServiceInstance.Name == cfServiceBinding.Status.Binding.Name && cfServiceInstance.Spec.SecretName == cfServiceBinding.Status.Binding.Name
 }
 
-func (r *CredentialsReconciler) reconcileCredentials(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, cfServiceBinding *korifiv1alpha1.CFServiceBinding) error {
+func (r *UPSIBindingReconciler) reconcileCredentials(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, cfServiceBinding *korifiv1alpha1.CFServiceBinding) error {
 	cfServiceBinding.Status.Credentials.Name = cfServiceInstance.Status.Credentials.Name
 
 	if isLegacyServiceBinding(cfServiceBinding, cfServiceInstance) {

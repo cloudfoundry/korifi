@@ -165,13 +165,7 @@ var _ = Describe("Roles", func() {
 				HaveRestyStatusCode(http.StatusAccepted),
 				HaveRestyHeaderWithValue("Location", HaveSuffix("/v3/jobs/role.delete~"+roleGUID)),
 			))
-
-			jobURL := resp.Header().Get("Location")
-			Eventually(func(g Gomega) {
-				jobResp, err := adminClient.R().Get(jobURL)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(string(jobResp.Body())).To(ContainSubstring("COMPLETE"))
-			}).Should(Succeed())
+			expectJobCompletes(resp)
 
 			resp, err := adminClient.R().Get("/v3/roles/" + roleGUID)
 			Expect(err).NotTo(HaveOccurred())

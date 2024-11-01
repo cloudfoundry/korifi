@@ -132,6 +132,7 @@ rules:
   - cforgs/finalizers
   - cfprocesses/finalizers
   - cfroutes/finalizers
+  - cfservicebindings/finalizers
   - cfserviceinstances/finalizers
   - cfspaces/finalizers
   - cftasks/finalizers

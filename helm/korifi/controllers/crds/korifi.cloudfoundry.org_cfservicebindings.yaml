@@ -221,6 +221,13 @@ spec:
                   the CFServiceBinding that has been reconciled
                 format: int64
                 type: integer
+              unbindingOperation:
+                description: |-
+                  The
+                  [operation](https://github.com/openservicebrokerapi/servicebroker/blob/master/spec.md#unbinding)
+                  of the unbind request to the the OSBAPI broker. Only makes sense for
+                  bindings to managed service instances
+                type: string
             type: object
         type: object
     served: true

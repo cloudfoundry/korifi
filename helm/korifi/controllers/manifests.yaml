@@ -135,6 +135,7 @@ webhooks:
           - cforgs
           - cfroutes
           - cfdomains
+          - cfservicebindings
           - cfserviceinstances
     sideEffects: None
   - admissionReviewVersions:

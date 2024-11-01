@@ -27,10 +27,9 @@ import (
 
 var _ = Describe("ServiceBindingRepo", func() {
 	var (
-		repo    *repositories.ServiceBindingRepo
-		testCtx context.Context
-		org     *korifiv1alpha1.CFOrg
-		space   *korifiv1alpha1.CFSpace
+		repo  *repositories.ServiceBindingRepo
+		org   *korifiv1alpha1.CFOrg
+		space *korifiv1alpha1.CFSpace
 
 		appGUID          string
 		bindingName      *string
@@ -43,7 +42,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 	)
 
 	BeforeEach(func() {
-		testCtx = context.Background()
 		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBinding,
@@ -52,8 +50,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 		]{}
 		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter)
 
-		org = createOrgWithCleanup(testCtx, prefixedGUID("org"))
-		space = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space1"))
+		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
+		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
 		appGUID = prefixedGUID("app")
 		bindingName = nil
 
@@ -75,7 +73,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			},
 		}
 		Expect(
-			k8sClient.Create(testCtx, app),
+			k8sClient.Create(ctx, app),
 		).To(Succeed())
 	})
 
@@ -103,7 +101,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(testCtx, cfServiceBinding),
+				k8sClient.Create(ctx, cfServiceBinding),
 			).To(Succeed())
 		})
 
@@ -159,6 +157,60 @@ var _ = Describe("ServiceBindingRepo", func() {
 		})
 	})
 
+	Describe("GetDeletedAt", func() {
+		var (
+			cfServiceBinding *korifiv1alpha1.CFServiceBinding
+			deletionTime     *time.Time
+			getErr           error
+		)
+
+		BeforeEach(func() {
+			cfServiceBinding = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: space.Name,
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cfServiceBinding)).To(Succeed())
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+		})
+
+		JustBeforeEach(func() {
+			deletionTime, getErr = repo.GetDeletedAt(ctx, authInfo, cfServiceBinding.Name)
+		})
+
+		It("returns nil", func() {
+			Expect(getErr).NotTo(HaveOccurred())
+			Expect(deletionTime).To(BeNil())
+		})
+
+		When("the binding is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, k8sClient, cfServiceBinding, func() {
+					cfServiceBinding.Finalizers = append(cfServiceBinding.Finalizers, "foo")
+				})).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, cfServiceBinding)).To(Succeed())
+			})
+
+			It("returns the deletion time", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(deletionTime).To(PointTo(BeTemporally("~", time.Now(), time.Minute)))
+			})
+		})
+
+		When("the binding isn't found", func() {
+			BeforeEach(func() {
+				Expect(k8sClient.Delete(ctx, cfServiceBinding)).To(Succeed())
+			})
+
+			It("errors", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			})
+		})
+	})
+
 	Describe("CreateUserProvidedServiceBinding", func() {
 		var (
 			cfServiceInstance    *korifiv1alpha1.CFServiceInstance
@@ -177,7 +229,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(testCtx, cfServiceInstance),
+				k8sClient.Create(ctx, cfServiceInstance),
 			).To(Succeed())
 
 			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFServiceBinding, error) {
@@ -201,7 +253,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		})
 
 		JustBeforeEach(func() {
-			serviceBindingRecord, createErr = repo.CreateServiceBinding(testCtx, authInfo, repositories.CreateServiceBindingMessage{
+			serviceBindingRecord, createErr = repo.CreateServiceBinding(ctx, authInfo, repositories.CreateServiceBindingMessage{
 				Name:                bindingName,
 				ServiceInstanceGUID: cfServiceInstance.Name,
 				AppGUID:             appGUID,
@@ -215,7 +267,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 		When("the user can create CFServiceBindings in the Space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("creates a new CFServiceBinding resource and returns a record", func() {
@@ -237,7 +289,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				serviceBinding := new(korifiv1alpha1.CFServiceBinding)
 				Expect(
-					k8sClient.Get(testCtx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),
+					k8sClient.Get(ctx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),
 				).To(Succeed())
 
 				Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
@@ -309,7 +361,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		)
 
 		BeforeEach(func() {
-			createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			cfServiceBinding = &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
@@ -327,13 +379,13 @@ var _ = Describe("ServiceBindingRepo", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(testCtx, cfServiceBinding),
+				k8sClient.Create(ctx, cfServiceBinding),
 			).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
 			var err error
-			serviceBindingRecord, err = repo.GetServiceBinding(testCtx, authInfo, cfServiceBinding.Name)
+			serviceBindingRecord, err = repo.GetServiceBinding(ctx, authInfo, cfServiceBinding.Name)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -444,14 +496,14 @@ var _ = Describe("ServiceBindingRepo", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(testCtx, cfServiceInstance),
+				k8sClient.Create(ctx, cfServiceInstance),
 			).To(Succeed())
 
 			bindingName = nil
 		})
 
 		JustBeforeEach(func() {
-			serviceBindingRecord, createErr = repo.CreateServiceBinding(testCtx, authInfo, repositories.CreateServiceBindingMessage{
+			serviceBindingRecord, createErr = repo.CreateServiceBinding(ctx, authInfo, repositories.CreateServiceBindingMessage{
 				Name:                bindingName,
 				ServiceInstanceGUID: cfServiceInstance.Name,
 				AppGUID:             appGUID,
@@ -465,7 +517,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 		When("the user can create CFServiceBindings in the Space", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("creates a new CFServiceBinding resource and returns a record", func() {
@@ -487,7 +539,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				serviceBinding := new(korifiv1alpha1.CFServiceBinding)
 				Expect(
-					k8sClient.Get(testCtx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),
+					k8sClient.Get(ctx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),
 				).To(Succeed())
 
 				Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
@@ -531,17 +583,21 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 	Describe("DeleteServiceBinding", func() {
 		var (
-			ret                error
+			deleteErr          error
 			serviceBindingGUID string
 		)
 
 		BeforeEach(func() {
-			serviceBindingGUID = prefixedGUID("binding")
+			serviceBindingGUID = uuid.NewString()
 
 			serviceBinding := &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceBindingGUID,
 					Namespace: space.Name,
+					Annotations: map[string]string{
+						korifiv1alpha1.ServiceInstanceTypeAnnotationKey: korifiv1alpha1.UserProvidedType,
+					},
+					Finalizers: []string{korifiv1alpha1.CFServiceBindingFinalizerName},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
@@ -555,35 +611,35 @@ var _ = Describe("ServiceBindingRepo", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(testCtx, serviceBinding),
+				k8sClient.Create(ctx, serviceBinding),
 			).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
-			ret = repo.DeleteServiceBinding(testCtx, authInfo, serviceBindingGUID)
+			deleteErr = repo.DeleteServiceBinding(ctx, authInfo, serviceBindingGUID)
 		})
 
 		It("returns a not-found error for users with no role in the space", func() {
-			Expect(ret).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+			Expect(deleteErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 		})
 
 		When("the user is a space manager", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceManagerRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceManagerRole.Name, space.Name)
 			})
 
 			It("returns a forbidden error", func() {
-				Expect(ret).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+				Expect(deleteErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("deletes the binding", func() {
-				Expect(ret).NotTo(HaveOccurred())
+				Expect(deleteErr).NotTo(HaveOccurred())
 			})
 
 			When("the binding doesn't exist", func() {
@@ -592,7 +648,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				})
 
 				It("returns a not-found error", func() {
-					Expect(ret).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
+					Expect(deleteErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
 			})
 		})
@@ -611,9 +667,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 		)
 
 		BeforeEach(func() {
-			cfApp1 = createAppCR(testCtx, k8sClient, "app-1-name", prefixedGUID("app-1"), space.Name, "STOPPED")
+			cfApp1 = createAppCR(ctx, k8sClient, "app-1-name", prefixedGUID("app-1"), space.Name, "STOPPED")
 			serviceInstance1GUID = prefixedGUID("instance-1")
-			cfServiceInstance1 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance1GUID, space.Name, "service-instance-1-name", "secret-1-name")
+			cfServiceInstance1 := createServiceInstanceCR(ctx, k8sClient, serviceInstance1GUID, space.Name, "service-instance-1-name", "secret-1-name")
 			serviceBinding1 = &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      prefixedGUID("binding-1"),
@@ -635,10 +691,10 @@ var _ = Describe("ServiceBindingRepo", func() {
 			}
 			Expect(k8sClient.Create(ctx, serviceBinding1)).To(Succeed())
 
-			space2 = createSpaceWithCleanup(testCtx, org.Name, prefixedGUID("space-2"))
-			cfApp2 = createAppCR(testCtx, k8sClient, "app-2-name", prefixedGUID("app-2"), space2.Name, "STOPPED")
+			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space-2"))
+			cfApp2 = createAppCR(ctx, k8sClient, "app-2-name", prefixedGUID("app-2"), space2.Name, "STOPPED")
 			serviceInstance2GUID = prefixedGUID("instance-2")
-			cfServiceInstance2 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance2GUID, space2.Name, "service-instance-2-name", "secret-2-name")
+			cfServiceInstance2 := createServiceInstanceCR(ctx, k8sClient, serviceInstance2GUID, space2.Name, "service-instance-2-name", "secret-2-name")
 			serviceBinding2 = &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      prefixedGUID("binding-2"),
@@ -660,9 +716,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 			}
 			Expect(k8sClient.Create(ctx, serviceBinding2)).To(Succeed())
 
-			cfApp3 = createAppCR(testCtx, k8sClient, "app-3-name", prefixedGUID("app-3"), space2.Name, "STOPPED")
+			cfApp3 = createAppCR(ctx, k8sClient, "app-3-name", prefixedGUID("app-3"), space2.Name, "STOPPED")
 			serviceInstance3GUID = prefixedGUID("instance-3")
-			cfServiceInstance3 := createServiceInstanceCR(testCtx, k8sClient, serviceInstance3GUID, space2.Name, "service-instance-3-name", "secret-3-name")
+			cfServiceInstance3 := createServiceInstanceCR(ctx, k8sClient, serviceInstance3GUID, space2.Name, "service-instance-3-name", "secret-3-name")
 			serviceBinding3 = &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      prefixedGUID("binding-3"),
@@ -688,13 +744,13 @@ var _ = Describe("ServiceBindingRepo", func() {
 		})
 
 		JustBeforeEach(func() {
-			responseServiceBindings, listErr = repo.ListServiceBindings(context.Background(), authInfo, requestMessage)
+			responseServiceBindings, listErr = repo.ListServiceBindings(ctx, authInfo, requestMessage)
 		})
 
 		When("the user has access to both namespaces", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space2.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
 
 			It("succeeds", func() {
@@ -788,7 +844,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				DescribeTable("valid label selectors",
 					func(selector string, serviceBindingGUIDPrefixes ...string) {
-						serviceBindings, err := repo.ListServiceBindings(context.Background(), authInfo, repositories.ListServiceBindingsMessage{
+						serviceBindings, err := repo.ListServiceBindings(ctx, authInfo, repositories.ListServiceBindingsMessage{
 							LabelSelector: selector,
 						})
 						Expect(err).NotTo(HaveOccurred())
@@ -890,7 +946,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(testCtx, serviceBinding),
+				k8sClient.Create(ctx, serviceBinding),
 			).To(Succeed())
 		})
 
@@ -904,7 +960,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
-				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("fetches the CFServiceBinding we're looking for", func() {
@@ -957,7 +1013,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(testCtx, serviceBinding),
+				k8sClient.Create(ctx, serviceBinding),
 			).To(Succeed())
 
 			updateMessage = repositories.UpdateServiceBindingMessage{
