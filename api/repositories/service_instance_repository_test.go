@@ -652,6 +652,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-1",
 					Type:        korifiv1alpha1.UserProvidedType,
+					PlanGUID:    "plan-1",
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfServiceInstance1)).To(Succeed())
@@ -664,6 +665,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-2",
 					Type:        korifiv1alpha1.UserProvidedType,
+					PlanGUID:    "plan-2",
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfServiceInstance2)).To(Succeed())
@@ -676,6 +678,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-3",
 					Type:        korifiv1alpha1.UserProvidedType,
+					PlanGUID:    "plan-3",
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfServiceInstance3)).To(Succeed())
@@ -844,6 +847,22 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					It("returns an error", func() {
 						Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 					})
+				})
+			})
+
+			When("filtering by plan guids", func() {
+				BeforeEach(func() {
+					filters = repositories.ListServiceInstanceMessage{
+						PlanGUIDs: []string{"plan-1", "plan-3"},
+					}
+				})
+
+				It("returns only records for the ServiceInstances within the matching plans", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(serviceInstanceList).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
+					))
 				})
 			})
 		})

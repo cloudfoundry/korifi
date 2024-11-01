@@ -397,30 +397,6 @@ func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, servi
 	return serviceInstance
 }
 
-func createServiceBindingCR(ctx context.Context, k8sClient client.Client, serviceBindingGUID, spaceGUID string, name *string, serviceInstanceName, appName string) *korifiv1alpha1.CFServiceBinding {
-	toReturn := &korifiv1alpha1.CFServiceBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceBindingGUID,
-			Namespace: spaceGUID,
-		},
-		Spec: korifiv1alpha1.CFServiceBindingSpec{
-			DisplayName: name,
-			Service: corev1.ObjectReference{
-				Kind:       "ServiceInstance",
-				Name:       serviceInstanceName,
-				APIVersion: "korifi.cloudfoundry.org/v1alpha1",
-			},
-			AppRef: corev1.LocalObjectReference{
-				Name: appName,
-			},
-		},
-	}
-	Expect(
-		k8sClient.Create(ctx, toReturn),
-	).To(Succeed())
-	return toReturn
-}
-
 func createApp(space string) *korifiv1alpha1.CFApp {
 	return createAppWithGUID(space, uuid.NewString())
 }

@@ -161,6 +161,7 @@ type ServiceInstanceList struct {
 	Names                string
 	GUIDs                string
 	SpaceGUIDs           string
+	PlanGUIDs            string
 	OrderBy              string
 	LabelSelector        string
 	IncludeResourceRules []params.IncludeResourceRule
@@ -212,6 +213,7 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 		GUIDs:         parse.ArrayParam(l.GUIDs),
 		OrderBy:       l.OrderBy,
 		LabelSelector: l.LabelSelector,
+		PlanGUIDs:     parse.ArrayParam(l.PlanGUIDs),
 	}
 }
 
@@ -225,6 +227,7 @@ func (l *ServiceInstanceList) SupportedKeys() []string {
 		"fields[service_plan.service_offering]",
 		"fields[service_plan.service_offering.service_broker]",
 		"fields[service_plan]",
+		"service_plan_guids",
 	}
 }
 
@@ -242,5 +245,6 @@ func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.OrderBy = values.Get("order_by")
 	l.LabelSelector = values.Get("label_selector")
 	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseFields(values)...)
+	l.PlanGUIDs = values.Get("service_plan_guids")
 	return nil
 }
