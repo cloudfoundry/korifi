@@ -1498,7 +1498,8 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps/:guid/environment_variables", func() {
 		BeforeEach(func() {
-			appRepo.GetAppEnvVarsReturns(repositories.AppEnvVarsRecord{
+			appRepo.GetAppEnvReturns(repositories.AppEnvRecord{
+				AppGUID:              appGUID,
 				EnvironmentVariables: map[string]string{"VAR": "VAL"},
 			}, nil)
 
@@ -1506,8 +1507,8 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the app environment variables", func() {
-			Expect(appRepo.GetAppEnvVarsCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := appRepo.GetAppEnvVarsArgsForCall(0)
+			Expect(appRepo.GetAppEnvCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.GetAppEnvArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
@@ -1517,7 +1518,7 @@ var _ = Describe("App", func() {
 
 		When("there is an error fetching the app env", func() {
 			BeforeEach(func() {
-				appRepo.GetAppEnvVarsReturns(repositories.AppEnvVarsRecord{}, errors.New("unknown!"))
+				appRepo.GetAppEnvReturns(repositories.AppEnvRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {

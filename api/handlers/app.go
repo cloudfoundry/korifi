@@ -50,7 +50,6 @@ const (
 type CFAppRepository interface {
 	GetApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
 	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
-	GetAppEnvVars(context.Context, authorization.Info, string) (repositories.AppEnvVarsRecord, error)
 	PatchAppEnvVars(context.Context, authorization.Info, repositories.PatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 	SetCurrentDroplet(context.Context, authorization.Info, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
@@ -486,12 +485,17 @@ func (h *App) getEnvVars(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-env-vars")
 	appGUID := routing.URLParam(r, "guid")
 
-	envVarsRecord, err := h.appRepo.GetAppEnvVars(r.Context(), authInfo, appGUID)
+	appEnvRecord, err := h.appRepo.GetAppEnv(r.Context(), authInfo, appGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app environment variables", "AppGUID", appGUID)
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForAppEnvVars(envVarsRecord, h.serverURL)), nil
+	appEnvVarsRecord := repositories.AppEnvVarsRecord{
+		AppGUID:              appEnvRecord.AppGUID,
+		EnvironmentVariables: appEnvRecord.EnvironmentVariables,
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForAppEnvVars(appEnvVarsRecord, h.serverURL)), nil
 }
 
 func (h *App) updateEnvVars(r *http.Request) (*routing.Response, error) {
