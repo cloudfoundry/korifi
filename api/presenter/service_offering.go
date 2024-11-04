@@ -24,18 +24,14 @@ type ServiceOfferingResponse struct {
 	model.CFResource
 	Relationships ServiceOfferingRelationships `json:"relationships"`
 	Links         ServiceOfferingLinks         `json:"links"`
-}
-
-type ServiceOfferingWithIncludedResponse struct {
-	ServiceOfferingResponse
-	Included map[string][]any `json:"included,omitempty"`
+	Included      map[string][]any             `json:"included,omitempty"`
 }
 
 type ServiceOfferingRelationships struct {
 	ServiceBroker model.ToOneRelationship `json:"service_broker"`
 }
 
-func ForServiceOffering(serviceOffering repositories.ServiceOfferingRecord, baseURL url.URL) ServiceOfferingResponse {
+func ForServiceOffering(serviceOffering repositories.ServiceOfferingRecord, baseURL url.URL, includes ...model.IncludedResource) ServiceOfferingResponse {
 	return ServiceOfferingResponse{
 		ServiceOffering: serviceOffering.ServiceOffering,
 		CFResource:      serviceOffering.CFResource,
@@ -57,12 +53,6 @@ func ForServiceOffering(serviceOffering repositories.ServiceOfferingRecord, base
 				HRef: buildURL(baseURL).appendPath(serviceBrokersBase, serviceOffering.ServiceBrokerGUID).build(),
 			},
 		},
-	}
-}
-
-func ForServiceOfferingWithIncluded(serviceOffering repositories.ServiceOfferingRecord, baseURL url.URL, includes ...model.IncludedResource) ServiceOfferingWithIncludedResponse {
-	return ServiceOfferingWithIncludedResponse{
-		ServiceOfferingResponse: ForServiceOffering(serviceOffering, baseURL),
-		Included:                includedResources(includes...),
+		Included: includedResources(includes...),
 	}
 }

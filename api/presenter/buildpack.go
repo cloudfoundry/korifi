@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
 )
 
 type BuildpackResponse struct {
@@ -20,7 +21,7 @@ type BuildpackResponse struct {
 	Links     map[string]Link `json:"links"`
 }
 
-func ForBuildpack(buildpackRecord repositories.BuildpackRecord, _ url.URL) BuildpackResponse {
+func ForBuildpack(buildpackRecord repositories.BuildpackRecord, _ url.URL, includes ...model.IncludedResource) BuildpackResponse {
 	toReturn := BuildpackResponse{
 		GUID:      "",
 		CreatedAt: formatTimestamp(&buildpackRecord.CreatedAt),

@@ -40,7 +40,7 @@ type TaskLinks struct {
 	Cancel  Link `json:"cancel"`
 }
 
-func ForTask(responseTask repositories.TaskRecord, baseURL url.URL) TaskResponse {
+func ForTask(responseTask repositories.TaskRecord, baseURL url.URL, includes ...model.IncludedResource) TaskResponse {
 	result := TaskResult{}
 
 	if responseTask.FailureReason != "" {

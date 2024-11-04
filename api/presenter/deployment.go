@@ -34,7 +34,7 @@ type DeploymentLinks struct {
 	App  Link `json:"app"`
 }
 
-func ForDeployment(responseDeployment repositories.DeploymentRecord, baseURL url.URL) DeploymentResponse {
+func ForDeployment(responseDeployment repositories.DeploymentRecord, baseURL url.URL, includes ...model.IncludedResource) DeploymentResponse {
 	return DeploymentResponse{
 		GUID: responseDeployment.GUID,
 		Status: DeploymentStatus{

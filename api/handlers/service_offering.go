@@ -73,7 +73,7 @@ func (h *ServiceOffering) get(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to get broker includes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceOfferingWithIncluded(serviceOffering, h.serverURL, brokerIncludes...)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceOffering(serviceOffering, h.serverURL, brokerIncludes...)), nil
 }
 
 func (h *ServiceOffering) list(r *http.Request) (*routing.Response, error) {
