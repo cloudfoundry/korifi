@@ -196,8 +196,7 @@ func getAppGUID(appName string) string {
 func cleanupBroker(brokerName string) {
 	GinkgoHelper()
 
-	Expect(helpers.Cf("delete-service-broker", "-f", brokerName)).To(Exit(0))
-	broker.NewCatalogPurger(sharedData.RootNamespace).ForBrokerName(brokerName).Purge()
+	broker.NewCatalogDeleter(sharedData.RootNamespace).ForBrokerName(brokerName).Delete()
 }
 
 func matchSubstrings(substrings ...string) types.GomegaMatcher {

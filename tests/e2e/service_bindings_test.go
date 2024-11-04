@@ -25,10 +25,6 @@ var _ = Describe("Service Bindings", func() {
 		upsiGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"), nil)
 	})
 
-	AfterEach(func() {
-		deleteSpace(spaceGUID)
-	})
-
 	Describe("POST /v3/service_credential_bindings/{guid}", func() {
 		var instanceGUID string
 
