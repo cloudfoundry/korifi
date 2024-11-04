@@ -2,7 +2,6 @@ package payloads_test
 
 import (
 	"encoding/json"
-	"net/http"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -472,39 +471,22 @@ var _ = Describe("ServiceInstancePatch", func() {
 })
 
 var _ = Describe("ServiceInstanceDelete", func() {
-	Describe("decoding from url values", func() {
-		It("gets the purge param", func() {
-			serviceInstanceDelete := payloads.ServiceInstanceDelete{}
-			req, err := http.NewRequest("DELETE", "http://foo.com/bar?purge=true", nil)
-			Expect(err).ToNot(HaveOccurred())
-			err = validator.DecodeAndValidateURLValues(req, &serviceInstanceDelete)
+	DescribeTable("valid query",
+		func(query string, expectedServiceInstanceDelete payloads.ServiceInstanceDelete) {
+			actualServiceInstanceDelete, decodeErr := decodeQuery[payloads.ServiceInstanceDelete](query)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(serviceInstanceDelete.Purge).To(BeTrue())
-		})
+			Expect(decodeErr).ToNot(HaveOccurred())
+			Expect(*actualServiceInstanceDelete).To(Equal(expectedServiceInstanceDelete))
+		},
+		Entry("purge", "purge=true", payloads.ServiceInstanceDelete{Purge: true}),
+	)
 
-		It("returns a error if a unsupported param is passed", func() {
-			serviceInstanceDelete := payloads.ServiceInstanceDelete{}
-			req, err := http.NewRequest("DELETE", "http://foo.com/bar?guid=1234", nil)
-			Expect(err).ToNot(HaveOccurred())
-			err = validator.DecodeAndValidateURLValues(req, &serviceInstanceDelete)
-
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unsupported query parameter"))
-
-			Expect(serviceInstanceDelete.Purge).To(BeFalse())
-		})
-
-		It("returns a error if purge in not a bool", func() {
-			serviceInstanceDelete := payloads.ServiceInstanceDelete{}
-			req, err := http.NewRequest("DELETE", "http://foo.com/bar?purge=1234", nil)
-			Expect(err).ToNot(HaveOccurred())
-			err = validator.DecodeAndValidateURLValues(req, &serviceInstanceDelete)
-
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("invalid syntax"))
-
-			Expect(serviceInstanceDelete.Purge).To(BeFalse())
-		})
-	})
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.ServiceInstanceDelete](query)
+			Expect(decodeErr).To(HaveOccurred())
+		},
+		Entry("unsuported param", "foo=bar", "unsupported query parameter: foo"),
+		Entry("invalid value for purge", "purge=foo", "invalid syntax"),
+	)
 })

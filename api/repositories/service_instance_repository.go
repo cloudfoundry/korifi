@@ -467,8 +467,14 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 		return fmt.Errorf("failed to get namespace for service instance: %w", err)
 	}
 
-	serviceInstance := &korifiv1alpha1.CFServiceInstance{}
-	if err := userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: message.GUID}, serviceInstance); err != nil {
+	serviceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      message.GUID,
+		},
+	}
+
+	if err := userClient.Get(ctx, client.ObjectKeyFromObject(serviceInstance), serviceInstance); err != nil {
 		return fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 

@@ -550,6 +550,26 @@ var _ = Describe("ServiceInstance", func() {
 			})
 		})
 
+		When("purging is set to true", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceDelete{
+					Purge: true,
+				})
+			})
+
+			It("purges the service instance", func() {
+				Expect(serviceInstanceRepo.DeleteServiceInstanceCallCount()).To(Equal(1))
+				_, actualAuthInfo, message := serviceInstanceRepo.DeleteServiceInstanceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(message.GUID).To(Equal("service-instance-guid"))
+				Expect(message.Purge).To(BeTrue())
+
+				Expect(rr).To(SatisfyAll(
+					HaveHTTPStatus(http.StatusNoContent),
+				))
+			})
+		})
+
 		When("getting the service instance fails with not found", func() {
 			BeforeEach(func() {
 				serviceInstanceRepo.GetServiceInstanceReturns(
