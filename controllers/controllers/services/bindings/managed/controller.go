@@ -2,7 +2,6 @@ package managed
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
@@ -249,21 +248,25 @@ func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
 	assets osbapi.ServiceBindingAssets,
 	osbapiClient osbapi.BrokerClient,
 ) (ctrl.Result, error) {
-	if !isUnbindRequested(serviceBinding) {
-		return r.requestUnbind(ctx, serviceBinding, assets, osbapiClient)
+	log := logr.FromContextOrDiscard(ctx).WithName("unbind")
+
+	err := r.unbind(ctx, serviceBinding, assets, osbapiClient)
+	if osbapi.IgnoreGone(err) != nil {
+		return ctrl.Result{}, err
 	}
 
-	return r.pollUnbindOperation(ctx, serviceBinding, assets, osbapiClient)
+	if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
+		log.V(1).Info("finalizer removed")
+	}
+	return ctrl.Result{}, nil
 }
 
-func (r *ManagedBindingsReconciler) requestUnbind(
+func (r *ManagedBindingsReconciler) unbind(
 	ctx context.Context,
 	serviceBinding *korifiv1alpha1.CFServiceBinding,
 	assets osbapi.ServiceBindingAssets,
 	osbapiClient osbapi.BrokerClient,
-) (ctrl.Result, error) {
-	log := logr.FromContextOrDiscard(ctx).WithName("unbind")
-
+) error {
 	unbindResponse, err := osbapiClient.Unbind(ctx, osbapi.UnbindPayload{
 		BindingID:  serviceBinding.Name,
 		InstanceID: assets.ServiceInstance.Name,
@@ -272,73 +275,34 @@ func (r *ManagedBindingsReconciler) requestUnbind(
 			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
 		},
 	})
-
-	if osbapi.IgnoreGone(err) != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to unbind service instance: %w", err)
+	if err != nil {
+		return err
 	}
 
-	if unbindResponse.IsComplete() || osbapi.IsGone(err) {
-		if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
-			log.V(1).Info("finalizer removed")
+	if !unbindResponse.IsComplete() {
+		lastOpResp, err := osbapiClient.GetServiceBindingLastOperation(ctx, osbapi.GetServiceBindingLastOperationRequest{
+			InstanceID: assets.ServiceInstance.Name,
+			BindingID:  serviceBinding.Name,
+			GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
+				ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+				PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
+				Operation: unbindResponse.Operation,
+			},
+		})
+		if err != nil {
+			return err
 		}
-		return ctrl.Result{}, nil
-	}
 
-	meta.SetStatusCondition(&serviceBinding.Status.Conditions, metav1.Condition{
-		Type:               korifiv1alpha1.UnbindingRequestedCondition,
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: serviceBinding.Generation,
-		LastTransitionTime: metav1.Now(),
-		Reason:             "UnbindingRequested",
-	})
-	serviceBinding.Status.UnbindingOperation = unbindResponse.Operation
-
-	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindingRequested").WithRequeue()
-}
-
-func (r *ManagedBindingsReconciler) pollUnbindOperation(
-	ctx context.Context,
-	serviceBinding *korifiv1alpha1.CFServiceBinding,
-	assets osbapi.ServiceBindingAssets,
-	osbapiClient osbapi.BrokerClient,
-) (ctrl.Result, error) {
-	log := logr.FromContextOrDiscard(ctx).WithName("pollUnbindOperation")
-
-	lastOpResp, err := osbapiClient.GetServiceBindingLastOperation(ctx, osbapi.GetServiceBindingLastOperationRequest{
-		InstanceID: assets.ServiceInstance.Name,
-		BindingID:  serviceBinding.Name,
-		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
-			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
-			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
-			Operation: serviceBinding.Status.UnbindingOperation,
-		},
-	})
-	if osbapi.IgnoreGone(err) != nil {
-		return ctrl.Result{}, err
-	}
-
-	if osbapi.IsGone(err) || lastOpResp.State == "succeeded" {
-		if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
-			log.V(1).Info("finalizer removed")
+		if lastOpResp.State != "succeeded" {
+			return k8s.NewNotReadyError().WithReason("UnbindingInProgress").WithRequeue()
 		}
-		return ctrl.Result{}, nil
 	}
 
-	if lastOpResp.State == "failed" {
-		meta.RemoveStatusCondition(&serviceBinding.Status.Conditions, korifiv1alpha1.UnbindingRequestedCondition)
-		serviceBinding.Status.UnbindingOperation = ""
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindingFailed").WithRequeue()
-	}
-
-	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindingInProgress").WithRequeue()
+	return nil
 }
 
 func isBindRequested(binding *korifiv1alpha1.CFServiceBinding) bool {
 	return meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.BindingRequestedCondition)
-}
-
-func isUnbindRequested(binding *korifiv1alpha1.CFServiceBinding) bool {
-	return meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.UnbindingRequestedCondition)
 }
 
 func isFailed(binding *korifiv1alpha1.CFServiceBinding) bool {

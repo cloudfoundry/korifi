@@ -24,9 +24,8 @@ import (
 )
 
 const (
-	BindingFailedCondition      = "BindingFailed"
-	BindingRequestedCondition   = "BindingRequested"
-	UnbindingRequestedCondition = "UnbindingRequested"
+	BindingFailedCondition    = "BindingFailed"
+	BindingRequestedCondition = "BindingRequested"
 
 	ServiceInstanceTypeAnnotationKey = "korifi.cloudfoundry.org/service-instance-type"
 	PlanGUIDLabelKey                 = "korifi.cloudfoundry.org/plan-guid"
@@ -61,13 +60,6 @@ type CFServiceBindingStatus struct {
 	// bindings to managed service instances
 	// +optional
 	BindingOperation string `json:"bindingOperation"`
-
-	// The
-	// [operation](https://github.com/openservicebrokerapi/servicebroker/blob/master/spec.md#unbinding)
-	// of the unbind request to the the OSBAPI broker. Only makes sense for
-	// bindings to managed service instances
-	// +optional
-	UnbindingOperation string `json:"unbindingOperation"`
 
 	// A reference to the Secret containing the binding Credentials object. For
 	// bindings to user-provided services this refers to the credentials secret
