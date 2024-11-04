@@ -63,10 +63,10 @@ var _ = Describe("Service Brokers", func() {
 
 		BeforeEach(func() {
 			brokerGUID = createBroker(serviceBrokerURL)
-		})
 
-		AfterEach(func() {
-			cleanupBroker(brokerGUID)
+			DeferCleanup(func() {
+				cleanupBroker(brokerGUID)
+			})
 		})
 
 		JustBeforeEach(func() {
