@@ -22,7 +22,7 @@ No query parameters are supported.
 
 -   `names`
 -   `space_guids`
--   `order_by` (the only supported value is `name`)
+-   `order_by`
 -   `label_selector`
 
 ### [Delete an app](https://v3-apidocs.cloudfoundry.org/#delete-an-app)
@@ -78,7 +78,7 @@ Always returns HTTP 422 error.
 
 #### Supported query parameters:
 
-No query parameters are supported.
+-   `order_by`
 
 ## [Domains](https://v3-apidocs.cloudfoundry.org/#domains)
 
