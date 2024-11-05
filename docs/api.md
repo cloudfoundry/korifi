@@ -38,6 +38,10 @@ This endpoint is fully supported.
 > **Warning**
 > The field `system_env_json` will **not** be redacted.
 
+### [Get environment variables for an app](https://v3-apidocs.cloudfoundry.org/#get-environment-variables-for-an-app)
+
+This endpoint is fully supported.
+
 ### [Set current droplet](https://v3-apidocs.cloudfoundry.org/#update-a-droplet)
 
 This endpoint is fully supported.
@@ -414,6 +418,14 @@ This endpoint is fully supported.
 ### [Get a space](https://v3-apidocs.cloudfoundry.org/#get-a-space)
 
 This endpoint is fully supported.
+
+## [Stacks](https://v3-apidocs.cloudfoundry.org/#stacks)
+
+### [List stacks](https://v3-apidocs.cloudfoundry.org/#list-stacks)
+
+#### Supported query parameters:
+
+No query parameters are supported.
 
 ## [Tasks](https://v3-apidocs.cloudfoundry.org/#tasks)
 
