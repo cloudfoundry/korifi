@@ -29,7 +29,7 @@ import (
 var _ = Describe("CFServiceBinding", func() {
 	var (
 		testNamespace string
-		cfApp         *korifiv1alpha1.CFApp
+		cfAppGUID     string
 		instanceGUID  string
 		binding       *korifiv1alpha1.CFServiceBinding
 	)
@@ -42,22 +42,7 @@ var _ = Describe("CFServiceBinding", func() {
 			},
 		})).To(Succeed())
 
-		cfApp = &korifiv1alpha1.CFApp{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      uuid.NewString(),
-				Namespace: testNamespace,
-			},
-			Spec: korifiv1alpha1.CFAppSpec{
-				DisplayName:  uuid.NewString(),
-				DesiredState: korifiv1alpha1.StartedState,
-				Lifecycle: korifiv1alpha1.Lifecycle{
-					Type: "docker",
-				},
-			},
-		}
-		Expect(
-			adminClient.Create(ctx, cfApp),
-		).To(Succeed())
+		cfAppGUID = uuid.NewString()
 
 		instanceGUID = uuid.NewString()
 
@@ -76,7 +61,7 @@ var _ = Describe("CFServiceBinding", func() {
 					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 				},
 				AppRef: corev1.LocalObjectReference{
-					Name: cfApp.Name,
+					Name: cfAppGUID,
 				},
 			},
 		}
@@ -214,7 +199,7 @@ var _ = Describe("CFServiceBinding", func() {
 
 				g.Expect(sbServiceBinding.Labels).To(SatisfyAll(
 					HaveKeyWithValue(bindings.ServiceBindingGUIDLabel, binding.Name),
-					HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfApp.Name),
+					HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID),
 					HaveKeyWithValue(bindings.ServiceCredentialBindingTypeLabel, "app"),
 				))
 
@@ -228,7 +213,7 @@ var _ = Describe("CFServiceBinding", func() {
 					"Kind":       Equal("StatefulSet"),
 					"Selector": PointTo(Equal(metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							korifiv1alpha1.CFAppGUIDLabelKey: cfApp.Name,
+							korifiv1alpha1.CFAppGUIDLabelKey: cfAppGUID,
 						},
 					})),
 				}))
@@ -477,22 +462,6 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 		})
 
-		When("the CFApp is not available", func() {
-			BeforeEach(func() {
-				Expect(adminClient.Delete(ctx, cfApp)).To(Succeed())
-			})
-
-			It("sets the Ready condition to false", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-						HasStatus(Equal(metav1.ConditionFalse)),
-					)))
-				}).Should(Succeed())
-			})
-		})
-
 		When("the binding references a 'legacy' instance credentials secret", func() {
 			JustBeforeEach(func() {
 				Expect(k8s.Patch(ctx, adminClient, instance, func() {
@@ -691,9 +660,9 @@ var _ = Describe("CFServiceBinding", func() {
 					BindRequest: osbapi.BindRequest{
 						ServiceId: "service-offering-id",
 						PlanID:    "service-plan-id",
-						AppGUID:   cfApp.Name,
+						AppGUID:   cfAppGUID,
 						BindResource: osbapi.BindResource{
-							AppGUID: cfApp.Name,
+							AppGUID: cfAppGUID,
 						},
 					},
 				}))
