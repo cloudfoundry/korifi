@@ -480,6 +480,24 @@ func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, aut
 	return routeRecords, nil
 }
 
+func (h *App) getEnvVars(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-env-vars")
+	appGUID := routing.URLParam(r, "guid")
+
+	appEnvRecord, err := h.appRepo.GetAppEnv(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app environment variables", "AppGUID", appGUID)
+	}
+
+	appEnvVarsRecord := repositories.AppEnvVarsRecord{
+		AppGUID:              appEnvRecord.AppGUID,
+		EnvironmentVariables: appEnvRecord.EnvironmentVariables,
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForAppEnvVars(appEnvVarsRecord, h.serverURL)), nil
+}
+
 func (h *App) updateEnvVars(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.update-env-vars")
@@ -717,6 +735,7 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: AppProcessStatsByTypePath, Handler: h.getProcessStats},
 		{Method: "GET", Pattern: AppRoutesPath, Handler: h.getRoutes},
 		{Method: "DELETE", Pattern: AppPath, Handler: h.delete},
+		{Method: "GET", Pattern: AppEnvVarsPath, Handler: h.getEnvVars},
 		{Method: "PATCH", Pattern: AppEnvVarsPath, Handler: h.updateEnvVars},
 		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
 		{Method: "GET", Pattern: AppPackagesPath, Handler: h.getPackages},

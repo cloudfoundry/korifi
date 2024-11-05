@@ -1496,6 +1496,37 @@ var _ = Describe("App", func() {
 		})
 	})
 
+	Describe("GET /v3/apps/:guid/environment_variables", func() {
+		BeforeEach(func() {
+			appRepo.GetAppEnvReturns(repositories.AppEnvRecord{
+				AppGUID:              appGUID,
+				EnvironmentVariables: map[string]string{"VAR": "VAL"},
+			}, nil)
+
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/environment_variables", nil)
+		})
+
+		It("returns the app environment variables", func() {
+			Expect(appRepo.GetAppEnvCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ := appRepo.GetAppEnvArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.var.VAR", "VAL")))
+		})
+
+		When("there is an error fetching the app env", func() {
+			BeforeEach(func() {
+				appRepo.GetAppEnvReturns(repositories.AppEnvRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("PATCH /v3/apps/:guid/environment_variables", func() {
 		var payload *payloads.AppPatchEnvVars
 
