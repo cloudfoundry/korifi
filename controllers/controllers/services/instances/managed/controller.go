@@ -20,13 +20,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +40,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type Reconciler struct {
@@ -70,7 +75,35 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceInstance{}).
 		Named("managed-cfserviceinstance").
-		WithEventFilter(predicate.NewPredicateFuncs(r.isManaged))
+		WithEventFilter(predicate.NewPredicateFuncs(r.isManaged)).
+		Watches(
+			&korifiv1alpha1.CFServicePlan{},
+			handler.EnqueueRequestsFromMapFunc(r.servicePlanToServiceInstances),
+		)
+}
+
+func (r *Reconciler) servicePlanToServiceInstances(ctx context.Context, o client.Object) []reconcile.Request {
+	servicePlan := o.(*korifiv1alpha1.CFServicePlan)
+
+	serviceInstancesList := korifiv1alpha1.CFServiceInstanceList{}
+	if err := r.k8sClient.List(ctx, &serviceInstancesList,
+		client.MatchingFields{shared.IndexServiceInstancePlanGUID: servicePlan.Name},
+	); err != nil {
+		return []reconcile.Request{}
+	}
+
+	serviceInstances := it.Map(slices.Values(serviceInstancesList.Items),
+		func(si korifiv1alpha1.CFServiceInstance) client.Object {
+			return &si
+		},
+	)
+
+	return slices.Collect(it.Map(it.Filter(serviceInstances, r.isManaged),
+		func(si client.Object) reconcile.Request {
+			return reconcile.Request{
+				NamespacedName: client.ObjectKeyFromObject(si),
+			}
+		}))
 }
 
 func (r *Reconciler) isManaged(object client.Object) bool {
@@ -110,6 +143,17 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return ctrl.Result{}, err
 	}
 
+	planVisible, err := r.isServicePlanVisible(ctx, serviceInstance, serviceInstanceAssets.ServicePlan)
+	if err != nil {
+		log.Error(err, "failed to check service plan visibility")
+		return ctrl.Result{}, err
+	}
+
+	if !planVisible {
+		return ctrl.Result{},
+			k8s.NewNotReadyError().WithMessage("The service plan is disabled").WithReason("InvalidServicePlan").WithNoRequeue()
+	}
+
 	if serviceInstance.Spec.ServiceLabel == nil {
 		serviceInstance.Spec.ServiceLabel = tools.PtrTo(serviceInstanceAssets.ServiceOffering.Spec.Name)
 	}
@@ -125,6 +169,32 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	}
 
 	return r.pollProvisionOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+}
+
+func (r *Reconciler) isServicePlanVisible(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	servicePlan *korifiv1alpha1.CFServicePlan,
+) (bool, error) {
+	if servicePlan.Spec.Visibility.Type == korifiv1alpha1.AdminServicePlanVisibilityType {
+		return false, nil
+	}
+
+	if servicePlan.Spec.Visibility.Type == korifiv1alpha1.PublicServicePlanVisibilityType {
+		return true, nil
+	}
+
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: serviceInstance.Namespace,
+		},
+	}
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(namespace), namespace)
+	if err != nil {
+		return false, err
+	}
+
+	return slices.Contains(servicePlan.Spec.Visibility.Organizations, namespace.Labels[korifiv1alpha1.OrgGUIDKey]), nil
 }
 
 func (r *Reconciler) provisionServiceInstance(
