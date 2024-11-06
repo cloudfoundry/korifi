@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -50,7 +51,7 @@ var _ = Describe("Service Brokers", func() {
 			jobURLSplit := strings.Split(jobURL, "~")
 			Expect(jobURLSplit).To(HaveLen(2))
 			DeferCleanup(func() {
-				cleanupBroker(jobURLSplit[1])
+				broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(jobURLSplit[1]).Delete()
 			})
 		})
 	})
@@ -63,10 +64,10 @@ var _ = Describe("Service Brokers", func() {
 
 		BeforeEach(func() {
 			brokerGUID = createBroker(serviceBrokerURL)
+		})
 
-			DeferCleanup(func() {
-				cleanupBroker(brokerGUID)
-			})
+		AfterEach(func() {
+			broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 		})
 
 		JustBeforeEach(func() {
@@ -97,7 +98,7 @@ var _ = Describe("Service Brokers", func() {
 		})
 
 		AfterEach(func() {
-			cleanupBroker(brokerGUID)
+			broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 		})
 
 		JustBeforeEach(func() {
@@ -140,7 +141,7 @@ var _ = Describe("Service Brokers", func() {
 		})
 
 		AfterEach(func() {
-			cleanupBroker(brokerGUID)
+			broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 		})
 
 		JustBeforeEach(func() {

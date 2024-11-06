@@ -2,6 +2,7 @@ package smoke_test
 
 import (
 	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/google/uuid"
@@ -25,7 +26,7 @@ var _ = Describe("Service Catalog", func() {
 	})
 
 	AfterEach(func() {
-		cleanupBroker(brokerName)
+		broker.NewCatalogDeleter(sharedData.RootNamespace).ForBrokerName(brokerName).Delete()
 	})
 
 	Describe("cf service-brokers", func() {
