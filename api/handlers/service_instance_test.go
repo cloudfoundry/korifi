@@ -529,7 +529,7 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("the service instance is managed", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+				serviceInstanceRepo.DeleteServiceInstanceReturns(repositories.ServiceInstanceRecord{
 					GUID:      "service-instance-guid",
 					SpaceGUID: "space-guid",
 					Type:      korifiv1alpha1.ManagedType,
@@ -572,7 +572,7 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("getting the service instance fails with not found", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(
+				serviceInstanceRepo.DeleteServiceInstanceReturns(
 					repositories.ServiceInstanceRecord{},
 					apierrors.NewNotFoundError(nil, repositories.ServiceInstanceResourceType),
 				)
@@ -585,20 +585,20 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("getting the service instance fails with forbidden", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(
+				serviceInstanceRepo.DeleteServiceInstanceReturns(
 					repositories.ServiceInstanceRecord{},
 					apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType),
 				)
 			})
 
-			It("returns 404 Not Found", func() {
-				expectNotFoundError("Service Instance")
+			It("returns 403 Forbidden", func() {
+				expectNotAuthorizedError()
 			})
 		})
 
 		When("getting the service instance fails", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("boom"))
+				serviceInstanceRepo.DeleteServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("boom"))
 			})
 
 			It("returns 500 Internal Server Error", func() {
@@ -608,7 +608,7 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("deleting the service instance fails", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.DeleteServiceInstanceReturns(errors.New("boom"))
+				serviceInstanceRepo.DeleteServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("boom"))
 			})
 
 			It("returns 500 Internal Server Error", func() {

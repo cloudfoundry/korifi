@@ -456,15 +456,15 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 	return cfServiceInstanceToRecord(*serviceInstance), nil
 }
 
-func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInfo authorization.Info, message DeleteServiceInstanceMessage) error {
+func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInfo authorization.Info, message DeleteServiceInstanceMessage) (ServiceInstanceRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, message.GUID, ServiceInstanceResourceType)
 	if err != nil {
-		return fmt.Errorf("failed to get namespace for service instance: %w", err)
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
 	}
 
 	serviceInstance := &korifiv1alpha1.CFServiceInstance{
@@ -475,7 +475,7 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 	}
 
 	if err := userClient.Get(ctx, client.ObjectKeyFromObject(serviceInstance), serviceInstance); err != nil {
-		return fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
 	if message.Purge {
@@ -483,15 +483,15 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 			controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
 		})
 		if err != nil {
-			return fmt.Errorf("failed to remove finalizer for service instance: %s, %w", message.GUID, apierrors.FromK8sError(err, ServiceInstanceResourceType))
+			return ServiceInstanceRecord{}, fmt.Errorf("failed to remove finalizer for service instance: %s, %w", message.GUID, apierrors.FromK8sError(err, ServiceInstanceResourceType))
 		}
 	}
 
 	if err := userClient.Delete(ctx, serviceInstance); err != nil {
-		return fmt.Errorf("failed to delete service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
+		return ServiceInstanceRecord{}, fmt.Errorf("failed to delete service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
-	return nil
+	return cfServiceInstanceToRecord(*serviceInstance), nil
 }
 
 func (r ServiceInstanceRecord) GetResourceType() string {

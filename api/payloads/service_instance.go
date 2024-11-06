@@ -253,6 +253,13 @@ type ServiceInstanceDelete struct {
 	Purge bool `json:"purge"`
 }
 
+func (d *ServiceInstanceDelete) ToMessage(guid string) repositories.DeleteServiceInstanceMessage {
+	return repositories.DeleteServiceInstanceMessage{
+		GUID:  guid,
+		Purge: d.Purge,
+	}
+}
+
 func (d *ServiceInstanceDelete) SupportedKeys() []string {
 	return []string{
 		"purge",

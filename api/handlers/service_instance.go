@@ -32,7 +32,7 @@ type CFServiceInstanceRepository interface {
 	PatchServiceInstance(context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
 	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
 	GetServiceInstance(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
-	DeleteServiceInstance(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) error
+	DeleteServiceInstance(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
 }
 
 type ServiceInstance struct {
@@ -178,15 +178,7 @@ func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceInstanceGUID)
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance")
-	}
-
-	err = h.serviceInstanceRepo.DeleteServiceInstance(r.Context(), authInfo, repositories.DeleteServiceInstanceMessage{
-		GUID:  serviceInstanceGUID,
-		Purge: payload.Purge,
-	})
+	serviceInstance, err := h.serviceInstanceRepo.DeleteServiceInstance(r.Context(), authInfo, payload.ToMessage(serviceInstanceGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "error when deleting service instance", "guid", serviceInstanceGUID)
 	}

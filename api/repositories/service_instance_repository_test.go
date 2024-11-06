@@ -987,7 +987,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			deleteErr = serviceInstanceRepo.DeleteServiceInstance(ctx, authInfo, deleteMessage)
+			_, deleteErr = serviceInstanceRepo.DeleteServiceInstance(ctx, authInfo, deleteMessage)
 		})
 
 		When("the user has permissions to delete service instances", func() {
@@ -1046,7 +1046,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			deleteErr = serviceInstanceRepo.DeleteServiceInstance(ctx, authInfo, deleteMessage)
+			_, deleteErr = serviceInstanceRepo.DeleteServiceInstance(ctx, authInfo, deleteMessage)
 		})
 
 		It("purges the service instance", func() {
