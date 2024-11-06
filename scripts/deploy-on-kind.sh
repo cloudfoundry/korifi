@@ -189,7 +189,7 @@ function deploy_korifi() {
     helm upgrade --install korifi helm/korifi \
       --namespace korifi \
       --values="$values_file" \
-      --set=adminUserName="kubernetes-admin" \
+      --set=adminUserName="cf-admin" \
       --set=defaultAppDomainName="apps-127-0-0-1.nip.io" \
       --set=generateIngressCertificates="true" \
       --set=logLevel="debug" \
