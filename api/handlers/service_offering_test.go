@@ -105,7 +105,6 @@ var _ = Describe("ServiceOffering", func() {
 					MatchJSONPath("$.included.service_brokers[0].guid", "broker-guid"),
 				)))
 			})
-
 		})
 
 		When("the request is invalid", func() {
