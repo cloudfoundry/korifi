@@ -462,11 +462,25 @@ var _ = Describe("CFServiceInstance", func() {
 		It("remains ready", func() {
 			Consistently(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-					HasStatus(Equal(metav1.ConditionTrue)),
-				)))
+				g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 			}).Should(Succeed())
+		})
+
+		When("the service plan becomes disabled after provisioning", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, servicePlan, func() {
+					servicePlan.Spec.Visibility = korifiv1alpha1.ServicePlanVisibility{
+						Type: "admin",
+					}
+				})).To(Succeed())
+			})
+
+			It("remains ready", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
+				}).Should(Succeed())
+			})
 		})
 	})
 
@@ -654,6 +668,107 @@ var _ = Describe("CFServiceInstance", func() {
 				Eventually(func(g Gomega) {
 					err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
 					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			})
+		})
+	})
+
+	When("the service plan has admin visibility type", func() {
+		BeforeEach(func() {
+			Expect(k8s.PatchResource(ctx, adminClient, servicePlan, func() {
+				servicePlan.Spec.Visibility = korifiv1alpha1.ServicePlanVisibility{
+					Type: korifiv1alpha1.AdminServicePlanVisibilityType,
+				}
+			})).To(Succeed())
+		})
+
+		It("fails the instance", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+				g.Expect(instance.Status.Conditions).To(ContainElements(
+					SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("InvalidServicePlan")),
+						HasMessage(Equal("The service plan is disabled")),
+					),
+				))
+			}).Should(Succeed())
+		})
+
+		When("the plan eventually becomes visible", func() {
+			JustBeforeEach(func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status.Conditions).To(ContainElements(
+						SatisfyAll(
+							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+							HasStatus(Equal(metav1.ConditionFalse)),
+							HasReason(Equal("InvalidServicePlan")),
+						),
+					))
+				}).Should(Succeed())
+
+				Expect(k8s.PatchResource(ctx, adminClient, servicePlan, func() {
+					servicePlan.Spec.Visibility = korifiv1alpha1.ServicePlanVisibility{
+						Type: korifiv1alpha1.PublicServicePlanVisibilityType,
+					}
+				})).To(Succeed())
+			})
+
+			It("becomes ready", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionTrue)),
+					)))
+				}).Should(Succeed())
+			})
+		})
+	})
+
+	When("the service plan has org visibility type", func() {
+		BeforeEach(func() {
+			Expect(k8s.PatchResource(ctx, adminClient, servicePlan, func() {
+				servicePlan.Spec.Visibility = korifiv1alpha1.ServicePlanVisibility{
+					Type: korifiv1alpha1.OrganizationServicePlanVisibilityType,
+				}
+			})).To(Succeed())
+		})
+
+		It("fails the instance", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+				g.Expect(instance.Status.Conditions).To(ContainElements(
+					SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("InvalidServicePlan")),
+						HasMessage(Equal("The service plan is disabled")),
+					),
+				))
+			}).Should(Succeed())
+		})
+
+		When("the instance org is allowed on the plan", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, servicePlan, func() {
+					servicePlan.Spec.Visibility.Organizations = []string{
+						"org-guid",
+					}
+				})).To(Succeed())
+			})
+
+			It("becomes ready", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionTrue)),
+					)))
 				}).Should(Succeed())
 			})
 		})

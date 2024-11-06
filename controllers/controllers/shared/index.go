@@ -21,6 +21,7 @@ const (
 	IndexSpaceNamespaceName                   = "spaceNamespace"
 	IndexOrgNamespaceName                     = "orgNamespace"
 	IndexServiceBrokerCredentialsSecretName   = "serviceBrokerCredentialsSecretName"
+	IndexServiceInstancePlanGUID              = "serviceInstancePlanGUID"
 )
 
 func SetupIndexWithManager(mgr manager.Manager) error {
@@ -79,6 +80,14 @@ func SetupIndexWithManager(mgr manager.Manager) error {
 	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFServiceBroker{}, IndexServiceBrokerCredentialsSecretName, func(object client.Object) []string {
 		serviceBroker := object.(*korifiv1alpha1.CFServiceBroker)
 		return []string{serviceBroker.Spec.Credentials.Name}
+	})
+	if err != nil {
+		return err
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(context.Background(), &korifiv1alpha1.CFServiceInstance{}, IndexServiceInstancePlanGUID, func(object client.Object) []string {
+		serviceInstance := object.(*korifiv1alpha1.CFServiceInstance)
+		return []string{serviceInstance.Spec.PlanGUID}
 	})
 	if err != nil {
 		return err
