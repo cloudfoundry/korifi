@@ -2,6 +2,7 @@ package payloads_test
 
 import (
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,7 +17,12 @@ var _ = Describe("ServiceOfferingGet", func() {
 			Expect(decodeErr).NotTo(HaveOccurred())
 			Expect(*actualServiceOfferingGet).To(Equal(expectedServiceOfferingGet))
 		},
-		Entry("fields[service_broker]", "fields[service_broker]=guid,name", payloads.ServiceOfferingGet{IncludeBrokerFields: []string{"guid", "name"}}),
+		Entry("fields[service_broker]", "fields[service_broker]=guid,name", payloads.ServiceOfferingGet{
+			IncludeResourceRules: []params.IncludeResourceRule{{
+				RelationshipPath: []string{"service_broker"},
+				Fields:           []string{"guid", "name"},
+			}},
+		}),
 	)
 
 	DescribeTable("invalid query",
@@ -24,7 +30,7 @@ var _ = Describe("ServiceOfferingGet", func() {
 			_, decodeErr := decodeQuery[payloads.ServiceOfferingGet](query)
 			Expect(decodeErr).To(errMatcher)
 		},
-		Entry("invalid service broker field", "fields[service_broker]=foo", MatchError(ContainSubstring("value must be one of: guid, name"))),
+		Entry("invalid service broker field", "fields[service_broker]=foo", MatchError(ContainSubstring("value must be one of"))),
 		Entry("invalid fields", "fields[space]=foo", MatchError(ContainSubstring("unsupported query parameter: fields[space]"))),
 	)
 })

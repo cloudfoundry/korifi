@@ -2,12 +2,15 @@ package handlers_test
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
@@ -21,18 +24,25 @@ var _ = Describe("ServiceOffering", func() {
 		requestValidator    *fake.RequestValidator
 		serviceOfferingRepo *fake.CFServiceOfferingRepository
 		serviceBrokerRepo   *fake.CFServiceBrokerRepository
+		servicePlanRepo     *fake.CFServicePlanRepository
 	)
 
 	BeforeEach(func() {
 		requestValidator = new(fake.RequestValidator)
 		serviceOfferingRepo = new(fake.CFServiceOfferingRepository)
 		serviceBrokerRepo = new(fake.CFServiceBrokerRepository)
+		servicePlanRepo = new(fake.CFServicePlanRepository)
 
 		apiHandler := NewServiceOffering(
 			*serverURL,
 			requestValidator,
 			serviceOfferingRepo,
 			serviceBrokerRepo,
+			relationships.NewResourseRelationshipsRepo(
+				serviceOfferingRepo,
+				serviceBrokerRepo,
+				servicePlanRepo,
+			),
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -68,7 +78,7 @@ var _ = Describe("ServiceOffering", func() {
 			)))
 		})
 
-		Describe("include broker field", func() {
+		When("params to inlude fields[service_broker]", func() {
 			BeforeEach(func() {
 				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
 					ServiceBroker: services.ServiceBroker{
@@ -80,39 +90,22 @@ var _ = Describe("ServiceOffering", func() {
 				}}, nil)
 
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingGet{
-					IncludeBrokerFields: []string{"foo"},
+					IncludeResourceRules: []params.IncludeResourceRule{{
+						RelationshipPath: []string{"service_broker"},
+						Fields:           []string{"name", "guid"},
+					}},
 				})
 			})
 
-			When("including broker name", func() {
-				BeforeEach(func() {
-					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingGet{
-						IncludeBrokerFields: []string{"name"},
-					})
-				})
-
-				It("includes broker fields in the response", func() {
-					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
-					Expect(rr).To(HaveHTTPBody(SatisfyAll(
-						MatchJSONPath("$.included.service_brokers[0].name", "broker-name"),
-					)))
-				})
+			It("includes service offering in the response", func() {
+				log.Printf("body %+v", rr.Body)
+				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.included.service_brokers[0].name", "broker-name"),
+					MatchJSONPath("$.included.service_brokers[0].guid", "broker-guid"),
+				)))
 			})
 
-			When("broker including broker guid", func() {
-				BeforeEach(func() {
-					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingGet{
-						IncludeBrokerFields: []string{"guid"},
-					})
-				})
-
-				It("includes broker fields in the response", func() {
-					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
-					Expect(rr).To(HaveHTTPBody(SatisfyAll(
-						MatchJSONPath("$.included.service_brokers[0].guid", "broker-guid"),
-					)))
-				})
-			})
 		})
 
 		When("the request is invalid", func() {

@@ -3,12 +3,14 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"net/url"
 	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/handlers/include"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -36,6 +38,10 @@ type ServiceOffering struct {
 	requestValidator    RequestValidator
 	serviceOfferingRepo CFServiceOfferingRepository
 	serviceBrokerRepo   CFServiceBrokerRepository
+	includeResolver     *include.IncludeResolver[
+		[]repositories.ServiceOfferingRecord,
+		repositories.ServiceOfferingRecord,
+	]
 }
 
 func NewServiceOffering(
@@ -43,12 +49,14 @@ func NewServiceOffering(
 	requestValidator RequestValidator,
 	serviceOfferingRepo CFServiceOfferingRepository,
 	serviceBrokerRepo CFServiceBrokerRepository,
+	relationshipRepo include.ResourceRelationshipRepository,
 ) *ServiceOffering {
 	return &ServiceOffering{
 		serverURL:           serverURL,
 		requestValidator:    requestValidator,
 		serviceOfferingRepo: serviceOfferingRepo,
 		serviceBrokerRepo:   serviceBrokerRepo,
+		includeResolver:     include.NewIncludeResolver[[]repositories.ServiceOfferingRecord](relationshipRepo, presenter.NewResource(serverURL)),
 	}
 }
 
@@ -68,12 +76,14 @@ func (h *ServiceOffering) get(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to get service offering: %s", serviceOfferingGUID)
 	}
 
-	brokerIncludes, err := h.getBrokerIncludes(r.Context(), authInfo, []repositories.ServiceOfferingRecord{serviceOffering}, payload.IncludeBrokerFields, h.serverURL)
+	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, []repositories.ServiceOfferingRecord{serviceOffering}, payload.IncludeResourceRules)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to get broker includes")
+		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceOffering(serviceOffering, h.serverURL, brokerIncludes...)), nil
+	log.Printf("included: %+v", includedResources)
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceOffering(serviceOffering, h.serverURL, includedResources...)), nil
 }
 
 func (h *ServiceOffering) list(r *http.Request) (*routing.Response, error) {
