@@ -47,6 +47,10 @@ func NewCFServiceBindingValidator(duplicateValidator webhooks.NameValidator) *CF
 
 func (v *CFServiceBindingValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	serviceBinding, ok := obj.(*korifiv1alpha1.CFServiceBinding)
+	if serviceBinding.Labels[korifiv1alpha1.ServiceCredentialBindingTypeLabel] == korifiv1alpha1.CFServiceBindingTypeKey {
+		return nil, nil
+	}
+
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFServiceBinding but got a %T", obj))
 	}

@@ -53,6 +53,9 @@ var _ = Describe("CFServiceBinding", func() {
 				Finalizers: []string{
 					korifiv1alpha1.CFServiceBindingFinalizerName,
 				},
+				Labels: map[string]string{
+					korifiv1alpha1.ServiceCredentialBindingTypeLabel: korifiv1alpha1.CFServiceBindingTypeApp,
+				},
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
 				Service: corev1.ObjectReference{
@@ -199,8 +202,8 @@ var _ = Describe("CFServiceBinding", func() {
 
 				g.Expect(sbServiceBinding.Labels).To(SatisfyAll(
 					HaveKeyWithValue(bindings.ServiceBindingGUIDLabel, binding.Name),
-					HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID),
-					HaveKeyWithValue(bindings.ServiceCredentialBindingTypeLabel, "app"),
+					HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfApp.Name),
+					HaveKeyWithValue(korifiv1alpha1.ServiceCredentialBindingTypeLabel, korifiv1alpha1.CFServiceBindingTypeApp)
 				))
 
 				g.Expect(sbServiceBinding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{

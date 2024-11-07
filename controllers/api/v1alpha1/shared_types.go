@@ -19,6 +19,8 @@ const (
 	CFRouteGUIDLabelKey      = "korifi.cloudfoundry.org/route-guid"
 	CFTaskGUIDLabelKey       = "korifi.cloudfoundry.org/task-guid"
 
+	ServiceCredentialBindingTypeLabel = "korifi.cloudfoundry.org/service-credential-binding-type"
+
 	PodIndexLabelKey = "apps.kubernetes.io/pod-index"
 
 	StagingConditionType   = "Staging"

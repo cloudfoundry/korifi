@@ -72,135 +72,277 @@ var _ = Describe("ServiceBinding", func() {
 	Describe("POST /v3/service_credential_bindings", func() {
 		var payload payloads.ServiceBindingCreate
 
-		BeforeEach(func() {
-			requestMethod = http.MethodPost
-			requestPath = "/v3/service_credential_bindings"
-			requestBody = "the-json-body"
+		When("creating a service binding of type key", func() {
+			BeforeEach(func() {
+				requestMethod = http.MethodPost
+				requestPath = "/v3/service_credential_bindings"
+				requestBody = "the-json-body"
 
-			payload = payloads.ServiceBindingCreate{
-				Relationships: &payloads.ServiceBindingRelationships{
-					App: &payloads.Relationship{
-						Data: &payloads.RelationshipData{
-							GUID: "app-guid",
+				payload = payloads.ServiceBindingCreate{
+					Relationships: &payloads.ServiceBindingRelationships{
+						ServiceInstance: &payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: "service-instance-guid",
+							},
 						},
 					},
-					ServiceInstance: &payloads.Relationship{
-						Data: &payloads.RelationshipData{
-							GUID: "service-instance-guid",
-						},
-					},
-				},
-				Type: "app",
-			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
-		})
-
-		It("validates the payload", func() {
-			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
-		})
-
-		When("the request body is invalid json", func() {
-			BeforeEach(func() {
-				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
+					Type: korifiv1alpha1.CFServiceBindingTypeKey,
+				}
+				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
 			})
 
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
+			When("binding to a managed service instance", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+						GUID:      "service-instance-guid",
+						SpaceGUID: "space-guid",
+						Type:      korifiv1alpha1.ManagedType,
+					}, nil)
 
-		It("gets the app", func() {
-			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualServiceInstanceGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualServiceInstanceGUID).To(Equal("service-instance-guid"))
-		})
+					serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{
+						GUID: "service-binding-guid",
+						Type: korifiv1alpha1.CFServiceBindingTypeKey,
+					}, nil)
+				})
 
-		When("getting the app is forbidden", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBindingResourceType))
-			})
+				It("creates a binding", func() {
+					Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
+					Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
+					_, actualAuthInfo, createServiceBindingMessage := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
+					Expect(actualAuthInfo).To(Equal(authInfo))
+					Expect(createServiceBindingMessage.ServiceInstanceGUID).To(Equal("service-instance-guid"))
+					Expect(createServiceBindingMessage.SpaceGUID).To(Equal("space-guid"))
+					Expect(createServiceBindingMessage.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeKey))
+					Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+					Expect(rr).To(HaveHTTPHeaderWithValue("Location",
+						ContainSubstring("/v3/jobs/managed_service_binding.create~service-binding-guid")))
+				})
 
-			It("returns a not found error", func() {
-				expectNotFoundError(repositories.ServiceBindingResourceType)
-			})
-		})
+				When("creating the ServiceBinding errors", func() {
+					BeforeEach(func() {
+						serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("boom"))
+					})
 
-		When("getting the App errors", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
-			})
-
-			It("returns an error and doesn't create the ServiceBinding", func() {
-				expectUnknownError()
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		It("gets the service instance", func() {
-			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualServiceInstanceGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualServiceInstanceGUID).To(Equal("service-instance-guid"))
-		})
-
-		When("getting the service instance is forbidden", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType))
+					It("returns an error", func() {
+						expectUnknownError()
+					})
+				})
 			})
 
-			It("returns a not found error", func() {
-				expectNotFoundError(repositories.ServiceInstanceResourceType)
-			})
-		})
+			When("binding to a user provided service instance", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+						GUID:      "service-instance-guid",
+						SpaceGUID: "space-guid",
+						Type:      korifiv1alpha1.UserProvidedType,
+					}, nil)
+				})
 
-		When("getting the ServiceInstance errors", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("boom"))
-			})
-
-			It("returns an error and doesn't create the ServiceBinding", func() {
-				expectUnknownError()
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		When("the App and the ServiceInstance are in different spaces", func() {
-			BeforeEach(func() {
-				appRepo.GetAppReturns(repositories.AppRecord{SpaceGUID: spaceGUID}, nil)
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{SpaceGUID: "another-space-guid"}, nil)
+				It("returns an error", func() {
+					Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
+					expectUnprocessableEntityError("Service credential bindings of type 'key' are not supported for user-provided service instances.")
+				})
 			})
 
-			It("returns an error and doesn't create the ServiceBinding", func() {
-				expectUnprocessableEntityError("The service instance and the app are in different spaces")
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
-			})
-		})
-
-		When("binding to a user provided service instance", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
-					GUID:      "service-instance-guid",
-					SpaceGUID: "space-guid",
-					Type:      korifiv1alpha1.UserProvidedType,
-				}, nil)
-
-				serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{
-					GUID: "service-binding-guid",
-				}, nil)
+			It("validates the payload", func() {
+				Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+				actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+				Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 			})
 
-			It("creates a service binding", func() {
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
-				_, actualAuthInfo, createServiceBindingMessage := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
+			When("the request body is invalid json", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+
+			It("gets the service instance", func() {
+				Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
+				_, actualAuthInfo, actualServiceInstanceGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
-				Expect(createServiceBindingMessage.AppGUID).To(Equal("app-guid"))
-				Expect(createServiceBindingMessage.ServiceInstanceGUID).To(Equal("service-instance-guid"))
-				Expect(createServiceBindingMessage.SpaceGUID).To(Equal("space-guid"))
+				Expect(actualServiceInstanceGUID).To(Equal("service-instance-guid"))
+			})
 
-				Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+			When("getting the service instance is forbidden", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType))
+				})
+
+				It("returns a not found error", func() {
+					expectNotFoundError(repositories.ServiceInstanceResourceType)
+				})
+			})
+
+			When("getting the ServiceInstance errors", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("boom"))
+				})
+
+				It("returns an error and doesn't create the ServiceBinding", func() {
+					expectUnknownError()
+					Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
+				})
+			})
+		})
+
+		When("creating a service binding of type app", func() {
+			BeforeEach(func() {
+				requestMethod = http.MethodPost
+				requestPath = "/v3/service_credential_bindings"
+				requestBody = "the-json-body"
+
+				payload = payloads.ServiceBindingCreate{
+					Relationships: &payloads.ServiceBindingRelationships{
+						App: &payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: "app-guid",
+							},
+						},
+						ServiceInstance: &payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: "service-instance-guid",
+							},
+						},
+					},
+					Type: korifiv1alpha1.CFServiceBindingTypeApp,
+				}
+				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
+			})
+
+			When("binding to a user provided service instance", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+						GUID:      "service-instance-guid",
+						SpaceGUID: "space-guid",
+						Type:      korifiv1alpha1.UserProvidedType,
+					}, nil)
+
+					serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{
+						GUID: "service-binding-guid",
+						Type: korifiv1alpha1.CFServiceBindingTypeApp,
+					}, nil)
+				})
+
+				It("creates a service binding", func() {
+					Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
+					_, actualAuthInfo, createServiceBindingMessage := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
+					Expect(actualAuthInfo).To(Equal(authInfo))
+					Expect(createServiceBindingMessage.AppGUID).To(Equal("app-guid"))
+					Expect(createServiceBindingMessage.ServiceInstanceGUID).To(Equal("service-instance-guid"))
+					Expect(createServiceBindingMessage.SpaceGUID).To(Equal("space-guid"))
+					Expect(createServiceBindingMessage.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeApp))
+
+					Expect(rr).To(HaveHTTPStatus(http.StatusCreated))
+					Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.guid", "service-binding-guid"),
+						MatchJSONPath("$.links.self.href", "https://api.example.org/v3/service_credential_bindings/service-binding-guid"),
+					)))
+				})
+
+				When("creating the ServiceBinding errors", func() {
+					BeforeEach(func() {
+						serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("boom"))
+					})
+
+					It("returns an error", func() {
+						expectUnknownError()
+					})
+				})
+			})
+
+			When("binding to a managed service instance", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+						GUID:      "service-instance-guid",
+						SpaceGUID: "space-guid",
+						Type:      korifiv1alpha1.ManagedType,
+					}, nil)
+
+					serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{
+						GUID: "service-binding-guid",
+						Type: korifiv1alpha1.CFServiceBindingTypeApp,
+					}, nil)
+				})
+
+				It("creates a binding", func() {
+					Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
+					_, actualAuthInfo, createServiceBindingMessage := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
+					Expect(actualAuthInfo).To(Equal(authInfo))
+					Expect(createServiceBindingMessage.AppGUID).To(Equal("app-guid"))
+					Expect(createServiceBindingMessage.ServiceInstanceGUID).To(Equal("service-instance-guid"))
+					Expect(createServiceBindingMessage.SpaceGUID).To(Equal("space-guid"))
+					Expect(createServiceBindingMessage.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeApp))
+					Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+					Expect(rr).To(HaveHTTPHeaderWithValue("Location",
+						ContainSubstring("/v3/jobs/managed_service_binding.create~service-binding-guid")))
+				})
+
+				When("creating the ServiceBinding errors", func() {
+					BeforeEach(func() {
+						serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("boom"))
+					})
+
+					It("returns an error", func() {
+						expectUnknownError()
+					})
+				})
+			})
+
+			It("gets the app", func() {
+				Expect(appRepo.GetAppCallCount()).To(Equal(1))
+				_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualAppGUID).To(Equal("app-guid"))
+			})
+
+			When("getting the app is forbidden", func() {
+				BeforeEach(func() {
+					appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBindingResourceType))
+				})
+
+				It("returns a not found error", func() {
+					expectNotFoundError(repositories.ServiceBindingResourceType)
+				})
+			})
+
+			When("getting the App errors", func() {
+				BeforeEach(func() {
+					appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("boom"))
+				})
+
+				It("returns an error and doesn't create the ServiceBinding", func() {
+					expectUnknownError()
+					Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
+				})
+			})
+
+			When("the App and the ServiceInstance are in different spaces", func() {
+				BeforeEach(func() {
+					appRepo.GetAppReturns(repositories.AppRecord{SpaceGUID: spaceGUID}, nil)
+					serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{SpaceGUID: "another-space-guid"}, nil)
+				})
+
+				It("returns an error and doesn't create the ServiceBinding", func() {
+					expectUnprocessableEntityError("The service instance and the app are in different spaces")
+					Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(0))
+				})
+			})
+		})
+
+		Describe("GET /v3/service_credential_bindings/{guid}", func() {
+			BeforeEach(func() {
+				requestMethod = http.MethodGet
+				requestPath = "/v3/service_credential_bindings/service-binding-guid"
+				requestBody = ""
+			})
+
+			It("returns the service binding", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
 					MatchJSONPath("$.guid", "service-binding-guid"),
@@ -208,340 +350,277 @@ var _ = Describe("ServiceBinding", func() {
 				)))
 			})
 
-			When("creating the ServiceBinding errors", func() {
+			When("the service bindding repo returns an error", func() {
 				BeforeEach(func() {
-					serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("boom"))
+					serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("get-service-binding-error"))
 				})
 
 				It("returns an error", func() {
 					expectUnknownError()
 				})
 			})
-		})
 
-		When("binding to a managed service instance", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
-					GUID:      "service-instance-guid",
-					SpaceGUID: "space-guid",
-					Type:      korifiv1alpha1.ManagedType,
-				}, nil)
-
-				serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{
-					GUID: "service-binding-guid",
-				}, nil)
-			})
-
-			It("creates a binding", func() {
-				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
-				_, actualAuthInfo, createServiceBindingMessage := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
-				Expect(actualAuthInfo).To(Equal(authInfo))
-				Expect(createServiceBindingMessage.AppGUID).To(Equal("app-guid"))
-				Expect(createServiceBindingMessage.ServiceInstanceGUID).To(Equal("service-instance-guid"))
-				Expect(createServiceBindingMessage.SpaceGUID).To(Equal("space-guid"))
-				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Location",
-					ContainSubstring("/v3/jobs/managed_service_binding.create~service-binding-guid")))
-			})
-
-			When("creating the ServiceBinding errors", func() {
+			When("the user is not authorized", func() {
 				BeforeEach(func() {
-					serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("boom"))
+					serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, "CFServiceBinding"))
 				})
 
-				It("returns an error", func() {
-					expectUnknownError()
+				It("returns 404 NotFound", func() {
+					expectNotFoundError("CFServiceBinding")
 				})
 			})
 		})
-	})
 
-	Describe("GET /v3/service_credential_bindings/{guid}", func() {
-		BeforeEach(func() {
-			requestMethod = http.MethodGet
-			requestPath = "/v3/service_credential_bindings/service-binding-guid"
-			requestBody = ""
-		})
-
-		It("returns the service binding", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.guid", "service-binding-guid"),
-				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/service_credential_bindings/service-binding-guid"),
-			)))
-		})
-
-		When("the service bindding repo returns an error", func() {
+		Describe("GET /v3/service_credential_bindings", func() {
 			BeforeEach(func() {
-				serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("get-service-binding-error"))
-			})
+				requestMethod = http.MethodGet
+				requestBody = ""
+				requestPath = "/v3/service_credential_bindings?foo=bar"
 
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
+				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{
+					{GUID: "service-binding-guid", AppGUID: "app-guid"},
+				}, nil)
+				appRepo.ListAppsReturns([]repositories.AppRecord{{Name: "some-app-name"}}, nil)
 
-		When("the user is not authorized", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, "CFServiceBinding"))
-			})
-
-			It("returns 404 NotFound", func() {
-				expectNotFoundError("CFServiceBinding")
-			})
-		})
-	})
-
-	Describe("GET /v3/service_credential_bindings", func() {
-		BeforeEach(func() {
-			requestMethod = http.MethodGet
-			requestBody = ""
-			requestPath = "/v3/service_credential_bindings?foo=bar"
-
-			serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{
-				{GUID: "service-binding-guid", AppGUID: "app-guid"},
-			}, nil)
-			appRepo.ListAppsReturns([]repositories.AppRecord{{Name: "some-app-name"}}, nil)
-
-			payload := payloads.ServiceBindingList{
-				AppGUIDs:             "a1,a2",
-				ServiceInstanceGUIDs: "s1,s2",
-				LabelSelector:        "label=value",
-				PlanGUIDs:            "p1,p2",
-			}
-			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payload)
-		})
-
-		It("returns the list of ServiceBindings", func() {
-			Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
-			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
-			Expect(actualReq.URL.String()).To(HaveSuffix(requestPath))
-
-			Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
-			_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
-			Expect(message.AppGUIDs).To(ConsistOf([]string{"a1", "a2"}))
-			Expect(message.ServiceInstanceGUIDs).To(ConsistOf([]string{"s1", "s2"}))
-			Expect(message.LabelSelector).To(Equal("label=value"))
-			Expect(message.PlanGUIDs).To(ConsistOf("p1", "p2"))
-
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_credential_bindings?foo=bar"),
-				MatchJSONPath("$.resources[0].guid", "service-binding-guid"),
-			)))
-		})
-
-		When("there is an error fetching service binding", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, errors.New("unknown"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("an include=app query parameter is specified", func() {
-			BeforeEach(func() {
 				payload := payloads.ServiceBindingList{
-					Include: "app",
+					AppGUIDs:             "a1,a2",
+					ServiceInstanceGUIDs: "s1,s2",
+					LabelSelector:        "label=value",
+					PlanGUIDs:            "p1,p2",
 				}
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payload)
 			})
 
-			It("includes app data in the response", func() {
-				Expect(appRepo.ListAppsCallCount()).To(Equal(1))
-				_, _, listAppsMessage := appRepo.ListAppsArgsForCall(0)
-				Expect(listAppsMessage.Guids).To(ContainElements("app-guid"))
+			It("returns the list of ServiceBindings", func() {
+				Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+				actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+				Expect(actualReq.URL.String()).To(HaveSuffix(requestPath))
 
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.included.apps[0].name", "some-app-name")))
+				Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
+				_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
+				Expect(message.AppGUIDs).To(ConsistOf([]string{"a1", "a2"}))
+				Expect(message.ServiceInstanceGUIDs).To(ConsistOf([]string{"s1", "s2"}))
+				Expect(message.LabelSelector).To(Equal("label=value"))
+				Expect(message.PlanGUIDs).To(ConsistOf("p1", "p2"))
+
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
+					MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_credential_bindings?foo=bar"),
+					MatchJSONPath("$.resources[0].guid", "service-binding-guid"),
+				)))
+			})
+
+			When("there is an error fetching service binding", func() {
+				BeforeEach(func() {
+					serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, errors.New("unknown"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+
+			When("an include=app query parameter is specified", func() {
+				BeforeEach(func() {
+					payload := payloads.ServiceBindingList{
+						Include: "app",
+					}
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payload)
+				})
+
+				It("includes app data in the response", func() {
+					Expect(appRepo.ListAppsCallCount()).To(Equal(1))
+					_, _, listAppsMessage := appRepo.ListAppsArgsForCall(0)
+					Expect(listAppsMessage.Guids).To(ContainElements("app-guid"))
+
+					Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.included.apps[0].name", "some-app-name")))
+				})
+			})
+
+			When("decoding URL params fails", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
 			})
 		})
 
-		When("decoding URL params fails", func() {
+		Describe("DELETE /v3/service_credential_bindings/:guid", func() {
 			BeforeEach(func() {
-				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom"))
+				requestMethod = "DELETE"
+				requestPath = "/v3/service_credential_bindings/service-binding-guid"
 			})
 
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-	})
-
-	Describe("DELETE /v3/service_credential_bindings/:guid", func() {
-		BeforeEach(func() {
-			requestMethod = "DELETE"
-			requestPath = "/v3/service_credential_bindings/service-binding-guid"
-		})
-
-		It("gets the service binding", func() {
-			Expect(serviceBindingRepo.GetServiceBindingCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualBindingGUID := serviceBindingRepo.GetServiceBindingArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualBindingGUID).To(Equal("service-binding-guid"))
-		})
-
-		When("getting the service binding is forbidden", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBindingResourceType))
+			It("gets the service binding", func() {
+				Expect(serviceBindingRepo.GetServiceBindingCallCount()).To(Equal(1))
+				_, actualAuthInfo, actualBindingGUID := serviceBindingRepo.GetServiceBindingArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualBindingGUID).To(Equal("service-binding-guid"))
 			})
 
-			It("returns a not found error", func() {
-				expectNotFoundError(repositories.ServiceBindingResourceType)
-			})
-		})
+			When("getting the service binding is forbidden", func() {
+				BeforeEach(func() {
+					serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBindingResourceType))
+				})
 
-		When("getting the service binding fails", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("getting-binding-failed"))
-			})
-
-			It("returns unknown error", func() {
-				expectUnknownError()
-			})
-		})
-
-		It("gets the service instance", func() {
-			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualInstanceGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualInstanceGUID).To(Equal("service-instance-guid"))
-		})
-
-		When("getting the service instance fails", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("getting-instance-failed"))
+				It("returns a not found error", func() {
+					expectNotFoundError(repositories.ServiceBindingResourceType)
+				})
 			})
 
-			It("returns error", func() {
-				expectUnprocessableEntityError("failed to get service instance")
-			})
-		})
+			When("getting the service binding fails", func() {
+				BeforeEach(func() {
+					serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("getting-binding-failed"))
+				})
 
-		It("deletes the service binding", func() {
-			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
-			Expect(rr).To(HaveHTTPBody(BeEmpty()))
-
-			Expect(serviceBindingRepo.DeleteServiceBindingCallCount()).To(Equal(1))
-			_, _, guid := serviceBindingRepo.DeleteServiceBindingArgsForCall(0)
-			Expect(guid).To(Equal("service-binding-guid"))
-		})
-
-		When("the service instance is managed", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
-					GUID:      "service-instance-guid",
-					SpaceGUID: "space-guid",
-					Type:      korifiv1alpha1.ManagedType,
-				}, nil)
+				It("returns unknown error", func() {
+					expectUnknownError()
+				})
 			})
 
-			It("deletes the binding in a job", func() {
+			It("gets the service instance", func() {
+				Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
+				_, actualAuthInfo, actualInstanceGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualInstanceGUID).To(Equal("service-instance-guid"))
+			})
+
+			When("getting the service instance fails", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("getting-instance-failed"))
+				})
+
+				It("returns error", func() {
+					expectUnprocessableEntityError("failed to get service instance")
+				})
+			})
+
+			It("deletes the service binding", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
+				Expect(rr).To(HaveHTTPBody(BeEmpty()))
+
 				Expect(serviceBindingRepo.DeleteServiceBindingCallCount()).To(Equal(1))
 				_, _, guid := serviceBindingRepo.DeleteServiceBindingArgsForCall(0)
 				Expect(guid).To(Equal("service-binding-guid"))
+			})
 
-				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Location",
-					ContainSubstring("/v3/jobs/managed_service_binding.delete~service-binding-guid")))
+			When("the service instance is managed", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+						GUID:      "service-instance-guid",
+						SpaceGUID: "space-guid",
+						Type:      korifiv1alpha1.ManagedType,
+					}, nil)
+				})
+
+				It("deletes the binding in a job", func() {
+					Expect(serviceBindingRepo.DeleteServiceBindingCallCount()).To(Equal(1))
+					_, _, guid := serviceBindingRepo.DeleteServiceBindingArgsForCall(0)
+					Expect(guid).To(Equal("service-binding-guid"))
+
+					Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+					Expect(rr).To(HaveHTTPHeaderWithValue("Location",
+						ContainSubstring("/v3/jobs/managed_service_binding.delete~service-binding-guid")))
+				})
+			})
+
+			When("deleting the service binding fails", func() {
+				BeforeEach(func() {
+					serviceBindingRepo.DeleteServiceBindingReturns(errors.New("delete-binding-failed"))
+				})
+
+				It("returns unknown error", func() {
+					expectUnknownError()
+				})
 			})
 		})
 
-		When("deleting the service binding fails", func() {
+		Describe("PATCH /v3/service_credential_bindings/:guid", func() {
 			BeforeEach(func() {
-				serviceBindingRepo.DeleteServiceBindingReturns(errors.New("delete-binding-failed"))
+				requestMethod = "PATCH"
+				requestPath = "/v3/service_credential_bindings/service-binding-guid"
+				requestBody = "the-json-body"
+
+				serviceBindingRepo.UpdateServiceBindingReturns(repositories.ServiceBindingRecord{
+					GUID: "service-binding-guid",
+				}, nil)
+
+				payload := payloads.ServiceBindingUpdate{
+					Metadata: payloads.MetadataPatch{
+						Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+						Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
+					},
+				}
+				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
 			})
 
-			It("returns unknown error", func() {
-				expectUnknownError()
-			})
-		})
-	})
+			It("updates the service binding", func() {
+				Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+				actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+				Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
-	Describe("PATCH /v3/service_credential_bindings/:guid", func() {
-		BeforeEach(func() {
-			requestMethod = "PATCH"
-			requestPath = "/v3/service_credential_bindings/service-binding-guid"
-			requestBody = "the-json-body"
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.guid", "service-binding-guid"),
+					MatchJSONPath("$.links.self.href", "https://api.example.org/v3/service_credential_bindings/service-binding-guid"),
+				)))
 
-			serviceBindingRepo.UpdateServiceBindingReturns(repositories.ServiceBindingRecord{
-				GUID: "service-binding-guid",
-			}, nil)
-
-			payload := payloads.ServiceBindingUpdate{
-				Metadata: payloads.MetadataPatch{
-					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
-					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
-				},
-			}
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
-		})
-
-		It("updates the service binding", func() {
-			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
-
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.guid", "service-binding-guid"),
-				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/service_credential_bindings/service-binding-guid"),
-			)))
-
-			Expect(serviceBindingRepo.UpdateServiceBindingCallCount()).To(Equal(1))
-			_, actualAuthInfo, updateMessage := serviceBindingRepo.UpdateServiceBindingArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(updateMessage).To(Equal(repositories.UpdateServiceBindingMessage{
-				GUID: "service-binding-guid",
-				MetadataPatch: repositories.MetadataPatch{
-					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
-					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
-				},
-			}))
-		})
-
-		When("the payload cannot be decoded", func() {
-			BeforeEach(func() {
-				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
+				Expect(serviceBindingRepo.UpdateServiceBindingCallCount()).To(Equal(1))
+				_, actualAuthInfo, updateMessage := serviceBindingRepo.UpdateServiceBindingArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(updateMessage).To(Equal(repositories.UpdateServiceBindingMessage{
+					GUID: "service-binding-guid",
+					MetadataPatch: repositories.MetadataPatch{
+						Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+						Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
+					},
+				}))
 			})
 
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
+			When("the payload cannot be decoded", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("boom"))
+				})
 
-		When("getting the service binding is forbidden", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBindingResourceType))
-			})
-
-			It("returns a not found error", func() {
-				expectNotFoundError(repositories.ServiceBindingResourceType)
-			})
-		})
-
-		When("the service binding repo returns an error", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.UpdateServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("update-sb-error"))
+				It("returns an error", func() {
+					expectUnknownError()
+				})
 			})
 
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
+			When("getting the service binding is forbidden", func() {
+				BeforeEach(func() {
+					serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBindingResourceType))
+				})
 
-		When("the user is not authorized to get service bindings", func() {
-			BeforeEach(func() {
-				serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, "CFServiceBinding"))
+				It("returns a not found error", func() {
+					expectNotFoundError(repositories.ServiceBindingResourceType)
+				})
 			})
 
-			It("returns 404 NotFound", func() {
-				expectNotFoundError("CFServiceBinding")
+			When("the service binding repo returns an error", func() {
+				BeforeEach(func() {
+					serviceBindingRepo.UpdateServiceBindingReturns(repositories.ServiceBindingRecord{}, errors.New("update-sb-error"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+
+			When("the user is not authorized to get service bindings", func() {
+				BeforeEach(func() {
+					serviceBindingRepo.GetServiceBindingReturns(repositories.ServiceBindingRecord{}, apierrors.NewForbiddenError(nil, "CFServiceBinding"))
+				})
+
+				It("returns 404 NotFound", func() {
+					expectNotFoundError("CFServiceBinding")
+				})
 			})
 		})
 	})

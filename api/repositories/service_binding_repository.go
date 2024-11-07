@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"log"
 	"slices"
 	"time"
 
@@ -31,7 +32,6 @@ import (
 const (
 	LabelServiceBindingProvisionedService = "servicebinding.io/provisioned-service"
 	ServiceBindingResourceType            = "Service Binding"
-	ServiceBindingTypeApp                 = "app"
 )
 
 type ServiceBindingRepo struct {
@@ -87,6 +87,7 @@ type ServiceBindingLastOperation struct {
 }
 
 type CreateServiceBindingMessage struct {
+	Type                string
 	Name                *string
 	ServiceInstanceGUID string
 	AppGUID             string
@@ -101,22 +102,28 @@ type ListServiceBindingsMessage struct {
 	AppGUIDs             []string
 	ServiceInstanceGUIDs []string
 	LabelSelector        string
+	Type                 *string
 	PlanGUIDs            []string
 }
 
 func (m *ListServiceBindingsMessage) matches(serviceBinding korifiv1alpha1.CFServiceBinding) bool {
 	return tools.EmptyOrContains(m.ServiceInstanceGUIDs, serviceBinding.Spec.Service.Name) &&
 		tools.EmptyOrContains(m.AppGUIDs, serviceBinding.Spec.AppRef.Name) &&
-		tools.EmptyOrContains(m.PlanGUIDs, serviceBinding.Labels[korifiv1alpha1.PlanGUIDLabelKey])
+		tools.EmptyOrContains(m.PlanGUIDs, serviceBinding.Labels[korifiv1alpha1.PlanGUIDLabelKey]) &&
+		tools.NilOrEquals(m.Type, serviceBinding.Labels[korifiv1alpha1.ServiceCredentialBindingTypeLabel])
 }
 
 func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServiceBinding {
 	guid := uuid.NewString()
-	return &korifiv1alpha1.CFServiceBinding{
+
+	binding := &korifiv1alpha1.CFServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: m.SpaceGUID,
-			Labels:    map[string]string{LabelServiceBindingProvisionedService: "true"},
+			Labels: map[string]string{
+				LabelServiceBindingProvisionedService:            "true",
+				korifiv1alpha1.ServiceCredentialBindingTypeLabel: m.Type,
+			},
 		},
 		Spec: korifiv1alpha1.CFServiceBindingSpec{
 			DisplayName: m.Name,
@@ -125,9 +132,14 @@ func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServ
 				APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				Name:       m.ServiceInstanceGUID,
 			},
-			AppRef: corev1.LocalObjectReference{Name: m.AppGUID},
 		},
 	}
+
+	if m.AppGUID != "" {
+		binding.Spec.AppRef = corev1.LocalObjectReference{Name: m.AppGUID}
+	}
+
+	return binding
 }
 
 type UpdateServiceBindingMessage struct {
@@ -143,16 +155,18 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 
 	cfServiceBinding := message.toCFServiceBinding()
 
-	cfApp := new(korifiv1alpha1.CFApp)
-	err = userClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
-	if err != nil {
-		return ServiceBindingRecord{},
-			apierrors.AsUnprocessableEntity(
-				apierrors.FromK8sError(err, ServiceBindingResourceType),
-				"Unable to use app. Ensure that the app exists and you have access to it.",
-				apierrors.ForbiddenError{},
-				apierrors.NotFoundError{},
-			)
+	if message.Type == korifiv1alpha1.CFServiceBindingTypeApp {
+		cfApp := new(korifiv1alpha1.CFApp)
+		err = userClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
+		if err != nil {
+			return ServiceBindingRecord{},
+				apierrors.AsUnprocessableEntity(
+					apierrors.FromK8sError(err, ServiceBindingResourceType),
+					"Unable to use app. Ensure that the app exists and you have access to it.",
+					apierrors.ForbiddenError{},
+					apierrors.NotFoundError{},
+				)
+		}
 	}
 
 	err = userClient.Create(ctx, cfServiceBinding)
@@ -178,6 +192,8 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 			return ServiceBindingRecord{}, err
 		}
 	}
+
+	log.Printf("aaa: %+v", cfServiceBinding)
 
 	return serviceBindingToRecord(*cfServiceBinding), nil
 }
@@ -230,7 +246,7 @@ func (r *ServiceBindingRepo) GetServiceBinding(ctx context.Context, authInfo aut
 func serviceBindingToRecord(binding korifiv1alpha1.CFServiceBinding) ServiceBindingRecord {
 	return ServiceBindingRecord{
 		GUID:                binding.Name,
-		Type:                ServiceBindingTypeApp,
+		Type:                binding.Labels[korifiv1alpha1.ServiceCredentialBindingTypeLabel],
 		Name:                binding.Spec.DisplayName,
 		AppGUID:             binding.Spec.AppRef.Name,
 		ServiceInstanceGUID: binding.Spec.Service.Name,

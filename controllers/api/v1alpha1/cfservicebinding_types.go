@@ -28,6 +28,9 @@ const (
 	BindingRequestedCondition   = "BindingRequested"
 	UnbindingRequestedCondition = "UnbindingRequested"
 
+	CFServiceBindingTypeKey = "key"
+	CFServiceBindingTypeApp = "app"
+
 	ServiceInstanceTypeAnnotationKey = "korifi.cloudfoundry.org/service-instance-type"
 	PlanGUIDLabelKey                 = "korifi.cloudfoundry.org/plan-guid"
 
