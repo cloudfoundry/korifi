@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -15,10 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/tools"
-	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-logr/logr"
 )
 
@@ -100,50 +95,12 @@ func (h *ServiceOffering) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list service offerings")
 	}
 
-	brokerIncludes, err := h.getBrokerIncludes(r.Context(), authInfo, serviceOfferingList, payload.IncludeBrokerFields, h.serverURL)
+	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, serviceOfferingList, payload.IncludeResourceRules)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to get broker includes")
+		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceOffering, serviceOfferingList, h.serverURL, *r.URL, brokerIncludes...)), nil
-}
-
-func (h *ServiceOffering) listBrokersForOfferings(
-	ctx context.Context,
-	authInfo authorization.Info,
-	serviceOfferings []repositories.ServiceOfferingRecord,
-) ([]repositories.ServiceBrokerRecord, error) {
-	brokerGUIDs := slices.Collect(it.Map(itx.FromSlice(serviceOfferings), func(o repositories.ServiceOfferingRecord) string {
-		return o.ServiceBrokerGUID
-	}))
-
-	return h.serviceBrokerRepo.ListServiceBrokers(ctx, authInfo, repositories.ListServiceBrokerMessage{
-		GUIDs: tools.Uniq(brokerGUIDs),
-	})
-}
-
-func (h *ServiceOffering) getBrokerIncludes(
-	ctx context.Context,
-	authInfo authorization.Info,
-	serviceOfferings []repositories.ServiceOfferingRecord,
-	brokerFields []string,
-	baseURL url.URL,
-) ([]model.IncludedResource, error) {
-	if len(brokerFields) == 0 {
-		return nil, nil
-	}
-
-	brokers, err := h.listBrokersForOfferings(ctx, authInfo, serviceOfferings)
-	if err != nil {
-		return nil, err
-	}
-
-	return it.TryCollect(it.MapError(slices.Values(brokers), func(broker repositories.ServiceBrokerRecord) (model.IncludedResource, error) {
-		return model.IncludedResource{
-			Type:     "service_brokers",
-			Resource: presenter.ForServiceBroker(broker, baseURL),
-		}.SelectJSONPaths(brokerFields...)
-	}))
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceOffering, serviceOfferingList, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 func (h *ServiceOffering) UnauthenticatedRoutes() []routing.Route {

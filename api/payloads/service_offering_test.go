@@ -45,7 +45,12 @@ var _ = Describe("ServiceOfferingList", func() {
 		},
 		Entry("names", "names=b1,b2", payloads.ServiceOfferingList{Names: "b1,b2"}),
 		Entry("service_broker_names", "service_broker_names=b1,b2", payloads.ServiceOfferingList{BrokerNames: "b1,b2"}),
-		Entry("fields[service_broker]", "fields[service_broker]=guid,name", payloads.ServiceOfferingList{IncludeBrokerFields: []string{"guid", "name"}}),
+		Entry("fields[service_broker]", "fields[service_broker]=guid,name", payloads.ServiceOfferingList{
+			IncludeResourceRules: []params.IncludeResourceRule{{
+				RelationshipPath: []string{"service_broker"},
+				Fields:           []string{"guid", "name"},
+			}},
+		}),
 	)
 
 	DescribeTable("invalid query",
@@ -53,7 +58,7 @@ var _ = Describe("ServiceOfferingList", func() {
 			_, decodeErr := decodeQuery[payloads.ServiceOfferingList](query)
 			Expect(decodeErr).To(errMatcher)
 		},
-		Entry("invalid service broker field", "fields[service_broker]=foo", MatchError(ContainSubstring("value must be one of: guid, name"))),
+		Entry("invalid service broker field", "fields[service_broker]=foo", MatchError(ContainSubstring("value must be one of"))),
 	)
 
 	Describe("ToMessage", func() {

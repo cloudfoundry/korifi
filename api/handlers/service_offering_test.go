@@ -189,7 +189,10 @@ var _ = Describe("ServiceOffering", func() {
 				}}, nil)
 
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingList{
-					IncludeBrokerFields: []string{"foo"},
+					IncludeResourceRules: []params.IncludeResourceRule{{
+						RelationshipPath: []string{"service_broker"},
+						Fields:           []string{"name", "guid"},
+					}},
 				})
 			})
 
@@ -214,7 +217,10 @@ var _ = Describe("ServiceOffering", func() {
 			Describe("broker name", func() {
 				BeforeEach(func() {
 					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingList{
-						IncludeBrokerFields: []string{"name"},
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"service_broker"},
+							Fields:           []string{"name"},
+						}},
 					})
 				})
 
@@ -229,7 +235,10 @@ var _ = Describe("ServiceOffering", func() {
 			Describe("broker guid", func() {
 				BeforeEach(func() {
 					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingList{
-						IncludeBrokerFields: []string{"guid"},
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"service_broker"},
+							Fields:           []string{"guid"},
+						}},
 					})
 				})
 
