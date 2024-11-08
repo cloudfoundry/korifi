@@ -27,7 +27,7 @@ type SpaceLinks struct {
 	Organization *Link `json:"organization"`
 }
 
-func ForSpace(space repositories.SpaceRecord, apiBaseURL url.URL) SpaceResponse {
+func ForSpace(space repositories.SpaceRecord, apiBaseURL url.URL, includes ...model.IncludedResource) SpaceResponse {
 	return SpaceResponse{
 		Name:      space.Name,
 		GUID:      space.GUID,

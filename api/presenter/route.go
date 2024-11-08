@@ -62,7 +62,7 @@ type routeDestinationsLinks struct {
 	Route Link `json:"route"`
 }
 
-func ForRoute(route repositories.RouteRecord, baseURL url.URL) RouteResponse {
+func ForRoute(route repositories.RouteRecord, baseURL url.URL, includes ...model.IncludedResource) RouteResponse {
 	destinations := make([]routeDestination, 0, len(route.Destinations))
 	for _, destinationRecord := range route.Destinations {
 		destinations = append(destinations, forDestination(destinationRecord))

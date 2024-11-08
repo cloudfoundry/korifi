@@ -41,7 +41,7 @@ type ServiceBindingLinks struct {
 	Details         Link `json:"details"`
 }
 
-func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL) ServiceBindingResponse {
+func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL, includes ...model.IncludedResource) ServiceBindingResponse {
 	return ServiceBindingResponse{
 		GUID:      record.GUID,
 		Type:      record.Type,

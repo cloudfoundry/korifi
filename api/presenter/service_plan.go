@@ -27,7 +27,7 @@ type ServicePlanResponse struct {
 	Links          ServicePlanLinks                   `json:"links"`
 }
 
-func ForServicePlan(servicePlan repositories.ServicePlanRecord, baseURL url.URL) ServicePlanResponse {
+func ForServicePlan(servicePlan repositories.ServicePlanRecord, baseURL url.URL, includes ...model.IncludedResource) ServicePlanResponse {
 	return ServicePlanResponse{
 		ServicePlan:    servicePlan.ServicePlan,
 		CFResource:     servicePlan.CFResource,

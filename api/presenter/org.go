@@ -31,7 +31,7 @@ type OrgLinks struct {
 	Quota         *Link `json:"quota,omitempty"`
 }
 
-func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL) OrgResponse {
+func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL, includes ...model.IncludedResource) OrgResponse {
 	return OrgResponse{
 		Name:      org.Name,
 		GUID:      org.GUID,
