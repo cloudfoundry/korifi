@@ -84,7 +84,7 @@ var _ = Describe("CFPackageReconciler Integration Tests", func() {
 				g.Expect(initializedCondition.ObservedGeneration).To(Equal(cfPackage.Generation))
 
 				g.Expect(cfPackage.GetOwnerReferences()).To(ConsistOf(metav1.OwnerReference{
-					APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
+					APIVersion:         korifiv1alpha1.SchemeGroupVersion.Identifier(),
 					Kind:               "CFApp",
 					Name:               cfApp.Name,
 					UID:                cfApp.UID,

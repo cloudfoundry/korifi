@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"net/http"
 
+	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,7 +21,7 @@ var _ = Describe("Service Offerings", func() {
 	})
 
 	AfterEach(func() {
-		cleanupBroker(brokerGUID)
+		broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 	})
 
 	Describe("List", func() {

@@ -60,6 +60,7 @@ type CFTaskStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFTask is the Schema for the cftasks API
 type CFTask struct {
@@ -71,6 +72,7 @@ type CFTask struct {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFTaskList contains a list of CFTask
 type CFTaskList struct {

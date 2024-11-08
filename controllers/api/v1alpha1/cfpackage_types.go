@@ -60,6 +60,7 @@ type CFPackageStatus struct {
 //+kubebuilder:printcolumn:name="AppGUID",type=string,JSONPath=`.spec.appRef.name`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=='Ready')].status`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFPackage is the Schema for the cfpackages API
 type CFPackage struct {
@@ -71,6 +72,7 @@ type CFPackage struct {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFPackageList contains a list of CFPackage
 type CFPackageList struct {

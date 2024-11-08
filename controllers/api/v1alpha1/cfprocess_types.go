@@ -97,6 +97,7 @@ type CFProcessStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFProcess is the Schema for the cfprocesses API
 type CFProcess struct {
@@ -108,6 +109,7 @@ type CFProcess struct {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFProcessList contains a list of CFProcess
 type CFProcessList struct {
