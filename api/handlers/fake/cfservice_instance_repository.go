@@ -41,7 +41,7 @@ type CFServiceInstanceRepository struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}
-	DeleteServiceInstanceStub        func(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) error
+	DeleteServiceInstanceStub        func(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
 	deleteServiceInstanceMutex       sync.RWMutex
 	deleteServiceInstanceArgsForCall []struct {
 		arg1 context.Context
@@ -49,10 +49,12 @@ type CFServiceInstanceRepository struct {
 		arg3 repositories.DeleteServiceInstanceMessage
 	}
 	deleteServiceInstanceReturns struct {
-		result1 error
+		result1 repositories.ServiceInstanceRecord
+		result2 error
 	}
 	deleteServiceInstanceReturnsOnCall map[int]struct {
-		result1 error
+		result1 repositories.ServiceInstanceRecord
+		result2 error
 	}
 	GetServiceInstanceStub        func(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
 	getServiceInstanceMutex       sync.RWMutex
@@ -235,7 +237,7 @@ func (fake *CFServiceInstanceRepository) CreateUserProvidedServiceInstanceReturn
 	}{result1, result2}
 }
 
-func (fake *CFServiceInstanceRepository) DeleteServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteServiceInstanceMessage) error {
+func (fake *CFServiceInstanceRepository) DeleteServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteServiceInstanceMessage) (repositories.ServiceInstanceRecord, error) {
 	fake.deleteServiceInstanceMutex.Lock()
 	ret, specificReturn := fake.deleteServiceInstanceReturnsOnCall[len(fake.deleteServiceInstanceArgsForCall)]
 	fake.deleteServiceInstanceArgsForCall = append(fake.deleteServiceInstanceArgsForCall, struct {
@@ -251,9 +253,9 @@ func (fake *CFServiceInstanceRepository) DeleteServiceInstance(arg1 context.Cont
 		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *CFServiceInstanceRepository) DeleteServiceInstanceCallCount() int {
@@ -262,7 +264,7 @@ func (fake *CFServiceInstanceRepository) DeleteServiceInstanceCallCount() int {
 	return len(fake.deleteServiceInstanceArgsForCall)
 }
 
-func (fake *CFServiceInstanceRepository) DeleteServiceInstanceCalls(stub func(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) error) {
+func (fake *CFServiceInstanceRepository) DeleteServiceInstanceCalls(stub func(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)) {
 	fake.deleteServiceInstanceMutex.Lock()
 	defer fake.deleteServiceInstanceMutex.Unlock()
 	fake.DeleteServiceInstanceStub = stub
@@ -275,27 +277,30 @@ func (fake *CFServiceInstanceRepository) DeleteServiceInstanceArgsForCall(i int)
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFServiceInstanceRepository) DeleteServiceInstanceReturns(result1 error) {
+func (fake *CFServiceInstanceRepository) DeleteServiceInstanceReturns(result1 repositories.ServiceInstanceRecord, result2 error) {
 	fake.deleteServiceInstanceMutex.Lock()
 	defer fake.deleteServiceInstanceMutex.Unlock()
 	fake.DeleteServiceInstanceStub = nil
 	fake.deleteServiceInstanceReturns = struct {
-		result1 error
-	}{result1}
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *CFServiceInstanceRepository) DeleteServiceInstanceReturnsOnCall(i int, result1 error) {
+func (fake *CFServiceInstanceRepository) DeleteServiceInstanceReturnsOnCall(i int, result1 repositories.ServiceInstanceRecord, result2 error) {
 	fake.deleteServiceInstanceMutex.Lock()
 	defer fake.deleteServiceInstanceMutex.Unlock()
 	fake.DeleteServiceInstanceStub = nil
 	if fake.deleteServiceInstanceReturnsOnCall == nil {
 		fake.deleteServiceInstanceReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 repositories.ServiceInstanceRecord
+			result2 error
 		})
 	}
 	fake.deleteServiceInstanceReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *CFServiceInstanceRepository) GetServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.ServiceInstanceRecord, error) {

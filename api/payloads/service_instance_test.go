@@ -469,3 +469,24 @@ var _ = Describe("ServiceInstancePatch", func() {
 		})
 	})
 })
+
+var _ = Describe("ServiceInstanceDelete", func() {
+	DescribeTable("valid query",
+		func(query string, expectedServiceInstanceDelete payloads.ServiceInstanceDelete) {
+			actualServiceInstanceDelete, decodeErr := decodeQuery[payloads.ServiceInstanceDelete](query)
+
+			Expect(decodeErr).ToNot(HaveOccurred())
+			Expect(*actualServiceInstanceDelete).To(Equal(expectedServiceInstanceDelete))
+		},
+		Entry("purge", "purge=true", payloads.ServiceInstanceDelete{Purge: true}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.ServiceInstanceDelete](query)
+			Expect(decodeErr).To(HaveOccurred())
+		},
+		Entry("unsuported param", "foo=bar", "unsupported query parameter: foo"),
+		Entry("invalid value for purge", "purge=foo", "invalid syntax"),
+	)
+})

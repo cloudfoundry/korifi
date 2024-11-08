@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
@@ -771,6 +772,27 @@ var _ = Describe("CFServiceInstance", func() {
 					)))
 				}).Should(Succeed())
 			})
+		})
+	})
+
+	When("the service instance is purged", func() {
+		BeforeEach(func() {
+			Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+				controllerutil.RemoveFinalizer(instance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+			})).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sManager.GetClient().Delete(ctx, instance)).To(Succeed())
+		})
+
+		It("does not contact the broker for deprovisioning", func() {
+			Eventually(func(g Gomega) {
+				err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+
+				g.Expect(brokerClient.DeprovisionCallCount()).To(Equal(0))
+			}).Should(Succeed())
 		})
 	})
 
