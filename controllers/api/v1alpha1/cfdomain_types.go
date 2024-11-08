@@ -44,6 +44,7 @@ type CFDomainStatus struct {
 //+kubebuilder:resource:scope=Namespaced
 //+kubebuilder:printcolumn:name="Domain Name",type=string,JSONPath=`.spec.name`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFDomain is the Schema for the cfdomains API
 type CFDomain struct {
@@ -59,6 +60,7 @@ func (d *CFDomain) StatusConditions() *[]metav1.Condition {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFDomainList contains a list of CFDomain
 type CFDomainList struct {
