@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/tests/helpers"
-	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
 	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
@@ -1227,12 +1226,6 @@ func createBroker(brokerURL string) string {
 	}
 
 	return brokerGUID
-}
-
-func cleanupBroker(brokerGUID string) {
-	GinkgoHelper()
-
-	broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 }
 
 func expectJobCompletes(resp *resty.Response) {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -23,7 +24,7 @@ var _ = Describe("Service Plans", func() {
 	})
 
 	AfterEach(func() {
-		cleanupBroker(brokerGUID)
+		broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 	})
 
 	Describe("List", func() {

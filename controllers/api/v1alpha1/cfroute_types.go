@@ -89,6 +89,7 @@ type CFRouteStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="URI",type=string,JSONPath=`.status.uri`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFRoute is the Schema for the cfroutes API
 type CFRoute struct {
@@ -100,6 +101,7 @@ type CFRoute struct {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFRouteList contains a list of CFRoute
 type CFRouteList struct {

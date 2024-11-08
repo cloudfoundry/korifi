@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -78,11 +79,10 @@ var _ = Describe("Service Instances", func() {
 		})
 
 		When("creating a managed service instance", func() {
+			var brokerGUID string
+
 			BeforeEach(func() {
-				brokerGUID := createBroker(serviceBrokerURL)
-				DeferCleanup(func() {
-					cleanupBroker(brokerGUID)
-				})
+				brokerGUID = createBroker(serviceBrokerURL)
 
 				var plansResp resourceList[resource]
 				catalogResp, err := adminClient.R().SetResult(&plansResp).Get("/v3/service_plans?service_broker_guids=" + brokerGUID)
@@ -108,6 +108,10 @@ var _ = Describe("Service Instances", func() {
 					},
 					InstanceType: "managed",
 				}
+			})
+
+			AfterEach(func() {
+				broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 			})
 
 			It("succeeds with a job redirect", func() {
@@ -181,13 +185,16 @@ var _ = Describe("Service Instances", func() {
 		})
 
 		When("deleting a managed service instance", func() {
+			var brokerGUID string
+
 			BeforeEach(func() {
-				brokerGUID := createBroker(serviceBrokerURL)
-				DeferCleanup(func() {
-					cleanupBroker(brokerGUID)
-				})
+				brokerGUID = createBroker(serviceBrokerURL)
 
 				serviceInstanceGUID = createManagedServiceInstance(brokerGUID, spaceGUID)
+			})
+
+			AfterEach(func() {
+				broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 			})
 
 			It("succeeds with a job redirect", func() {
