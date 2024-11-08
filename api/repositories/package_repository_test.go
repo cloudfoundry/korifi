@@ -692,7 +692,7 @@ var _ = Describe("PackageRepository", func() {
 			existingCFPackage = &korifiv1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFPackage",
-					APIVersion: korifiv1alpha1.GroupVersion.String(),
+					APIVersion: korifiv1alpha1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      packageGUID,

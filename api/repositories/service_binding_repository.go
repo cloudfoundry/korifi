@@ -122,7 +122,7 @@ func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServ
 			DisplayName: m.Name,
 			Service: corev1.ObjectReference{
 				Kind:       "CFServiceInstance",
-				APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+				APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
 				Name:       m.ServiceInstanceGUID,
 			},
 			AppRef: corev1.LocalObjectReference{Name: m.AppGUID},

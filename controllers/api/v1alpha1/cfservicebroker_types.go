@@ -35,6 +35,8 @@ type CFServiceBrokerStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Broker Name",type=string,JSONPath=`.spec.name`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type CFServiceBroker struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -56,6 +58,8 @@ func (b *CFServiceBroker) StatusConditions() *[]metav1.Condition {
 }
 
 // +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type CFServiceBrokerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
