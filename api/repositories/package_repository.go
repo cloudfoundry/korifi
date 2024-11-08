@@ -176,7 +176,7 @@ func (message CreatePackageMessage) toCFPackage() *korifiv1alpha1.CFPackage {
 	pkg := &korifiv1alpha1.CFPackage{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       kind,
-			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+			APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        packageGUID,

@@ -15,6 +15,7 @@ type CFServiceOfferingSpec struct {
 //+kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.spec.description`
 //+kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.spec.available`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFServiceOffering is the Schema for the cfserviceofferings API
 type CFServiceOffering struct {
@@ -25,6 +26,7 @@ type CFServiceOffering struct {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFServiceOfferingList contains a list of CFServiceOffering
 type CFServiceOfferingList struct {

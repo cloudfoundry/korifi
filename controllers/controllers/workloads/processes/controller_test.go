@@ -164,7 +164,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		Eventually(func(g Gomega) {
 			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfProcess), cfProcess)).To(Succeed())
 			g.Expect(cfProcess.OwnerReferences).To(ConsistOf(metav1.OwnerReference{
-				APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
+				APIVersion:         korifiv1alpha1.SchemeGroupVersion.Identifier(),
 				Kind:               "CFApp",
 				Name:               cfApp.Name,
 				UID:                cfApp.UID,
@@ -191,7 +191,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		It("reconciles the CFProcess into an AppWorkload", func() {
 			eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 				g.Expect(appWorkload.OwnerReferences).To(ConsistOf(metav1.OwnerReference{
-					APIVersion:         korifiv1alpha1.GroupVersion.Identifier(),
+					APIVersion:         korifiv1alpha1.SchemeGroupVersion.Identifier(),
 					Kind:               "CFProcess",
 					Name:               cfProcess.Name,
 					UID:                cfProcess.UID,
