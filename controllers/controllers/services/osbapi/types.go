@@ -1,6 +1,8 @@
 package osbapi
 
-import "code.cloudfoundry.org/korifi/model/services"
+import (
+	"code.cloudfoundry.org/korifi/model/services"
+)
 
 type Broker struct {
 	URL      string
@@ -135,8 +137,8 @@ type Plan struct {
 }
 
 type ServiceInstanceOperationResponse struct {
-	Operation string `json:"operation"`
-	Complete  bool
+	IsAsync   bool
+	Operation string `json:"operation,omitempty"`
 }
 
 type LastOperationResponse struct {
