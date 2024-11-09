@@ -182,9 +182,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			It("provisions the service synchronously", func() {
 				Expect(provisionErr).NotTo(HaveOccurred())
-				Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
-					Complete: true,
-				}))
+				Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{}))
 			})
 
 			When("the broker accepts the provision request", func() {
@@ -201,8 +199,8 @@ var _ = Describe("OSBAPI Client", func() {
 				It("provisions the service asynchronously", func() {
 					Expect(provisionErr).NotTo(HaveOccurred())
 					Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+						IsAsync:   true,
 						Operation: "provision_op1",
-						Complete:  false,
 					}))
 				})
 			})

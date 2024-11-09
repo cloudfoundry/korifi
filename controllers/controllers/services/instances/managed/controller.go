@@ -164,11 +164,17 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return ctrl.Result{}, fmt.Errorf("failed to create client for broker %q: %w", serviceInstanceAssets.ServiceBroker.Name, err)
 	}
 
-	if !isProvisionRequested(serviceInstance) {
-		return r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+	provisionResponse, err := r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+	if err != nil {
+		log.Error(err, "failed to provision service instance")
+		return ctrl.Result{}, fmt.Errorf("failed to provision service instance: %w", err)
 	}
 
-	return r.pollProvisionOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+	if provisionResponse.IsAsync {
+		return r.pollProvisionOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, provisionResponse.Operation)
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func (r *Reconciler) isServicePlanVisible(
@@ -202,19 +208,20 @@ func (r *Reconciler) provisionServiceInstance(
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	assets osbapi.ServiceInstanceAssets,
 	osbapiClient osbapi.BrokerClient,
-) (ctrl.Result, error) {
+) (osbapi.ServiceInstanceOperationResponse, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("provision-service-instance")
 
 	parametersMap, err := getServiceInstanceParameters(serviceInstance)
 	if err != nil {
 		log.Error(err, "failed to get service instance parameters")
-		return ctrl.Result{}, fmt.Errorf("failed to get service instance parameters: %w", err)
+		return osbapi.ServiceInstanceOperationResponse{},
+			fmt.Errorf("failed to get service instance parameters: %w", err)
 	}
 
 	namespace, err := r.getNamespace(ctx, serviceInstance.Namespace)
 	if err != nil {
 		log.Error(err, "failed to get namespace")
-		return ctrl.Result{}, err
+		return osbapi.ServiceInstanceOperationResponse{}, err
 	}
 
 	var provisionResponse osbapi.ServiceInstanceOperationResponse
@@ -239,23 +246,11 @@ func (r *Reconciler) provisionServiceInstance(
 			Reason:             "ProvisionFailed",
 			Message:            err.Error(),
 		})
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionFailed")
+		return osbapi.ServiceInstanceOperationResponse{},
+			k8s.NewNotReadyError().WithReason("ProvisionFailed")
 	}
 
-	if provisionResponse.Complete {
-		return ctrl.Result{}, nil
-	}
-
-	serviceInstance.Status.ProvisionOperation = provisionResponse.Operation
-	meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
-		Type:               korifiv1alpha1.ProvisionRequestedCondition,
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: serviceInstance.Generation,
-		LastTransitionTime: metav1.NewTime(time.Now()),
-		Reason:             "ProvisionRequested",
-	})
-
-	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionRequested").WithRequeue()
+	return provisionResponse, nil
 }
 
 func (r *Reconciler) pollProvisionOperation(
@@ -263,6 +258,7 @@ func (r *Reconciler) pollProvisionOperation(
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	assets osbapi.ServiceInstanceAssets,
 	osbapiClient osbapi.BrokerClient,
+	operationID string,
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("poll-provision-operation")
 
@@ -271,7 +267,7 @@ func (r *Reconciler) pollProvisionOperation(
 		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
 			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
-			Operation: serviceInstance.Status.ProvisionOperation,
+			Operation: operationID,
 		},
 	})
 	if err != nil {
@@ -322,16 +318,9 @@ func (r *Reconciler) finalizeCFServiceInstance(
 		return ctrl.Result{}, nil
 	}
 
-	if !isDeprovisionRequested(serviceInstance) {
-		r.deprovisionServiceInstance(ctx, serviceInstance)
-
-		meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
-			Type:               korifiv1alpha1.DeprovisionRequestedCondition,
-			Status:             metav1.ConditionTrue,
-			ObservedGeneration: serviceInstance.Generation,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-			Reason:             "DeprovisionRequested",
-		})
+	_, err := r.deprovisionServiceInstance(ctx, serviceInstance)
+	if err != nil {
+		log.Error(err, "failed to deprovision service instance with broker")
 	}
 
 	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
@@ -343,19 +332,15 @@ func (r *Reconciler) finalizeCFServiceInstance(
 func (r *Reconciler) deprovisionServiceInstance(
 	ctx context.Context,
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
-) {
-	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
-
+) (osbapi.ServiceInstanceOperationResponse, error) {
 	assets, err := r.assets.GetServiceInstanceAssets(ctx, serviceInstance)
 	if err != nil {
-		log.Error(err, "failed to get service instance assets")
-		return
+		return osbapi.ServiceInstanceOperationResponse{}, fmt.Errorf("failed to get service instance assets: %w", err)
 	}
 
 	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, assets.ServiceBroker)
 	if err != nil {
-		log.Error(err, "failed to create broker client", "broker", assets.ServiceBroker.Name)
-		return
+		return osbapi.ServiceInstanceOperationResponse{}, fmt.Errorf("failed to create broker client: %w", err)
 	}
 
 	var deprovisionResponse osbapi.ServiceInstanceOperationResponse
@@ -367,11 +352,10 @@ func (r *Reconciler) deprovisionServiceInstance(
 		},
 	})
 	if err != nil {
-		log.Error(err, "failed to deprovision service instance")
-		return
+		return osbapi.ServiceInstanceOperationResponse{}, fmt.Errorf("failed to deprovision service instance: %w", err)
 	}
 
-	serviceInstance.Status.DeprovisionOperation = deprovisionResponse.Operation
+	return deprovisionResponse, nil
 }
 
 func (r *Reconciler) getNamespace(ctx context.Context, namespaceName string) (*corev1.Namespace, error) {
@@ -386,14 +370,6 @@ func (r *Reconciler) getNamespace(ctx context.Context, namespaceName string) (*c
 		return nil, fmt.Errorf("failed to get namespace %q: %w", namespaceName, err)
 	}
 	return namespace, nil
-}
-
-func isProvisionRequested(instance *korifiv1alpha1.CFServiceInstance) bool {
-	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.ProvisionRequestedCondition)
-}
-
-func isDeprovisionRequested(instance *korifiv1alpha1.CFServiceInstance) bool {
-	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.DeprovisionRequestedCondition)
 }
 
 func isFailed(instance *korifiv1alpha1.CFServiceInstance) bool {

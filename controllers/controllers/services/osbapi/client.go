@@ -93,9 +93,8 @@ func (c *Client) Provision(ctx context.Context, payload InstanceProvisionPayload
 		return ServiceInstanceOperationResponse{}, fmt.Errorf("provision request failed with status code: %d", statusCode)
 	}
 
-	response := ServiceInstanceOperationResponse{}
-	if statusCode == http.StatusCreated {
-		response.Complete = true
+	response := ServiceInstanceOperationResponse{
+		IsAsync: statusCode == http.StatusAccepted,
 	}
 
 	err = json.Unmarshal(respBytes, &response)

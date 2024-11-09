@@ -30,9 +30,7 @@ const (
 
 	CFManagedServiceInstanceFinalizerName = "managed.cfServiceInstance.korifi.cloudfoundry.org"
 
-	ProvisionRequestedCondition   = "ProvisionRequested"
-	ProvisioningFailedCondition   = "ProvisioningFailed"
-	DeprovisionRequestedCondition = "DeprovisionRequested"
+	ProvisioningFailedCondition = "ProvisioningFailed"
 )
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
@@ -81,16 +79,6 @@ type CFServiceInstanceStatus struct {
 	// This will ensure that interested contollers are notified on instance credentials change
 	//+kubebuilder:validation:Optional
 	CredentialsObservedVersion string `json:"credentialsObservedVersion,omitempty"`
-
-	// The operation returned by the OSBAPI broker when instance provisioning
-	// is requested. Only makes sense for managed service instances
-	//+kubebuilder:validation:Optional
-	ProvisionOperation string `json:"provisionOperation,omitempty"`
-
-	// The operation returned by the OSBAPI broker when instance deprovisioning
-	// is requested. Only makes sense for managed service instances
-	//+kubebuilder:validation:Optional
-	DeprovisionOperation string `json:"deprovisionOperation,omitempty"`
 }
 
 //+kubebuilder:object:root=true
