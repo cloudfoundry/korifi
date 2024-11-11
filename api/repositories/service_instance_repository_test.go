@@ -971,6 +971,78 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 	})
 
+	Describe("GetServiceInstanceCredentials", func() {
+		var (
+			secretName string
+			secretData map[string][]byte
+			credential map[string]any
+			secret     *corev1.Secret
+			// serviceInstance *korifiv1alpha1.CFServiceInstance
+			getErr    error
+			decodeErr error
+		)
+
+		BeforeEach(func() {
+			secretName = prefixedGUID("secret")
+
+			_ = createServiceInstanceCR(ctx, k8sClient, secretName, space.Name, "the-service-instance", secretName)
+			secretData, decodeErr = tools.ToCredentialsSecretData(map[string]any{"foo": "bar"})
+
+			secret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: space.Name,
+				},
+				Data: secretData,
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			credential, getErr = serviceInstanceRepo.GetServiceInstanceCredentials(ctx, authInfo, secretName)
+		})
+
+		When("there are not permissions on the secret", func() {
+			It("returns a forbidden error", func() {
+				Expect(errors.As(getErr, &apierrors.ForbiddenError{})).To(BeTrue())
+			})
+		})
+
+		When("the user has permissions to get the secret", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("returns the correct secret", func() {
+				Expect(getErr).ToNot(HaveOccurred())
+				Expect(decodeErr).ToNot(HaveOccurred())
+				Expect(credential).To(HaveKeyWithValue("foo", "bar"))
+			})
+
+			When("the secret does not exist", func() {
+				BeforeEach(func() {
+					secretName = "does-not-exist"
+				})
+
+				It("returns a 404 error", func() {
+					Expect(errors.As(getErr, &apierrors.NotFoundError{})).To(BeTrue())
+				})
+			})
+		})
+
+		When("the context has expired", func() {
+			BeforeEach(func() {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithCancel(ctx)
+				cancel()
+			})
+
+			It("returns a error", func() {
+				Expect(getErr).To(HaveOccurred())
+			})
+		})
+	})
+
 	Describe("DeleteServiceInstance", func() {
 		var (
 			serviceInstance *korifiv1alpha1.CFServiceInstance

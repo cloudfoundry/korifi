@@ -456,6 +456,36 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 	return cfServiceInstanceToRecord(*serviceInstance), nil
 }
 
+func (r *ServiceInstanceRepo) GetServiceInstanceCredentials(ctx context.Context, authInfo authorization.Info, secretName string) (map[string]any, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return map[string]any{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, secretName, ServiceInstanceResourceType)
+	if err != nil {
+		return map[string]any{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
+	}
+
+	credentialsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+	}
+
+	if err = userClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret); err != nil {
+		return map[string]any{}, fmt.Errorf("failed to get credentials secret for service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
+	}
+
+	credentials, err := tools.ToDecodedSecretDataCredentials(credentialsSecret.Data)
+	if err != nil {
+		return map[string]any{}, fmt.Errorf("failed to decode credentials secret for service instance: %w", err)
+	}
+
+	return credentials, nil
+}
+
 func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInfo authorization.Info, message DeleteServiceInstanceMessage) (ServiceInstanceRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {

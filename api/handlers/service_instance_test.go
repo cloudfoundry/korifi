@@ -73,6 +73,286 @@ var _ = Describe("ServiceInstance", func() {
 		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
+	Describe("GET /v3/service_instances/:guid", func() {
+		BeforeEach(func() {
+			serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+				GUID: "service-instance-guid",
+				Type: korifiv1alpha1.UserProvidedType,
+			}, nil)
+
+			reqPath += "/service-instance-guid"
+		})
+
+		It("gets the service instance", func() {
+			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualServiceInstanceGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualServiceInstanceGUID).To(Equal("service-instance-guid"))
+
+			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "service-instance-guid"),
+				MatchJSONPath("$.type", "user-provided"),
+			)))
+		})
+
+		When("getting the service instance fails with not found", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(
+					repositories.ServiceInstanceRecord{},
+					apierrors.NewNotFoundError(nil, repositories.ServiceInstanceResourceType),
+				)
+			})
+
+			It("returns 404 Not Found", func() {
+				expectNotFoundError("Service Instance")
+			})
+		})
+
+		When("getting the service instance fails with forbidden", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(
+					repositories.ServiceInstanceRecord{},
+					apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType),
+				)
+			})
+
+			It("returns 404 Not Found", func() {
+				expectNotAuthorizedError()
+			})
+		})
+
+		When("the query is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		Describe("fields", func() {
+			BeforeEach(func() {
+				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
+					ServiceOffering: services.ServiceOffering{
+						Name: "service-offering-name",
+					},
+					CFResource: model.CFResource{
+						GUID: "service-offering-guid",
+					},
+					ServiceBrokerGUID: "service-broker-guid",
+				}}, nil)
+
+				servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
+					ServicePlan: services.ServicePlan{
+						Name: "service-plan-name",
+					},
+					CFResource: model.CFResource{
+						GUID: "service-plan-guid",
+					},
+					ServiceOfferingGUID: "service-offering-guid",
+				}}, nil)
+
+				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
+					ServiceBroker: services.ServiceBroker{
+						Name: "service-broker-name",
+					},
+					CFResource: model.CFResource{
+						GUID: "service-broker-guid",
+					},
+				}}, nil)
+			})
+
+			When("params to inlude fields[service_plan]", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceGet{
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"service_plan"},
+							Fields:           []string{"name", "guid"},
+						}},
+					})
+				})
+
+				It("does not include resources", func() {
+					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(Not(ContainSubstring("included"))))
+				})
+
+				When("the service instance is managed", func() {
+					BeforeEach(func() {
+						serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+							GUID: "service-instance-guid", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid",
+						}, nil)
+					})
+
+					It("includes offering fields in the response", func() {
+						Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+						Expect(rr).To(HaveHTTPBody(SatisfyAll(
+							MatchJSONPath("$.included.service_plans[0].guid", "service-plan-guid"),
+							MatchJSONPath("$.included.service_plans[0].name", "service-plan-name"),
+						)))
+					})
+				})
+			})
+
+			When("params to inlude fields[service_plan.service_offering]", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceGet{
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"service_plan", "service_offering"},
+							Fields:           []string{"name", "guid", "relationships.service_broker"},
+						}},
+					})
+				})
+
+				It("does not include resources", func() {
+					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(Not(ContainSubstring("included"))))
+				})
+
+				When("the service instance is managed", func() {
+					BeforeEach(func() {
+						serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+							GUID: "service-instance-guid", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid",
+						}, nil)
+					})
+
+					It("includes offering fields in the response", func() {
+						Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+						Expect(rr).To(HaveHTTPBody(SatisfyAll(
+							MatchJSONPath("$.included.service_offerings[0].guid", "service-offering-guid"),
+							MatchJSONPath("$.included.service_offerings[0].name", "service-offering-name"),
+							MatchJSONPath("$.included.service_offerings[0].relationships.service_broker.data.guid", "service-broker-guid"),
+						)))
+					})
+				})
+			})
+
+			When("params to inlude fields[service_plan.service_offering.service_broker]", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceGet{
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"service_plan", "service_offering", "service_broker"},
+							Fields:           []string{"name", "guid"},
+						}},
+					})
+				})
+
+				It("does not include resources", func() {
+					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(Not(ContainSubstring("included"))))
+				})
+
+				When("the service instance is managed", func() {
+					BeforeEach(func() {
+						serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+							GUID: "service-instance-guid", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid",
+						}, nil)
+					})
+
+					It("includes broker fields in the response", func() {
+						Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+						Expect(rr).To(HaveHTTPBody(SatisfyAll(
+							MatchJSONPath("$.included.service_brokers[0].guid", "service-broker-guid"),
+							MatchJSONPath("$.included.service_brokers[0].name", "service-broker-name"),
+						)))
+					})
+				})
+			})
+		})
+	})
+
+	Describe("GET /v3/service_instances/:guid/credentials", func() {
+		BeforeEach(func() {
+			serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+				GUID:       "service-instance-guid",
+				Type:       korifiv1alpha1.UserProvidedType,
+				SecretName: "secret-name",
+			}, nil)
+
+			serviceInstanceRepo.GetServiceInstanceCredentialsReturns(map[string]any{
+				"foo": "bar",
+			}, nil)
+
+			reqPath += "/service-instance-guid/credentials"
+		})
+
+		It("gets the service instance credentials", func() {
+			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
+			Expect(serviceInstanceRepo.GetServiceInstanceCredentialsCallCount()).To(Equal(1))
+
+			_, actualAuthInfo, actualServiceInstanceGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualServiceInstanceGUID).To(Equal("service-instance-guid"))
+
+			_, actualAuthInfo, actualSecretName := serviceInstanceRepo.GetServiceInstanceCredentialsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualSecretName).To(Equal("secret-name"))
+
+			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.foo", "bar"),
+			)))
+		})
+
+		When("the service instance does not have credentials", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+					GUID: "service-instance-guid",
+					Type: korifiv1alpha1.UserProvidedType,
+				}, nil)
+
+				serviceInstanceRepo.GetServiceInstanceCredentialsReturns(map[string]any{}, apierrors.NewNotFoundError(nil, repositories.ServiceInstanceResourceType))
+			})
+
+			It("returns 404 Not Found", func() {
+				_, actualAuthInfo, actualSecretName := serviceInstanceRepo.GetServiceInstanceCredentialsArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualSecretName).To(Equal(""))
+				expectNotFoundError("Service Instance")
+			})
+		})
+
+		When("getting the service instance fails with not found", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(
+					repositories.ServiceInstanceRecord{},
+					apierrors.NewNotFoundError(nil, repositories.ServiceInstanceResourceType),
+				)
+			})
+
+			It("returns 404 Not Found", func() {
+				expectNotFoundError("Service Instance")
+			})
+		})
+
+		When("getting the service instance fails with forbidden", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(
+					repositories.ServiceInstanceRecord{},
+					apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType),
+				)
+			})
+
+			It("returns 404 Not Found", func() {
+				expectNotAuthorizedError()
+			})
+		})
+
+		When("the unmarshaling of the secret fails", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceCredentialsReturns(map[string]any{}, apierrors.NewUnprocessableEntityError(nil, "failed to decode"))
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError("failed to decode")
+			})
+		})
+	})
+
 	Describe("the POST /v3/service_instances endpoint", func() {
 		BeforeEach(func() {
 			reqMethod = http.MethodPost
