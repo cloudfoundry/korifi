@@ -701,7 +701,7 @@ var _ = Describe("OSBAPI Client", func() {
 			unbindResp, unbindErr = brokerClient.Unbind(ctx, osbapi.UnbindPayload{
 				InstanceID: "instance-id",
 				BindingID:  "binding-id",
-				UnbindRequest: osbapi.UnbindRequest{
+				UnbindRequestParameters: osbapi.UnbindRequestParameters{
 					ServiceId: "service-guid",
 					PlanID:    "plan-guid",
 				},
