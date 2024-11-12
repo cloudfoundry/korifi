@@ -22,7 +22,7 @@ type (
 	}
 )
 
-func forRecord(r record, u url.URL) presentedRecord {
+func forRecord(r record, u url.URL, includes ...model.IncludedResource) presentedRecord {
 	return presentedRecord{
 		M: r.N,
 		U: u.String(),

@@ -27,7 +27,7 @@ type RoleLinks struct {
 	Organization *Link `json:"organization,omitempty"`
 }
 
-func ForRole(role repositories.RoleRecord, apiBaseURL url.URL) RoleResponse {
+func ForRole(role repositories.RoleRecord, apiBaseURL url.URL, includes ...model.IncludedResource) RoleResponse {
 	resp := RoleResponse{
 		GUID:          role.GUID,
 		CreatedAt:     formatTimestamp(&role.CreatedAt),

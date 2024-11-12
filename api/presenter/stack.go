@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
 )
 
 const (
@@ -24,7 +25,7 @@ type StackLinks struct {
 	Self Link `json:"self"`
 }
 
-func ForStack(stackRecord repositories.StackRecord, baseURL url.URL) StackResponse {
+func ForStack(stackRecord repositories.StackRecord, baseURL url.URL, includes ...model.IncludedResource) StackResponse {
 	return StackResponse{
 		GUID:      stackRecord.GUID,
 		CreatedAt: formatTimestamp(&stackRecord.CreatedAt),

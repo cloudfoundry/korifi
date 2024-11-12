@@ -37,7 +37,7 @@ type BuildpackData struct {
 	Version       string `json:"version"`
 }
 
-func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL) DropletResponse {
+func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL, includes ...model.IncludedResource) DropletResponse {
 	toReturn := DropletResponse{
 		GUID:      dropletRecord.GUID,
 		CreatedAt: formatTimestamp(&dropletRecord.CreatedAt),

@@ -44,7 +44,7 @@ type ServiceInstanceLinks struct {
 	ServiceRouteBindings      Link `json:"service_route_bindings"`
 }
 
-func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord, baseURL url.URL) ServiceInstanceResponse {
+func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord, baseURL url.URL, includes ...model.IncludedResource) ServiceInstanceResponse {
 	lastOperationType := "update"
 	if serviceInstanceRecord.UpdatedAt == nil || serviceInstanceRecord.CreatedAt.Equal(*serviceInstanceRecord.UpdatedAt) {
 		lastOperationType = "create"

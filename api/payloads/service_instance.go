@@ -248,3 +248,29 @@ func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.PlanGUIDs = values.Get("service_plan_guids")
 	return nil
 }
+
+type ServiceInstanceDelete struct {
+	Purge bool `json:"purge"`
+}
+
+func (d *ServiceInstanceDelete) ToMessage(guid string) repositories.DeleteServiceInstanceMessage {
+	return repositories.DeleteServiceInstanceMessage{
+		GUID:  guid,
+		Purge: d.Purge,
+	}
+}
+
+func (d *ServiceInstanceDelete) SupportedKeys() []string {
+	return []string{
+		"purge",
+	}
+}
+
+func (d *ServiceInstanceDelete) DecodeFromURLValues(values url.Values) error {
+	var err error
+	if d.Purge, err = getBool(values, "purge"); err != nil {
+		return err
+	}
+
+	return nil
+}
