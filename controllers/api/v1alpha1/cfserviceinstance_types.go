@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/model/services"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -79,6 +80,9 @@ type CFServiceInstanceStatus struct {
 	// This will ensure that interested contollers are notified on instance credentials change
 	//+kubebuilder:validation:Optional
 	CredentialsObservedVersion string `json:"credentialsObservedVersion,omitempty"`
+
+	//+kubebuilder:validation:Optional
+	LastOperation services.LastOperation `json:"last_operation"`
 }
 
 //+kubebuilder:object:root=true

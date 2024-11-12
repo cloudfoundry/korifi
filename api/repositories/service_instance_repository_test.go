@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -303,6 +304,50 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Expect(unprocessableEntityErr).To(MatchError(ContainSubstring("does-not-exist")))
 				})
 			})
+		})
+	})
+
+	Describe("instance record last operation", func() {
+		var (
+			cfServiceInstance     *korifiv1alpha1.CFServiceInstance
+			serviceInstanceRecord repositories.ServiceInstanceRecord
+		)
+
+		BeforeEach(func() {
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+
+			cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					Type: korifiv1alpha1.ManagedType,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfServiceInstance)).To(Succeed())
+
+			Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance, func() {
+				cfServiceInstance.Status.LastOperation = services.LastOperation{
+					Type:        "create",
+					State:       "failed",
+					Description: "failed due to error",
+				}
+			})).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			serviceInstanceRecord, err = serviceInstanceRepo.GetServiceInstance(ctx, authInfo, cfServiceInstance.Name)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns  last operation", func() {
+			Expect(serviceInstanceRecord.LastOperation).To(Equal(services.LastOperation{
+				Type:        "create",
+				State:       "failed",
+				Description: "failed due to error",
+			}))
 		})
 	})
 

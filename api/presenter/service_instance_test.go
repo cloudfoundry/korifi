@@ -7,6 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -35,6 +36,11 @@ var _ = Describe("Service Instance", func() {
 			UpdatedAt:  tools.PtrTo(time.UnixMilli(2000)),
 			Labels: map[string]string{
 				"foo": "bar",
+			},
+			LastOperation: services.LastOperation{
+				Type:        "update",
+				State:       "succeeded",
+				Description: "Operation succeeded",
 			},
 			Annotations: map[string]string{
 				"one": "two",
@@ -102,16 +108,6 @@ var _ = Describe("Service Instance", func() {
 			"created_at": "1970-01-01T00:00:01Z",
 			"updated_at": "1970-01-01T00:00:02Z"
 		}`))
-	})
-
-	When("create and update times are the same", func() {
-		BeforeEach(func() {
-			record.UpdatedAt = &record.CreatedAt
-		})
-
-		It("sets last operation type to create", func() {
-			Expect(output).To(MatchJSONPath("$.last_operation.type", "create"))
-		})
 	})
 
 	When("labels is nil", func() {
