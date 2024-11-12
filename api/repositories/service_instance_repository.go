@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -169,19 +170,20 @@ type DeleteServiceInstanceMessage struct {
 }
 
 type ServiceInstanceRecord struct {
-	Name        string
-	GUID        string
-	SpaceGUID   string
-	PlanGUID    string
-	SecretName  string
-	Tags        []string
-	Type        string
-	Labels      map[string]string
-	Annotations map[string]string
-	CreatedAt   time.Time
-	UpdatedAt   *time.Time
-	DeletedAt   *time.Time
-	Ready       bool
+	Name          string
+	GUID          string
+	SpaceGUID     string
+	PlanGUID      string
+	SecretName    string
+	Tags          []string
+	Type          string
+	Labels        map[string]string
+	Annotations   map[string]string
+	CreatedAt     time.Time
+	UpdatedAt     *time.Time
+	DeletedAt     *time.Time
+	LastOperation services.LastOperation
+	Ready         bool
 }
 
 func (r ServiceInstanceRecord) Relationships() map[string]string {
@@ -545,19 +547,20 @@ func (r *ServiceInstanceRepo) removeBindingsFinalizer(ctx context.Context, userC
 
 func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) ServiceInstanceRecord {
 	return ServiceInstanceRecord{
-		Name:        cfServiceInstance.Spec.DisplayName,
-		GUID:        cfServiceInstance.Name,
-		SpaceGUID:   cfServiceInstance.Namespace,
-		PlanGUID:    cfServiceInstance.Spec.PlanGUID,
-		SecretName:  cfServiceInstance.Spec.SecretName,
-		Tags:        cfServiceInstance.Spec.Tags,
-		Type:        string(cfServiceInstance.Spec.Type),
-		Labels:      cfServiceInstance.Labels,
-		Annotations: cfServiceInstance.Annotations,
-		CreatedAt:   cfServiceInstance.CreationTimestamp.Time,
-		UpdatedAt:   getLastUpdatedTime(&cfServiceInstance),
-		DeletedAt:   golangTime(cfServiceInstance.DeletionTimestamp),
-		Ready:       isInstanceReady(cfServiceInstance),
+		Name:          cfServiceInstance.Spec.DisplayName,
+		GUID:          cfServiceInstance.Name,
+		SpaceGUID:     cfServiceInstance.Namespace,
+		PlanGUID:      cfServiceInstance.Spec.PlanGUID,
+		SecretName:    cfServiceInstance.Spec.SecretName,
+		Tags:          cfServiceInstance.Spec.Tags,
+		Type:          string(cfServiceInstance.Spec.Type),
+		Labels:        cfServiceInstance.Labels,
+		Annotations:   cfServiceInstance.Annotations,
+		CreatedAt:     cfServiceInstance.CreationTimestamp.Time,
+		UpdatedAt:     getLastUpdatedTime(&cfServiceInstance),
+		DeletedAt:     golangTime(cfServiceInstance.DeletionTimestamp),
+		LastOperation: cfServiceInstance.Status.LastOperation,
+		Ready:         isInstanceReady(cfServiceInstance),
 	}
 }
 

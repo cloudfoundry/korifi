@@ -158,6 +158,7 @@ rules:
   - cfroutes/status
   - cfservicebindings/status
   - cfservicebrokers/status
+  - cfserviceinstances/status
   - cfspaces/status
   - cftasks/status
   verbs:
@@ -195,15 +196,6 @@ rules:
   - list
   - patch
   - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfserviceinstances/status
-  verbs:
-  - atch
-  - get
-  - patch
-  - update
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
