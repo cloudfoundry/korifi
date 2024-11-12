@@ -238,16 +238,20 @@ func (r *Reconciler) provisionServiceInstance(
 	if err != nil {
 		log.Error(err, "failed to provision service")
 
-		meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
-			Type:               korifiv1alpha1.ProvisioningFailedCondition,
-			Status:             metav1.ConditionTrue,
-			ObservedGeneration: serviceInstance.Generation,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-			Reason:             "ProvisionFailed",
-			Message:            err.Error(),
-		})
-		return osbapi.ServiceInstanceOperationResponse{},
-			k8s.NewNotReadyError().WithReason("ProvisionFailed")
+		if osbapi.IsUnrecoveralbeError(err) {
+			meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+				Type:               korifiv1alpha1.ProvisioningFailedCondition,
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: serviceInstance.Generation,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Reason:             "ProvisionFailed",
+				Message:            err.Error(),
+			})
+			return osbapi.ServiceInstanceOperationResponse{},
+				k8s.NewNotReadyError().WithReason("ProvisionFailed")
+		}
+
+		return osbapi.ServiceInstanceOperationResponse{}, err
 	}
 
 	return provisionResponse, nil
