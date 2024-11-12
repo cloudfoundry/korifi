@@ -26,19 +26,27 @@ func (c ConflictError) Error() string {
 	return "The service binding already exists"
 }
 
+type UnrecoverableError struct {
+	Status int
+}
+
+func (c UnrecoverableError) Error() string {
+	return fmt.Sprintf("The server responded with status: %d", c.Status)
+}
+
 func IgnoreGone(err error) error {
-	if IsGone(err) {
+	if errors.As(err, &GoneError{}) {
 		return nil
 	}
 	return err
 }
 
-func IsGone(err error) bool {
+func IsUnrecoveralbeError(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	return errors.As(err, &GoneError{})
+	return errors.As(err, &UnrecoverableError{})
 }
 
 type Client struct {
@@ -87,6 +95,9 @@ func (c *Client) Provision(ctx context.Context, payload InstanceProvisionPayload
 		)
 	if err != nil {
 		return ServiceInstanceOperationResponse{}, fmt.Errorf("provision request failed: %w", err)
+	}
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusConflict || statusCode == http.StatusUnprocessableEntity {
+		return ServiceInstanceOperationResponse{}, UnrecoverableError{Status: statusCode}
 	}
 
 	if statusCode >= 300 {

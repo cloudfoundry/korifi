@@ -205,9 +205,39 @@ var _ = Describe("OSBAPI Client", func() {
 				})
 			})
 
+			When("the provision request fails with 400 BadRequest error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusBadRequest)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(provisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusBadRequest}))
+				})
+			})
+
+			When("the provision request fails with 409 Conflict error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusConflict)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(provisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusConflict}))
+				})
+			})
+
+			When("the provision request fails with 422 Unprocessable entity error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusUnprocessableEntity)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(provisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusUnprocessableEntity}))
+				})
+			})
+
 			When("the provision request fails", func() {
 				BeforeEach(func() {
-					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusTeapot)
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusInternalServerError)
 				})
 
 				It("returns an error", func() {
