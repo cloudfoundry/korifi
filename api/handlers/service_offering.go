@@ -26,6 +26,7 @@ const (
 type CFServiceOfferingRepository interface {
 	GetServiceOffering(context.Context, authorization.Info, string) (repositories.ServiceOfferingRecord, error)
 	ListOfferings(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)
+	DeleteOffering(context.Context, authorization.Info, repositories.DeleteServiceOfferingMessage) error
 }
 
 type ServiceOffering struct {
@@ -103,6 +104,23 @@ func (h *ServiceOffering) list(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceOffering, serviceOfferingList, h.serverURL, *r.URL, includedResources...)), nil
 }
 
+func (h *ServiceOffering) delete(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-offering.delete")
+
+	payload := new(payloads.ServiceOfferingDelete)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
+	serviceOfferingGUID := routing.URLParam(r, "guid")
+	if err := h.serviceOfferingRepo.DeleteOffering(r.Context(), authInfo, payload.ToMessage(serviceOfferingGUID)); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to delete service offering: %s", serviceOfferingGUID)
+	}
+
+	return routing.NewResponse(http.StatusNoContent), nil
+}
+
 func (h *ServiceOffering) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -111,5 +129,6 @@ func (h *ServiceOffering) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: ServiceOfferingPath, Handler: h.get},
 		{Method: "GET", Pattern: ServiceOfferingsPath, Handler: h.list},
+		{Method: "DELETE", Pattern: ServiceOfferingPath, Handler: h.delete},
 	}
 }

@@ -46,6 +46,7 @@ rules:
   - cfservicebrokers
   verbs:
   - list
+  - delete
 
 - apiGroups:
   - korifi.cloudfoundry.org
@@ -61,3 +62,4 @@ rules:
   verbs:
   - get
   - list
+  - delete
