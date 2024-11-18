@@ -49,6 +49,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/tasks"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	controllersfinalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/guid"
 	domainswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
 	bindingswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
@@ -554,6 +555,7 @@ func main() {
 
 		versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
 		controllersfinalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
+		guid.NewControllersGUIDWebhook().SetupWebhookWithManager(mgr)
 
 		if err = packageswebhook.NewValidator().SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")

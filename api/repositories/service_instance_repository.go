@@ -201,17 +201,16 @@ func (r *ServiceInstanceRepo) CreateUserProvidedServiceInstance(ctx context.Cont
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	guid := uuid.NewString()
 	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        guid,
+			Name:        uuid.NewString(),
 			Namespace:   message.SpaceGUID,
 			Labels:      message.Labels,
 			Annotations: message.Annotations,
 		},
 		Spec: korifiv1alpha1.CFServiceInstanceSpec{
 			DisplayName: message.Name,
-			SecretName:  guid,
+			SecretName:  uuid.NewString(),
 			Type:        korifiv1alpha1.UserProvidedType,
 			Tags:        message.Tags,
 		},
