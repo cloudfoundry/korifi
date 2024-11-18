@@ -1028,6 +1028,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	Describe("PurgeServiceInstance", func() {
 		var (
 			serviceInstance *korifiv1alpha1.CFServiceInstance
+			serviceBinding  *korifiv1alpha1.CFServiceBinding
 			deleteMessage   repositories.DeleteServiceInstanceMessage
 			deleteErr       error
 		)
@@ -1037,6 +1038,26 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			serviceInstance.Finalizers = append(serviceInstance.Finalizers, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
 			Expect(k8sClient.Update(ctx, serviceInstance)).To(Succeed())
+
+			serviceBinding = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "CFServiceInstance",
+						APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
+						Name:       serviceInstance.Name,
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: "some-app-guid",
+					},
+				},
+			}
+
+			serviceBinding.Finalizers = append(serviceBinding.Finalizers, korifiv1alpha1.CFServiceBindingFinalizerName)
+			Expect(k8sClient.Create(ctx, serviceBinding)).To(Succeed())
 
 			deleteMessage = repositories.DeleteServiceInstanceMessage{
 				GUID:  serviceInstance.Name,
@@ -1052,13 +1073,14 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		It("purges the service instance", func() {
 			Expect(deleteErr).ToNot(HaveOccurred())
 
-			namespacedName := types.NamespacedName{
-				Name:      serviceInstance.Name,
-				Namespace: space.Name,
-			}
-
-			err := k8sClient.Get(context.Background(), namespacedName, &korifiv1alpha1.CFServiceInstance{})
+			err := k8sClient.Get(context.Background(), types.NamespacedName{Name: serviceInstance.Name, Namespace: space.Name}, &korifiv1alpha1.CFServiceInstance{})
 			Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("error: %+v", err))
+
+			binding := new(korifiv1alpha1.CFServiceBinding)
+			err = k8sClient.Get(context.Background(), types.NamespacedName{Name: serviceBinding.Name, Namespace: space.Name}, binding)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(binding.Finalizers).To(BeEmpty())
 		})
 	})
 })
