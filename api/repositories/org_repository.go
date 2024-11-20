@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	OrgPrefix       = "cf-org-"
 	OrgResourceType = "Org"
 )
 
@@ -95,7 +94,7 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 
 	cfOrg := &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        OrgPrefix + uuid.NewString(),
+			Name:        uuid.NewString(),
 			Namespace:   r.rootNamespace,
 			Labels:      message.Labels,
 			Annotations: message.Annotations,

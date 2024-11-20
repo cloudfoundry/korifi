@@ -122,7 +122,7 @@ var _ = Describe("DomainRepository", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
 				createdDomainGUID := createdDomain.GUID
-				Expect(createdDomainGUID).NotTo(BeEmpty())
+				Expect(createdDomainGUID).To(matchers.BeValidUUID())
 				Expect(createdDomain.Name).To(Equal("my.domain"))
 				Expect(createdDomain.Labels).To(HaveKeyWithValue("foo", "bar"))
 				Expect(createdDomain.Annotations).To(HaveKeyWithValue("bar", "baz"))

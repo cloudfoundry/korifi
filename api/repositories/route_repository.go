@@ -23,7 +23,6 @@ import (
 
 const (
 	RouteResourceType = "Route"
-	RoutePrefix       = "cf-route-"
 )
 
 type RouteRepo struct {
@@ -149,12 +148,8 @@ type DeleteRouteMessage struct {
 
 func (m CreateRouteMessage) toCFRoute() korifiv1alpha1.CFRoute {
 	return korifiv1alpha1.CFRoute{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       Kind,
-			APIVersion: APIVersion,
-		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        RoutePrefix + uuid.NewString(),
+			Name:        uuid.NewString(),
 			Namespace:   m.SpaceGUID,
 			Labels:      m.Labels,
 			Annotations: m.Annotations,
