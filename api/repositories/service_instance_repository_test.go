@@ -99,7 +99,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("returns a service instance record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				Expect(record.GUID).NotTo(BeEmpty())
+				Expect(record.GUID).To(matchers.BeValidUUID())
 				Expect(record.SpaceGUID).To(Equal(space.Name))
 				Expect(record.Name).To(Equal(serviceInstanceName))
 				Expect(record.Type).To(Equal("user-provided"))
@@ -203,7 +203,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("returns a service instance record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				Expect(record.GUID).NotTo(BeEmpty())
+				Expect(record.GUID).To(matchers.BeValidUUID())
 				Expect(record.SpaceGUID).To(Equal(space.Name))
 				Expect(record.Name).To(Equal(serviceInstanceName))
 				Expect(record.Type).To(Equal("managed"))

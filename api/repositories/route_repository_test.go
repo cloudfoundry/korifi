@@ -576,7 +576,7 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("returns a RouteRecord with matching fields", func() {
-				Expect(createdRouteRecord.GUID).To(HavePrefix("cf-route-"))
+				Expect(createdRouteRecord.GUID).To(matchers.BeValidUUID())
 				Expect(createdRouteRecord.Host).To(Equal(routeHost), "Route Host in record did not match input")
 				Expect(createdRouteRecord.Path).To(Equal(routePath), "Route Path in record did not match input")
 				Expect(createdRouteRecord.SpaceGUID).To(Equal(space.Name), "Route Space GUID in record did not match input")
@@ -711,7 +711,7 @@ var _ = Describe("RouteRepository", func() {
 
 			It("returns an RouteRecord with matching fields", func() {
 				Expect(routeErr).NotTo(HaveOccurred())
-				Expect(routeRecord.GUID).To(HavePrefix("cf-route-"))
+				Expect(routeRecord.GUID).To(matchers.BeValidUUID())
 				Expect(routeRecord.Host).To(Equal(routeHost), "Route Host in record did not match input")
 				Expect(routeRecord.Path).To(Equal(routePath), "Route Path in record did not match input")
 				Expect(routeRecord.SpaceGUID).To(Equal(space.Name), "Route Space GUID in record did not match input")
