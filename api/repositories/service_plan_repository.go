@@ -155,6 +155,26 @@ func (r *ServicePlanRepo) UpdatePlanVisibility(ctx context.Context, authInfo aut
 	return r.patchServicePlan(ctx, authInfo, message.PlanGUID, message.apply)
 }
 
+func (r *ServicePlanRepo) DeletePlan(ctx context.Context, authInfo authorization.Info, planGUID string) error {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfServicePlan := &korifiv1alpha1.CFServicePlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      planGUID,
+		},
+	}
+
+	if err := userClient.Delete(ctx, cfServicePlan); err != nil {
+		return apierrors.FromK8sError(err, ServicePlanVisibilityResourceType)
+	}
+
+	return nil
+}
+
 func (r *ServicePlanRepo) patchServicePlan(
 	ctx context.Context,
 	authInfo authorization.Info,

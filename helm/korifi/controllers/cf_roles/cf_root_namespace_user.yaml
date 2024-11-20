@@ -53,6 +53,7 @@ rules:
   - cfserviceplans
   verbs:
   - get
+  - delete
 
 - apiGroups:
   - korifi.cloudfoundry.org

@@ -1,6 +1,10 @@
 package repositories_test
 
 import (
+	"context"
+	"errors"
+	"fmt"
+
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
@@ -10,8 +14,10 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/gomega/gstruct"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"
@@ -598,6 +604,36 @@ var _ = Describe("ServicePlanRepo", func() {
 						Expect(servicePlan.Spec.Visibility.Organizations).To(ConsistOf(cfOrg.Name))
 					})
 				})
+			})
+		})
+	})
+
+	Describe("Delete", func() {
+		var deleteErr error
+
+		JustBeforeEach(func() {
+			deleteErr = repo.DeletePlan(ctx, authInfo, planGUID)
+		})
+
+		It("deletes the service plan", func() {
+			Expect(deleteErr).ToNot(HaveOccurred())
+
+			namespacedName := types.NamespacedName{
+				Name:      planGUID,
+				Namespace: rootNamespace,
+			}
+
+			err := k8sClient.Get(context.Background(), namespacedName, &korifiv1alpha1.CFServicePlan{})
+			Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("error: %+v", err))
+		})
+
+		When("the service plan does not exist", func() {
+			BeforeEach(func() {
+				planGUID = "does-not-exist"
+			})
+
+			It("returns a not found error", func() {
+				Expect(errors.As(deleteErr, &apierrors.NotFoundError{})).To(BeTrue())
 			})
 		})
 	})

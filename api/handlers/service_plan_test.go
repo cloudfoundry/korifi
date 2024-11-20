@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -346,6 +347,62 @@ var _ = Describe("ServicePlan", func() {
 			})
 
 			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("DELETE /v3/service_plans/:guid", func() {
+		BeforeEach(func() {
+			servicePlanRepo.GetPlanReturns(repositories.ServicePlanRecord{
+				CFResource: model.CFResource{
+					GUID: "plan-guid",
+				},
+				ServiceOfferingGUID: "service-offering-guid",
+			}, nil)
+		})
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "DELETE", "/v3/service_plans/plan-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
+
+		It("deletes the service plan", func() {
+			Expect(servicePlanRepo.GetPlanCallCount()).To(Equal(1))
+			Expect(servicePlanRepo.DeletePlanCallCount()).To(Equal(1))
+
+			_, actualAuthInfo, actualPlanGUID := servicePlanRepo.GetPlanArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualPlanGUID).To(Equal("plan-guid"))
+
+			_, actualAuthInfo, actualPlanGUID = servicePlanRepo.DeletePlanArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualPlanGUID).To(Equal("plan-guid"))
+
+			Expect(rr).Should(HaveHTTPStatus(http.StatusNoContent))
+		})
+
+		When("getting the service plan fails with not found", func() {
+			BeforeEach(func() {
+				servicePlanRepo.GetPlanReturns(
+					repositories.ServicePlanRecord{},
+					apierrors.NewNotFoundError(errors.New("not found"), repositories.ServicePlanResourceType),
+				)
+			})
+
+			It("returns 404 Not Found", func() {
+				expectNotFoundError("Service Plan")
+			})
+		})
+
+		When("deleting the service plan fails", func() {
+			BeforeEach(func() {
+				servicePlanRepo.DeletePlanReturns(errors.New("boom"))
+			})
+
+			It("returns 500 Internal Server Error", func() {
 				expectUnknownError()
 			})
 		})

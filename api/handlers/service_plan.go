@@ -17,8 +17,9 @@ import (
 )
 
 const (
+	ServicePlanPath           = "/v3/service_plans/{guid}"
 	ServicePlansPath          = "/v3/service_plans"
-	ServicePlanVisivilityPath = "/v3/service_plans/{guid}/visibility"
+	ServicePlanVisivilityPath = ServicePlanPath + "/visibility"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServicePlanRepository . CFServicePlanRepository
@@ -27,6 +28,7 @@ type CFServicePlanRepository interface {
 	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
 	ApplyPlanVisibility(context.Context, authorization.Info, repositories.ApplyServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
 	UpdatePlanVisibility(context.Context, authorization.Info, repositories.UpdateServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
+	DeletePlan(context.Context, authorization.Info, string) error
 }
 
 type ServicePlan struct {
@@ -130,6 +132,22 @@ func (h *ServicePlan) updatePlanVisibility(r *http.Request) (*routing.Response, 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlanVisibility(visibility, h.serverURL)), nil
 }
 
+func (h *ServicePlan) delete(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.delete")
+
+	planGUID := routing.URLParam(r, "guid")
+	if _, err := h.servicePlanRepo.GetPlan(r.Context(), authInfo, planGUID); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get plan: %s", planGUID)
+	}
+
+	if err := h.servicePlanRepo.DeletePlan(r.Context(), authInfo, planGUID); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to delete plan: %s", planGUID)
+	}
+
+	return routing.NewResponse(http.StatusNoContent), nil
+}
+
 func (h *ServicePlan) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -140,5 +158,6 @@ func (h *ServicePlan) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: ServicePlanVisivilityPath, Handler: h.getPlanVisibility},
 		{Method: "POST", Pattern: ServicePlanVisivilityPath, Handler: h.applyPlanVisibility},
 		{Method: "PATCH", Pattern: ServicePlanVisivilityPath, Handler: h.updatePlanVisibility},
+		{Method: "DELETE", Pattern: ServicePlanPath, Handler: h.delete},
 	}
 }
