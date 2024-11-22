@@ -22,7 +22,6 @@ import (
 )
 
 const (
-	SpacePrefix       = "cf-space-"
 	SpaceResourceType = "Space"
 )
 
@@ -112,7 +111,7 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 
 	cfSpace := &korifiv1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      SpacePrefix + uuid.NewString(),
+			Name:      uuid.NewString(),
 			Namespace: message.OrganizationGUID,
 		},
 		Spec: korifiv1alpha1.CFSpaceSpec{

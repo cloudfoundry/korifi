@@ -273,7 +273,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			It("creates a new CFServiceBinding resource and returns a record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				Expect(serviceBindingRecord.GUID).NotTo(BeEmpty())
+				Expect(serviceBindingRecord.GUID).To(matchers.BeValidUUID())
 				Expect(serviceBindingRecord.Type).To(Equal("app"))
 				Expect(serviceBindingRecord.Name).To(BeNil())
 				Expect(serviceBindingRecord.AppGUID).To(Equal(appGUID))
@@ -523,7 +523,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			It("creates a new CFServiceBinding resource and returns a record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				Expect(serviceBindingRecord.GUID).NotTo(BeEmpty())
+				Expect(serviceBindingRecord.GUID).To(matchers.BeValidUUID())
 				Expect(serviceBindingRecord.Type).To(Equal("app"))
 				Expect(serviceBindingRecord.Name).To(BeNil())
 				Expect(serviceBindingRecord.AppGUID).To(Equal(appGUID))

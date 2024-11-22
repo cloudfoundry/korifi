@@ -121,7 +121,7 @@ var _ = Describe("TaskRepository", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
 				Expect(taskRecord.Name).NotTo(BeEmpty())
-				Expect(taskRecord.GUID).NotTo(BeEmpty())
+				Expect(taskRecord.GUID).To(matchers.BeValidUUID())
 				Expect(taskRecord.Command).To(Equal("echo 'hello world'"))
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).To(Equal(int64(4)))
@@ -224,7 +224,7 @@ var _ = Describe("TaskRepository", func() {
 				It("returns the task", func() {
 					Expect(getErr).NotTo(HaveOccurred())
 					Expect(taskRecord.Name).To(Equal(taskGUID))
-					Expect(taskRecord.GUID).NotTo(BeEmpty())
+					Expect(taskRecord.GUID).To(matchers.BeValidUUID())
 					Expect(taskRecord.Command).To(Equal("echo hello"))
 					Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 					Expect(taskRecord.SequenceID).To(BeEquivalentTo(6))
@@ -583,7 +583,7 @@ var _ = Describe("TaskRepository", func() {
 			It("returns a cancelled task record", func() {
 				Expect(cancelErr).NotTo(HaveOccurred())
 				Expect(taskRecord.Name).To(Equal(taskGUID))
-				Expect(taskRecord.GUID).NotTo(BeEmpty())
+				Expect(taskRecord.GUID).To(matchers.BeValidUUID())
 				Expect(taskRecord.Command).To(Equal("echo hello"))
 				Expect(taskRecord.AppGUID).To(Equal(cfApp.Name))
 				Expect(taskRecord.SequenceID).To(BeEquivalentTo(6))
