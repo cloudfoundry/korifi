@@ -18,7 +18,7 @@ require (
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-logr/logr v1.4.2
-	github.com/go-resty/resty/v2 v2.16.1
+	github.com/go-resty/resty/v2 v2.16.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-containerregistry v0.20.2
 	github.com/google/uuid v1.6.0
@@ -26,7 +26,7 @@ require (
 	github.com/jellydator/validation v1.1.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.10.0
 	github.com/mileusna/useragent v1.3.5
-	github.com/onsi/ginkgo/v2 v2.21.0
+	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.35.1
 	github.com/pivotal/kpack v0.15.0
 	github.com/satori/go.uuid v1.2.0
@@ -34,13 +34,13 @@ require (
 	golang.org/x/text v0.20.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.31.2
-	k8s.io/apimachinery v0.31.2
-	k8s.io/client-go v0.31.2
-	k8s.io/metrics v0.31.2
-	k8s.io/pod-security-admission v0.31.2
+	k8s.io/api v0.31.3
+	k8s.io/apimachinery v0.31.3
+	k8s.io/client-go v0.31.3
+	k8s.io/metrics v0.31.3
+	k8s.io/pod-security-admission v0.31.3
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
-	sigs.k8s.io/controller-runtime v0.19.1
+	sigs.k8s.io/controller-runtime v0.19.2
 	sigs.k8s.io/controller-tools v0.16.5
 	sigs.k8s.io/gateway-api v1.2.0
 )
@@ -191,7 +191,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apiextensions-apiserver v0.31.2 // indirect
-	k8s.io/component-base v0.31.2 // indirect
+	k8s.io/component-base v0.31.3 // indirect
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20240521025948-451ce29f5b89 // indirect
 	knative.dev/pkg v0.0.0-20230821102121-81e4ee140363 // indirect
