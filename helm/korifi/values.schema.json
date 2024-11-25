@@ -86,6 +86,16 @@
       },
       "required": ["memoryMB", "diskMB", "buildCacheMB"]
     },
+    "crds": {
+      "type": "object",
+      "required": ["include"],
+      "properties": {
+        "include": {
+          "description": "Install CRDs as part of the Helm installation.",
+          "type": "boolean"
+        }
+      }
+    },
     "api": {
       "properties": {
         "include": {
