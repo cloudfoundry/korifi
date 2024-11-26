@@ -53,9 +53,6 @@ var _ = Describe("CFServiceBinding", func() {
 				Finalizers: []string{
 					korifiv1alpha1.CFServiceBindingFinalizerName,
 				},
-				Labels: map[string]string{
-					korifiv1alpha1.ServiceCredentialBindingTypeLabel: korifiv1alpha1.CFServiceBindingTypeApp,
-				},
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
 				Service: corev1.ObjectReference{
@@ -66,6 +63,7 @@ var _ = Describe("CFServiceBinding", func() {
 				AppRef: corev1.LocalObjectReference{
 					Name: cfAppGUID,
 				},
+				Type: korifiv1alpha1.CFServiceBindingTypeApp,
 			},
 		}
 		Expect(adminClient.Create(ctx, binding)).To(Succeed())
@@ -199,11 +197,11 @@ var _ = Describe("CFServiceBinding", func() {
 				g.Expect(sbServiceBinding.Spec.Name).To(Equal(binding.Name))
 				g.Expect(sbServiceBinding.Spec.Type).To(Equal("user-provided"))
 				g.Expect(sbServiceBinding.Spec.Provider).To(BeEmpty())
+				g.Expect(sbServiceBinding.Spec.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeApp))
 
 				g.Expect(sbServiceBinding.Labels).To(SatisfyAll(
 					HaveKeyWithValue(bindings.ServiceBindingGUIDLabel, binding.Name),
-					HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfApp.Name),
-					HaveKeyWithValue(korifiv1alpha1.ServiceCredentialBindingTypeLabel, korifiv1alpha1.CFServiceBindingTypeApp)
+					HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID),
 				))
 
 				g.Expect(sbServiceBinding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{

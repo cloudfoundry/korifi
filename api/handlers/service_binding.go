@@ -52,8 +52,8 @@ func (h *ServiceBinding) create(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-binding.create")
 
-	payload := new(payloads.ServiceBindingCreate)
-	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, payload); err != nil {
+	var payload payloads.ServiceBindingCreate
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
@@ -70,9 +70,11 @@ func (h *ServiceBinding) create(r *http.Request) (*routing.Response, error) {
 		)
 	}
 
+	ctx := logr.NewContext(r.Context(), logger.WithValues("service-instance", serviceInstance.GUID))
+
 	if payload.Type == korifiv1alpha1.CFServiceBindingTypeApp {
 		var app repositories.AppRecord
-		if app, err = h.appRepo.GetApp(r.Context(), authInfo, payload.Relationships.App.Data.GUID); err != nil {
+		if app, err = h.appRepo.GetApp(ctx, authInfo, payload.Relationships.App.Data.GUID); err != nil {
 			return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get "+repositories.AppResourceType)
 		}
 
@@ -86,18 +88,43 @@ func (h *ServiceBinding) create(r *http.Request) (*routing.Response, error) {
 		}
 	}
 
-	ctx := logr.NewContext(r.Context(), logger.WithValues("service-instance", serviceInstance.GUID))
+	if serviceInstance.Type == korifiv1alpha1.UserProvidedType {
+		return h.createUserProvided(ctx, &payload, serviceInstance)
+	}
+
+	return h.createManaged(ctx, &payload, serviceInstance)
+}
+
+func (h *ServiceBinding) createUserProvided(ctx context.Context, payload *payloads.ServiceBindingCreate, serviceInstance repositories.ServiceInstanceRecord) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(ctx)
+	logger := logr.FromContextOrDiscard(ctx).WithName("handlers.service-binding.create-user-provided")
+
+	if payload.Type == korifiv1alpha1.CFServiceBindingTypeKey {
+		return nil, apierrors.LogAndReturn(
+			logger,
+			apierrors.NewUnprocessableEntityError(nil, "Service credential bindings of type 'key' are not supported for user-provided service instances."),
+			"",
+		)
+	}
+
 	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(serviceInstance.SpaceGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logr.FromContextOrDiscard(ctx), err, "failed to create ServiceBinding")
 	}
 
-	if serviceInstance.Type == korifiv1alpha1.ManagedType {
-		return routing.NewResponse(http.StatusAccepted).
-			WithHeader("Location", presenter.JobURLForRedirects(serviceBinding.GUID, presenter.ManagedServiceBindingCreateOperation, h.serverURL)), nil
-	}
-
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForServiceBinding(serviceBinding, h.serverURL)), nil
+}
+
+func (h *ServiceBinding) createManaged(ctx context.Context, payload *payloads.ServiceBindingCreate, serviceInstance repositories.ServiceInstanceRecord) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(ctx)
+	logger := logr.FromContextOrDiscard(ctx).WithName("handlers.service-binding.create-managed")
+
+	serviceBinding, err := h.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, payload.ToMessage(serviceInstance.SpaceGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to create ServiceBinding")
+	}
+	return routing.NewResponse(http.StatusAccepted).
+		WithHeader("Location", presenter.JobURLForRedirects(serviceBinding.GUID, presenter.ManagedServiceBindingCreateOperation, h.serverURL)), nil
 }
 
 func (h *ServiceBinding) delete(r *http.Request) (*routing.Response, error) {

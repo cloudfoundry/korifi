@@ -144,13 +144,8 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 		return res, err
 	}
 
-	if cfServiceBinding.Labels[korifiv1alpha1.ServiceCredentialBindingTypeLabel] == korifiv1alpha1.CFServiceBindingTypeApp {
-		cfApp := new(korifiv1alpha1.CFApp)
-		err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
-		if err != nil {
-			log.Info("error when fetching CFApp", "reason", err)
-			return ctrl.Result{}, err
-		}
+	if cfServiceBinding.Spec.Type == korifiv1alpha1.CFServiceBindingTypeKey {
+		return ctrl.Result{}, nil
 	}
 
 	sbServiceBinding, err := r.reconcileSBServiceBinding(ctx, cfServiceBinding)
@@ -245,7 +240,7 @@ func (r *Reconciler) toSBServiceBinding(cfServiceBinding *korifiv1alpha1.CFServi
 			Labels: map[string]string{
 				ServiceBindingGUIDLabel:                          cfServiceBinding.Name,
 				korifiv1alpha1.CFAppGUIDLabelKey:                 cfServiceBinding.Spec.AppRef.Name,
-				korifiv1alpha1.ServiceCredentialBindingTypeLabel: cfServiceBinding.Labels[korifiv1alpha1.ServiceCredentialBindingTypeLabel],
+				korifiv1alpha1.ServiceCredentialBindingTypeLabel: cfServiceBinding.Spec.Type,
 			},
 		},
 		Spec: servicebindingv1beta1.ServiceBindingSpec{

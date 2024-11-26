@@ -1,7 +1,7 @@
 package payloads
 
 import (
-	"fmt"
+	"errors"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
@@ -14,7 +14,7 @@ import (
 type ServiceBindingCreate struct {
 	Relationships *ServiceBindingRelationships `json:"relationships"`
 	Type          string                       `json:"type"`
-	Name          *string                      `json:"name"`
+	Name          string                       `json:"name"`
 }
 
 func (p ServiceBindingCreate) ToMessage(spaceGUID string) repositories.CreateServiceBindingMessage {
@@ -24,7 +24,7 @@ func (p ServiceBindingCreate) ToMessage(spaceGUID string) repositories.CreateSer
 	}
 
 	return repositories.CreateServiceBindingMessage{
-		Name:                p.Name,
+		Name:                &p.Name,
 		ServiceInstanceGUID: p.Relationships.ServiceInstance.Data.GUID,
 		AppGUID:             appGUID,
 		SpaceGUID:           spaceGUID,
@@ -35,18 +35,21 @@ func (p ServiceBindingCreate) ToMessage(spaceGUID string) repositories.CreateSer
 func (p ServiceBindingCreate) Validate() error {
 	return jellidation.ValidateStruct(&p,
 		jellidation.Field(&p.Type, validation.OneOf("app", "key")),
+		jellidation.Field(&p.Name, jellidation.Required.When(p.Type == "key")),
+		jellidation.Field(&p.Relationships, jellidation.Required),
+
 		jellidation.Field(&p.Relationships, jellidation.By(func(value any) error {
 			relationships, ok := value.(*ServiceBindingRelationships)
 			if !ok || relationships == nil {
-				return fmt.Errorf("relationships is required")
+				return errors.New("relationships cannot be blank")
 			}
 
 			if p.Type == "app" {
 				if relationships.App == nil {
-					return jellidation.NewError("when type is app", "relationships.app is required")
+					return jellidation.NewError("validation_required", "relationships.app cannot be blank")
 				}
 				if relationships.App.Data.GUID == "" {
-					return fmt.Errorf("relationships.app.data.guid cannot be blank")
+					return jellidation.NewError("validation_required", "relationships.app.data.guid cannot be blank")
 				}
 			}
 

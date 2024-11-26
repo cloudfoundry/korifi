@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"log"
 	"slices"
 	"time"
 
@@ -110,7 +109,7 @@ func (m *ListServiceBindingsMessage) matches(serviceBinding korifiv1alpha1.CFSer
 	return tools.EmptyOrContains(m.ServiceInstanceGUIDs, serviceBinding.Spec.Service.Name) &&
 		tools.EmptyOrContains(m.AppGUIDs, serviceBinding.Spec.AppRef.Name) &&
 		tools.EmptyOrContains(m.PlanGUIDs, serviceBinding.Labels[korifiv1alpha1.PlanGUIDLabelKey]) &&
-		tools.NilOrEquals(m.Type, serviceBinding.Labels[korifiv1alpha1.ServiceCredentialBindingTypeLabel])
+		tools.NilOrEquals(m.Type, serviceBinding.Spec.Type)
 }
 
 func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServiceBinding {
@@ -121,8 +120,7 @@ func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServ
 			Name:      guid,
 			Namespace: m.SpaceGUID,
 			Labels: map[string]string{
-				LabelServiceBindingProvisionedService:            "true",
-				korifiv1alpha1.ServiceCredentialBindingTypeLabel: m.Type,
+				LabelServiceBindingProvisionedService: "true",
 			},
 		},
 		Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -132,6 +130,7 @@ func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServ
 				APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
 				Name:       m.ServiceInstanceGUID,
 			},
+			Type: m.Type,
 		},
 	}
 
@@ -180,8 +179,8 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
-	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-	err = userClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
+	var cfServiceInstance korifiv1alpha1.CFServiceInstance
+	err = userClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, &cfServiceInstance)
 	if err != nil {
 		return ServiceBindingRecord{}, fmt.Errorf("failed to get service instance: %w", err)
 	}
@@ -192,8 +191,6 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 			return ServiceBindingRecord{}, err
 		}
 	}
-
-	log.Printf("aaa: %+v", cfServiceBinding)
 
 	return serviceBindingToRecord(*cfServiceBinding), nil
 }
@@ -246,7 +243,7 @@ func (r *ServiceBindingRepo) GetServiceBinding(ctx context.Context, authInfo aut
 func serviceBindingToRecord(binding korifiv1alpha1.CFServiceBinding) ServiceBindingRecord {
 	return ServiceBindingRecord{
 		GUID:                binding.Name,
-		Type:                binding.Labels[korifiv1alpha1.ServiceCredentialBindingTypeLabel],
+		Type:                binding.Spec.Type,
 		Name:                binding.Spec.DisplayName,
 		AppGUID:             binding.Spec.AppRef.Name,
 		ServiceInstanceGUID: binding.Spec.Service.Name,

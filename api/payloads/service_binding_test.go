@@ -78,32 +78,6 @@ var _ = Describe("ServiceBindingCreate", func() {
 		apiError             errors.ApiError
 	)
 
-	When("binding is of type key", func() {
-		BeforeEach(func() {
-			serviceBindingCreate = new(payloads.ServiceBindingCreate)
-			createPayload = payloads.ServiceBindingCreate{
-				Relationships: &payloads.ServiceBindingRelationships{
-					ServiceInstance: &payloads.Relationship{
-						Data: &payloads.RelationshipData{
-							GUID: "service-instance-guid",
-						},
-					},
-				},
-				Type: "key",
-			}
-		})
-
-		JustBeforeEach(func() {
-			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(createPayload), serviceBindingCreate)
-			apiError, _ = validatorErr.(errors.ApiError)
-		})
-
-		It("succeeds", func() {
-			Expect(validatorErr).NotTo(HaveOccurred())
-			Expect(serviceBindingCreate).To(gstruct.PointTo(Equal(createPayload)))
-		})
-	})
-
 	BeforeEach(func() {
 		serviceBindingCreate = new(payloads.ServiceBindingCreate)
 		createPayload = payloads.ServiceBindingCreate{
@@ -120,6 +94,7 @@ var _ = Describe("ServiceBindingCreate", func() {
 				},
 			},
 			Type: "app",
+			Name: "service-binding-name",
 		}
 	})
 
@@ -133,6 +108,39 @@ var _ = Describe("ServiceBindingCreate", func() {
 		Expect(serviceBindingCreate).To(gstruct.PointTo(Equal(createPayload)))
 	})
 
+	When("binding is key", func() {
+		BeforeEach(func() {
+			createPayload.Type = "key"
+		})
+
+		It("succeeds", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(serviceBindingCreate).To(gstruct.PointTo(Equal(createPayload)))
+		})
+	})
+
+	When("binding is key and name field is omitted", func() {
+		BeforeEach(func() {
+			createPayload.Name = ""
+			createPayload.Type = "key"
+		})
+
+		It("fails validation", func() {
+			Expect(apiError).To(HaveOccurred())
+			Expect(apiError.Detail()).To(ContainSubstring("name cannot be blank"))
+		})
+	})
+
+	When("binding is app and name field is omitted", func() {
+		BeforeEach(func() {
+			createPayload.Name = ""
+		})
+
+		It("fails validation", func() {
+			Expect(apiError).NotTo(HaveOccurred())
+		})
+	})
+
 	When("all relationships are missing", func() {
 		BeforeEach(func() {
 			createPayload.Relationships = nil
@@ -140,7 +148,7 @@ var _ = Describe("ServiceBindingCreate", func() {
 
 		It("fails", func() {
 			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(ContainSubstring("relationships is required"))
+			Expect(apiError.Detail()).To(ContainSubstring("relationships cannot be blank"))
 		})
 	})
 
@@ -151,7 +159,7 @@ var _ = Describe("ServiceBindingCreate", func() {
 
 		It("fails", func() {
 			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(ContainSubstring("relationships.app is required"))
+			Expect(apiError.Detail()).To(ContainSubstring("relationships.app cannot be blank"))
 		})
 	})
 
