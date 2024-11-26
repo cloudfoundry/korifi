@@ -76,6 +76,7 @@ type ProcessType struct {
 //+kubebuilder:printcolumn:name="AppGUID",type=string,JSONPath=`.spec.appRef.name`
 //+kubebuilder:printcolumn:name="Staged",type=string,JSONPath=`.status.conditions[?(@.type=='Succeeded')].status`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFBuild is the Schema for the cfbuilds API
 type CFBuild struct {
@@ -91,6 +92,7 @@ func (b *CFBuild) StatusConditions() *[]metav1.Condition {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFBuildList contains a list of CFBuild
 type CFBuildList struct {

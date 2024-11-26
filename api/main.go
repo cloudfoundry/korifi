@@ -457,6 +457,7 @@ func main() {
 			requestValidator,
 			serviceOfferingRepo,
 			serviceBrokerRepo,
+			relationshipsRepo,
 		),
 		handlers.NewServicePlan(
 			*serverURL,

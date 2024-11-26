@@ -40,7 +40,7 @@ type AppLinks struct {
 	Features             Link `json:"features"`
 }
 
-func ForApp(responseApp repositories.AppRecord, baseURL url.URL) AppResponse {
+func ForApp(responseApp repositories.AppRecord, baseURL url.URL, includes ...model.IncludedResource) AppResponse {
 	return AppResponse{
 		Name:          responseApp.Name,
 		GUID:          responseApp.GUID,

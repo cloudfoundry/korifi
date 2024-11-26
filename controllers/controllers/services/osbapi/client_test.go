@@ -182,9 +182,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			It("provisions the service synchronously", func() {
 				Expect(provisionErr).NotTo(HaveOccurred())
-				Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
-					Complete: true,
-				}))
+				Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{}))
 			})
 
 			When("the broker accepts the provision request", func() {
@@ -201,15 +199,45 @@ var _ = Describe("OSBAPI Client", func() {
 				It("provisions the service asynchronously", func() {
 					Expect(provisionErr).NotTo(HaveOccurred())
 					Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+						IsAsync:   true,
 						Operation: "provision_op1",
-						Complete:  false,
 					}))
+				})
+			})
+
+			When("the provision request fails with 400 BadRequest error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusBadRequest)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(provisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusBadRequest}))
+				})
+			})
+
+			When("the provision request fails with 409 Conflict error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusConflict)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(provisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusConflict}))
+				})
+			})
+
+			When("the provision request fails with 422 Unprocessable entity error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusUnprocessableEntity)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(provisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusUnprocessableEntity}))
 				})
 			})
 
 			When("the provision request fails", func() {
 				BeforeEach(func() {
-					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusTeapot)
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusInternalServerError)
 				})
 
 				It("returns an error", func() {
@@ -703,7 +731,7 @@ var _ = Describe("OSBAPI Client", func() {
 			unbindResp, unbindErr = brokerClient.Unbind(ctx, osbapi.UnbindPayload{
 				InstanceID: "instance-id",
 				BindingID:  "binding-id",
-				UnbindRequest: osbapi.UnbindRequest{
+				UnbindRequestParameters: osbapi.UnbindRequestParameters{
 					ServiceId: "service-guid",
 					PlanID:    "plan-guid",
 				},

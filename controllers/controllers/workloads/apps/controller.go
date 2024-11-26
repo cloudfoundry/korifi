@@ -8,6 +8,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -45,7 +46,7 @@ func NewReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Log
 		vcapServicesEnvBuilder:    vcapServicesBuilder,
 		vcapApplicationEnvBuilder: vcapApplicationBuilder,
 	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFApp, *korifiv1alpha1.CFApp](log, k8sClient, &appReconciler)
+	return k8s.NewPatchingReconciler(log, k8sClient, &appReconciler)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
@@ -269,6 +270,7 @@ func (r *Reconciler) createCFProcess(ctx context.Context, process korifiv1alpha1
 	desiredCFProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cfApp.Namespace,
+			Name:      tools.NamespacedUUID(cfApp.Name, process.Type),
 			Labels: map[string]string{
 				korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
 				korifiv1alpha1.CFProcessTypeLabelKey: process.Type,
@@ -280,7 +282,6 @@ func (r *Reconciler) createCFProcess(ctx context.Context, process korifiv1alpha1
 			DetectedCommand: process.Command,
 		},
 	}
-	desiredCFProcess.SetStableName(cfApp.Name)
 
 	if err := controllerutil.SetControllerReference(cfApp, desiredCFProcess, r.scheme); err != nil {
 		err = fmt.Errorf("failed to set OwnerRef on CFProcess: %w", err)

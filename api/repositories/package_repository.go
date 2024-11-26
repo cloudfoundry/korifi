@@ -172,14 +172,13 @@ type PackageData struct {
 }
 
 func (message CreatePackageMessage) toCFPackage() *korifiv1alpha1.CFPackage {
-	packageGUID := uuid.NewString()
 	pkg := &korifiv1alpha1.CFPackage{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       kind,
-			APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+			APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        packageGUID,
+			Name:        uuid.NewString(),
 			Namespace:   message.SpaceGUID,
 			Labels:      message.Metadata.Labels,
 			Annotations: message.Metadata.Annotations,

@@ -152,7 +152,7 @@ var _ = Describe("PackageRepository", func() {
 					Expect(createErr).NotTo(HaveOccurred())
 
 					packageGUID := createdPackage.GUID
-					Expect(packageGUID).NotTo(BeEmpty())
+					Expect(packageGUID).To(matchers.BeValidUUID())
 					Expect(createdPackage.Type).To(Equal("bits"))
 					Expect(createdPackage.AppGUID).To(Equal(appGUID))
 					Expect(createdPackage.State).To(Equal("AWAITING_UPLOAD"))
@@ -244,7 +244,7 @@ var _ = Describe("PackageRepository", func() {
 					Expect(createErr).NotTo(HaveOccurred())
 
 					packageGUID := createdPackage.GUID
-					Expect(packageGUID).NotTo(BeEmpty())
+					Expect(packageGUID).To(matchers.BeValidUUID())
 					Expect(createdPackage.Type).To(Equal("docker"))
 					Expect(createdPackage.AppGUID).To(Equal(appGUID))
 					Expect(createdPackage.Labels).To(HaveKeyWithValue("bob", "foo"))
@@ -692,7 +692,7 @@ var _ = Describe("PackageRepository", func() {
 			existingCFPackage = &korifiv1alpha1.CFPackage{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CFPackage",
-					APIVersion: korifiv1alpha1.GroupVersion.String(),
+					APIVersion: korifiv1alpha1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      packageGUID,

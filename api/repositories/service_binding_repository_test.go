@@ -92,7 +92,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
 						Kind:       "CFServiceInstance",
-						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
 						Name:       uuid.NewString(),
 					},
 					AppRef: corev1.LocalObjectReference{
@@ -276,6 +276,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				Expect(serviceBindingRecord.GUID).NotTo(BeEmpty())
 				Expect(serviceBindingRecord.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeApp))
+				Expect(serviceBindingRecord.GUID).To(matchers.BeValidUUID())
 				Expect(serviceBindingRecord.Name).To(BeNil())
 				Expect(serviceBindingRecord.AppGUID).To(Equal(appGUID))
 				Expect(serviceBindingRecord.ServiceInstanceGUID).To(Equal(cfServiceInstance.Name))
@@ -299,7 +300,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 						DisplayName: nil,
 						Service: corev1.ObjectReference{
 							Kind:       "CFServiceInstance",
-							APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+							APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
 							Name:       cfServiceInstance.Name,
 						},
 						AppRef: corev1.LocalObjectReference{
@@ -371,7 +372,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
 						Kind:       "CFServiceInstance",
-						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
 						Name:       uuid.NewString(),
 					},
 					AppRef: corev1.LocalObjectReference{
@@ -686,7 +687,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
 						Kind:       "CFServiceInstance",
-						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
 						Name:       uuid.NewString(),
 					},
 					AppRef: corev1.LocalObjectReference{
@@ -1053,7 +1054,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
 						Kind:       "CFServiceInstance",
-						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
 						Name:       uuid.NewString(),
 					},
 					AppRef: corev1.LocalObjectReference{
@@ -1120,7 +1121,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
 						Kind:       "CFServiceInstance",
-						APIVersion: korifiv1alpha1.GroupVersion.Identifier(),
+						APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
 						Name:       uuid.NewString(),
 					},
 					AppRef: corev1.LocalObjectReference{

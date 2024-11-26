@@ -17,15 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"strings"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	ProcessTypeWeb    = "web"
-	processNamePrefix = "cf-proc"
+	ProcessTypeWeb = "web"
 )
 
 // CFProcessSpec defines the desired state of CFProcess
@@ -97,6 +94,7 @@ type CFProcessStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFProcess is the Schema for the cfprocesses API
 type CFProcess struct {
@@ -108,20 +106,13 @@ type CFProcess struct {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFProcessList contains a list of CFProcess
 type CFProcessList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []CFProcess `json:"items"`
-}
-
-func (p *CFProcess) SetStableName(appGUID string) {
-	p.Name = strings.Join([]string{processNamePrefix, appGUID, p.Spec.ProcessType}, "-")
-	if p.Labels == nil {
-		p.Labels = map[string]string{}
-	}
-	p.Labels[CFProcessGUIDLabelKey] = p.Name
 }
 
 func (p *CFProcess) StatusConditions() *[]metav1.Condition {

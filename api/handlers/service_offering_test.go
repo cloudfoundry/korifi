@@ -2,12 +2,15 @@ package handlers_test
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
@@ -21,20 +24,108 @@ var _ = Describe("ServiceOffering", func() {
 		requestValidator    *fake.RequestValidator
 		serviceOfferingRepo *fake.CFServiceOfferingRepository
 		serviceBrokerRepo   *fake.CFServiceBrokerRepository
+		servicePlanRepo     *fake.CFServicePlanRepository
 	)
 
 	BeforeEach(func() {
 		requestValidator = new(fake.RequestValidator)
 		serviceOfferingRepo = new(fake.CFServiceOfferingRepository)
 		serviceBrokerRepo = new(fake.CFServiceBrokerRepository)
+		servicePlanRepo = new(fake.CFServicePlanRepository)
 
 		apiHandler := NewServiceOffering(
 			*serverURL,
 			requestValidator,
 			serviceOfferingRepo,
 			serviceBrokerRepo,
+			relationships.NewResourseRelationshipsRepo(
+				serviceOfferingRepo,
+				serviceBrokerRepo,
+				servicePlanRepo,
+			),
 		)
 		routerBuilder.LoadRoutes(apiHandler)
+	})
+
+	Describe("GET /v3/service_offering/:guid", func() {
+		BeforeEach(func() {
+			serviceOfferingRepo.GetServiceOfferingReturns(repositories.ServiceOfferingRecord{
+				ServiceOffering: services.ServiceOffering{},
+				CFResource: model.CFResource{
+					GUID: "offering-guid",
+				},
+				ServiceBrokerGUID: "broker-guid",
+			}, nil)
+		})
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/service_offerings/offering-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
+
+		It("returns the service offering", func() {
+			Expect(serviceOfferingRepo.GetServiceOfferingCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualOfferingGUID := serviceOfferingRepo.GetServiceOfferingArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualOfferingGUID).To(Equal("offering-guid"))
+
+			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "offering-guid"),
+			)))
+		})
+
+		When("params to inlude fields[service_broker]", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
+					ServiceBroker: services.ServiceBroker{
+						Name: "broker-name",
+					},
+					CFResource: model.CFResource{
+						GUID: "broker-guid",
+					},
+				}}, nil)
+
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingGet{
+					IncludeResourceRules: []params.IncludeResourceRule{{
+						RelationshipPath: []string{"service_broker"},
+						Fields:           []string{"name", "guid"},
+					}},
+				})
+			})
+
+			It("includes service offering in the response", func() {
+				log.Printf("body %+v", rr.Body)
+				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.included.service_brokers[0].name", "broker-name"),
+					MatchJSONPath("$.included.service_brokers[0].guid", "broker-guid"),
+				)))
+			})
+		})
+
+		When("the request is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("invalid-request"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("getting the offering fails", func() {
+			BeforeEach(func() {
+				serviceOfferingRepo.GetServiceOfferingReturns(repositories.ServiceOfferingRecord{}, errors.New("get-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
 	})
 
 	Describe("GET /v3/service_offerings", func() {
@@ -98,7 +189,10 @@ var _ = Describe("ServiceOffering", func() {
 				}}, nil)
 
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingList{
-					IncludeBrokerFields: []string{"foo"},
+					IncludeResourceRules: []params.IncludeResourceRule{{
+						RelationshipPath: []string{"service_broker"},
+						Fields:           []string{"name", "guid"},
+					}},
 				})
 			})
 
@@ -123,7 +217,10 @@ var _ = Describe("ServiceOffering", func() {
 			Describe("broker name", func() {
 				BeforeEach(func() {
 					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingList{
-						IncludeBrokerFields: []string{"name"},
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"service_broker"},
+							Fields:           []string{"name"},
+						}},
 					})
 				})
 
@@ -138,7 +235,10 @@ var _ = Describe("ServiceOffering", func() {
 			Describe("broker guid", func() {
 				BeforeEach(func() {
 					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingList{
-						IncludeBrokerFields: []string{"guid"},
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"service_broker"},
+							Fields:           []string{"guid"},
+						}},
 					})
 				})
 

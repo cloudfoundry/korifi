@@ -63,7 +63,7 @@ type PageRef struct {
 	HREF string `json:"href"`
 }
 
-type itemPresenter[T, S any] func(T, url.URL) S
+type itemPresenter[T, S any] func(T, url.URL, ...model.IncludedResource) S
 
 func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL, includes ...model.IncludedResource) ListResponse[S] {
 	presenters := []S{}

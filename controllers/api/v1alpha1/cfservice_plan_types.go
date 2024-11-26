@@ -28,6 +28,8 @@ type ServicePlanVisibility struct {
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.spec.available`
 // +kubebuilder:printcolumn:name="Free",type=string,JSONPath=`.spec.free`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type CFServicePlan struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -36,6 +38,8 @@ type CFServicePlan struct {
 }
 
 // +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type CFServicePlanList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

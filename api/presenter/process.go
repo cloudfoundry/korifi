@@ -143,8 +143,8 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 	}
 }
 
-func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL, requestURL url.URL) ListResponse[ProcessResponse] {
-	return ForList(func(process repositories.ProcessRecord, baseURL url.URL) ProcessResponse {
+func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL, requestURL url.URL, includes ...model.IncludedResource) ListResponse[ProcessResponse] {
+	return ForList(func(process repositories.ProcessRecord, baseURL url.URL, includes ...model.IncludedResource) ProcessResponse {
 		processResponse := ForProcess(process, baseURL)
 		processResponse.Command = "[PRIVATE DATA HIDDEN IN LISTS]"
 		return processResponse

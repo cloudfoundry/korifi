@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/model"
 )
 
 const (
@@ -20,7 +21,7 @@ type ServiceBrokerResponse struct {
 	Links ServiceBrokerLinks `json:"links"`
 }
 
-func ForServiceBroker(serviceBrokerRecord repositories.ServiceBrokerRecord, baseURL url.URL) ServiceBrokerResponse {
+func ForServiceBroker(serviceBrokerRecord repositories.ServiceBrokerRecord, baseURL url.URL, includes ...model.IncludedResource) ServiceBrokerResponse {
 	return ServiceBrokerResponse{
 		serviceBrokerRecord,
 		ServiceBrokerLinks{

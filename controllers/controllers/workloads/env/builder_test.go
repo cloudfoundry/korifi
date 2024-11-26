@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -315,7 +316,7 @@ var _ = Describe("EnvBuilder", func() {
 
 			BeforeEach(func() {
 				destinations := []korifiv1alpha1.Destination{{
-					GUID: "dest-guid",
+					GUID: uuid.NewString(),
 					Port: tools.PtrTo[int32](1234),
 					AppRef: corev1.LocalObjectReference{
 						Name: cfApp.Name,
@@ -326,7 +327,7 @@ var _ = Describe("EnvBuilder", func() {
 				cfRoute = &korifiv1alpha1.CFRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: cfSpace.Status.GUID,
-						Name:      "cf-route-guid",
+						Name:      uuid.NewString(),
 					},
 					Spec: korifiv1alpha1.CFRouteSpec{
 						Destinations: destinations,

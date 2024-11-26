@@ -404,6 +404,25 @@ var _ = Describe("Apps", func() {
 			})
 		})
 
+		Describe("Get app droplets", func() {
+			BeforeEach(func() {
+				setCurrentDroplet(appGUID, buildGUID)
+			})
+
+			var resultList resourceList[resource]
+
+			JustBeforeEach(func() {
+				var err error
+				resp, err = adminClient.R().SetResult(&resultList).Get("/v3/apps/" + appGUID + "/droplets")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("succeeds", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(resultList.Resources[0].GUID).To(Equal(buildGUID))
+			})
+		})
+
 		Describe("Start an app", func() {
 			var result appResource
 

@@ -95,6 +95,7 @@ type CFServiceBindingStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFServiceBinding is the Schema for the cfservicebindings API
 type CFServiceBinding struct {
@@ -107,6 +108,7 @@ type CFServiceBinding struct {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFServiceBindingList contains a list of CFServiceBinding
 type CFServiceBindingList struct {

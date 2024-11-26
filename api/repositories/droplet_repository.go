@@ -6,7 +6,6 @@ import (
 	"slices"
 	"time"
 
-	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
@@ -16,7 +15,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -70,12 +68,18 @@ func (r DropletRecord) Relationships() map[string]string {
 
 type ListDropletsMessage struct {
 	PackageGUIDs []string
+	AppGUIDs     []string
 }
 
-func (m *ListDropletsMessage) matches(b korifiv1alpha1.CFBuild) bool {
-	return tools.EmptyOrContains(m.PackageGUIDs, b.Spec.PackageRef.Name) &&
-		meta.IsStatusConditionFalse(b.Status.Conditions, StagingConditionType) &&
-		meta.IsStatusConditionTrue(b.Status.Conditions, SucceededConditionType)
+func (m *ListDropletsMessage) createSelector() map[string]string {
+	newSelector := make(map[string]string)
+	if len(m.PackageGUIDs) > 0 {
+		newSelector[korifiv1alpha1.CFPackageGUIDLabelKey] = m.PackageGUIDs[0]
+	}
+	if len(m.AppGUIDs) > 0 {
+		newSelector[korifiv1alpha1.CFAppGUIDLabelKey] = m.AppGUIDs[0]
+	}
+	return newSelector
 }
 
 func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (DropletRecord, error) {
@@ -168,7 +172,7 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 
 	var allBuilds []korifiv1alpha1.CFBuild
 	for ns := range namespaces {
-		err := userClient.List(ctx, buildList, client.InNamespace(ns))
+		err := userClient.List(ctx, buildList, client.InNamespace(ns), client.MatchingLabels(message.createSelector()))
 		if k8serrors.IsForbidden(err) {
 			continue
 		}
@@ -178,7 +182,7 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 		allBuilds = append(allBuilds, buildList.Items...)
 	}
 
-	filteredBuilds := itx.FromSlice(allBuilds).Filter(message.matches)
+	filteredBuilds := itx.FromSlice(allBuilds)
 	return slices.Collect(it.Map(filteredBuilds, cfBuildToDropletRecord)), nil
 }
 

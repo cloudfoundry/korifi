@@ -197,10 +197,9 @@ type CreateBuildMessage struct {
 }
 
 func (m CreateBuildMessage) toCFBuild() korifiv1alpha1.CFBuild {
-	guid := uuid.NewString()
 	return korifiv1alpha1.CFBuild{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        guid,
+			Name:        uuid.NewString(),
 			Namespace:   m.SpaceGUID,
 			Labels:      m.Labels,
 			Annotations: m.Annotations,

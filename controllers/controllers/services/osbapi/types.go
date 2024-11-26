@@ -1,6 +1,8 @@
 package osbapi
 
-import "code.cloudfoundry.org/korifi/model/services"
+import (
+	"code.cloudfoundry.org/korifi/model/services"
+)
 
 type Broker struct {
 	URL      string
@@ -55,8 +57,8 @@ type GetServiceBindingLastOperationRequest struct {
 type GetServiceBindingRequest struct {
 	InstanceID string
 	BindingID  string
-	ServiceId  string `json:"service_id"`
-	PlanID     string `json:"plan_id"`
+	ServiceId  string
+	PlanID     string
 }
 
 type GetBindingResponse struct {
@@ -64,9 +66,9 @@ type GetBindingResponse struct {
 }
 
 type GetLastOperationRequestParameters struct {
-	ServiceId string `json:"service_id"`
-	PlanID    string `json:"plan_id"`
-	Operation string `json:"operation"`
+	ServiceId string
+	PlanID    string
+	Operation string
 }
 
 type InstanceDeprovisionPayload struct {
@@ -106,12 +108,12 @@ type BindResource struct {
 type UnbindPayload struct {
 	BindingID  string
 	InstanceID string
-	UnbindRequest
+	UnbindRequestParameters
 }
 
-type UnbindRequest struct {
-	ServiceId string `json:"service_id"`
-	PlanID    string `json:"plan_id"`
+type UnbindRequestParameters struct {
+	ServiceId string
+	PlanID    string
 }
 
 type UnbindResponse struct {
@@ -135,8 +137,8 @@ type Plan struct {
 }
 
 type ServiceInstanceOperationResponse struct {
-	Operation string `json:"operation"`
-	Complete  bool
+	IsAsync   bool
+	Operation string `json:"operation,omitempty"`
 }
 
 type LastOperationResponse struct {

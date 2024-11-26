@@ -30,9 +30,7 @@ const (
 
 	CFManagedServiceInstanceFinalizerName = "managed.cfServiceInstance.korifi.cloudfoundry.org"
 
-	ProvisionRequestedCondition   = "ProvisionRequested"
-	ProvisioningFailedCondition   = "ProvisioningFailed"
-	DeprovisionRequestedCondition = "DeprovisionRequested"
+	ProvisioningFailedCondition = "ProvisioningFailed"
 )
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance
@@ -81,22 +79,13 @@ type CFServiceInstanceStatus struct {
 	// This will ensure that interested contollers are notified on instance credentials change
 	//+kubebuilder:validation:Optional
 	CredentialsObservedVersion string `json:"credentialsObservedVersion,omitempty"`
-
-	// The operation returned by the OSBAPI broker when instance provisioning
-	// is requested. Only makes sense for managed service instances
-	//+kubebuilder:validation:Optional
-	ProvisionOperation string `json:"provisionOperation,omitempty"`
-
-	// The operation returned by the OSBAPI broker when instance deprovisioning
-	// is requested. Only makes sense for managed service instances
-	//+kubebuilder:validation:Optional
-	DeprovisionOperation string `json:"deprovisionOperation,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFServiceInstance is the Schema for the cfserviceinstances API
 type CFServiceInstance struct {
@@ -122,6 +111,7 @@ func (si *CFServiceInstance) StatusConditions() *[]metav1.Condition {
 }
 
 //+kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFServiceInstanceList contains a list of CFServiceInstance
 type CFServiceInstanceList struct {

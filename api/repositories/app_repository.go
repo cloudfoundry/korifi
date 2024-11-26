@@ -36,8 +36,6 @@ const (
 	StartedState DesiredState = "STARTED"
 	StoppedState DesiredState = "STOPPED"
 
-	Kind               string = "CFApp"
-	APIVersion         string = "korifi.cloudfoundry.org/v1alpha1"
 	CFAppGUIDLabel     string = "korifi.cloudfoundry.org/app-guid"
 	AppResourceType    string = "App"
 	AppEnvResourceType string = "App Env"
@@ -292,7 +290,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 
 	envSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      GenerateEnvSecretName(cfApp.Name),
+			Name:      cfApp.Spec.EnvSecretName,
 			Namespace: cfApp.Namespace,
 			Labels: map[string]string{
 				CFAppGUIDLabel: cfApp.Name,
@@ -388,16 +386,27 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 }
 
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
-	secretObj := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      GenerateEnvSecretName(message.AppGUID),
-			Namespace: message.SpaceGUID,
-		},
-	}
-
 	userClient, err := f.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return AppEnvVarsRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	cfApp := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: message.SpaceGUID,
+			Name:      message.AppGUID,
+		},
+	}
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)
+	if err != nil {
+		return AppEnvVarsRecord{}, apierrors.FromK8sError(err, AppEnvResourceType)
+	}
+
+	secretObj := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfApp.Spec.EnvSecretName,
+			Namespace: message.SpaceGUID,
+		},
 	}
 
 	err = PatchResource(ctx, userClient, &secretObj, func() {
@@ -617,15 +626,10 @@ func getAppEnv(ctx context.Context, userClient client.Client, app AppRecord) (ma
 	return appEnvMap, nil
 }
 
-func GenerateEnvSecretName(appGUID string) string {
-	return appGUID + "-env"
-}
-
 func (m *CreateAppMessage) toCFApp() korifiv1alpha1.CFApp {
-	guid := uuid.NewString()
 	return korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        guid,
+			Name:        uuid.NewString(),
 			Namespace:   m.SpaceGUID,
 			Labels:      m.Labels,
 			Annotations: m.Annotations,
@@ -633,7 +637,7 @@ func (m *CreateAppMessage) toCFApp() korifiv1alpha1.CFApp {
 		Spec: korifiv1alpha1.CFAppSpec{
 			DisplayName:   m.Name,
 			DesiredState:  korifiv1alpha1.AppState(m.State),
-			EnvSecretName: GenerateEnvSecretName(guid),
+			EnvSecretName: uuid.NewString(),
 			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: korifiv1alpha1.LifecycleType(m.Lifecycle.Type),
 				Data: korifiv1alpha1.LifecycleData{

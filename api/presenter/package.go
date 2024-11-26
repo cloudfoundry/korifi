@@ -34,7 +34,7 @@ type PackageLinks struct {
 	App      Link `json:"app"`
 }
 
-func ForPackage(record repositories.PackageRecord, baseURL url.URL) PackageResponse {
+func ForPackage(record repositories.PackageRecord, baseURL url.URL, includes ...model.IncludedResource) PackageResponse {
 	return PackageResponse{
 		GUID:          record.GUID,
 		Type:          record.Type,
