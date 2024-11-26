@@ -1043,6 +1043,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
+					Finalizers: []string{
+						korifiv1alpha1.CFServiceBindingFinalizerName,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
@@ -1055,8 +1058,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					},
 				},
 			}
-
-			serviceBinding.Finalizers = append(serviceBinding.Finalizers, korifiv1alpha1.CFServiceBindingFinalizerName)
 			Expect(k8sClient.Create(ctx, serviceBinding)).To(Succeed())
 
 			deleteMessage = repositories.DeleteServiceInstanceMessage{
