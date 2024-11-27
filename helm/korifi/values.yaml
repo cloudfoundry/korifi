@@ -19,6 +19,9 @@ stagingRequirements:
   diskMB: 0
   buildCacheMB: 2048
 
+crds:
+  include: true
+
 api:
   include: true
 
