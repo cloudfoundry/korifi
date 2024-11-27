@@ -39,11 +39,11 @@ func NewStack(
 
 func (h *Stack) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
-	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.build.list")
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.stack.list")
 
 	stacks, err := h.stackRepo.ListStacks(r.Context(), authInfo)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch buildpacks from Kubernetes")
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch stacks from Kubernetes")
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForStack, stacks, h.serverURL, *r.URL)), nil
