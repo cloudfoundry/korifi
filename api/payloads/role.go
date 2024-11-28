@@ -50,33 +50,42 @@ func (p RoleCreate) Validate() error {
 }
 
 func (p RoleCreate) ToMessage() repositories.CreateRoleMessage {
-	record := repositories.CreateRoleMessage{
+	message := repositories.CreateRoleMessage{
 		Type: p.Type,
 	}
 
 	if p.Relationships.Space != nil {
-		record.Space = p.Relationships.Space.Data.GUID
+		message.Space = p.Relationships.Space.Data.GUID
 	}
 
 	if p.Relationships.Organization != nil {
-		record.Org = p.Relationships.Organization.Data.GUID
+		message.Org = p.Relationships.Organization.Data.GUID
 	}
 
-	record.Kind = rbacv1.UserKind
-	record.User = p.Relationships.User.Data.Username
+	message.Kind = rbacv1.UserKind
+	message.User = p.Relationships.User.Data.Username
+
+	// For UAA Authenticated users, prefix the Origin as our Cluster uses the Orgin:User for
+	// Authentication verification (via OIDC prefixs)
+	// --kube-apiserver-arg oidc-username-prefix="<origin>:"
+	// --kube-apiserver-arg oidc-groups-prefix="<origin>:"
+	if p.Relationships.User.Data.Origin != "" {
+		message.User = p.Relationships.User.Data.Origin + ":" + message.User
+	}
+
 	if p.Relationships.User.Data.GUID != "" {
-		record.User = p.Relationships.User.Data.GUID
+		message.User = p.Relationships.User.Data.GUID
 	}
 
-	if authorization.HasServiceAccountPrefix(record.User) {
-		namespace, user := authorization.ServiceAccountNSAndName(record.User)
+	if authorization.HasServiceAccountPrefix(message.User) {
+		namespace, user := authorization.ServiceAccountNSAndName(message.User)
 
-		record.Kind = rbacv1.ServiceAccountKind
-		record.User = user
-		record.ServiceAccountNamespace = namespace
+		message.Kind = rbacv1.ServiceAccountKind
+		message.User = user
+		message.ServiceAccountNamespace = namespace
 	}
 
-	return record
+	return message
 }
 
 type RoleRelationships struct {
@@ -118,6 +127,7 @@ type UserRelationship struct {
 type UserRelationshipData struct {
 	Username string `json:"username"`
 	GUID     string `json:"guid"`
+	Origin   string `json:"origin"`
 }
 
 type RoleList struct {
