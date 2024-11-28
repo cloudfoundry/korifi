@@ -613,13 +613,26 @@
       "properties": {
         "managedServices": {
           "properties": {
-            "include": {
+            "enabled": {
               "description": "Enable managed services support",
               "type": "boolean"
             },
             "trustInsecureBrokers": {
               "description": "Disable service broker certificate validation. Not recommended to be set to 'true' in production environments",
               "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "uaa": {
+          "properties": {
+            "enabled": {
+              "description": "Enable UAA support",
+              "type": "boolean"
+            },
+            "url": {
+              "description": "The url of a UAA instance",
+              "type": "string"
             }
           },
           "type": "object"
