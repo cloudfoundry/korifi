@@ -92,12 +92,27 @@ var _ = Describe("RoleCreate", func() {
 	})
 
 	Context("ToMessage()", func() {
+		var msg repositories.CreateRoleMessage
+
+		JustBeforeEach(func() {
+			msg = roleCreate.ToMessage()
+		})
+
 		It("converts to repo message correctly", func() {
-			msg := roleCreate.ToMessage()
 			Expect(msg.Type).To(Equal("space_manager"))
 			Expect(msg.Space).To(Equal("cf-space-guid"))
 			Expect(msg.User).To(Equal("cf-service-account"))
 			Expect(msg.Kind).To(Equal(rbacv1.UserKind))
+		})
+
+		When("user origin is specified", func() {
+			BeforeEach(func() {
+				createPayload.Relationships.User.Data.Origin = "my-origin"
+			})
+
+			It("uses the origin in the message user", func() {
+				Expect(msg.User).To(Equal("my-origin:cf-service-account"))
+			})
 		})
 	})
 

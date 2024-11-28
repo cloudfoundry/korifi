@@ -148,3 +148,6 @@ experimental:
   managedServices:
     enabled: false
     trustInsecureBrokers: false
+  uaa:
+    enabled: false
+    url: ""
