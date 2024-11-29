@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   korifi_api_config.yaml: |
-    externalFQDN: {{ .Values.api.apiServer.url }}
+    externalFQDN: {{ .Values.api.apiServer.baseUrl }}
     externalPort: {{ .Values.api.apiServer.port | default 0 }}
     internalPort: {{ .Values.api.apiServer.internalPort }}
     idleTimeout: {{ .Values.api.apiServer.timeouts.idle }}
