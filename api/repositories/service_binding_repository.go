@@ -111,10 +111,9 @@ func (m *ListServiceBindingsMessage) matches(serviceBinding korifiv1alpha1.CFSer
 }
 
 func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServiceBinding {
-	guid := uuid.NewString()
 	return &korifiv1alpha1.CFServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      guid,
+			Name:      uuid.NewString(),
 			Namespace: m.SpaceGUID,
 			Labels:    map[string]string{LabelServiceBindingProvisionedService: "true"},
 		},

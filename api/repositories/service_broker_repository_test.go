@@ -93,7 +93,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 						"annotation": "annotation-value",
 					},
 				}))
-				Expect(brokerRecord.CFResource.GUID).NotTo(BeEmpty())
+				Expect(brokerRecord.GUID).To(BeValidUUID())
 				Expect(brokerRecord.CFResource.CreatedAt).NotTo(BeZero())
 			})
 

@@ -422,7 +422,7 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 			CurrentDropletRef: corev1.LocalObjectReference{
 				Name: uuid.NewString(),
 			},
-			EnvSecretName: repositories.GenerateEnvSecretName(guid),
+			EnvSecretName: uuid.NewString(),
 		},
 	}
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
