@@ -370,24 +370,17 @@ var _ = Describe("ServicePlan", func() {
 		})
 
 		It("deletes the service plan", func() {
-			Expect(servicePlanRepo.GetPlanCallCount()).To(Equal(1))
 			Expect(servicePlanRepo.DeletePlanCallCount()).To(Equal(1))
-
-			_, actualAuthInfo, actualPlanGUID := servicePlanRepo.GetPlanArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualPlanGUID).To(Equal("plan-guid"))
-
-			_, actualAuthInfo, actualPlanGUID = servicePlanRepo.DeletePlanArgsForCall(0)
+			_, actualAuthInfo, actualPlanGUID := servicePlanRepo.DeletePlanArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualPlanGUID).To(Equal("plan-guid"))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusNoContent))
 		})
 
-		When("getting the service plan fails with not found", func() {
+		When("deleting the service plan fails with not found", func() {
 			BeforeEach(func() {
-				servicePlanRepo.GetPlanReturns(
-					repositories.ServicePlanRecord{},
+				servicePlanRepo.DeletePlanReturns(
 					apierrors.NewNotFoundError(errors.New("not found"), repositories.ServicePlanResourceType),
 				)
 			})

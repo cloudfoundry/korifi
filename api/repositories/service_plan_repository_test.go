@@ -612,6 +612,7 @@ var _ = Describe("ServicePlanRepo", func() {
 		var deleteErr error
 
 		JustBeforeEach(func() {
+			createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 			deleteErr = repo.DeletePlan(ctx, authInfo, planGUID)
 		})
 

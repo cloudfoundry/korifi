@@ -137,10 +137,6 @@ func (h *ServicePlan) delete(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.delete")
 
 	planGUID := routing.URLParam(r, "guid")
-	if _, err := h.servicePlanRepo.GetPlan(r.Context(), authInfo, planGUID); err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to get plan: %s", planGUID)
-	}
-
 	if err := h.servicePlanRepo.DeletePlan(r.Context(), authInfo, planGUID); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to delete plan: %s", planGUID)
 	}

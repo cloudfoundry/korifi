@@ -17,6 +17,7 @@ var _ = Describe("Service Plans", func() {
 	var (
 		brokerGUID string
 		resp       *resty.Response
+		err        error
 	)
 
 	BeforeEach(func() {
@@ -31,7 +32,6 @@ var _ = Describe("Service Plans", func() {
 		var result resourceList[resource]
 
 		JustBeforeEach(func() {
-			var err error
 			resp, err = adminClient.R().SetResult(&result).Get("/v3/service_plans")
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -54,9 +54,9 @@ var _ = Describe("Service Plans", func() {
 
 		BeforeEach(func() {
 			plans := resourceList[resource]{}
-			listResp, err := adminClient.R().SetResult(&plans).Get("/v3/service_plans")
+			resp, err = adminClient.R().SetResult(&plans).Get("/v3/service_plans")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
 			brokerPlans := itx.FromSlice(plans.Resources).Filter(func(r resource) bool {
 				return r.Metadata.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] == brokerGUID
@@ -68,7 +68,6 @@ var _ = Describe("Service Plans", func() {
 
 		Describe("Get Visibility", func() {
 			JustBeforeEach(func() {
-				var err error
 				resp, err = adminClient.R().SetResult(&result).Get(fmt.Sprintf("/v3/service_plans/%s/visibility", planGUID))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -83,7 +82,6 @@ var _ = Describe("Service Plans", func() {
 
 		Describe("Apply Visibility", func() {
 			JustBeforeEach(func() {
-				var err error
 				resp, err = adminClient.R().
 					SetResult(&result).
 					SetBody(planVisibilityResource{
@@ -105,7 +103,6 @@ var _ = Describe("Service Plans", func() {
 
 		Describe("Update Visibility", func() {
 			JustBeforeEach(func() {
-				var err error
 				resp, err = adminClient.R().
 					SetResult(&result).
 					SetBody(planVisibilityResource{
@@ -123,6 +120,28 @@ var _ = Describe("Service Plans", func() {
 					}`)),
 				))
 			})
+		})
+	})
+
+	Describe("Delete", func() {
+		var servicePlanGUID string
+
+		BeforeEach(func() {
+			plans := resourceList[resource]{}
+			resp, err = adminClient.R().SetResult(&plans).Get("/v3/service_plans?service_broker_guids=" + brokerGUID)
+			Expect(err).ToNot(HaveOccurred())
+
+			servicePlanGUID = plans.Resources[0].GUID
+			resp, err = adminClient.R().Delete("/v3/service_plans/" + servicePlanGUID)
+		})
+
+		It("deletes the service plan", func() {
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNoContent))
+
+			resp, err = adminClient.R().Get("/v3/service_plans/" + servicePlanGUID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusNotFound))
 		})
 	})
 })

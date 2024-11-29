@@ -169,7 +169,7 @@ func (r *ServicePlanRepo) DeletePlan(ctx context.Context, authInfo authorization
 	}
 
 	if err := userClient.Delete(ctx, cfServicePlan); err != nil {
-		return apierrors.FromK8sError(err, ServicePlanVisibilityResourceType)
+		return apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
 	return nil
