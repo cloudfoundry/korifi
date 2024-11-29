@@ -291,7 +291,7 @@ var _ = Describe("ServiceOffering", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
 		})
 
-		When("getting the service offering fails with not found", func() {
+		When("deleting the service offering fails with not found", func() {
 			BeforeEach(func() {
 				serviceOfferingRepo.DeleteOfferingReturns(apierrors.NewNotFoundError(nil, repositories.ServiceOfferingResourceType))
 			})

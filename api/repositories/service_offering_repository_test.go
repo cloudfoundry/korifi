@@ -331,7 +331,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 		})
 	})
 
-	Describe("Delete", func() {
+	Describe("Delete-off", func() {
 		var (
 			plan      *korifiv1alpha1.CFServicePlan
 			offering  *korifiv1alpha1.CFServiceOffering
@@ -379,11 +379,20 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			}
 			Expect(k8sClient.Create(ctx, plan)).To(Succeed())
 
-			instance = createServiceInstanceCR(ctx, k8sClient, uuid.NewString(), space.Name, "my-service-instance", "secret-name")
-			instance.Spec.PlanGUID = plan.Name
-			instance.Finalizers = append(instance.Finalizers, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
-
-			Expect(k8sClient.Update(ctx, instance)).To(Succeed())
+			instance = &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: space.Name,
+					Name:      uuid.NewString(),
+					Finalizers: []string{
+						korifiv1alpha1.CFManagedServiceInstanceFinalizerName,
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					PlanGUID: plan.Name,
+					Type:     "user-provided",
+				},
+			}
+			Expect(k8sClient.Create(ctx, instance)).To(Succeed())
 
 			binding = &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
@@ -391,6 +400,9 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Namespace: space.Name,
 					Labels: map[string]string{
 						korifiv1alpha1.PlanGUIDLabelKey: plan.Name,
+					},
+					Finalizers: []string{
+						korifiv1alpha1.CFServiceBindingFinalizerName,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -404,15 +416,15 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					},
 				},
 			}
-
-			binding.Finalizers = append(binding.Finalizers, korifiv1alpha1.CFServiceBindingFinalizerName)
 			Expect(k8sClient.Create(ctx, binding)).To(Succeed())
+
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 
 			message = repositories.DeleteServiceOfferingMessage{GUID: offering.Name}
 		})
 
 		JustBeforeEach(func() {
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			deleteErr = repo.DeleteOffering(ctx, authInfo, message)
 		})
 

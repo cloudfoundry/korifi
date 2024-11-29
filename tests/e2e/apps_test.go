@@ -420,7 +420,6 @@ var _ = Describe("Apps", func() {
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(resultList.Resources[0].GUID).To(Equal(buildGUID))
-
 			})
 		})
 
