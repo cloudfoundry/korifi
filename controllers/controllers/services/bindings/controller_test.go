@@ -197,11 +197,11 @@ var _ = Describe("CFServiceBinding", func() {
 				g.Expect(sbServiceBinding.Spec.Name).To(Equal(binding.Name))
 				g.Expect(sbServiceBinding.Spec.Type).To(Equal("user-provided"))
 				g.Expect(sbServiceBinding.Spec.Provider).To(BeEmpty())
-				g.Expect(sbServiceBinding.Spec.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeApp))
 
 				g.Expect(sbServiceBinding.Labels).To(SatisfyAll(
 					HaveKeyWithValue(bindings.ServiceBindingGUIDLabel, binding.Name),
 					HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID),
+					HaveKeyWithValue(korifiv1alpha1.ServiceCredentialBindingTypeLabel, "app"),
 				))
 
 				g.Expect(sbServiceBinding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{

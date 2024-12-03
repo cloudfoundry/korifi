@@ -62,14 +62,6 @@ func (h *ServiceBinding) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get "+repositories.ServiceInstanceResourceType)
 	}
 
-	if payload.Type == korifiv1alpha1.CFServiceBindingTypeKey && serviceInstance.Type != korifiv1alpha1.ManagedType {
-		return nil, apierrors.LogAndReturn(
-			logger,
-			apierrors.NewUnprocessableEntityError(nil, "Service credential bindings of type 'key' are not supported for user-provided service instances."),
-			"",
-		)
-	}
-
 	ctx := logr.NewContext(r.Context(), logger.WithValues("service-instance", serviceInstance.GUID))
 
 	if payload.Type == korifiv1alpha1.CFServiceBindingTypeApp {
