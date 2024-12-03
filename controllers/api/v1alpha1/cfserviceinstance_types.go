@@ -29,7 +29,7 @@ const (
 	UserProvidedType = "user-provided"
 	ManagedType      = "managed"
 
-	CFManagedServiceInstanceFinalizerName = "managed.cfServiceInstance.korifi.cloudfoundry.org"
+	CFServiceInstanceFinalizerName = "cfServiceInstance.korifi.cloudfoundry.org"
 
 	ProvisioningFailedCondition = "ProvisioningFailed"
 )
