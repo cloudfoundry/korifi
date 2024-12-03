@@ -164,5 +164,5 @@ func reconcileLastOperation(cfServiceInstance *korifiv1alpha1.CFServiceInstance,
 			State: "succeeded",
 		}
 	}
-	return services.LastOperation{}
+	return cfServiceInstance.Status.LastOperation
 }
