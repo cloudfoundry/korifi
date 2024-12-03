@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,6 +37,9 @@ var _ = Describe("CFServiceInstance", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: testNamespace,
+					Finalizers: []string{
+						korifiv1alpha1.CFServiceInstanceFinalizerName,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-name",
@@ -206,6 +210,19 @@ var _ = Describe("CFServiceInstance", func() {
 							Type:  "update",
 							State: "succeeded",
 						}))
+					}).Should(Succeed())
+				})
+			})
+
+			When("the instance is deleted", func() {
+				JustBeforeEach(func() {
+					Expect(adminClient.Delete(ctx, instance)).To(Succeed())
+				})
+
+				It("is deleted", func() {
+					Eventually(func(g Gomega) {
+						err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 					}).Should(Succeed())
 				})
 			})

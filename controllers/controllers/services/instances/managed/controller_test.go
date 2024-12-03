@@ -126,7 +126,7 @@ var _ = Describe("CFServiceInstance", func() {
 				Name:      uuid.NewString(),
 				Namespace: namespace.Name,
 				Finalizers: []string{
-					korifiv1alpha1.CFManagedServiceInstanceFinalizerName,
+					korifiv1alpha1.CFServiceInstanceFinalizerName,
 				},
 			},
 			Spec: korifiv1alpha1.CFServiceInstanceSpec{
@@ -797,7 +797,7 @@ var _ = Describe("CFServiceInstance", func() {
 	When("the service instance is purged", func() {
 		BeforeEach(func() {
 			Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
-				controllerutil.RemoveFinalizer(instance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+				controllerutil.RemoveFinalizer(instance, korifiv1alpha1.CFServiceInstanceFinalizerName)
 			})).To(Succeed())
 		})
 
