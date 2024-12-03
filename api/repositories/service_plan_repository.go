@@ -99,6 +99,19 @@ func (m *UpdateServicePlanVisibilityMessage) apply(cfServicePlan *korifiv1alpha1
 	cfServicePlan.Spec.Visibility.Organizations = tools.Uniq(m.Organizations)
 }
 
+type DeleteServicePlanVisibilityMessage struct {
+	PlanGUID string
+	OrgGUID  string
+}
+
+func (m *DeleteServicePlanVisibilityMessage) apply(cfServicePlan *korifiv1alpha1.CFServicePlan) {
+	for i, org := range cfServicePlan.Spec.Visibility.Organizations {
+		if org == m.OrgGUID {
+			cfServicePlan.Spec.Visibility.Organizations = append(cfServicePlan.Spec.Visibility.Organizations[:i], cfServicePlan.Spec.Visibility.Organizations[i+1:]...)
+		}
+	}
+}
+
 func NewServicePlanRepo(
 	userClientFactory authorization.UserClientFactory,
 	rootNamespace string,
@@ -153,6 +166,14 @@ func (r *ServicePlanRepo) ApplyPlanVisibility(ctx context.Context, authInfo auth
 
 func (r *ServicePlanRepo) UpdatePlanVisibility(ctx context.Context, authInfo authorization.Info, message UpdateServicePlanVisibilityMessage) (ServicePlanRecord, error) {
 	return r.patchServicePlan(ctx, authInfo, message.PlanGUID, message.apply)
+}
+
+func (r *ServicePlanRepo) DeletePlanVisibility(ctx context.Context, authInfo authorization.Info, message DeleteServicePlanVisibilityMessage) error {
+	if _, err := r.patchServicePlan(ctx, authInfo, message.PlanGUID, message.apply); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *ServicePlanRepo) DeletePlan(ctx context.Context, authInfo authorization.Info, planGUID string) error {

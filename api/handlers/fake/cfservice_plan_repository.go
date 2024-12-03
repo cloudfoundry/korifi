@@ -39,6 +39,19 @@ type CFServicePlanRepository struct {
 	deletePlanReturnsOnCall map[int]struct {
 		result1 error
 	}
+	DeletePlanVisibilityStub        func(context.Context, authorization.Info, repositories.DeleteServicePlanVisibilityMessage) error
+	deletePlanVisibilityMutex       sync.RWMutex
+	deletePlanVisibilityArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteServicePlanVisibilityMessage
+	}
+	deletePlanVisibilityReturns struct {
+		result1 error
+	}
+	deletePlanVisibilityReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetPlanStub        func(context.Context, authorization.Info, string) (repositories.ServicePlanRecord, error)
 	getPlanMutex       sync.RWMutex
 	getPlanArgsForCall []struct {
@@ -213,6 +226,69 @@ func (fake *CFServicePlanRepository) DeletePlanReturnsOnCall(i int, result1 erro
 		})
 	}
 	fake.deletePlanReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFServicePlanRepository) DeletePlanVisibility(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteServicePlanVisibilityMessage) error {
+	fake.deletePlanVisibilityMutex.Lock()
+	ret, specificReturn := fake.deletePlanVisibilityReturnsOnCall[len(fake.deletePlanVisibilityArgsForCall)]
+	fake.deletePlanVisibilityArgsForCall = append(fake.deletePlanVisibilityArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteServicePlanVisibilityMessage
+	}{arg1, arg2, arg3})
+	stub := fake.DeletePlanVisibilityStub
+	fakeReturns := fake.deletePlanVisibilityReturns
+	fake.recordInvocation("DeletePlanVisibility", []interface{}{arg1, arg2, arg3})
+	fake.deletePlanVisibilityMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFServicePlanRepository) DeletePlanVisibilityCallCount() int {
+	fake.deletePlanVisibilityMutex.RLock()
+	defer fake.deletePlanVisibilityMutex.RUnlock()
+	return len(fake.deletePlanVisibilityArgsForCall)
+}
+
+func (fake *CFServicePlanRepository) DeletePlanVisibilityCalls(stub func(context.Context, authorization.Info, repositories.DeleteServicePlanVisibilityMessage) error) {
+	fake.deletePlanVisibilityMutex.Lock()
+	defer fake.deletePlanVisibilityMutex.Unlock()
+	fake.DeletePlanVisibilityStub = stub
+}
+
+func (fake *CFServicePlanRepository) DeletePlanVisibilityArgsForCall(i int) (context.Context, authorization.Info, repositories.DeleteServicePlanVisibilityMessage) {
+	fake.deletePlanVisibilityMutex.RLock()
+	defer fake.deletePlanVisibilityMutex.RUnlock()
+	argsForCall := fake.deletePlanVisibilityArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServicePlanRepository) DeletePlanVisibilityReturns(result1 error) {
+	fake.deletePlanVisibilityMutex.Lock()
+	defer fake.deletePlanVisibilityMutex.Unlock()
+	fake.DeletePlanVisibilityStub = nil
+	fake.deletePlanVisibilityReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFServicePlanRepository) DeletePlanVisibilityReturnsOnCall(i int, result1 error) {
+	fake.deletePlanVisibilityMutex.Lock()
+	defer fake.deletePlanVisibilityMutex.Unlock()
+	fake.DeletePlanVisibilityStub = nil
+	if fake.deletePlanVisibilityReturnsOnCall == nil {
+		fake.deletePlanVisibilityReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deletePlanVisibilityReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -422,6 +498,8 @@ func (fake *CFServicePlanRepository) Invocations() map[string][][]interface{} {
 	defer fake.applyPlanVisibilityMutex.RUnlock()
 	fake.deletePlanMutex.RLock()
 	defer fake.deletePlanMutex.RUnlock()
+	fake.deletePlanVisibilityMutex.RLock()
+	defer fake.deletePlanVisibilityMutex.RUnlock()
 	fake.getPlanMutex.RLock()
 	defer fake.getPlanMutex.RUnlock()
 	fake.listPlansMutex.RLock()
