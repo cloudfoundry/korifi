@@ -77,38 +77,8 @@ func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfService
 	return ctrl.Result{}, nil
 }
 
-func isLegacyServiceBinding(cfServiceBinding *korifiv1alpha1.CFServiceBinding, cfServiceInstance *korifiv1alpha1.CFServiceInstance) bool {
-	if cfServiceBinding.Status.Binding.Name == "" {
-		return false
-	}
-
-	// When reconciling existing legacy service bindings we make
-	// use of the fact that the service binding used to reference
-	// the secret of the sevice instance that shares the sevice
-	// instance name. See ADR 16 for more datails.
-	return cfServiceInstance.Name == cfServiceBinding.Status.Binding.Name && cfServiceInstance.Spec.SecretName == cfServiceBinding.Status.Binding.Name
-}
-
 func (r *UPSIBindingReconciler) reconcileCredentials(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, cfServiceBinding *korifiv1alpha1.CFServiceBinding) error {
 	cfServiceBinding.Status.Credentials.Name = cfServiceInstance.Status.Credentials.Name
-
-	if isLegacyServiceBinding(cfServiceBinding, cfServiceInstance) {
-		bindingSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cfServiceBinding.Status.Binding.Name,
-				Namespace: cfServiceBinding.Namespace,
-			},
-		}
-
-		// For legacy sevice bindings we want to keep the binding secret
-		// unchanged in order to avoid unexpected app restarts. See ADR 16 for more details.
-		err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(bindingSecret), bindingSecret)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
 
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

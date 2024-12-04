@@ -19,12 +19,11 @@ package upsi
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -38,7 +37,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -127,60 +125,22 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *k
 		return ctrl.Result{}, notReadyErr
 	}
 
-	credentialsSecret, err = r.reconcileCredentials(ctx, credentialsSecret, cfServiceInstance)
-	if err != nil {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("FailedReconcilingCredentialsSecret")
-	}
-
 	if err = r.validateCredentials(credentialsSecret); err != nil {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("SecretInvalid")
+		cfServiceInstance.Status.LastOperation = services.LastOperation{
+			Type:  "create",
+			State: "failed",
+		}
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("SecretInvalid").WithNoRequeue()
 	}
 
 	log.V(1).Info("credentials secret", "name", credentialsSecret.Name, "version", credentialsSecret.ResourceVersion)
 	cfServiceInstance.Status.Credentials = corev1.LocalObjectReference{Name: credentialsSecret.Name}
+
+	cfServiceInstance.Status.LastOperation = reconcileLastOperation(cfServiceInstance, credentialsSecret)
+
 	cfServiceInstance.Status.CredentialsObservedVersion = credentialsSecret.ResourceVersion
 
 	return ctrl.Result{}, nil
-}
-
-func (r *Reconciler) reconcileCredentials(ctx context.Context, credentialsSecret *corev1.Secret, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (*corev1.Secret, error) {
-	if !strings.HasPrefix(string(credentialsSecret.Type), credentials.ServiceBindingSecretTypePrefix) {
-		return credentialsSecret, nil
-	}
-
-	log := logr.FromContextOrDiscard(ctx)
-
-	log.Info("migrating legacy secret", "legacy-secret-name", credentialsSecret.Name)
-	migratedSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cfServiceInstance.Name + "-migrated",
-			Namespace: cfServiceInstance.Namespace,
-		},
-	}
-	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, migratedSecret, func() error {
-		migratedSecret.Type = corev1.SecretTypeOpaque
-		data := map[string]any{}
-		for k, v := range credentialsSecret.Data {
-			data[k] = string(v)
-		}
-
-		dataBytes, err := json.Marshal(data)
-		if err != nil {
-			log.Error(err, "failed to marshal legacy credentials secret data")
-			return err
-		}
-
-		migratedSecret.Data = map[string][]byte{
-			tools.CredentialsSecretKey: dataBytes,
-		}
-		return controllerutil.SetOwnerReference(cfServiceInstance, migratedSecret, r.scheme)
-	})
-	if err != nil {
-		log.Error(err, "failed to create migrated credentials secret")
-		return nil, err
-	}
-
-	return migratedSecret, nil
 }
 
 func (r *Reconciler) validateCredentials(credentialsSecret *corev1.Secret) error {
@@ -189,4 +149,20 @@ func (r *Reconciler) validateCredentials(credentialsSecret *corev1.Secret) error
 		"invalid credentials secret %q",
 		credentialsSecret.Name,
 	)
+}
+
+func reconcileLastOperation(cfServiceInstance *korifiv1alpha1.CFServiceInstance, credentialsSecret *corev1.Secret) services.LastOperation {
+	if cfServiceInstance.Status.CredentialsObservedVersion == "" {
+		return services.LastOperation{
+			Type:  "create",
+			State: "succeeded",
+		}
+	}
+	if cfServiceInstance.Status.CredentialsObservedVersion != credentialsSecret.ResourceVersion && cfServiceInstance.Status.CredentialsObservedVersion != "" {
+		return services.LastOperation{
+			Type:  "update",
+			State: "succeeded",
+		}
+	}
+	return cfServiceInstance.Status.LastOperation
 }

@@ -71,13 +71,18 @@ Here are all the values that can be set for the chart:
   - `taskTTL` (_String_): How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
   - `tolerations` (_Array_): Korifi-controllers pod tolerations for taints.
   - `workloadsTLSSecret` (_String_): TLS secret used when setting up an app routes.
+- `crds`:
+  - `include` (_Boolean_): Install CRDs as part of the Helm installation.
 - `debug` (_Boolean_): Enables remote debugging with [Delve](https://github.com/go-delve/delve).
 - `defaultAppDomainName` (_String_): Base domain name for application URLs.
 - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
 - `experimental`: Experimental features. No guarantees are provided and breaking/backwards incompatible changes should be expected. These features are not recommended for use in production environments.
   - `managedServices`:
-    - `include` (_Boolean_): Enable managed services support
+    - `enabled` (_Boolean_): Enable managed services support
     - `trustInsecureBrokers` (_Boolean_): Disable service broker certificate validation. Not recommended to be set to 'true' in production environments
+  - `uaa`:
+    - `enabled` (_Boolean_): Enable UAA support
+    - `url` (_String_): The url of a UAA instance
 - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
 - `helm`:
   - `hooksImage` (_String_): Image for the helm hooks containing kubectl
