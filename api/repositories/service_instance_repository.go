@@ -481,7 +481,7 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 
 	if message.Purge {
 		if err = k8s.PatchResource(ctx, userClient, serviceInstance, func() {
-			controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+			controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
 		}); err != nil {
 			return ServiceInstanceRecord{}, fmt.Errorf("failed to remove finalizer for service instance: %s, %w", message.GUID, apierrors.FromK8sError(err, ServiceInstanceResourceType))
 		}

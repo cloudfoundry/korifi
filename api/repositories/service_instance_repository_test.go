@@ -1081,7 +1081,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		BeforeEach(func() {
 			serviceInstance = createServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
 
-			serviceInstance.Finalizers = append(serviceInstance.Finalizers, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+			serviceInstance.Finalizers = append(serviceInstance.Finalizers, korifiv1alpha1.CFServiceInstanceFinalizerName)
 			Expect(k8sClient.Update(ctx, serviceInstance)).To(Succeed())
 
 			serviceBinding = &korifiv1alpha1.CFServiceBinding{

@@ -37,6 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -109,6 +110,13 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *k
 
 	cfServiceInstance.Status.ObservedGeneration = cfServiceInstance.Generation
 	log.V(1).Info("set observed generation", "generation", cfServiceInstance.Status.ObservedGeneration)
+
+	if !cfServiceInstance.GetDeletionTimestamp().IsZero() {
+		controllerutil.RemoveFinalizer(cfServiceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
+		log.V(1).Info("finalizer removed")
+
+		return ctrl.Result{}, nil
+	}
 
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

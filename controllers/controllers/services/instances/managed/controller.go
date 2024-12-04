@@ -329,7 +329,7 @@ func (r *Reconciler) finalizeCFServiceInstance(
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
 
-	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName) {
+	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
@@ -338,7 +338,7 @@ func (r *Reconciler) finalizeCFServiceInstance(
 		log.Error(err, "failed to deprovision service instance with broker")
 	}
 
-	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
 	log.V(1).Info("finalizer removed")
 
 	return ctrl.Result{}, nil
