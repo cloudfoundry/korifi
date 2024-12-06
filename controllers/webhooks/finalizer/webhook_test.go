@@ -119,7 +119,7 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 					Type: korifiv1alpha1.ManagedType,
 				},
 			},
-			korifiv1alpha1.CFManagedServiceInstanceFinalizerName,
+			korifiv1alpha1.CFServiceInstanceFinalizerName,
 		),
 		Entry("user-provided CF service instance",
 			&korifiv1alpha1.CFServiceInstance{
@@ -131,6 +131,7 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 					Type: korifiv1alpha1.UserProvidedType,
 				},
 			},
+			korifiv1alpha1.CFServiceInstanceFinalizerName,
 		),
 		Entry("cfservicebinding",
 			&korifiv1alpha1.CFServiceBinding{
