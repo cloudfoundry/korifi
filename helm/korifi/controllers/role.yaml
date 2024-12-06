@@ -110,6 +110,8 @@ rules:
   - cfservicebindings
   - cfservicebrokers
   - cfserviceinstances
+  - cfserviceofferings
+  - cfserviceplans
   - cfspaces
   - cftasks
   verbs:
