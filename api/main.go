@@ -266,7 +266,7 @@ func main() {
 		chiMiddlewares.StripSlashes,
 	)
 
-	if !cfg.ExperimentalManagedServicesEnabled {
+	if !cfg.Experimental.ManagedServices.Enabled {
 		routerBuilder.UseMiddleware(middleware.DisableManagedServices)
 	}
 
@@ -292,7 +292,7 @@ func main() {
 
 	apiHandlers := []routing.Routable{
 		handlers.NewRootV3(*serverURL),
-		handlers.NewRoot(*serverURL),
+		handlers.NewRoot(*serverURL, cfg.Experimental.UAA),
 		handlers.NewInfoV3(
 			*serverURL,
 			cfg.InfoConfig,

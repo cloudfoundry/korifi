@@ -160,6 +160,7 @@ rules:
   - cfroutes/status
   - cfservicebindings/status
   - cfservicebrokers/status
+  - cfserviceinstances/status
   - cfspaces/status
   - cftasks/status
   verbs:
@@ -200,12 +201,15 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - cfserviceinstances/status
+  - cfserviceofferings
+  - cfserviceplans
   verbs:
-  - atch
+  - create
   - get
+  - list
   - patch
   - update
+  - watch
 - apiGroups:
   - kpack.io
   resources:

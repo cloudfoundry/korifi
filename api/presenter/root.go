@@ -1,6 +1,10 @@
 package presenter
 
-import "net/url"
+import (
+	"net/url"
+
+	"code.cloudfoundry.org/korifi/api/config"
+)
 
 type APILink struct {
 	Link
@@ -18,8 +22,8 @@ type RootResponse struct {
 
 const V3APIVersion = "3.117.0+cf-k8s"
 
-func ForRoot(baseURL url.URL) RootResponse {
-	return RootResponse{
+func ForRoot(baseURL url.URL, uaaConfig config.UAA) RootResponse {
+	rootResponse := RootResponse{
 		Links: map[string]*APILink{
 			"self": {
 				Link: Link{
@@ -57,6 +61,22 @@ func ForRoot(baseURL url.URL) RootResponse {
 		},
 		CFOnK8s: true,
 	}
+
+	if uaaConfig.Enabled {
+		rootResponse.CFOnK8s = false
+		rootResponse.Links["uaa"] = &APILink{
+			Link: Link{
+				HRef: uaaConfig.URL,
+			},
+		}
+		rootResponse.Links["login"] = &APILink{
+			Link: Link{
+				HRef: uaaConfig.URL,
+			},
+		}
+	}
+
+	return rootResponse
 }
 
 type RootV3Response struct {
