@@ -185,9 +185,9 @@ func uploadAppBits(appGUID, packageGUID string) {
 
 	controllersConfig := config.ControllerConfig{}
 	Expect(yaml.Unmarshal([]byte(controllersConfigMap.Data["config.yaml"]), &controllersConfig)).To(Succeed())
-	repoCreator := registry.NewRepositoryCreator(controllersConfig.ContainerRegistryType)
+	repoCreator := registry.NewRepositoryCreator("")
 	Expect(repoCreator.CreateRepository(ctx, fmt.Sprintf("%s%s-packages",
-		controllersConfig.ContainerRepositoryPrefix,
+		"",
 		appGUID,
 	))).To(Succeed())
 
