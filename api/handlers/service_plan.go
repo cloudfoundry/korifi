@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	ServicePlansPath          = "/v3/service_plans"
-	ServicePlanVisivilityPath = "/v3/service_plans/{guid}/visibility"
+	ServicePlansPath             = "/v3/service_plans"
+	ServicePlanVisibilityPath    = "/v3/service_plans/{guid}/visibility"
+	ServicePlanVisibilityOrgPath = ServicePlanVisibilityPath + "/{org-guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServicePlanRepository . CFServicePlanRepository
@@ -27,6 +28,7 @@ type CFServicePlanRepository interface {
 	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
 	ApplyPlanVisibility(context.Context, authorization.Info, repositories.ApplyServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
 	UpdatePlanVisibility(context.Context, authorization.Info, repositories.UpdateServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
+	DeletePlanVisibility(context.Context, authorization.Info, repositories.DeleteServicePlanVisibilityMessage) error
 }
 
 type ServicePlan struct {
@@ -130,6 +132,24 @@ func (h *ServicePlan) updatePlanVisibility(r *http.Request) (*routing.Response, 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlanVisibility(visibility, h.serverURL)), nil
 }
 
+func (h *ServicePlan) deletePlanVisibility(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.delete-visibility")
+
+	planGUID := routing.URLParam(r, "guid")
+	orgGUID := routing.URLParam(r, "org-guid")
+	logger = logger.WithValues("guid", planGUID)
+
+	if err := h.servicePlanRepo.DeletePlanVisibility(r.Context(), authInfo, repositories.DeleteServicePlanVisibilityMessage{
+		PlanGUID: planGUID,
+		OrgGUID:  orgGUID,
+	}); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to delete org: %s for plan visibility", orgGUID)
+	}
+
+	return routing.NewResponse(http.StatusNoContent), nil
+}
+
 func (h *ServicePlan) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -137,8 +157,9 @@ func (h *ServicePlan) UnauthenticatedRoutes() []routing.Route {
 func (h *ServicePlan) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: ServicePlansPath, Handler: h.list},
-		{Method: "GET", Pattern: ServicePlanVisivilityPath, Handler: h.getPlanVisibility},
-		{Method: "POST", Pattern: ServicePlanVisivilityPath, Handler: h.applyPlanVisibility},
-		{Method: "PATCH", Pattern: ServicePlanVisivilityPath, Handler: h.updatePlanVisibility},
+		{Method: "GET", Pattern: ServicePlanVisibilityPath, Handler: h.getPlanVisibility},
+		{Method: "POST", Pattern: ServicePlanVisibilityPath, Handler: h.applyPlanVisibility},
+		{Method: "PATCH", Pattern: ServicePlanVisibilityPath, Handler: h.updatePlanVisibility},
+		{Method: "DELETE", Pattern: ServicePlanVisibilityOrgPath, Handler: h.deletePlanVisibility},
 	}
 }
