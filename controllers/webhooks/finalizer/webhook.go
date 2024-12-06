@@ -7,8 +7,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -25,7 +23,7 @@ func NewControllersFinalizerWebhook() *ControllersFinalizerWebhook {
 			"CFPackage":         {FinalizerName: korifiv1alpha1.CFPackageFinalizerName, SetPolicy: k8s.Always},
 			"CFOrg":             {FinalizerName: korifiv1alpha1.CFOrgFinalizerName, SetPolicy: k8s.Always},
 			"CFDomain":          {FinalizerName: korifiv1alpha1.CFDomainFinalizerName, SetPolicy: k8s.Always},
-			"CFServiceInstance": {FinalizerName: korifiv1alpha1.CFManagedServiceInstanceFinalizerName, SetPolicy: isManagedServiceInstance},
+			"CFServiceInstance": {FinalizerName: korifiv1alpha1.CFServiceInstanceFinalizerName, SetPolicy: k8s.Always},
 			"CFServiceBinding":  {FinalizerName: korifiv1alpha1.CFServiceBindingFinalizerName, SetPolicy: k8s.Always},
 		}),
 	}
@@ -40,17 +38,4 @@ func (r *ControllersFinalizerWebhook) SetupWebhookWithManager(mgr ctrl.Manager) 
 
 func (r *ControllersFinalizerWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
 	return r.delegate.Handle(ctx, req)
-}
-
-func isManagedServiceInstance(object unstructured.Unstructured) bool {
-	l := ctrl.Log.WithName("isManagedServiceInstance")
-	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{}
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(object.Object, cfServiceInstance)
-	if err != nil {
-		l.Error(err, "failed to convert to CFServiceInstnace from unstructured", "unstructured", object.Object)
-		return true
-	}
-
-	l.Info("CFServiceInstance converted", "cfserviceinstance", cfServiceInstance)
-	return cfServiceInstance.Spec.Type == korifiv1alpha1.ManagedType
 }
