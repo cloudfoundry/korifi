@@ -11,6 +11,19 @@ import (
 )
 
 type CFServiceOfferingRepository struct {
+	DeleteOfferingStub        func(context.Context, authorization.Info, repositories.DeleteServiceOfferingMessage) error
+	deleteOfferingMutex       sync.RWMutex
+	deleteOfferingArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteServiceOfferingMessage
+	}
+	deleteOfferingReturns struct {
+		result1 error
+	}
+	deleteOfferingReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetServiceOfferingStub        func(context.Context, authorization.Info, string) (repositories.ServiceOfferingRecord, error)
 	getServiceOfferingMutex       sync.RWMutex
 	getServiceOfferingArgsForCall []struct {
@@ -43,6 +56,69 @@ type CFServiceOfferingRepository struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *CFServiceOfferingRepository) DeleteOffering(arg1 context.Context, arg2 authorization.Info, arg3 repositories.DeleteServiceOfferingMessage) error {
+	fake.deleteOfferingMutex.Lock()
+	ret, specificReturn := fake.deleteOfferingReturnsOnCall[len(fake.deleteOfferingArgsForCall)]
+	fake.deleteOfferingArgsForCall = append(fake.deleteOfferingArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.DeleteServiceOfferingMessage
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteOfferingStub
+	fakeReturns := fake.deleteOfferingReturns
+	fake.recordInvocation("DeleteOffering", []interface{}{arg1, arg2, arg3})
+	fake.deleteOfferingMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFServiceOfferingRepository) DeleteOfferingCallCount() int {
+	fake.deleteOfferingMutex.RLock()
+	defer fake.deleteOfferingMutex.RUnlock()
+	return len(fake.deleteOfferingArgsForCall)
+}
+
+func (fake *CFServiceOfferingRepository) DeleteOfferingCalls(stub func(context.Context, authorization.Info, repositories.DeleteServiceOfferingMessage) error) {
+	fake.deleteOfferingMutex.Lock()
+	defer fake.deleteOfferingMutex.Unlock()
+	fake.DeleteOfferingStub = stub
+}
+
+func (fake *CFServiceOfferingRepository) DeleteOfferingArgsForCall(i int) (context.Context, authorization.Info, repositories.DeleteServiceOfferingMessage) {
+	fake.deleteOfferingMutex.RLock()
+	defer fake.deleteOfferingMutex.RUnlock()
+	argsForCall := fake.deleteOfferingArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServiceOfferingRepository) DeleteOfferingReturns(result1 error) {
+	fake.deleteOfferingMutex.Lock()
+	defer fake.deleteOfferingMutex.Unlock()
+	fake.DeleteOfferingStub = nil
+	fake.deleteOfferingReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFServiceOfferingRepository) DeleteOfferingReturnsOnCall(i int, result1 error) {
+	fake.deleteOfferingMutex.Lock()
+	defer fake.deleteOfferingMutex.Unlock()
+	fake.DeleteOfferingStub = nil
+	if fake.deleteOfferingReturnsOnCall == nil {
+		fake.deleteOfferingReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteOfferingReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *CFServiceOfferingRepository) GetServiceOffering(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.ServiceOfferingRecord, error) {
@@ -180,6 +256,8 @@ func (fake *CFServiceOfferingRepository) ListOfferingsReturnsOnCall(i int, resul
 func (fake *CFServiceOfferingRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.deleteOfferingMutex.RLock()
+	defer fake.deleteOfferingMutex.RUnlock()
 	fake.getServiceOfferingMutex.RLock()
 	defer fake.getServiceOfferingMutex.RUnlock()
 	fake.listOfferingsMutex.RLock()
