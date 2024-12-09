@@ -199,18 +199,6 @@ rules:
   - patch
   - watch
 - apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfserviceofferings
-  - cfserviceplans
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - kpack.io
   resources:
   - clusterbuilders
