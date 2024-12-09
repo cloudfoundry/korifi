@@ -2,6 +2,7 @@ package managed
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
@@ -12,10 +13,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
+	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -43,6 +46,18 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFServiceBinding(ctx, cfServiceBinding)
 	}
+
+	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
+	if err != nil {
+		log.Info("service instance not found", "service-instance", cfServiceBinding.Spec.Service.Name, "error", err)
+		return ctrl.Result{}, err
+	}
+
+	if cfServiceBinding.Labels == nil {
+		cfServiceBinding.Labels = map[string]string{}
+	}
+	cfServiceBinding.Labels[korifiv1alpha1.PlanGUIDLabelKey] = cfServiceInstance.Spec.PlanGUID
 
 	assets, err := r.assets.GetServiceBindingAssets(ctx, cfServiceBinding)
 	if err != nil {
@@ -72,6 +87,16 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	err = r.reconcileCredentials(ctx, cfServiceBinding, credentials)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	sbServiceBinding, err := r.reconcileSBServiceBinding(ctx, cfServiceBinding)
+	if err != nil {
+		log.Info("error creating/updating servicebinding.io servicebinding", "reason", err)
+		return ctrl.Result{}, err
+	}
+
+	if !isSbServiceBindingReady(sbServiceBinding) {
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceBindingNotReady")
 	}
 
 	return ctrl.Result{}, nil
@@ -252,6 +277,73 @@ func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
 		log.V(1).Info("finalizer removed")
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *ManagedBindingsReconciler) reconcileSBServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (*servicebindingv1beta1.ServiceBinding, error) {
+	sbServiceBinding := r.toSBServiceBinding(cfServiceBinding)
+
+	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, sbServiceBinding, func() error {
+		sbServiceBinding.Spec.Name = getSBServiceBindingName(cfServiceBinding)
+
+		return controllerutil.SetControllerReference(cfServiceBinding, sbServiceBinding, r.scheme)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return sbServiceBinding, nil
+}
+
+func (r *ManagedBindingsReconciler) toSBServiceBinding(cfServiceBinding *korifiv1alpha1.CFServiceBinding) *servicebindingv1beta1.ServiceBinding {
+	return &servicebindingv1beta1.ServiceBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("cf-binding-%s", cfServiceBinding.Name),
+			Namespace: cfServiceBinding.Namespace,
+			Labels: map[string]string{
+				korifiv1alpha1.ServiceBindingGUIDLabel:           cfServiceBinding.Name,
+				korifiv1alpha1.CFAppGUIDLabelKey:                 cfServiceBinding.Spec.AppRef.Name,
+				korifiv1alpha1.ServiceCredentialBindingTypeLabel: "app",
+			},
+		},
+		Spec: servicebindingv1beta1.ServiceBindingSpec{
+			Type: korifiv1alpha1.ManagedType,
+			Workload: servicebindingv1beta1.ServiceBindingWorkloadReference{
+				APIVersion: "apps/v1",
+				Kind:       "StatefulSet",
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						korifiv1alpha1.CFAppGUIDLabelKey: cfServiceBinding.Spec.AppRef.Name,
+					},
+				},
+			},
+			Service: servicebindingv1beta1.ServiceBindingServiceReference{
+				APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+				Kind:       "CFServiceBinding",
+				Name:       cfServiceBinding.Name,
+			},
+		},
+	}
+}
+
+func getSBServiceBindingName(cfServiceBinding *korifiv1alpha1.CFServiceBinding) string {
+	if cfServiceBinding.Spec.DisplayName != nil {
+		return *cfServiceBinding.Spec.DisplayName
+	}
+
+	return cfServiceBinding.Status.Binding.Name
+}
+
+func isSbServiceBindingReady(sbServiceBinding *servicebindingv1beta1.ServiceBinding) bool {
+	readyCondition := meta.FindStatusCondition(sbServiceBinding.Status.Conditions, "Ready")
+	if readyCondition == nil {
+		return false
+	}
+
+	if readyCondition.Status != metav1.ConditionTrue {
+		return false
+	}
+
+	return sbServiceBinding.Generation == sbServiceBinding.Status.ObservedGeneration
 }
 
 func isBindRequested(binding *korifiv1alpha1.CFServiceBinding) bool {
