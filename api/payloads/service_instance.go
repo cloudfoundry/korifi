@@ -102,6 +102,61 @@ func (r ServiceInstanceRelationships) ValidateManagedRelationships() error {
 	)
 }
 
+type ServiceInstanceGet struct {
+	IncludeResourceRules []params.IncludeResourceRule
+}
+
+func (g ServiceInstanceGet) Validate() error {
+	return jellidation.ValidateStruct(&g,
+		jellidation.Field(&g.IncludeResourceRules, jellidation.Each(jellidation.By(func(value any) error {
+			rule, ok := value.(params.IncludeResourceRule)
+			if !ok {
+				return fmt.Errorf("%T is not supported, IncludeResourceRule is expected", value)
+			}
+
+			relationshipsPath := strings.Join(rule.RelationshipPath, ".")
+			switch relationshipsPath {
+			case "service_plan":
+				return jellidation.Each(validation.OneOf(
+					"guid",
+					"name",
+					"relationships.service_offering",
+				)).Validate(rule.Fields)
+			case "service_plan.service_offering":
+				return jellidation.Each(validation.OneOf(
+					"guid",
+					"name",
+					"relationships.service_broker",
+				)).Validate(rule.Fields)
+			case "service_plan.service_offering.service_broker":
+				return jellidation.Each(validation.OneOf(
+					"guid",
+					"name",
+				)).Validate(rule.Fields)
+			}
+			return validation.OneOf(
+				"service_plan",
+				"service_plan.service_offering",
+				"service_plan.service_offering.service_broker",
+			).Validate(relationshipsPath)
+		}))),
+	)
+}
+
+func (g *ServiceInstanceGet) SupportedKeys() []string {
+	return []string{
+		"fields[service_plan.service_offering]",
+		"fields[service_plan.service_offering.service_broker]",
+		"fields[service_plan]",
+	}
+}
+
+func (g *ServiceInstanceGet) DecodeFromURLValues(values url.Values) error {
+	g.IncludeResourceRules = append(g.IncludeResourceRules, params.ParseFields(values)...)
+
+	return nil
+}
+
 type ServiceInstancePatch struct {
 	Name        *string         `json:"name,omitempty"`
 	Tags        *[]string       `json:"tags,omitempty"`

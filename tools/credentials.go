@@ -18,3 +18,13 @@ func ToCredentialsSecretData(credentials any) (map[string][]byte, error) {
 		CredentialsSecretKey: credentialBytes,
 	}, nil
 }
+
+func ToDecodedSecretDataCredentials(data map[string][]byte) (map[string]any, error) {
+	var credentials map[string]any
+	err := json.Unmarshal(data[CredentialsSecretKey], &credentials)
+	if err != nil {
+		return nil, errors.New("failed to unmarshal credentials for service instance")
+	}
+
+	return credentials, nil
+}
