@@ -167,6 +167,52 @@ var _ = Describe("ServiceBroker", func() {
 		})
 	})
 
+	Describe("GET /v3/service_brokers/guid", func() {
+		BeforeEach(func() {
+			serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{
+				CFResource: model.CFResource{
+					GUID: "broker-guid",
+				},
+			}, nil)
+
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/service_brokers/broker-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("gets the service broker", func() {
+			Expect(serviceBrokerRepo.GetServiceBrokerCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualBrokerGUID := serviceBrokerRepo.GetServiceBrokerArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualBrokerGUID).To(Equal("broker-guid"))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "broker-guid"),
+			)))
+		})
+
+		When("getting the service broker is not allowed", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBrokerResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.ServiceBrokerResourceType)
+			})
+		})
+
+		When("getting the service broker fails with an error", func() {
+			BeforeEach(func() {
+				serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{}, errors.New("get-broker-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("DELETE /v3/service_brokers/guid", func() {
 		BeforeEach(func() {
 			serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{
