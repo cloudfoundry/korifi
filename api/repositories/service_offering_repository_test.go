@@ -384,7 +384,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Namespace: space.Name,
 					Name:      uuid.NewString(),
 					Finalizers: []string{
-						korifiv1alpha1.CFManagedServiceInstanceFinalizerName,
+						korifiv1alpha1.CFServiceInstanceFinalizerName,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{

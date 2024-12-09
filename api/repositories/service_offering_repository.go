@@ -176,7 +176,7 @@ func (r *ServiceOfferingRepo) purgeRelatedResources(ctx context.Context, authInf
 
 	for _, instance := range serviceInstances {
 		err = k8s.PatchResource(ctx, userClient, &instance, func() {
-			controllerutil.RemoveFinalizer(&instance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+			controllerutil.RemoveFinalizer(&instance, korifiv1alpha1.CFServiceInstanceFinalizerName)
 		})
 		if err != nil {
 			return fmt.Errorf("failed to remove finalizer for service instance: %s, %w", instance.Name, apierrors.FromK8sError(err, ServiceInstanceResourceType))
