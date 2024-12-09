@@ -98,6 +98,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					AppRef: corev1.LocalObjectReference{
 						Name: appGUID,
 					},
+					Type: "app",
 				},
 			}
 			Expect(
