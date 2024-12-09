@@ -161,6 +161,7 @@ rules:
   - cfservicebindings/status
   - cfservicebrokers/status
   - cfserviceinstances/status
+  - cfserviceinstances/status
   - cfspaces/status
   - cftasks/status
   verbs:
