@@ -56,8 +56,10 @@ var _ = Describe("DropletRepository", func() {
 				Name:      buildGUID,
 				Namespace: space.Name,
 				Labels: map[string]string{
-					"key1": "val1",
-					"key2": "val2",
+					"key1":                               "val1",
+					"key2":                               "val2",
+					korifiv1alpha1.CFPackageGUIDLabelKey: packageGUID,
+					korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
 				},
 				Annotations: map[string]string{
 					"key1": "val1",
@@ -156,8 +158,10 @@ var _ = Describe("DropletRepository", func() {
 					Expect(dropletRecord.AppGUID).To(Equal(build.Spec.AppRef.Name))
 					Expect(dropletRecord.PackageGUID).To(Equal(build.Spec.PackageRef.Name))
 					Expect(dropletRecord.Labels).To(Equal(map[string]string{
-						"key1": "val1",
-						"key2": "val2",
+						"key1":                               "val1",
+						"key2":                               "val2",
+						korifiv1alpha1.CFPackageGUIDLabelKey: packageGUID,
+						korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
 					}))
 					Expect(dropletRecord.Annotations).To(Equal(map[string]string{
 						"key1": "val1",
@@ -394,6 +398,41 @@ var _ = Describe("DropletRepository", func() {
 				})
 			})
 		})
+
+		JustBeforeEach(func() {
+			dropletRecords, listErr = dropletRepo.ListDroplets(testCtx, authInfo, repositories.ListDropletsMessage{
+				AppGUIDs: []string{appGUID},
+			})
+		})
+
+		It("returns an empty list to users who lack access", func() {
+			Expect(listErr).NotTo(HaveOccurred())
+			Expect(dropletRecords).To(BeEmpty())
+		})
+
+		When("the user is a space manager", func() {
+			BeforeEach(func() {
+				createRoleBinding(testCtx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("returns a list of droplet records with the appGUID label set on them", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(dropletRecords).To(HaveLen(1))
+				Expect(dropletRecords[0].Relationships()).To(Equal(map[string]string{"app": appGUID}))
+			})
+
+			When("a space exists with a rolebinding for the user, but without permission to list droplets", func() {
+				BeforeEach(func() {
+					anotherSpace := createSpaceWithCleanup(testCtx, org.Name, "space-without-droplet-space-perm")
+					createRoleBinding(testCtx, userName, rootNamespaceUserRole.Name, anotherSpace.Name)
+				})
+
+				It("returns the droplet", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(dropletRecords).To(HaveLen(1))
+				})
+			})
+		})
 	})
 
 	Describe("UpdateDroplet", func() {
@@ -526,8 +565,10 @@ var _ = Describe("DropletRepository", func() {
 
 					By("returns a record with a Label field matching the CR", func() {
 						Expect(dropletRecord.Labels).To(Equal(map[string]string{
-							"key1": "val1edit",
-							"key3": "val3",
+							"key1":                               "val1edit",
+							"key3":                               "val3",
+							korifiv1alpha1.CFPackageGUIDLabelKey: packageGUID,
+							korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
 						}))
 					})
 

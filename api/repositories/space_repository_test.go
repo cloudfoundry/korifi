@@ -136,7 +136,7 @@ var _ = Describe("SpaceRepository", func() {
 				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: orgGUID, Name: spaceRecord.GUID}, spaceCR)).To(Succeed())
 
 				Expect(spaceRecord.Name).To(Equal(spaceName))
-				Expect(spaceRecord.GUID).To(HavePrefix("cf-space-"))
+				Expect(spaceRecord.GUID).To(matchers.BeValidUUID())
 				Expect(spaceRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 				Expect(spaceRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 				Expect(spaceRecord.DeletedAt).To(BeNil())

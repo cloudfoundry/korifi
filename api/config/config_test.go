@@ -46,7 +46,11 @@ var _ = Describe("Config", func() {
 				Stack:           "lc-stack",
 				StagingMemoryMB: 10,
 			},
-			"experimentalManagedServicesEnabled": true,
+			"experimental": map[string]any{
+				"managedServices": map[string]any{
+					"enabled": true,
+				},
+			},
 		}
 	})
 
@@ -89,7 +93,7 @@ var _ = Describe("Config", func() {
 			StagingMemoryMB: 10,
 		}))
 		Expect(cfg.ContainerRegistryType).To(BeEmpty())
-		Expect(cfg.ExperimentalManagedServicesEnabled).To(BeTrue())
+		Expect(cfg.Experimental.ManagedServices.Enabled).To(BeTrue())
 	})
 
 	When("the FQDN is not specified", func() {

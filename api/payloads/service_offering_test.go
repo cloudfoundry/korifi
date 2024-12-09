@@ -72,3 +72,24 @@ var _ = Describe("ServiceOfferingList", func() {
 		})
 	})
 })
+
+var _ = Describe("ServiceOfferingDelete", func() {
+	DescribeTable("valid query",
+		func(query string, expectedServiceOfferingDelete payloads.ServiceOfferingDelete) {
+			actualServiceOfferingDelete, decodeErr := decodeQuery[payloads.ServiceOfferingDelete](query)
+
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualServiceOfferingDelete).To(Equal(expectedServiceOfferingDelete))
+		},
+		Entry("purge", "purge=true", payloads.ServiceOfferingDelete{Purge: true}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.ServiceOfferingDelete](query)
+			Expect(decodeErr).To(HaveOccurred())
+		},
+		Entry("unsuported param", "foo=bar", "unsupported query parameter: foo"),
+		Entry("invalid value for purge", "purge=foo", "invalid syntax"),
+	)
+})

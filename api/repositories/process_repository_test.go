@@ -363,8 +363,7 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(list.Items).To(HaveLen(1))
 
 				process := list.Items[0]
-				Expect(process.Name).To(HavePrefix("cf-proc-"))
-				Expect(process.Name).To(HaveSuffix("-web"))
+				Expect(process.Name).NotTo(BeEmpty())
 				Expect(process.Spec).To(Equal(korifiv1alpha1.CFProcessSpec{
 					AppRef:      corev1.LocalObjectReference{Name: app1GUID},
 					ProcessType: "web",
@@ -381,6 +380,20 @@ var _ = Describe("ProcessRepo", func() {
 					MemoryMB:         456,
 					DiskQuotaMB:      123,
 				}))
+			})
+
+			When("a process with that process type already exists", func() {
+				BeforeEach(func() {
+					Expect(processRepo.CreateProcess(ctx, authInfo, repositories.CreateProcessMessage{
+						AppGUID:   app1GUID,
+						SpaceGUID: space.Name,
+						Type:      "web",
+					})).To(Succeed())
+				})
+
+				It("returns an already exists error", func() {
+					Expect(createErr).To(MatchError(ContainSubstring("already exists")))
+				})
 			})
 		})
 

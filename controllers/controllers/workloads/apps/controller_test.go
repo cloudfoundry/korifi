@@ -243,6 +243,13 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				).To(Succeed())
 				g.Expect(cfProcessList.Items).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
+						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+							"Name": Equal(tools.NamespacedUUID(cfApp.Name, "web")),
+							"Labels": SatisfyAll(
+								HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfApp.Name),
+								HaveKeyWithValue(korifiv1alpha1.CFProcessTypeLabelKey, "web"),
+							),
+						}),
 						"Spec": MatchFields(IgnoreExtras, Fields{
 							"ProcessType":     Equal("web"),
 							"DetectedCommand": Equal("web-process command"),
@@ -250,6 +257,13 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 						}),
 					}),
 					MatchFields(IgnoreExtras, Fields{
+						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+							"Name": Equal(tools.NamespacedUUID(cfApp.Name, "worker")),
+							"Labels": SatisfyAll(
+								HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfApp.Name),
+								HaveKeyWithValue(korifiv1alpha1.CFProcessTypeLabelKey, "worker"),
+							),
+						}),
 						"Spec": MatchFields(IgnoreExtras, Fields{
 							"ProcessType":     Equal("worker"),
 							"DetectedCommand": Equal("process-worker command"),

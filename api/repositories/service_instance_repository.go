@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -169,19 +170,20 @@ type DeleteServiceInstanceMessage struct {
 }
 
 type ServiceInstanceRecord struct {
-	Name        string
-	GUID        string
-	SpaceGUID   string
-	PlanGUID    string
-	SecretName  string
-	Tags        []string
-	Type        string
-	Labels      map[string]string
-	Annotations map[string]string
-	CreatedAt   time.Time
-	UpdatedAt   *time.Time
-	DeletedAt   *time.Time
-	Ready       bool
+	Name          string
+	GUID          string
+	SpaceGUID     string
+	PlanGUID      string
+	SecretName    string
+	Tags          []string
+	Type          string
+	Labels        map[string]string
+	Annotations   map[string]string
+	CreatedAt     time.Time
+	UpdatedAt     *time.Time
+	DeletedAt     *time.Time
+	LastOperation services.LastOperation
+	Ready         bool
 }
 
 func (r ServiceInstanceRecord) Relationships() map[string]string {
@@ -201,17 +203,16 @@ func (r *ServiceInstanceRepo) CreateUserProvidedServiceInstance(ctx context.Cont
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	guid := uuid.NewString()
 	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        guid,
+			Name:        uuid.NewString(),
 			Namespace:   message.SpaceGUID,
 			Labels:      message.Labels,
 			Annotations: message.Annotations,
 		},
 		Spec: korifiv1alpha1.CFServiceInstanceSpec{
 			DisplayName: message.Name,
-			SecretName:  guid,
+			SecretName:  uuid.NewString(),
 			Type:        korifiv1alpha1.UserProvidedType,
 			Tags:        message.Tags,
 		},
@@ -504,16 +505,19 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 		},
 	}
 
-	if err := userClient.Get(ctx, client.ObjectKeyFromObject(serviceInstance), serviceInstance); err != nil {
+	if err = userClient.Get(ctx, client.ObjectKeyFromObject(serviceInstance), serviceInstance); err != nil {
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
 	if message.Purge {
-		err := k8s.PatchResource(ctx, userClient, serviceInstance, func() {
-			controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
-		})
-		if err != nil {
+		if err = k8s.PatchResource(ctx, userClient, serviceInstance, func() {
+			controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
+		}); err != nil {
 			return ServiceInstanceRecord{}, fmt.Errorf("failed to remove finalizer for service instance: %s, %w", message.GUID, apierrors.FromK8sError(err, ServiceInstanceResourceType))
+		}
+
+		if err = r.removeBindingsFinalizer(ctx, userClient, namespace, message.GUID); err != nil {
+			return ServiceInstanceRecord{}, fmt.Errorf("failed delete related service bindings for instance: %s, %w", message.GUID, apierrors.FromK8sError(err, ServiceBindingResourceType))
 		}
 	}
 
@@ -549,21 +553,44 @@ func (r *ServiceInstanceRepo) GetDeletedAt(ctx context.Context, authInfo authori
 	return serviceInstance.DeletedAt, nil
 }
 
+func (r *ServiceInstanceRepo) removeBindingsFinalizer(ctx context.Context, userClient client.WithWatch, namespace, instanceGUID string) error {
+	serviceBindings := new(korifiv1alpha1.CFServiceBindingList)
+	if err := userClient.List(ctx, serviceBindings, client.InNamespace(namespace)); err != nil {
+		return fmt.Errorf("failed to get service bindings: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))
+	}
+
+	filtered := itx.FromSlice(serviceBindings.Items).Filter(func(serviceBinding korifiv1alpha1.CFServiceBinding) bool {
+		return instanceGUID == serviceBinding.Spec.Service.Name
+	}).Collect()
+
+	for _, binding := range filtered {
+		err := k8s.PatchResource(ctx, userClient, &binding, func() {
+			controllerutil.RemoveFinalizer(&binding, korifiv1alpha1.CFServiceBindingFinalizerName)
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) ServiceInstanceRecord {
 	return ServiceInstanceRecord{
-		Name:        cfServiceInstance.Spec.DisplayName,
-		GUID:        cfServiceInstance.Name,
-		SpaceGUID:   cfServiceInstance.Namespace,
-		PlanGUID:    cfServiceInstance.Spec.PlanGUID,
-		SecretName:  cfServiceInstance.Spec.SecretName,
-		Tags:        cfServiceInstance.Spec.Tags,
-		Type:        string(cfServiceInstance.Spec.Type),
-		Labels:      cfServiceInstance.Labels,
-		Annotations: cfServiceInstance.Annotations,
-		CreatedAt:   cfServiceInstance.CreationTimestamp.Time,
-		UpdatedAt:   getLastUpdatedTime(&cfServiceInstance),
-		DeletedAt:   golangTime(cfServiceInstance.DeletionTimestamp),
-		Ready:       isInstanceReady(cfServiceInstance),
+		Name:          cfServiceInstance.Spec.DisplayName,
+		GUID:          cfServiceInstance.Name,
+		SpaceGUID:     cfServiceInstance.Namespace,
+		PlanGUID:      cfServiceInstance.Spec.PlanGUID,
+		SecretName:    cfServiceInstance.Spec.SecretName,
+		Tags:          cfServiceInstance.Spec.Tags,
+		Type:          string(cfServiceInstance.Spec.Type),
+		Labels:        cfServiceInstance.Labels,
+		Annotations:   cfServiceInstance.Annotations,
+		CreatedAt:     cfServiceInstance.CreationTimestamp.Time,
+		UpdatedAt:     getLastUpdatedTime(&cfServiceInstance),
+		DeletedAt:     golangTime(cfServiceInstance.DeletionTimestamp),
+		LastOperation: cfServiceInstance.Status.LastOperation,
+		Ready:         isInstanceReady(cfServiceInstance),
 	}
 }
 

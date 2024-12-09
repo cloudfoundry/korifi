@@ -83,6 +83,31 @@ var _ = Describe("Service Brokers", func() {
 		})
 	})
 
+	Describe("Get", func() {
+		var (
+			result     responseResource
+			brokerGUID string
+		)
+
+		BeforeEach(func() {
+			brokerGUID = createBroker(serviceBrokerURL)
+		})
+
+		AfterEach(func() {
+			broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
+		})
+
+		JustBeforeEach(func() {
+			resp, err = adminClient.R().SetResult(&result).Get("/v3/service_brokers/" + brokerGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the service broker", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(brokerGUID))
+		})
+	})
+
 	Describe("Update", func() {
 		var brokerGUID string
 

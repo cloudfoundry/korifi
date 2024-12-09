@@ -217,6 +217,7 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 	process := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: message.SpaceGUID,
+			Name:      tools.NamespacedUUID(message.AppGUID, message.Type),
 		},
 		Spec: korifiv1alpha1.CFProcessSpec{
 			AppRef:      corev1.LocalObjectReference{Name: message.AppGUID},
@@ -231,7 +232,6 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 			DiskQuotaMB:      message.DiskQuotaMB,
 		},
 	}
-	process.SetStableName(message.AppGUID)
 	err = userClient.Create(ctx, process)
 	return apierrors.FromK8sError(err, ProcessResourceType)
 }

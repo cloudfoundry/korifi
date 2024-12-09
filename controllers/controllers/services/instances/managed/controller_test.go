@@ -3,6 +3,7 @@ package managed_test
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
 
 	"github.com/google/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -125,7 +126,7 @@ var _ = Describe("CFServiceInstance", func() {
 				Name:      uuid.NewString(),
 				Namespace: namespace.Name,
 				Finalizers: []string{
-					korifiv1alpha1.CFManagedServiceInstanceFinalizerName,
+					korifiv1alpha1.CFServiceInstanceFinalizerName,
 				},
 			},
 			Spec: korifiv1alpha1.CFServiceInstanceSpec{
@@ -137,6 +138,7 @@ var _ = Describe("CFServiceInstance", func() {
 				},
 			},
 		}
+
 		Expect(adminClient.Create(ctx, instance)).To(Succeed())
 	})
 
@@ -207,6 +209,17 @@ var _ = Describe("CFServiceInstance", func() {
 				},
 			}))
 			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+		}).Should(Succeed())
+	})
+
+	It("sets succeeded state in instance last operation", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+			g.Expect(brokerClient.ProvisionCallCount()).To(BeNumerically(">=", 1))
+			g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+				Type:  "create",
+				State: "succeeded",
+			}))
 		}).Should(Succeed())
 	})
 
@@ -306,9 +319,45 @@ var _ = Describe("CFServiceInstance", func() {
 		})
 	})
 
-	When("service provisioning fails", func() {
+	When("service provisioning fails with recoverable error", func() {
 		BeforeEach(func() {
 			brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("provision-failed"))
+		})
+
+		It("keeps trying to provision the instance", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(brokerClient.ProvisionCallCount()).To(BeNumerically(">", 1))
+				_, provisionPayload := brokerClient.ProvisionArgsForCall(1)
+				g.Expect(provisionPayload).To(Equal(osbapi.InstanceProvisionPayload{
+					InstanceID: instance.Name,
+					InstanceProvisionRequest: osbapi.InstanceProvisionRequest{
+						ServiceId: "service-offering-id",
+						PlanID:    "service-plan-id",
+						SpaceGUID: "space-guid",
+						OrgGUID:   "org-guid",
+						Parameters: map[string]any{
+							"param-key": "param-value",
+						},
+					},
+				}))
+			}).Should(Succeed())
+		})
+
+		It("sets initial state in instance last operation", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+				g.Expect(brokerClient.ProvisionCallCount()).To(BeNumerically(">=", 1))
+				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+					Type:  "create",
+					State: "initial",
+				}))
+			}).Should(Succeed())
+		})
+	})
+
+	When("service provisioning fails with unrecoverable error", func() {
+		BeforeEach(func() {
+			brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{}, osbapi.UnrecoverableError{Status: http.StatusBadRequest})
 		})
 
 		It("fails the instance", func() {
@@ -324,9 +373,20 @@ var _ = Describe("CFServiceInstance", func() {
 						HasType(Equal(korifiv1alpha1.ProvisioningFailedCondition)),
 						HasStatus(Equal(metav1.ConditionTrue)),
 						HasReason(Equal("ProvisionFailed")),
-						HasMessage(ContainSubstring("provision-failed")),
+						HasMessage(ContainSubstring("The server responded with status: 400")),
 					),
 				))
+			}).Should(Succeed())
+		})
+
+		It("sets failed state in instance last operation", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+				g.Expect(brokerClient.ProvisionCallCount()).To(BeNumerically(">=", 1))
+				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+					Type:  "create",
+					State: "failed",
+				}))
 			}).Should(Succeed())
 		})
 	})
@@ -363,6 +423,17 @@ var _ = Describe("CFServiceInstance", func() {
 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 					HasStatus(Equal(metav1.ConditionFalse)),
 				)))
+			}).Should(Succeed())
+		})
+
+		It("sets in progress state in instance last operation", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+				g.Expect(brokerClient.ProvisionCallCount()).To(BeNumerically(">=", 1))
+				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+					Type:  "create",
+					State: "in progress",
+				}))
 			}).Should(Succeed())
 		})
 
@@ -408,6 +479,17 @@ var _ = Describe("CFServiceInstance", func() {
 					HasType(Equal(korifiv1alpha1.ProvisioningFailedCondition)),
 					HasStatus(Equal(metav1.ConditionTrue)),
 				)))
+			}).Should(Succeed())
+		})
+
+		It("sets failed state in instance last operation", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+				g.Expect(brokerClient.ProvisionCallCount()).To(BeNumerically(">=", 1))
+				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+					Type:  "create",
+					State: "failed",
+				}))
 			}).Should(Succeed())
 		})
 	})
@@ -715,7 +797,7 @@ var _ = Describe("CFServiceInstance", func() {
 	When("the service instance is purged", func() {
 		BeforeEach(func() {
 			Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
-				controllerutil.RemoveFinalizer(instance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+				controllerutil.RemoveFinalizer(instance, korifiv1alpha1.CFServiceInstanceFinalizerName)
 			})).To(Succeed())
 		})
 

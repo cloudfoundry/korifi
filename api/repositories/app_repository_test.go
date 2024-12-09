@@ -742,21 +742,18 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		var (
-			envSecretName string
-			secretRecord  repositories.AppEnvVarsRecord
-			patchErr      error
+			secretRecord repositories.AppEnvVarsRecord
+			patchErr     error
 		)
 
 		BeforeEach(func() {
-			envSecretName = cfApp.Name + "-env"
-
 			envVars := map[string]string{
 				key0: "VAL0",
 				key1: "original-value",
 			}
 			secret := corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      repositories.GenerateEnvSecretName(cfApp.Name),
+					Name:      cfApp.Spec.EnvSecretName,
 					Namespace: cfSpace.Name,
 				},
 				StringData: envVars,
@@ -796,13 +793,16 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			It("patches the underlying secret", func() {
-				cfAppSecretLookupKey := types.NamespacedName{Name: envSecretName, Namespace: cfSpace.Name}
-
-				var updatedSecret corev1.Secret
-				err := k8sClient.Get(ctx, cfAppSecretLookupKey, &updatedSecret)
+				envSecret := corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      cfApp.Spec.EnvSecretName,
+						Namespace: cfSpace.Name,
+					},
+				}
+				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&envSecret), &envSecret)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(asMapOfStrings(updatedSecret.Data)).To(SatisfyAll(
+				Expect(asMapOfStrings(envSecret.Data)).To(SatisfyAll(
 					HaveLen(2),
 					HaveKeyWithValue(key0, "VAL0"),
 					HaveKeyWithValue(key2, "VAL2"),

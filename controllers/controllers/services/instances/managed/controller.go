@@ -26,6 +26,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
+	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -116,7 +117,7 @@ func (r *Reconciler) isManaged(object client.Object) bool {
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;atch
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
 
 func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
@@ -174,6 +175,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return r.pollProvisionOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, provisionResponse.Operation)
 	}
 
+	serviceInstance.Status.LastOperation.State = "succeeded"
 	return ctrl.Result{}, nil
 }
 
@@ -224,6 +226,11 @@ func (r *Reconciler) provisionServiceInstance(
 		return osbapi.ServiceInstanceOperationResponse{}, err
 	}
 
+	serviceInstance.Status.LastOperation = services.LastOperation{
+		Type:  "create",
+		State: "initial",
+	}
+
 	var provisionResponse osbapi.ServiceInstanceOperationResponse
 	provisionResponse, err = osbapiClient.Provision(ctx, osbapi.InstanceProvisionPayload{
 		InstanceID: serviceInstance.Name,
@@ -238,16 +245,21 @@ func (r *Reconciler) provisionServiceInstance(
 	if err != nil {
 		log.Error(err, "failed to provision service")
 
-		meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
-			Type:               korifiv1alpha1.ProvisioningFailedCondition,
-			Status:             metav1.ConditionTrue,
-			ObservedGeneration: serviceInstance.Generation,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-			Reason:             "ProvisionFailed",
-			Message:            err.Error(),
-		})
-		return osbapi.ServiceInstanceOperationResponse{},
-			k8s.NewNotReadyError().WithReason("ProvisionFailed")
+		if osbapi.IsUnrecoveralbeError(err) {
+			serviceInstance.Status.LastOperation.State = "failed"
+			meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+				Type:               korifiv1alpha1.ProvisioningFailedCondition,
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: serviceInstance.Generation,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Reason:             "ProvisionFailed",
+				Message:            err.Error(),
+			})
+			return osbapi.ServiceInstanceOperationResponse{},
+				k8s.NewNotReadyError().WithReason("ProvisionFailed")
+		}
+
+		return osbapi.ServiceInstanceOperationResponse{}, err
 	}
 
 	return provisionResponse, nil
@@ -274,6 +286,9 @@ func (r *Reconciler) pollProvisionOperation(
 		log.Error(err, "getting service instance last operation failed")
 		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("GetLastOperationFailed")
 	}
+
+	serviceInstance.Status.LastOperation.State = lastOpResponse.State
+	serviceInstance.Status.LastOperation.Description = lastOpResponse.Description
 
 	if lastOpResponse.State == "in progress" {
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionInProgress").WithRequeue()
@@ -314,7 +329,7 @@ func (r *Reconciler) finalizeCFServiceInstance(
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
 
-	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName) {
+	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
@@ -323,7 +338,7 @@ func (r *Reconciler) finalizeCFServiceInstance(
 		log.Error(err, "failed to deprovision service instance with broker")
 	}
 
-	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
 	log.V(1).Info("finalizer removed")
 
 	return ctrl.Result{}, nil

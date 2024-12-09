@@ -1,19 +1,18 @@
 package upsi_test
 
 import (
-	"encoding/json"
-
 	"github.com/google/uuid"
-	. "github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -38,6 +37,9 @@ var _ = Describe("CFServiceInstance", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: testNamespace,
+					Finalizers: []string{
+						korifiv1alpha1.CFServiceInstanceFinalizerName,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-name",
@@ -121,6 +123,26 @@ var _ = Describe("CFServiceInstance", func() {
 						)))
 					}).Should(Succeed())
 				})
+
+				It("sets the instance last operation failed state", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+						g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+							Type:  "create",
+							State: "failed",
+						}))
+					}).Should(Succeed())
+				})
+			})
+
+			It("sets the instance last operation succeed state", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+						Type:  "create",
+						State: "succeeded",
+					}))
+				}).Should(Succeed())
 			})
 
 			When("the credentials secret changes", func() {
@@ -173,136 +195,61 @@ var _ = Describe("CFServiceInstance", func() {
 					}).Should(Succeed())
 				})
 			})
-		})
 
-		When("the instance credentials secret is in the 'legacy' format", func() {
-			var credentialsSecret *corev1.Secret
-
-			getMigratedSecret := func() *corev1.Secret {
-				migratedSecret := &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      instance.Name + "-migrated",
-						Namespace: testNamespace,
-					},
-				}
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(migratedSecret), migratedSecret)).To(Succeed())
-				}).Should(Succeed())
-
-				return migratedSecret
-			}
-
-			JustBeforeEach(func() {
-				credentialsSecret = &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      uuid.NewString(),
-						Namespace: testNamespace,
-					},
-					Type: corev1.SecretType("servicebinding.io/legacy"),
-					StringData: map[string]string{
-						"foo": "bar",
-					},
-				}
-				Expect(adminClient.Create(ctx, credentialsSecret)).To(Succeed())
-
-				Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
-					instance.Spec.SecretName = credentialsSecret.Name
-				})).To(Succeed())
-			})
-
-			It("creates a derived secret in the new format", func() {
-				Eventually(func(g Gomega) {
-					migratedSecret := getMigratedSecret()
-					g.Expect(migratedSecret.Type).To(Equal(corev1.SecretTypeOpaque))
-					g.Expect(migratedSecret.Data).To(MatchAllKeys(Keys{
-						tools.CredentialsSecretKey: Not(BeEmpty()),
-					}))
-
-					credentials := map[string]any{}
-					g.Expect(json.Unmarshal(migratedSecret.Data[tools.CredentialsSecretKey], &credentials)).To(Succeed())
-					g.Expect(credentials).To(MatchAllKeys(Keys{
-						"foo": Equal("bar"),
-					}))
-				}).Should(Succeed())
-			})
-
-			It("sets an owner reference from the service instance to the migrated secret", func() {
-				Eventually(func(g Gomega) {
-					migratedSecret := getMigratedSecret()
-					g.Expect(migratedSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-						"Kind": Equal("CFServiceInstance"),
-						"Name": Equal(instance.Name),
-					})))
-				}).Should(Succeed())
-			})
-
-			It("sets the instance credentials secret name and observed version to the migrated secret name and version", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-					g.Expect(instance.Status.Credentials.Name).To(Equal(instance.Name + "-migrated"))
-					g.Expect(instance.Status.CredentialsObservedVersion).To(Equal(getMigratedSecret().ResourceVersion))
-				}).Should(Succeed())
-			})
-
-			It("does not change the original credentials secret", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-					g.Expect(instance.Status.Credentials.Name).NotTo(BeEmpty())
-
-					g.Expect(instance.Spec.SecretName).To(Equal(credentialsSecret.Name))
-
-					previousCredentialsVersion := credentialsSecret.ResourceVersion
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
-					g.Expect(credentialsSecret.ResourceVersion).To(Equal(previousCredentialsVersion))
-				}).Should(Succeed())
-			})
-
-			When("legacy secret cannot be migrated", func() {
+			When("credentials observed version is not equal to the secret version", func() {
 				BeforeEach(func() {
-					Expect(adminClient.Create(ctx, &corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      instance.Name + "-migrated",
-							Namespace: instance.Namespace,
-						},
-						Type: corev1.SecretType("will-clash-with-migrated-secret-type"),
+					Expect(k8s.Patch(ctx, adminClient, instance, func() {
+						instance.Status.CredentialsObservedVersion = "invalid-version"
 					})).To(Succeed())
 				})
 
-				It("sets the CredentialSecretAvailable condition to false", func() {
+				It("sets the instance last operation update type", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-						g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-							HasStatus(Equal(metav1.ConditionFalse)),
-							HasReason(Equal("FailedReconcilingCredentialsSecret")),
-						)))
+						g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+							Type:  "update",
+							State: "succeeded",
+						}))
+					}).Should(Succeed())
+				})
+			})
+
+			When("the instance is deleted", func() {
+				JustBeforeEach(func() {
+					Expect(adminClient.Delete(ctx, instance)).To(Succeed())
+				})
+
+				It("is deleted", func() {
+					Eventually(func(g Gomega) {
+						err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 					}).Should(Succeed())
 				})
 			})
 		})
-	})
 
-	When("the service instance is managed", func() {
-		BeforeEach(func() {
-			instance = &korifiv1alpha1.CFServiceInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.NewString(),
-					Namespace: testNamespace,
-				},
-				Spec: korifiv1alpha1.CFServiceInstanceSpec{
-					DisplayName: "service-instance-name",
-					Type:        korifiv1alpha1.ManagedType,
-					Tags:        []string{},
-				},
-			}
-			Expect(adminClient.Create(ctx, instance)).To(Succeed())
-		})
+		When("the service instance is managed", func() {
+			BeforeEach(func() {
+				instance = &korifiv1alpha1.CFServiceInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: testNamespace,
+					},
+					Spec: korifiv1alpha1.CFServiceInstanceSpec{
+						DisplayName: "service-instance-name",
+						Type:        korifiv1alpha1.ManagedType,
+						Tags:        []string{},
+					},
+				}
+				Expect(adminClient.Create(ctx, instance)).To(Succeed())
+			})
 
-		It("does not reconcile it", func() {
-			Consistently(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-				g.Expect(instance.Status).To(BeZero())
-			}).Should(Succeed())
+			It("does not reconcile it", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status).To(BeZero())
+				}).Should(Succeed())
+			})
 		})
 	})
 })

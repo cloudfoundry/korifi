@@ -244,7 +244,7 @@ func main() {
 	)
 	metricsRepo := repositories.NewMetricsRepo(userClientFactory)
 	serviceBrokerRepo := repositories.NewServiceBrokerRepo(userClientFactory, cfg.RootNamespace)
-	serviceOfferingRepo := repositories.NewServiceOfferingRepo(userClientFactory, cfg.RootNamespace, serviceBrokerRepo)
+	serviceOfferingRepo := repositories.NewServiceOfferingRepo(userClientFactory, cfg.RootNamespace, serviceBrokerRepo, nsPermissions)
 	servicePlanRepo := repositories.NewServicePlanRepo(userClientFactory, cfg.RootNamespace, orgRepo)
 
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
@@ -266,7 +266,7 @@ func main() {
 		chiMiddlewares.StripSlashes,
 	)
 
-	if !cfg.ExperimentalManagedServicesEnabled {
+	if !cfg.Experimental.ManagedServices.Enabled {
 		routerBuilder.UseMiddleware(middleware.DisableManagedServices)
 	}
 
@@ -292,7 +292,7 @@ func main() {
 
 	apiHandlers := []routing.Routable{
 		handlers.NewRootV3(*serverURL),
-		handlers.NewRoot(*serverURL),
+		handlers.NewRoot(*serverURL, cfg.Experimental.UAA),
 		handlers.NewInfoV3(
 			*serverURL,
 			cfg.InfoConfig,

@@ -479,7 +479,7 @@ var _ = Describe("BuildRepository", func() {
 				It("returns correct build record", func() {
 					Expect(buildCreateErr).NotTo(HaveOccurred())
 
-					Expect(buildCreateRecord.GUID).NotTo(BeEmpty())
+					Expect(buildCreateRecord.GUID).To(matchers.BeValidUUID())
 					Expect(buildCreateRecord.Lifecycle.Type).To(Equal("docker"))
 					Expect(buildCreateRecord.Lifecycle.Data).To(Equal(repositories.LifecycleData{}))
 				})

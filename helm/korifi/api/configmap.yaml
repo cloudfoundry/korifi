@@ -53,7 +53,12 @@ data:
     {{- if .Values.eksContainerRegistryRoleARN }}
     containerRegistryType: "ECR"
     {{- end }}
-    experimentalManagedServicesEnabled: {{ .Values.experimental.managedServices.enabled }}
+    experimental:
+      managedServices:
+        enabled: {{ .Values.experimental.managedServices.enabled }}
+      uaa:
+        enabled: {{ .Values.experimental.uaa.enabled }}
+        url: {{ .Values.experimental.uaa.url }}
   role_mappings_config.yaml: |
     roleMappings:
       admin:

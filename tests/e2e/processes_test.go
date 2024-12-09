@@ -41,8 +41,7 @@ var _ = Describe("Processes", func() {
 		It("returns the processes for the app", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 
-			Expect(webProcessGUID).To(HavePrefix("cf-proc-"))
-			Expect(webProcessGUID).To(HaveSuffix("-web"))
+			Expect(webProcessGUID).NotTo(BeEmpty())
 			// If DEFAULT_APP_BITS_PATH is set, then there may also be non-web processes.
 			// To avoid failures in this case, we only test that the web process is included in the response.
 			Expect(result.Resources).To(ContainElement(

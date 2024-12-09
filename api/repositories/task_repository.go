@@ -81,11 +81,9 @@ type PatchTaskMetadataMessage struct {
 }
 
 func (m *CreateTaskMessage) toCFTask() *korifiv1alpha1.CFTask {
-	guid := uuid.NewString()
-
 	return &korifiv1alpha1.CFTask{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        guid,
+			Name:        uuid.NewString(),
 			Namespace:   m.SpaceGUID,
 			Labels:      m.Labels,
 			Annotations: m.Annotations,

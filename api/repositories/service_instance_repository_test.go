@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -99,7 +100,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("returns a service instance record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				Expect(record.GUID).NotTo(BeEmpty())
+				Expect(record.GUID).To(matchers.BeValidUUID())
 				Expect(record.SpaceGUID).To(Equal(space.Name))
 				Expect(record.Name).To(Equal(serviceInstanceName))
 				Expect(record.Type).To(Equal("user-provided"))
@@ -203,7 +204,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("returns a service instance record", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
-				Expect(record.GUID).NotTo(BeEmpty())
+				Expect(record.GUID).To(matchers.BeValidUUID())
 				Expect(record.SpaceGUID).To(Equal(space.Name))
 				Expect(record.Name).To(Equal(serviceInstanceName))
 				Expect(record.Type).To(Equal("managed"))
@@ -303,6 +304,50 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Expect(unprocessableEntityErr).To(MatchError(ContainSubstring("does-not-exist")))
 				})
 			})
+		})
+	})
+
+	Describe("instance record last operation", func() {
+		var (
+			cfServiceInstance     *korifiv1alpha1.CFServiceInstance
+			serviceInstanceRecord repositories.ServiceInstanceRecord
+		)
+
+		BeforeEach(func() {
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+
+			cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					Type: korifiv1alpha1.ManagedType,
+				},
+			}
+			Expect(k8sClient.Create(ctx, cfServiceInstance)).To(Succeed())
+
+			Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance, func() {
+				cfServiceInstance.Status.LastOperation = services.LastOperation{
+					Type:        "create",
+					State:       "failed",
+					Description: "failed due to error",
+				}
+			})).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			serviceInstanceRecord, err = serviceInstanceRepo.GetServiceInstance(ctx, authInfo, cfServiceInstance.Name)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns  last operation", func() {
+			Expect(serviceInstanceRecord.LastOperation).To(Equal(services.LastOperation{
+				Type:        "create",
+				State:       "failed",
+				Description: "failed due to error",
+			}))
 		})
 	})
 
@@ -1100,6 +1145,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	Describe("PurgeServiceInstance", func() {
 		var (
 			serviceInstance *korifiv1alpha1.CFServiceInstance
+			serviceBinding  *korifiv1alpha1.CFServiceBinding
 			deleteMessage   repositories.DeleteServiceInstanceMessage
 			deleteErr       error
 		)
@@ -1107,8 +1153,29 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		BeforeEach(func() {
 			serviceInstance = createServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
 
-			serviceInstance.Finalizers = append(serviceInstance.Finalizers, korifiv1alpha1.CFManagedServiceInstanceFinalizerName)
+			serviceInstance.Finalizers = append(serviceInstance.Finalizers, korifiv1alpha1.CFServiceInstanceFinalizerName)
 			Expect(k8sClient.Update(ctx, serviceInstance)).To(Succeed())
+
+			serviceBinding = &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: space.Name,
+					Finalizers: []string{
+						korifiv1alpha1.CFServiceBindingFinalizerName,
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "CFServiceInstance",
+						APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
+						Name:       serviceInstance.Name,
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: "some-app-guid",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceBinding)).To(Succeed())
 
 			deleteMessage = repositories.DeleteServiceInstanceMessage{
 				GUID:  serviceInstance.Name,
@@ -1124,13 +1191,14 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		It("purges the service instance", func() {
 			Expect(deleteErr).ToNot(HaveOccurred())
 
-			namespacedName := types.NamespacedName{
-				Name:      serviceInstance.Name,
-				Namespace: space.Name,
-			}
-
-			err := k8sClient.Get(context.Background(), namespacedName, &korifiv1alpha1.CFServiceInstance{})
+			err := k8sClient.Get(context.Background(), types.NamespacedName{Name: serviceInstance.Name, Namespace: space.Name}, &korifiv1alpha1.CFServiceInstance{})
 			Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("error: %+v", err))
+
+			binding := new(korifiv1alpha1.CFServiceBinding)
+			err = k8sClient.Get(context.Background(), types.NamespacedName{Name: serviceBinding.Name, Namespace: space.Name}, binding)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(binding.Finalizers).To(BeEmpty())
 		})
 	})
 })

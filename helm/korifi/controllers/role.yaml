@@ -110,6 +110,8 @@ rules:
   - cfservicebindings
   - cfservicebrokers
   - cfserviceinstances
+  - cfserviceofferings
+  - cfserviceplans
   - cfspaces
   - cftasks
   verbs:
@@ -158,6 +160,8 @@ rules:
   - cfroutes/status
   - cfservicebindings/status
   - cfservicebrokers/status
+  - cfserviceinstances/status
+  - cfserviceinstances/status
   - cfspaces/status
   - cftasks/status
   verbs:
@@ -194,27 +198,6 @@ rules:
   - get
   - list
   - patch
-  - watch
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfserviceinstances/status
-  verbs:
-  - atch
-  - get
-  - patch
-  - update
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
-  - cfserviceofferings
-  - cfserviceplans
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - kpack.io

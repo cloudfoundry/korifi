@@ -61,3 +61,4 @@ rules:
   verbs:
   - get
   - list
+  - delete

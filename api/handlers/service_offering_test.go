@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -268,6 +269,63 @@ var _ = Describe("ServiceOffering", func() {
 
 			It("returns an error", func() {
 				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("DELETE /v3/service_offerings/:guid", func() {
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "DELETE", "/v3/service_offerings/offering-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
+
+		It("deletes the service offering", func() {
+			Expect(serviceOfferingRepo.DeleteOfferingCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualDeleteMessage := serviceOfferingRepo.DeleteOfferingArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualDeleteMessage.GUID).To(Equal("offering-guid"))
+			Expect(actualDeleteMessage.Purge).To(BeFalse())
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
+		})
+
+		When("deleting the service offering fails with not found", func() {
+			BeforeEach(func() {
+				serviceOfferingRepo.DeleteOfferingReturns(apierrors.NewNotFoundError(nil, repositories.ServiceOfferingResourceType))
+			})
+
+			It("returns 404 Not Found", func() {
+				expectNotFoundError("Service Offering")
+			})
+		})
+
+		When("deleting the service offering fails", func() {
+			BeforeEach(func() {
+				serviceOfferingRepo.DeleteOfferingReturns(errors.New("boom"))
+			})
+
+			It("returns 500 Internal Server Error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("purging is set to true", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingDelete{
+					Purge: true,
+				})
+			})
+
+			It("purges the service offering", func() {
+				Expect(serviceOfferingRepo.DeleteOfferingCallCount()).To(Equal(1))
+				_, actualAuthInfo, actualDeleteMessage := serviceOfferingRepo.DeleteOfferingArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualDeleteMessage.GUID).To(Equal("offering-guid"))
+				Expect(actualDeleteMessage.Purge).To(BeTrue())
+
+				Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
 			})
 		})
 	})

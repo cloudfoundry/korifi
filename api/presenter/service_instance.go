@@ -46,11 +46,6 @@ type ServiceInstanceLinks struct {
 }
 
 func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord, baseURL url.URL, includes ...model.IncludedResource) ServiceInstanceResponse {
-	lastOperationType := "update"
-	if serviceInstanceRecord.UpdatedAt == nil || serviceInstanceRecord.CreatedAt.Equal(*serviceInstanceRecord.UpdatedAt) {
-		lastOperationType = "create"
-	}
-
 	return ServiceInstanceResponse{
 		Name: serviceInstanceRecord.Name,
 		GUID: serviceInstanceRecord.GUID,
@@ -59,9 +54,9 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 		LastOperation: lastOperation{
 			CreatedAt:   formatTimestamp(&serviceInstanceRecord.CreatedAt),
 			UpdatedAt:   formatTimestamp(serviceInstanceRecord.UpdatedAt),
-			Description: "Operation succeeded",
-			State:       "succeeded",
-			Type:        lastOperationType,
+			Description: serviceInstanceRecord.LastOperation.Description,
+			State:       serviceInstanceRecord.LastOperation.State,
+			Type:        serviceInstanceRecord.LastOperation.Type,
 		},
 		CreatedAt:     formatTimestamp(&serviceInstanceRecord.CreatedAt),
 		UpdatedAt:     formatTimestamp(serviceInstanceRecord.UpdatedAt),
