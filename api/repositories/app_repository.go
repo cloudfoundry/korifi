@@ -22,10 +22,10 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,6 +47,7 @@ type AppRepo struct {
 	namespacePermissions *authorization.NamespacePermissions
 	appAwaiter           Awaiter[*korifiv1alpha1.CFApp]
 	sorter               AppSorter
+	privilegedClient     client.Client
 }
 
 //counterfeiter:generate -o fake -fake-name AppSorter . AppSorter
@@ -98,6 +99,7 @@ func NewAppRepo(
 	authPerms *authorization.NamespacePermissions,
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp],
 	sorter AppSorter,
+	privilegedClient client.Client,
 ) *AppRepo {
 	return &AppRepo{
 		namespaceRetriever:   namespaceRetriever,
@@ -105,6 +107,7 @@ func NewAppRepo(
 		namespacePermissions: authPerms,
 		appAwaiter:           appAwaiter,
 		sorter:               sorter,
+		privilegedClient:     privilegedClient,
 	}
 }
 
@@ -245,6 +248,25 @@ func (m *ListAppsMessage) matches(cfApp korifiv1alpha1.CFApp) bool {
 		tools.EmptyOrContains(m.Guids, cfApp.Name)
 }
 
+func (m *ListAppsMessage) ToLabelSelector(namespaces ...string) (labels.Selector, error) {
+	userSelector, err := labels.Parse(m.LabelSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse user label selector: %q: %w", m.LabelSelector, err)
+	}
+	userRequirements, _ := userSelector.Requirements()
+
+	namespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFAppSpaceGUIDLabelKey, selection.In, namespaces)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create space requirements: %w", err)
+	}
+
+	selector := labels.NewSelector()
+	selector = selector.Add(*namespaceRequirements)
+	selector = selector.Add(userRequirements...)
+
+	return selector, nil
+}
+
 func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGUID string) (AppRecord, error) {
 	ns, err := f.namespaceRetriever.NamespaceFor(ctx, appGUID, AppResourceType)
 	if err != nil {
@@ -349,38 +371,24 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
-	userClient, err := f.userClientFactory.BuildClient(authInfo)
+	authorisedNamespaces, err := f.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
-		return []AppRecord{}, fmt.Errorf("failed to build user client: %w", err)
+		return []AppRecord{}, err
 	}
 
-	labelSelector, err := labels.Parse(message.LabelSelector)
+	labelSelector, err := message.ToLabelSelector(slices.Collect(maps.Keys(authorisedNamespaces))...)
 	if err != nil {
-		return []AppRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
+		return []AppRecord{}, err
 	}
 
-	authorisedSpaceNamespacesIter, err := authorizedSpaceNamespaces(ctx, authInfo, f.namespacePermissions)
+	appsList := &korifiv1alpha1.CFAppList{}
+	err = f.privilegedClient.List(ctx, appsList, &client.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get namespaces for spaces with user role bindings: %w", err)
+		return []AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
-	nsList := authorisedSpaceNamespacesIter.Filter(message.matchesNamespace).Collect()
-	var apps []korifiv1alpha1.CFApp
-	for _, ns := range nsList {
-		appList := &korifiv1alpha1.CFAppList{}
-		err := userClient.List(ctx, appList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
-
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns, apierrors.FromK8sError(err, AppResourceType))
-		}
-
-		apps = append(apps, appList.Items...)
-	}
-
-	appRecords := it.Map(itx.FromSlice(apps).Filter(message.matches), cfAppToAppRecord)
+	apps := itx.FromSlice(appsList.Items).Filter(message.matches)
+	appRecords := it.Map(apps, cfAppToAppRecord)
 
 	return f.sorter.Sort(slices.Collect(appRecords), message.OrderBy), nil
 }

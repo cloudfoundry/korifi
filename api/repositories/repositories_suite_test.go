@@ -409,6 +409,9 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 			Annotations: map[string]string{
 				CFAppRevisionKey: CFAppRevisionValue,
 			},
+			Labels: map[string]string{
+				korifiv1alpha1.CFAppSpaceGUIDLabelKey: space,
+			},
 		},
 		Spec: korifiv1alpha1.CFAppSpec{
 			DisplayName:  uuid.NewString(),

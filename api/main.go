@@ -151,6 +151,7 @@ func main() {
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
 		repositories.NewAppSorter(),
+		privilegedCRClient,
 	)
 	dropletRepo := repositories.NewDropletRepo(
 		userClientFactory,

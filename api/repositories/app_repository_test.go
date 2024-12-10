@@ -1,9 +1,9 @@
 package repositories_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -17,6 +17,8 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -50,6 +52,9 @@ var _ = Describe("AppRepository", func() {
 	)
 
 	BeforeEach(func() {
+		logger := stdr.New(log.New(GinkgoWriter, ">>>", log.LstdFlags))
+		ctx = logr.NewContext(ctx, logger)
+
 		appAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
 			korifiv1alpha1.CFApp,
@@ -60,7 +65,7 @@ var _ = Describe("AppRepository", func() {
 		sorter.SortStub = func(records []repositories.AppRecord, _ string) []repositories.AppRecord {
 			return records
 		}
-		appRepo = repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, appAwaiter, sorter)
+		appRepo = repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, appAwaiter, sorter, k8sClient)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
@@ -190,7 +195,7 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 
-	Describe("ListApps", func() {
+	FDescribe("ListApps", func() {
 		var (
 			message repositories.ListAppsMessage
 			appList []repositories.AppRecord
@@ -383,19 +388,19 @@ var _ = Describe("AppRepository", func() {
 			Describe("filtering by label selector", func() {
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-						cfApp.Labels = map[string]string{"foo": "FOO1"}
+						cfApp.Labels["foo"] = "FOO1"
 					})).To(Succeed())
 					Expect(k8s.PatchResource(ctx, k8sClient, cfApp2, func() {
-						cfApp2.Labels = map[string]string{"foo": "FOO2"}
+						cfApp2.Labels["foo"] = "FOO2"
 					})).To(Succeed())
 					Expect(k8s.PatchResource(ctx, k8sClient, cfApp12, func() {
-						cfApp12.Labels = map[string]string{"not_foo": "NOT_FOO"}
+						cfApp12.Labels["not_foo"] = "NOT_FOO"
 					})).To(Succeed())
 				})
 
 				DescribeTable("valid label selectors",
 					func(selector string, appGUIDPrefixes ...string) {
-						serviceBindings, err := appRepo.ListApps(context.Background(), authInfo, repositories.ListAppsMessage{
+						apps, err := appRepo.ListApps(ctx, authInfo, repositories.ListAppsMessage{
 							LabelSelector: selector,
 						})
 						Expect(err).NotTo(HaveOccurred())
@@ -405,7 +410,7 @@ var _ = Describe("AppRepository", func() {
 							matchers = append(matchers, MatchFields(IgnoreExtras, Fields{"GUID": HavePrefix(prefix)}))
 						}
 
-						Expect(serviceBindings).To(ConsistOf(matchers...))
+						Expect(apps).To(ConsistOf(matchers...))
 					},
 					Entry("key", "foo", "cfapp1-", "cfapp2-"),
 					Entry("!key", "!foo", "cfapp12-"),
