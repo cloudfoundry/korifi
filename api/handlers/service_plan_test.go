@@ -352,6 +352,25 @@ var _ = Describe("ServicePlan", func() {
 		})
 	})
 
+
+	Describe("DELETE /v3/service_plans/{guid}/visibility/{org-guid}", func() {
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "DELETE", "/v3/service_plans/my-service-plan/visibility/org-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
+    
+    It("deletes the service plan visibility", func() {
+			Expect(servicePlanRepo.DeletePlanVisibilityCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualMessage := servicePlanRepo.DeletePlanVisibilityArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage.PlanGUID).To(Equal("my-service-plan"))
+			Expect(actualMessage.OrgGUID).To(Equal("org-guid"))
+			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
+		})
+
+
 	Describe("DELETE /v3/service_plans/:guid", func() {
 		BeforeEach(func() {
 			servicePlanRepo.GetPlanReturns(repositories.ServicePlanRecord{
@@ -364,10 +383,14 @@ var _ = Describe("ServicePlan", func() {
 
 		JustBeforeEach(func() {
 			req, err := http.NewRequestWithContext(ctx, "DELETE", "/v3/service_plans/plan-guid", nil)
-			Expect(err).NotTo(HaveOccurred())
+    
 
-			routerBuilder.Build().ServeHTTP(rr, req)
-		})
+		When("deleting the visibility fails with an error", func() {
+			BeforeEach(func() {
+				servicePlanRepo.DeletePlanVisibilityReturns(errors.New("visibility-err"))
+			})
+
+			It("returns an error", func() {
 
 		It("deletes the service plan", func() {
 			Expect(servicePlanRepo.DeletePlanCallCount()).To(Equal(1))
@@ -396,6 +419,7 @@ var _ = Describe("ServicePlan", func() {
 			})
 
 			It("returns 500 Internal Server Error", func() {
+
 				expectUnknownError()
 			})
 		})
