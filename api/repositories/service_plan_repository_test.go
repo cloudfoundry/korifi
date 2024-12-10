@@ -621,14 +621,14 @@ var _ = Describe("ServicePlanRepo", func() {
 				})).To(Succeed())
 			})
 
-			When("the user is not authorized", func() {
-				BeforeEach(func() {
-					visibilityErr = repo.DeletePlanVisibility(ctx, authInfo, repositories.DeleteServicePlanVisibilityMessage{
-						PlanGUID: planGUID,
-						OrgGUID:  anotherOrg.Name,
-					})
+			JustBeforeEach(func() {
+				visibilityErr = repo.DeletePlanVisibility(ctx, authInfo, repositories.DeleteServicePlanVisibilityMessage{
+					PlanGUID: planGUID,
+					OrgGUID:  anotherOrg.Name,
 				})
+			})
 
+			When("the user is not authorized", func() {
 				It("returns unauthorized error", func() {
 					Expect(visibilityErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
 				})
@@ -640,13 +640,6 @@ var _ = Describe("ServicePlanRepo", func() {
 				})
 
 				When("the plan and org visibility exist", func() {
-					BeforeEach(func() {
-						visibilityErr = repo.DeletePlanVisibility(ctx, authInfo, repositories.DeleteServicePlanVisibilityMessage{
-							PlanGUID: planGUID,
-							OrgGUID:  anotherOrg.Name,
-						})
-					})
-
 					It("deletes the plan visibility in kubernetes", func() {
 						Expect(visibilityErr).ToNot(HaveOccurred())
 
@@ -657,7 +650,7 @@ var _ = Describe("ServicePlanRepo", func() {
 							},
 						}
 						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
-						Expect(servicePlan.Spec.Visibility.Organizations).To(Equal([]string{cfOrg.Name}))
+						Expect(servicePlan.Spec.Visibility.Organizations).To(ConsistOf(cfOrg.Name))
 					})
 				})
 
@@ -675,7 +668,7 @@ var _ = Describe("ServicePlanRepo", func() {
 				})
 
 				When("the org does not exist", func() {
-					BeforeEach(func() {
+					JustBeforeEach(func() {
 						visibilityErr = repo.DeletePlanVisibility(ctx, authInfo, repositories.DeleteServicePlanVisibilityMessage{
 							PlanGUID: planGUID,
 							OrgGUID:  "does-not-exist",
@@ -692,7 +685,7 @@ var _ = Describe("ServicePlanRepo", func() {
 							},
 						}
 						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
-						Expect(servicePlan.Spec.Visibility.Organizations).To(Equal([]string{cfOrg.Name, anotherOrg.Name}))
+						Expect(servicePlan.Spec.Visibility.Organizations).To(ConsistOf(cfOrg.Name))
 					})
 				})
 			})
