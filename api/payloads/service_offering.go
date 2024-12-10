@@ -95,3 +95,27 @@ func (l *ServiceOfferingList) DecodeFromURLValues(values url.Values) error {
 	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseFields(values)...)
 	return nil
 }
+
+type ServiceOfferingDelete struct {
+	Purge bool
+}
+
+func (d *ServiceOfferingDelete) SupportedKeys() []string {
+	return []string{"purge"}
+}
+
+func (d *ServiceOfferingDelete) DecodeFromURLValues(values url.Values) error {
+	var err error
+	if d.Purge, err = getBool(values, "purge"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *ServiceOfferingDelete) ToMessage(guid string) repositories.DeleteServiceOfferingMessage {
+	return repositories.DeleteServiceOfferingMessage{
+		GUID:  guid,
+		Purge: d.Purge,
+	}
+}

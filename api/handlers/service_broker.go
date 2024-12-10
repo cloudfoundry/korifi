@@ -80,6 +80,19 @@ func (h *ServiceBroker) list(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceBroker, brokers, h.serverURL, *r.URL)), nil
 }
 
+func (h *ServiceBroker) get(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-broker.list")
+
+	guid := routing.URLParam(r, "guid")
+	broker, err := h.serviceBrokerRepo.GetServiceBroker(r.Context(), authInfo, guid)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service broker")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceBroker(broker, h.serverURL)), nil
+}
+
 func (h *ServiceBroker) delete(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-broker.delete")
@@ -136,6 +149,7 @@ func (h *ServiceBroker) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "POST", Pattern: ServiceBrokersPath, Handler: h.create},
 		{Method: "GET", Pattern: ServiceBrokersPath, Handler: h.list},
+		{Method: "GET", Pattern: ServiceBrokerPath, Handler: h.get},
 		{Method: "DELETE", Pattern: ServiceBrokerPath, Handler: h.delete},
 		{Method: "PATCH", Pattern: ServiceBrokerPath, Handler: h.update},
 	}

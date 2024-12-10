@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -351,6 +352,7 @@ var _ = Describe("ServicePlan", func() {
 		})
 	})
 
+
 	Describe("DELETE /v3/service_plans/{guid}/visibility/{org-guid}", func() {
 		JustBeforeEach(func() {
 			req, err := http.NewRequestWithContext(ctx, "DELETE", "/v3/service_plans/my-service-plan/visibility/org-guid", nil)
@@ -358,8 +360,8 @@ var _ = Describe("ServicePlan", func() {
 
 			routerBuilder.Build().ServeHTTP(rr, req)
 		})
-
-		It("deletes the service plan visibility", func() {
+    
+    It("deletes the service plan visibility", func() {
 			Expect(servicePlanRepo.DeletePlanVisibilityCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualMessage := servicePlanRepo.DeletePlanVisibilityArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
@@ -368,12 +370,56 @@ var _ = Describe("ServicePlan", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
 		})
 
+
+	Describe("DELETE /v3/service_plans/:guid", func() {
+		BeforeEach(func() {
+			servicePlanRepo.GetPlanReturns(repositories.ServicePlanRecord{
+				CFResource: model.CFResource{
+					GUID: "plan-guid",
+				},
+				ServiceOfferingGUID: "service-offering-guid",
+			}, nil)
+		})
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "DELETE", "/v3/service_plans/plan-guid", nil)
+    
+
 		When("deleting the visibility fails with an error", func() {
 			BeforeEach(func() {
 				servicePlanRepo.DeletePlanVisibilityReturns(errors.New("visibility-err"))
 			})
 
 			It("returns an error", func() {
+
+		It("deletes the service plan", func() {
+			Expect(servicePlanRepo.DeletePlanCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualPlanGUID := servicePlanRepo.DeletePlanArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualPlanGUID).To(Equal("plan-guid"))
+
+			Expect(rr).Should(HaveHTTPStatus(http.StatusNoContent))
+		})
+
+		When("deleting the service plan fails with not found", func() {
+			BeforeEach(func() {
+				servicePlanRepo.DeletePlanReturns(
+					apierrors.NewNotFoundError(errors.New("not found"), repositories.ServicePlanResourceType),
+				)
+			})
+
+			It("returns 404 Not Found", func() {
+				expectNotFoundError("Service Plan")
+			})
+		})
+
+		When("deleting the service plan fails", func() {
+			BeforeEach(func() {
+				servicePlanRepo.DeletePlanReturns(errors.New("boom"))
+			})
+
+			It("returns 500 Internal Server Error", func() {
+
 				expectUnknownError()
 			})
 		})

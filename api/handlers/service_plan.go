@@ -29,6 +29,7 @@ type CFServicePlanRepository interface {
 	ApplyPlanVisibility(context.Context, authorization.Info, repositories.ApplyServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
 	UpdatePlanVisibility(context.Context, authorization.Info, repositories.UpdateServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
 	DeletePlanVisibility(context.Context, authorization.Info, repositories.DeleteServicePlanVisibilityMessage) error
+	DeletePlan(context.Context, authorization.Info, string) error
 }
 
 type ServicePlan struct {
@@ -145,6 +146,14 @@ func (h *ServicePlan) deletePlanVisibility(r *http.Request) (*routing.Response, 
 		OrgGUID:  orgGUID,
 	}); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to delete org: %s for plan visibility", orgGUID)
+
+func (h *ServicePlan) delete(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.delete")
+
+	planGUID := routing.URLParam(r, "guid")
+	if err := h.servicePlanRepo.DeletePlan(r.Context(), authInfo, planGUID); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to delete plan: %s", planGUID)
 	}
 
 	return routing.NewResponse(http.StatusNoContent), nil
@@ -161,5 +170,6 @@ func (h *ServicePlan) AuthenticatedRoutes() []routing.Route {
 		{Method: "POST", Pattern: ServicePlanVisibilityPath, Handler: h.applyPlanVisibility},
 		{Method: "PATCH", Pattern: ServicePlanVisibilityPath, Handler: h.updatePlanVisibility},
 		{Method: "DELETE", Pattern: ServicePlanVisibilityOrgPath, Handler: h.deletePlanVisibility},
+    {Method: "DELETE", Pattern: ServicePlanPath, Handler: h.delete},
 	}
 }
