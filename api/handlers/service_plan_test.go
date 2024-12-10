@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -353,10 +352,6 @@ var _ = Describe("ServicePlan", func() {
 	})
 
 	Describe("DELETE /v3/service_plans/{guid}/visibility/{org-guid}", func() {
-		BeforeEach(func() {
-			servicePlanRepo.DeletePlanVisibilityReturns(nil)
-		})
-
 		JustBeforeEach(func() {
 			req, err := http.NewRequestWithContext(ctx, "DELETE", "/v3/service_plans/my-service-plan/visibility/org-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -371,16 +366,6 @@ var _ = Describe("ServicePlan", func() {
 			Expect(actualMessage.PlanGUID).To(Equal("my-service-plan"))
 			Expect(actualMessage.OrgGUID).To(Equal("org-guid"))
 			Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
-		})
-
-		When("deleting the visibility fails with not found", func() {
-			BeforeEach(func() {
-				servicePlanRepo.DeletePlanVisibilityReturns(apierrors.NewNotFoundError(nil, repositories.ServicePlanVisibilityResourceType))
-			})
-
-			It("returns 404 Not Found", func() {
-				expectNotFoundError("Service Plan Visibility")
-			})
 		})
 
 		When("deleting the visibility fails with an error", func() {

@@ -19,7 +19,7 @@ import (
 const (
 	ServicePlansPath             = "/v3/service_plans"
 	ServicePlanVisibilityPath    = "/v3/service_plans/{guid}/visibility"
-	ServicePlanVisibilityOrgPath = ServicePlanVisibilityPath + "/{org-guid}"
+	ServicePlanVisibilityOrgPath = "/v3/service_plans/{guid}/visibility/{org-guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServicePlanRepository . CFServicePlanRepository
