@@ -193,7 +193,7 @@ function deploy_korifi() {
       --set=defaultAppDomainName="apps-127-0-0-1.nip.io" \
       --set=generateIngressCertificates="true" \
       --set=logLevel="debug" \
-      --set=debug="$DEBUG" \
+      --set=debug=$([ "$DEBUG" = "true" ] && echo true || echo false) \
       --set=stagingRequirements.buildCacheMB="1024" \
       --set=api.apiServer.url="localhost" \
       --set=controllers.taskTTL="5s" \
