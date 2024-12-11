@@ -558,6 +558,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Expect(serviceBinding.Spec.Service.Kind).To(Equal("CFServiceInstance"))
 					Expect(serviceBinding.Spec.Service.Name).To(Equal(cfServiceInstance.Name))
 					Expect(serviceBinding.Spec.Service.APIVersion).To(Equal(korifiv1alpha1.SchemeGroupVersion.Identifier()))
+
 				})
 			})
 		})
