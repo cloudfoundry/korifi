@@ -169,6 +169,16 @@ var _ = Describe("CFServiceInstance", func() {
 						g.Expect(instance.Status.CredentialsObservedVersion).NotTo(Equal(secretVersion))
 					}).Should(Succeed())
 				})
+
+				It("sets the instance last operation update type", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+						g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+							Type:  "update",
+							State: "succeeded",
+						}))
+					}).Should(Succeed())
+				})
 			})
 
 			When("the credentials secret gets deleted", func() {
@@ -192,24 +202,6 @@ var _ = Describe("CFServiceInstance", func() {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 						g.Expect(instance.Status.Credentials.Name).To(Equal(credentialsSecret.Name))
 						g.Expect(instance.Status.CredentialsObservedVersion).To(Equal(lastObservedVersion))
-					}).Should(Succeed())
-				})
-			})
-
-			When("credentials observed version is not equal to the secret version", func() {
-				BeforeEach(func() {
-					Expect(k8s.Patch(ctx, adminClient, instance, func() {
-						instance.Status.CredentialsObservedVersion = "invalid-version"
-					})).To(Succeed())
-				})
-
-				It("sets the instance last operation update type", func() {
-					Eventually(func(g Gomega) {
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-						g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
-							Type:  "update",
-							State: "succeeded",
-						}))
 					}).Should(Succeed())
 				})
 			})
