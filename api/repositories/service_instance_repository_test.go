@@ -1018,20 +1018,32 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("GetServiceInstanceCredentials", func() {
 		var (
-			secretName string
-			secretData map[string][]byte
-			credential map[string]any
-			secret     *corev1.Secret
-			// serviceInstance *korifiv1alpha1.CFServiceInstance
-			getErr    error
-			decodeErr error
+			instanceGUID string
+			secretName   string
+			credential   map[string]any
+			secret       *corev1.Secret
+			getErr       error
 		)
 
 		BeforeEach(func() {
+			instanceGUID = prefixedGUID("service-instance")
 			secretName = prefixedGUID("secret")
 
-			_ = createServiceInstanceCR(ctx, k8sClient, secretName, space.Name, "the-service-instance", secretName)
-			secretData, decodeErr = tools.ToCredentialsSecretData(map[string]any{"foo": "bar"})
+			serviceInstance := &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instanceGUID,
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					SecretName: secretName,
+					Type:       "user-provided",
+					Tags:       []string{"database", "mysql"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceInstance)).To(Succeed())
+
+			secretData, decodeErr := tools.ToCredentialsSecretData(map[string]any{"foo": "bar"})
+			Expect(decodeErr).ToNot(HaveOccurred())
 
 			secret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1044,7 +1056,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			credential, getErr = serviceInstanceRepo.GetServiceInstanceCredentials(ctx, authInfo, secretName)
+			credential, getErr = serviceInstanceRepo.GetServiceInstanceCredentials(ctx, authInfo, instanceGUID)
 		})
 
 		When("there are not permissions on the secret", func() {
@@ -1060,30 +1072,17 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			It("returns the correct secret", func() {
 				Expect(getErr).ToNot(HaveOccurred())
-				Expect(decodeErr).ToNot(HaveOccurred())
 				Expect(credential).To(HaveKeyWithValue("foo", "bar"))
 			})
 
-			When("the secret does not exist", func() {
+			When("the service instance does not exist", func() {
 				BeforeEach(func() {
-					secretName = "does-not-exist"
+					instanceGUID = "does-not-exist"
 				})
 
 				It("returns a 404 error", func() {
 					Expect(errors.As(getErr, &apierrors.NotFoundError{})).To(BeTrue())
 				})
-			})
-		})
-
-		When("the context has expired", func() {
-			BeforeEach(func() {
-				var cancel context.CancelFunc
-				ctx, cancel = context.WithCancel(ctx)
-				cancel()
-			})
-
-			It("returns a error", func() {
-				Expect(getErr).To(HaveOccurred())
 			})
 		})
 	})

@@ -19,7 +19,7 @@ func ToCredentialsSecretData(credentials any) (map[string][]byte, error) {
 	}, nil
 }
 
-func ToDecodedSecretDataCredentials(data map[string][]byte) (map[string]any, error) {
+func FromCredentialsSecretData(data map[string][]byte) (map[string]any, error) {
 	var credentials map[string]any
 	err := json.Unmarshal(data[CredentialsSecretKey], &credentials)
 	if err != nil {

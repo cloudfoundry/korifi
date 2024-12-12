@@ -152,7 +152,7 @@ func (g *ServiceInstanceGet) SupportedKeys() []string {
 }
 
 func (g *ServiceInstanceGet) DecodeFromURLValues(values url.Values) error {
-	g.IncludeResourceRules = append(g.IncludeResourceRules, params.ParseFields(values)...)
+	g.IncludeResourceRules = params.ParseFields(values)
 
 	return nil
 }

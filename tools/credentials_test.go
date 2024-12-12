@@ -16,10 +16,8 @@ type credsType struct {
 
 var _ = Describe("Credentials", func() {
 	var (
-		credsObject        any
-		secretData         map[string][]byte
-		decodedCredentials map[string]any
-		err                error
+		credsObject any
+		err         error
 	)
 
 	BeforeEach(func() {
@@ -29,11 +27,15 @@ var _ = Describe("Credentials", func() {
 				InBar: "in-bar",
 			},
 		}
-
-		secretData, err = tools.ToCredentialsSecretData(credsObject)
 	})
 
-	When("ToCredentialsSecretData", func() {
+	Describe("ToCredentialsSecretData", func() {
+		var secretData map[string][]byte
+
+		BeforeEach(func() {
+			secretData, err = tools.ToCredentialsSecretData(credsObject)
+		})
+
 		It("successfully creates credentials secret data", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secretData).To(MatchAllKeys(Keys{
@@ -47,14 +49,22 @@ var _ = Describe("Credentials", func() {
 		})
 	})
 
-	When("ToDecodedSecretDataCredentials", func() {
+	Describe("FromCredentialsSecretData", func() {
+		var (
+			decodedCredentials map[string]any
+			secretData         map[string][]byte
+		)
 		BeforeEach(func() {
-			decodedCredentials, err = tools.ToDecodedSecretDataCredentials(secretData)
+			secretData, err = tools.ToCredentialsSecretData(credsObject)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			decodedCredentials, err = tools.FromCredentialsSecretData(secretData)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("successfully decodes credentials from secret data", func() {
-			Expect(err).NotTo(HaveOccurred())
 			Expect(decodedCredentials).To(HaveKeyWithValue("Foo", "foo"))
 			Expect(decodedCredentials).To(HaveKey("Bar"))
 			Expect(decodedCredentials["Bar"]).To(HaveKeyWithValue("InBar", "in-bar"))

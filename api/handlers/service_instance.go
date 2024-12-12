@@ -23,7 +23,7 @@ import (
 const (
 	ServiceInstancesPath           = "/v3/service_instances"
 	ServiceInstancePath            = "/v3/service_instances/{guid}"
-	ServiceInstanceCredentialsPath = ServiceInstancePath + "/credentials"
+	ServiceInstanceCredentialsPath = "/v3/service_instances/{guid}/credentials"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
@@ -97,10 +97,14 @@ func (h *ServiceInstance) getCredentials(r *http.Request) (*routing.Response, er
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceInstanceGUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to get service instance")
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance", "GUID", serviceInstanceGUID)
 	}
 
-	credentials, err := h.serviceInstanceRepo.GetServiceInstanceCredentials(r.Context(), authInfo, serviceInstance.SecretName)
+	if serviceInstance.Type != korifiv1alpha1.UserProvidedType {
+		return nil, apierrors.NewNotFoundError(nil, repositories.ServiceInstanceResourceType)
+	}
+
+	credentials, err := h.serviceInstanceRepo.GetServiceInstanceCredentials(r.Context(), authInfo, serviceInstanceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to get service instance credentials")
 	}

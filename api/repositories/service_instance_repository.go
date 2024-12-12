@@ -457,20 +457,25 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 	return cfServiceInstanceToRecord(*serviceInstance), nil
 }
 
-func (r *ServiceInstanceRepo) GetServiceInstanceCredentials(ctx context.Context, authInfo authorization.Info, secretName string) (map[string]any, error) {
+func (r *ServiceInstanceRepo) GetServiceInstanceCredentials(ctx context.Context, authInfo authorization.Info, instanceGUID string) (map[string]any, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return map[string]any{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, secretName, ServiceInstanceResourceType)
+	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, instanceGUID, ServiceInstanceResourceType)
 	if err != nil {
 		return map[string]any{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
 	}
 
+	serviceInstance := &korifiv1alpha1.CFServiceInstance{}
+	if err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: instanceGUID}, serviceInstance); err != nil {
+		return map[string]any{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
+	}
+
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
+			Name:      serviceInstance.Spec.SecretName,
 			Namespace: namespace,
 		},
 	}
@@ -479,7 +484,7 @@ func (r *ServiceInstanceRepo) GetServiceInstanceCredentials(ctx context.Context,
 		return map[string]any{}, fmt.Errorf("failed to get credentials secret for service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
-	credentials, err := tools.ToDecodedSecretDataCredentials(credentialsSecret.Data)
+	credentials, err := tools.FromCredentialsSecretData(credentialsSecret.Data)
 	if err != nil {
 		return map[string]any{}, fmt.Errorf("failed to decode credentials secret for service instance: %w", err)
 	}

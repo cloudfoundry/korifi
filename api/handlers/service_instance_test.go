@@ -97,16 +97,13 @@ var _ = Describe("ServiceInstance", func() {
 			)))
 		})
 
-		When("getting the service instance fails with not found", func() {
+		When("getting the service instance fails with an error", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(
-					repositories.ServiceInstanceRecord{},
-					apierrors.NewNotFoundError(nil, repositories.ServiceInstanceResourceType),
-				)
+				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("boom"))
 			})
 
-			It("returns 404 Not Found", func() {
-				expectNotFoundError("Service Instance")
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 
@@ -118,7 +115,7 @@ var _ = Describe("ServiceInstance", func() {
 				)
 			})
 
-			It("returns 404 Not Found", func() {
+			It("returns an not authorized error", func() {
 				expectNotAuthorizedError()
 			})
 		})
@@ -281,21 +278,33 @@ var _ = Describe("ServiceInstance", func() {
 
 		It("gets the service instance credentials", func() {
 			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
-			Expect(serviceInstanceRepo.GetServiceInstanceCredentialsCallCount()).To(Equal(1))
-
 			_, actualAuthInfo, actualServiceInstanceGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualServiceInstanceGUID).To(Equal("service-instance-guid"))
 
-			_, actualAuthInfo, actualSecretName := serviceInstanceRepo.GetServiceInstanceCredentialsArgsForCall(0)
+			Expect(serviceInstanceRepo.GetServiceInstanceCredentialsCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualInstanceGUID := serviceInstanceRepo.GetServiceInstanceCredentialsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualSecretName).To(Equal("secret-name"))
+			Expect(actualInstanceGUID).To(Equal("service-instance-guid"))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.foo", "bar"),
 			)))
+		})
+
+		When("the service instance is not user-provided", func() {
+			BeforeEach(func() {
+				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+					GUID: "service-instance-guid",
+					Type: korifiv1alpha1.ManagedType,
+				}, nil)
+			})
+
+			It("returns a 404 Not Found error", func() {
+				expectNotFoundError("Service Instance")
+			})
 		})
 
 		When("the service instance does not have credentials", func() {
@@ -309,9 +318,9 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("returns 404 Not Found", func() {
-				_, actualAuthInfo, actualSecretName := serviceInstanceRepo.GetServiceInstanceCredentialsArgsForCall(0)
+				_, actualAuthInfo, actualInstanceGUID := serviceInstanceRepo.GetServiceInstanceCredentialsArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
-				Expect(actualSecretName).To(Equal(""))
+				Expect(actualInstanceGUID).To(Equal("service-instance-guid"))
 				expectNotFoundError("Service Instance")
 			})
 		})
@@ -338,7 +347,7 @@ var _ = Describe("ServiceInstance", func() {
 			})
 
 			It("returns 404 Not Found", func() {
-				expectNotAuthorizedError()
+				expectNotFoundError("Service Instance")
 			})
 		})
 
