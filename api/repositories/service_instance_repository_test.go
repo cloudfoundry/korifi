@@ -1084,6 +1084,17 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Expect(errors.As(getErr, &apierrors.NotFoundError{})).To(BeTrue())
 				})
 			})
+
+			When("the secret data is invalid json", func() {
+				BeforeEach(func() {
+					secret.Data = map[string][]byte{tools.CredentialsSecretKey: []byte("not-json")}
+					Expect(k8sClient.Update(ctx, secret)).To(Succeed())
+				})
+
+				It("returns a unprocessiable entity error", func() {
+					Expect(errors.As(getErr, &apierrors.UnprocessableEntityError{})).To(BeTrue())
+				})
+			})
 		})
 	})
 

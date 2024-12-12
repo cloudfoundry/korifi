@@ -78,7 +78,7 @@ func (h *ServiceInstance) get(r *http.Request) (*routing.Response, error) {
 
 	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceInstanceGUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to get service instance")
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance", "GUID", serviceInstanceGUID)
 	}
 
 	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, []repositories.ServiceInstanceRecord{serviceInstance}, payload.IncludeResourceRules)

@@ -485,7 +485,7 @@ func (r *ServiceInstanceRepo) GetServiceInstanceCredentials(ctx context.Context,
 
 	credentials, err := tools.FromCredentialsSecretData(credentialsSecret.Data)
 	if err != nil {
-		return map[string]any{}, fmt.Errorf("failed to decode credentials secret for service instance: %w", err)
+		return map[string]any{}, apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("failed to decode credentials secret for service instance: %s", instanceGUID))
 	}
 
 	return credentials, nil
