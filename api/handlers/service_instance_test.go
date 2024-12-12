@@ -264,9 +264,8 @@ var _ = Describe("ServiceInstance", func() {
 	Describe("GET /v3/service_instances/:guid/credentials", func() {
 		BeforeEach(func() {
 			serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
-				GUID:       "service-instance-guid",
-				Type:       korifiv1alpha1.UserProvidedType,
-				SecretName: "secret-name",
+				GUID: "service-instance-guid",
+				Type: korifiv1alpha1.UserProvidedType,
 			}, nil)
 
 			serviceInstanceRepo.GetServiceInstanceCredentialsReturns(map[string]any{

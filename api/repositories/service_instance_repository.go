@@ -174,7 +174,6 @@ type ServiceInstanceRecord struct {
 	GUID          string
 	SpaceGUID     string
 	PlanGUID      string
-	SecretName    string
 	Tags          []string
 	Type          string
 	Labels        map[string]string
@@ -586,7 +585,6 @@ func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstanc
 		GUID:          cfServiceInstance.Name,
 		SpaceGUID:     cfServiceInstance.Namespace,
 		PlanGUID:      cfServiceInstance.Spec.PlanGUID,
-		SecretName:    cfServiceInstance.Spec.SecretName,
 		Tags:          cfServiceInstance.Spec.Tags,
 		Type:          string(cfServiceInstance.Spec.Type),
 		Labels:        cfServiceInstance.Labels,
