@@ -245,24 +245,35 @@ func (m *ListAppsMessage) matchesNamespace(ns string) bool {
 
 func (m *ListAppsMessage) matches(cfApp korifiv1alpha1.CFApp) bool {
 	return tools.EmptyOrContains(m.Names, cfApp.Spec.DisplayName) &&
-		tools.EmptyOrContains(m.Guids, cfApp.Name)
+		tools.EmptyOrContains(m.Guids, cfApp.Name) &&
+		tools.EmptyOrContains(m.SpaceGUIDs, cfApp.Namespace)
 }
 
 func (m *ListAppsMessage) ToLabelSelector(namespaces ...string) (labels.Selector, error) {
+	selector := labels.NewSelector()
+
 	userSelector, err := labels.Parse(m.LabelSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse user label selector: %q: %w", m.LabelSelector, err)
 	}
 	userRequirements, _ := userSelector.Requirements()
+	selector = selector.Add(userRequirements...)
 
-	namespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFAppSpaceGUIDLabelKey, selection.In, namespaces)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create space requirements: %w", err)
+	if len(namespaces) > 0 {
+		namespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFAppSpaceGUIDLabelKey, selection.In, namespaces)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create space requirements: %w", err)
+		}
+		selector = selector.Add(*namespaceRequirements)
 	}
 
-	selector := labels.NewSelector()
-	selector = selector.Add(*namespaceRequirements)
-	selector = selector.Add(userRequirements...)
+	if len(m.SpaceGUIDs) > 0 {
+		userNamespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFAppSpaceGUIDLabelKey, selection.In, m.SpaceGUIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create space requirements: %w", err)
+		}
+		selector = selector.Add(*userNamespaceRequirements)
+	}
 
 	return selector, nil
 }
@@ -378,7 +389,7 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 
 	labelSelector, err := message.ToLabelSelector(slices.Collect(maps.Keys(authorisedNamespaces))...)
 	if err != nil {
-		return []AppRecord{}, err
+		return []AppRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector: "+err.Error())
 	}
 
 	appsList := &korifiv1alpha1.CFAppList{}
@@ -387,9 +398,7 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		return []AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
-	apps := itx.FromSlice(appsList.Items).Filter(message.matches)
-	appRecords := it.Map(apps, cfAppToAppRecord)
-
+	appRecords := it.Map(itx.FromSlice(appsList.Items).Filter(message.matches), cfAppToAppRecord)
 	return f.sorter.Sort(slices.Collect(appRecords), message.OrderBy), nil
 }
 

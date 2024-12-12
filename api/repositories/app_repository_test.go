@@ -195,7 +195,7 @@ var _ = Describe("AppRepository", func() {
 		})
 	})
 
-	FDescribe("ListApps", func() {
+	Describe("ListApps", func() {
 		var (
 			message repositories.ListAppsMessage
 			appList []repositories.AppRecord
