@@ -644,11 +644,17 @@ func getAppEnv(ctx context.Context, userClient client.Client, app AppRecord) (ma
 }
 
 func (m *CreateAppMessage) toCFApp() korifiv1alpha1.CFApp {
+	effectiveLabels := m.Labels
+	if effectiveLabels == nil {
+		effectiveLabels = map[string]string{}
+	}
+	effectiveLabels[korifiv1alpha1.CFAppSpaceGUIDLabelKey] = m.SpaceGUID
+
 	return korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        uuid.NewString(),
 			Namespace:   m.SpaceGUID,
-			Labels:      m.Labels,
+			Labels:      effectiveLabels,
 			Annotations: m.Annotations,
 		},
 		Spec: korifiv1alpha1.CFAppSpec{
