@@ -11,6 +11,12 @@ createCert() {
   trap "rm -f $csr_file" EXIT
   csr_name="$(echo ${RANDOM} | shasum | head -c 40)"
 
+  # Check if openssl is available
+  if ! command -v openssl &>/dev/null; then
+    echo "Error: 'openssl' is not installed or not available in PATH." >&2
+    exit 1
+  fi
+  
   openssl req -new -newkey rsa:4096 \
     -keyout "${priv_key_file}" \
     -out "${csr_file}" \
