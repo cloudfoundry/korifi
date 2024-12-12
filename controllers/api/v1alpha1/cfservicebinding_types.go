@@ -28,6 +28,9 @@ const (
 
 	UnbindingFailedCondition = "UnbindingFailed"
 
+	CFServiceBindingTypeKey = "key"
+	CFServiceBindingTypeApp = "app"
+
 	ServiceInstanceTypeAnnotationKey = "korifi.cloudfoundry.org/service-instance-type"
 	PlanGUIDLabelKey                 = "korifi.cloudfoundry.org/plan-guid"
 
@@ -50,6 +53,10 @@ type CFServiceBindingSpec struct {
 	// A reference to the secret that contains the service binding parameters.
 	// Only makes sense for bindings to managed service instances
 	Parameters v1.LocalObjectReference `json:"parameters"`
+
+	// The type of the binding. There are two possible values - "key" or "app"
+	// +kubebuilder:validation:Enum=app;key
+	Type string `json:"type"`
 }
 
 // CFServiceBindingStatus defines the observed state of CFServiceBinding

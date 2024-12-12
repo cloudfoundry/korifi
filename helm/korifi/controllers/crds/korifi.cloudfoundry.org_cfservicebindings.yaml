@@ -125,10 +125,18 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              type:
+                description: The type of the binding. There are two possible values
+                  - "key" or "app"
+                enum:
+                - app
+                - key
+                type: string
             required:
             - appRef
             - parameters
             - service
+            - type
             type: object
           status:
             description: CFServiceBindingStatus defines the observed state of CFServiceBinding

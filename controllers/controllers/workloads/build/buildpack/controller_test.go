@@ -226,6 +226,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 					AppRef: corev1.LocalObjectReference{
 						Name: cfApp.Name,
 					},
+					Type: korifiv1alpha1.CFServiceBindingTypeApp,
 				},
 			}
 			Expect(adminClient.Create(ctx, serviceBinding)).To(Succeed())
