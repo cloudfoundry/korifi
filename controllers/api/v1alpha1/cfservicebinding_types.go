@@ -28,6 +28,9 @@ const (
 
 	UnbindingFailedCondition = "UnbindingFailed"
 
+	CFServiceBindingTypeKey = "key"
+	CFServiceBindingTypeApp = "app"
+
 	ServiceInstanceTypeAnnotationKey = "korifi.cloudfoundry.org/service-instance-type"
 	PlanGUIDLabelKey                 = "korifi.cloudfoundry.org/plan-guid"
 
@@ -46,6 +49,10 @@ type CFServiceBindingSpec struct {
 
 	// A reference to the CFApp that owns this service binding. The CFApp must be in the same namespace
 	AppRef v1.LocalObjectReference `json:"appRef"`
+
+	// The type of the binding. There are two possible values - "key" or "app"
+	// +kubebuilder:validation:Enum=app;key
+	Type string `json:"type"`
 }
 
 // CFServiceBindingStatus defines the observed state of CFServiceBinding
