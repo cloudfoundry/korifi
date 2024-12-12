@@ -71,6 +71,21 @@ type CFServiceInstanceRepository struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}
+	GetServiceInstanceCredentialsStub        func(context.Context, authorization.Info, string) (map[string]any, error)
+	getServiceInstanceCredentialsMutex       sync.RWMutex
+	getServiceInstanceCredentialsArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	getServiceInstanceCredentialsReturns struct {
+		result1 map[string]any
+		result2 error
+	}
+	getServiceInstanceCredentialsReturnsOnCall map[int]struct {
+		result1 map[string]any
+		result2 error
+	}
 	ListServiceInstancesStub        func(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
 	listServiceInstancesMutex       sync.RWMutex
 	listServiceInstancesArgsForCall []struct {
@@ -369,6 +384,72 @@ func (fake *CFServiceInstanceRepository) GetServiceInstanceReturnsOnCall(i int, 
 	}{result1, result2}
 }
 
+func (fake *CFServiceInstanceRepository) GetServiceInstanceCredentials(arg1 context.Context, arg2 authorization.Info, arg3 string) (map[string]any, error) {
+	fake.getServiceInstanceCredentialsMutex.Lock()
+	ret, specificReturn := fake.getServiceInstanceCredentialsReturnsOnCall[len(fake.getServiceInstanceCredentialsArgsForCall)]
+	fake.getServiceInstanceCredentialsArgsForCall = append(fake.getServiceInstanceCredentialsArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetServiceInstanceCredentialsStub
+	fakeReturns := fake.getServiceInstanceCredentialsReturns
+	fake.recordInvocation("GetServiceInstanceCredentials", []interface{}{arg1, arg2, arg3})
+	fake.getServiceInstanceCredentialsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFServiceInstanceRepository) GetServiceInstanceCredentialsCallCount() int {
+	fake.getServiceInstanceCredentialsMutex.RLock()
+	defer fake.getServiceInstanceCredentialsMutex.RUnlock()
+	return len(fake.getServiceInstanceCredentialsArgsForCall)
+}
+
+func (fake *CFServiceInstanceRepository) GetServiceInstanceCredentialsCalls(stub func(context.Context, authorization.Info, string) (map[string]any, error)) {
+	fake.getServiceInstanceCredentialsMutex.Lock()
+	defer fake.getServiceInstanceCredentialsMutex.Unlock()
+	fake.GetServiceInstanceCredentialsStub = stub
+}
+
+func (fake *CFServiceInstanceRepository) GetServiceInstanceCredentialsArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.getServiceInstanceCredentialsMutex.RLock()
+	defer fake.getServiceInstanceCredentialsMutex.RUnlock()
+	argsForCall := fake.getServiceInstanceCredentialsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServiceInstanceRepository) GetServiceInstanceCredentialsReturns(result1 map[string]any, result2 error) {
+	fake.getServiceInstanceCredentialsMutex.Lock()
+	defer fake.getServiceInstanceCredentialsMutex.Unlock()
+	fake.GetServiceInstanceCredentialsStub = nil
+	fake.getServiceInstanceCredentialsReturns = struct {
+		result1 map[string]any
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServiceInstanceRepository) GetServiceInstanceCredentialsReturnsOnCall(i int, result1 map[string]any, result2 error) {
+	fake.getServiceInstanceCredentialsMutex.Lock()
+	defer fake.getServiceInstanceCredentialsMutex.Unlock()
+	fake.GetServiceInstanceCredentialsStub = nil
+	if fake.getServiceInstanceCredentialsReturnsOnCall == nil {
+		fake.getServiceInstanceCredentialsReturnsOnCall = make(map[int]struct {
+			result1 map[string]any
+			result2 error
+		})
+	}
+	fake.getServiceInstanceCredentialsReturnsOnCall[i] = struct {
+		result1 map[string]any
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFServiceInstanceRepository) ListServiceInstances(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error) {
 	fake.listServiceInstancesMutex.Lock()
 	ret, specificReturn := fake.listServiceInstancesReturnsOnCall[len(fake.listServiceInstancesArgsForCall)]
@@ -512,6 +593,8 @@ func (fake *CFServiceInstanceRepository) Invocations() map[string][][]interface{
 	defer fake.deleteServiceInstanceMutex.RUnlock()
 	fake.getServiceInstanceMutex.RLock()
 	defer fake.getServiceInstanceMutex.RUnlock()
+	fake.getServiceInstanceCredentialsMutex.RLock()
+	defer fake.getServiceInstanceCredentialsMutex.RUnlock()
 	fake.listServiceInstancesMutex.RLock()
 	defer fake.listServiceInstancesMutex.RUnlock()
 	fake.patchServiceInstanceMutex.RLock()
