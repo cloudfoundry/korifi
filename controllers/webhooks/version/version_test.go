@@ -145,6 +145,9 @@ var _ = Describe("Setting the version annotation", func() {
 						Namespace: orgNamespace,
 						Name:      uuid.NewString(),
 					},
+					Spec: korifiv1alpha1.CFServiceBindingSpec{
+						Type: korifiv1alpha1.CFServiceBindingTypeApp,
+					},
 				}),
 				createObject(&korifiv1alpha1.TaskWorkload{
 					ObjectMeta: metav1.ObjectMeta{

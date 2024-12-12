@@ -38,9 +38,8 @@ import (
 )
 
 const (
-	ServiceBindingGUIDLabel           = "korifi.cloudfoundry.org/service-binding-guid"
-	ServiceCredentialBindingTypeLabel = "korifi.cloudfoundry.org/service-credential-binding-type"
-	ServiceBindingSecretTypePrefix    = "servicebinding.io/"
+	ServiceBindingGUIDLabel        = "korifi.cloudfoundry.org/service-binding-guid"
+	ServiceBindingSecretTypePrefix = "servicebinding.io/"
 )
 
 type DelegateReconciler interface {

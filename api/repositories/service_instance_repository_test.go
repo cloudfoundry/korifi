@@ -1204,6 +1204,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					AppRef: corev1.LocalObjectReference{
 						Name: "some-app-guid",
 					},
+					Type: korifiv1alpha1.CFServiceBindingTypeApp,
 				},
 			}
 			Expect(k8sClient.Create(ctx, serviceBinding)).To(Succeed())
