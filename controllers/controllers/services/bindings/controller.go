@@ -40,9 +40,8 @@ import (
 )
 
 const (
-	ServiceBindingGUIDLabel           = "korifi.cloudfoundry.org/service-binding-guid"
-	ServiceCredentialBindingTypeLabel = "korifi.cloudfoundry.org/service-credential-binding-type"
-	ServiceBindingSecretTypePrefix    = "servicebinding.io/"
+	ServiceBindingGUIDLabel        = "korifi.cloudfoundry.org/service-binding-guid"
+	ServiceBindingSecretTypePrefix = "servicebinding.io/"
 )
 
 type CredentialsReconciler interface {
@@ -145,6 +144,10 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 		return res, err
 	}
 
+	if cfServiceBinding.Spec.Type == korifiv1alpha1.CFServiceBindingTypeKey {
+		return ctrl.Result{}, nil
+	}
+
 	sbServiceBinding, err := r.reconcileSBServiceBinding(ctx, cfServiceBinding)
 	if err != nil {
 		log.Info("error creating/updating servicebinding.io servicebinding", "reason", err)
@@ -235,9 +238,9 @@ func (r *Reconciler) toSBServiceBinding(cfServiceBinding *korifiv1alpha1.CFServi
 			Name:      fmt.Sprintf("cf-binding-%s", cfServiceBinding.Name),
 			Namespace: cfServiceBinding.Namespace,
 			Labels: map[string]string{
-				ServiceBindingGUIDLabel:           cfServiceBinding.Name,
-				korifiv1alpha1.CFAppGUIDLabelKey:  cfServiceBinding.Spec.AppRef.Name,
-				ServiceCredentialBindingTypeLabel: "app",
+				ServiceBindingGUIDLabel:                cfServiceBinding.Name,
+				korifiv1alpha1.CFAppGUIDLabelKey:       cfServiceBinding.Spec.AppRef.Name,
+				korifiv1alpha1.ServiceBindingTypeLabel: cfServiceBinding.Spec.Type,
 			},
 		},
 		Spec: servicebindingv1beta1.ServiceBindingSpec{
