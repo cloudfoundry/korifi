@@ -124,9 +124,7 @@ var _ = Describe("Service Plans", func() {
 		})
 
 		Describe("Delete Visibility", func() {
-			JustBeforeEach(func() {
-				var err error
-
+			BeforeEach(func() {
 				resp, err = adminClient.R().
 					SetBody(planVisibilityResource{
 						Type: "organization",
@@ -139,7 +137,9 @@ var _ = Describe("Service Plans", func() {
 				Expect(resp).To(SatisfyAll(
 					HaveRestyStatusCode(http.StatusOK),
 				))
+			})
 
+			JustBeforeEach(func() {
 				resp, err = adminClient.R().
 					SetResult(&result).
 					Delete(fmt.Sprintf("/v3/service_plans/%s/visibility/%s", planGUID, "org-guid"))
