@@ -7,7 +7,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/tools"
 	jellidation "github.com/jellydator/validation"
 )
 
@@ -91,10 +90,6 @@ func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage
 		AppGUIDs:             parse.ArrayParam(l.AppGUIDs),
 		LabelSelector:        l.LabelSelector,
 		PlanGUIDs:            parse.ArrayParam(l.PlanGUIDs),
-	}
-
-	if l.Type != "" {
-		message.Type = tools.PtrTo(l.Type)
 	}
 
 	return message

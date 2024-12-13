@@ -521,122 +521,94 @@ var _ = Describe("ServiceBindingRepo", func() {
 			serviceBindingRecord, createErr = repo.CreateServiceBinding(ctx, authInfo, createMsg)
 		})
 
-		Describe("type key", func() {
-			BeforeEach(func() {
-				createMsg.Type = korifiv1alpha1.CFServiceBindingTypeKey
-				createMsg.AppGUID = ""
-			})
-
-			When("the user is not allowed to create CFServiceBindings", func() {
-				It("returns a forbidden error", func() {
-					Expect(createErr).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
-				})
-			})
-
-			When("the user is allowed to create CFServiceBindings", func() {
-				BeforeEach(func() {
-					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-				})
-
-				It("creates a new CFServiceBinding resource and returns a record", func() {
-					Expect(createErr).NotTo(HaveOccurred())
-					Expect(serviceBindingRecord.GUID).NotTo(BeEmpty())
-					Expect(serviceBindingRecord.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeKey))
-					Expect(*(serviceBindingRecord.Name)).To(Equal(serviceBindingName))
-					Expect(serviceBindingRecord.AppGUID).To(Equal(""))
-					Expect(serviceBindingRecord.ServiceInstanceGUID).To(Equal(cfServiceInstance.Name))
-					Expect(serviceBindingRecord.SpaceGUID).To(Equal(space.Name))
-					Expect(serviceBindingRecord.CreatedAt).NotTo(BeZero())
-					Expect(serviceBindingRecord.UpdatedAt).NotTo(BeNil())
-					Expect(serviceBindingRecord.Relationships()).To(Equal(map[string]string{
-						"app":              "",
-						"service_instance": cfServiceInstance.Name,
-					}))
-
-					serviceBinding := new(korifiv1alpha1.CFServiceBinding)
-					Expect(
-						k8sClient.Get(ctx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),
-					).To(Succeed())
-					Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
-					Expect(serviceBinding.Spec.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeKey))
-					Expect(*(serviceBinding.Spec.DisplayName)).To(Equal(serviceBindingName))
-					Expect(serviceBinding.Spec.Service.Kind).To(Equal("CFServiceInstance"))
-					Expect(serviceBinding.Spec.Service.Name).To(Equal(cfServiceInstance.Name))
-					Expect(serviceBinding.Spec.Service.APIVersion).To(Equal(korifiv1alpha1.SchemeGroupVersion.Identifier()))
-				})
+		When("the user is not allowed to create CFServiceBindings", func() {
+			It("returns a forbidden error", func() {
+				Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 			})
 		})
 
-		Describe("type app", func() {
+		When("the user is allowed to create CFServiceBindings", func() {
 			BeforeEach(func() {
-				createMsg.Type = korifiv1alpha1.CFServiceBindingTypeApp
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			When("the user is not allowed to create CFServiceBindings", func() {
-				It("returns a forbidden error", func() {
-					Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-				})
+			It("creates a new CFServiceBinding resource and returns a record", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
+				Expect(serviceBindingRecord.GUID).NotTo(BeEmpty())
+				Expect(serviceBindingRecord.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeApp))
+				Expect(*(serviceBindingRecord.Name)).To(Equal(serviceBindingName))
+				Expect(serviceBindingRecord.AppGUID).To(Equal(appGUID))
+				Expect(serviceBindingRecord.ServiceInstanceGUID).To(Equal(cfServiceInstance.Name))
+				Expect(serviceBindingRecord.SpaceGUID).To(Equal(space.Name))
+				Expect(serviceBindingRecord.CreatedAt).NotTo(BeZero())
+				Expect(serviceBindingRecord.UpdatedAt).NotTo(BeNil())
+				Expect(serviceBindingRecord.Relationships()).To(Equal(map[string]string{
+					"app":              appGUID,
+					"service_instance": cfServiceInstance.Name,
+				}))
+
+				serviceBinding := new(korifiv1alpha1.CFServiceBinding)
+				Expect(
+					k8sClient.Get(ctx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),
+				).To(Succeed())
+
+				Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
+				Expect(serviceBinding.Spec.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeApp))
+				Expect(*(serviceBinding.Spec.DisplayName)).To(Equal(serviceBindingName))
+				Expect(serviceBinding.Spec.Service).To(Equal(corev1.ObjectReference{
+					Kind:       "CFServiceInstance",
+					APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
+					Name:       cfServiceInstance.Name,
+				}))
+				Expect(serviceBinding.Spec.AppRef).To(Equal(corev1.LocalObjectReference{
+					Name: appGUID,
+				}))
+			})
+		})
+
+		When("the app does not exist", func() {
+			BeforeEach(func() {
+				appGUID = "i-do-not-exits"
 			})
 
-			When("the user is allowed to create CFServiceBindings", func() {
-				BeforeEach(func() {
-					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-				})
+			It("returns an UnprocessableEntity error", func() {
+				Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
+			})
+		})
 
-				It("creates a new CFServiceBinding resource and returns a record", func() {
-					Expect(createErr).NotTo(HaveOccurred())
-
-					Expect(serviceBindingRecord.GUID).NotTo(BeEmpty())
-					Expect(serviceBindingRecord.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeApp))
-					Expect(*(serviceBindingRecord.Name)).To(Equal(serviceBindingName))
-					Expect(serviceBindingRecord.AppGUID).To(Equal(appGUID))
-					Expect(serviceBindingRecord.ServiceInstanceGUID).To(Equal(cfServiceInstance.Name))
-					Expect(serviceBindingRecord.SpaceGUID).To(Equal(space.Name))
-					Expect(serviceBindingRecord.CreatedAt).NotTo(BeZero())
-					Expect(serviceBindingRecord.UpdatedAt).NotTo(BeNil())
-					Expect(serviceBindingRecord.Relationships()).To(Equal(map[string]string{
-						"app":              appGUID,
-						"service_instance": cfServiceInstance.Name,
-					}))
-
-					serviceBinding := new(korifiv1alpha1.CFServiceBinding)
-					Expect(
-						k8sClient.Get(ctx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),
-					).To(Succeed())
-
-					Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
-					Expect(serviceBinding.Spec.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeApp))
-					Expect(*(serviceBinding.Spec.DisplayName)).To(Equal(serviceBindingName))
-					Expect(serviceBinding.Spec.Service).To(Equal(corev1.ObjectReference{
-						Kind:       "CFServiceInstance",
-						APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
-						Name:       cfServiceInstance.Name,
-					}))
-					Expect(serviceBinding.Spec.AppRef).To(Equal(corev1.LocalObjectReference{
-						Name: appGUID,
-					}))
-				})
+		When("binding type is key", func() {
+			BeforeEach(func() {
+				createMsg.Type = korifiv1alpha1.CFServiceBindingTypeKey
+				createMsg.AppGUID = ""
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			When("the app does not exist", func() {
-				BeforeEach(func() {
-					appGUID = "i-do-not-exits"
-				})
+			It("creates a key binding", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+				Expect(serviceBindingRecord.GUID).NotTo(BeEmpty())
+				Expect(serviceBindingRecord.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeKey))
+				Expect(*(serviceBindingRecord.Name)).To(Equal(serviceBindingName))
+				Expect(serviceBindingRecord.AppGUID).To(Equal(""))
+				Expect(serviceBindingRecord.ServiceInstanceGUID).To(Equal(cfServiceInstance.Name))
+				Expect(serviceBindingRecord.SpaceGUID).To(Equal(space.Name))
+				Expect(serviceBindingRecord.CreatedAt).NotTo(BeZero())
+				Expect(serviceBindingRecord.UpdatedAt).NotTo(BeNil())
+				Expect(serviceBindingRecord.Relationships()).To(Equal(map[string]string{
+					"app":              "",
+					"service_instance": cfServiceInstance.Name,
+				}))
 
-				It("returns an UnprocessableEntity error", func() {
-					Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-				})
-			})
-
-			When("the service binding has a name", func() {
-				BeforeEach(func() {
-					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-					createMsg.Name = &serviceBindingName
-				})
-
-				It("creates the binding with the specified name", func() {
-					Expect(*(serviceBindingRecord.Name)).To(Equal(serviceBindingName))
-				})
+				serviceBinding := new(korifiv1alpha1.CFServiceBinding)
+				Expect(
+					k8sClient.Get(ctx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),
+				).To(Succeed())
+				Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
+				Expect(serviceBinding.Spec.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeKey))
+				Expect(*(serviceBinding.Spec.DisplayName)).To(Equal(serviceBindingName))
+				Expect(serviceBinding.Spec.Service.Kind).To(Equal("CFServiceInstance"))
+				Expect(serviceBinding.Spec.Service.Name).To(Equal(cfServiceInstance.Name))
+				Expect(serviceBinding.Spec.Service.APIVersion).To(Equal(korifiv1alpha1.SchemeGroupVersion.Identifier()))
 			})
 		})
 	})
@@ -881,19 +853,23 @@ var _ = Describe("ServiceBindingRepo", func() {
 			When("filtered by service instance GUID", func() {
 				BeforeEach(func() {
 					requestMessage = repositories.ListServiceBindingsMessage{
-						ServiceInstanceGUIDs: []string{serviceInstance1GUID, serviceInstance2GUID},
+						ServiceInstanceGUIDs: []string{serviceInstance2GUID, serviceInstance3GUID},
 					}
 				})
 
 				It("returns only the ServiceBindings that match the provided service instance guids", func() {
 					Expect(responseServiceBindings).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
-							"GUID":                Equal(serviceBinding1.Name),
-							"ServiceInstanceGUID": Equal(serviceInstance1GUID),
-						}),
-						MatchFields(IgnoreExtras, Fields{
 							"GUID":                Equal(serviceBinding2.Name),
 							"ServiceInstanceGUID": Equal(serviceInstance2GUID),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"GUID":                Equal(serviceBinding3.Name),
+							"ServiceInstanceGUID": Equal(serviceInstance3GUID),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"GUID":                Equal(serviceBinding4.Name),
+							"ServiceInstanceGUID": Equal(serviceInstance3GUID),
 						}),
 					))
 				})
@@ -929,9 +905,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 					})).To(Succeed())
 					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding3, func() {
 						serviceBinding3.Labels = map[string]string{"not_foo": "NOT_FOO"}
-					})).To(Succeed())
-					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding4, func() {
-						serviceBinding4.Labels = map[string]string{"not_foo": "NOT_FOO"}
 					})).To(Succeed())
 				})
 
@@ -997,6 +970,20 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Expect(responseServiceBindings).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(serviceBinding1.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(serviceBinding3.Name)}),
+					))
+				})
+			})
+
+			When("filtered by binding type", func() {
+				BeforeEach(func() {
+					requestMessage = repositories.ListServiceBindingsMessage{
+						Type: tools.PtrTo("key"),
+					}
+				})
+
+				It("returns only the ServiceBindings that match the provided type", func() {
+					Expect(responseServiceBindings).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(serviceBinding4.Name)}),
 					))
 				})
 			})

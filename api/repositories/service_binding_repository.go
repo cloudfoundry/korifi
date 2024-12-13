@@ -132,7 +132,7 @@ func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServ
 		},
 	}
 
-	if m.AppGUID != "" {
+	if m.Type == "app" {
 		binding.Spec.AppRef = corev1.LocalObjectReference{Name: m.AppGUID}
 	}
 
