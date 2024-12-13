@@ -108,6 +108,16 @@ var _ = Describe("ServiceBindingCreate", func() {
 		Expect(serviceBindingCreate).To(gstruct.PointTo(Equal(createPayload)))
 	})
 
+	When("name is omitted", func() {
+		BeforeEach(func() {
+			createPayload.Name = ""
+		})
+
+		It("fails validation", func() {
+			Expect(apiError).NotTo(HaveOccurred())
+		})
+	})
+
 	When("binding is key", func() {
 		BeforeEach(func() {
 			createPayload.Type = "key"
@@ -117,27 +127,16 @@ var _ = Describe("ServiceBindingCreate", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
 			Expect(serviceBindingCreate).To(gstruct.PointTo(Equal(createPayload)))
 		})
-	})
 
-	When("binding is key and name field is omitted", func() {
-		BeforeEach(func() {
-			createPayload.Name = ""
-			createPayload.Type = "key"
-		})
+		When("binding is key and name field is omitted", func() {
+			BeforeEach(func() {
+				createPayload.Name = ""
+			})
 
-		It("fails validation", func() {
-			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(ContainSubstring("name cannot be blank"))
-		})
-	})
-
-	When("binding is app and name field is omitted", func() {
-		BeforeEach(func() {
-			createPayload.Name = ""
-		})
-
-		It("fails validation", func() {
-			Expect(apiError).NotTo(HaveOccurred())
+			It("fails validation", func() {
+				Expect(apiError).To(HaveOccurred())
+				Expect(apiError.Detail()).To(ContainSubstring("name cannot be blank"))
+			})
 		})
 	})
 
