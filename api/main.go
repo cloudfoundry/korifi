@@ -141,6 +141,7 @@ func main() {
 		namespaceRetriever,
 		userClientFactory,
 		nsPermissions,
+		privilegedCRClient,
 	)
 	podRepo := repositories.NewPodRepo(
 		userClientFactory,
@@ -162,6 +163,7 @@ func main() {
 		namespaceRetriever,
 		userClientFactory,
 		nsPermissions,
+		privilegedCRClient,
 	)
 	domainRepo := repositories.NewDomainRepo(
 		userClientFactory,

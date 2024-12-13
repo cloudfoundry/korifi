@@ -16,8 +16,9 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,13 +30,15 @@ type RouteRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	userClientFactory    authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
+	privilegedClient     client.Client
 }
 
-func NewRouteRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *RouteRepo {
+func NewRouteRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, authPerms *authorization.NamespacePermissions, privilegedClient client.Client) *RouteRepo {
 	return &RouteRepo{
 		namespaceRetriever:   namespaceRetriever,
 		userClientFactory:    userClientFactory,
 		namespacePermissions: authPerms,
+		privilegedClient:     privilegedClient,
 	}
 }
 
@@ -116,8 +119,26 @@ func (m *ListRoutesMessage) matches(r korifiv1alpha1.CFRoute) bool {
 		m.matchesApp(r)
 }
 
-func (m *ListRoutesMessage) matchesNamespace(ns string) bool {
-	return tools.EmptyOrContains(m.SpaceGUIDs, ns)
+func (m *ListRoutesMessage) ToLabelSelector(namespaces ...string) (labels.Selector, error) {
+	selector := labels.NewSelector()
+
+	if len(namespaces) > 0 {
+		namespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFSpaceGUIDLabelKey, selection.In, namespaces)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create space requirements: %w", err)
+		}
+		selector = selector.Add(*namespaceRequirements)
+	}
+
+	if len(m.SpaceGUIDs) > 0 {
+		userNamespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFSpaceGUIDLabelKey, selection.In, m.SpaceGUIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create space requirements: %w", err)
+		}
+		selector = selector.Add(*userNamespaceRequirements)
+	}
+
+	return selector, nil
 }
 
 func (m *ListRoutesMessage) matchesApp(r korifiv1alpha1.CFRoute) bool {
@@ -147,11 +168,17 @@ type DeleteRouteMessage struct {
 }
 
 func (m CreateRouteMessage) toCFRoute() korifiv1alpha1.CFRoute {
+	effectiveLabels := m.Labels
+	if effectiveLabels == nil {
+		effectiveLabels = map[string]string{}
+	}
+	effectiveLabels[korifiv1alpha1.CFSpaceGUIDLabelKey] = m.SpaceGUID
+
 	return korifiv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        uuid.NewString(),
 			Namespace:   m.SpaceGUID,
-			Labels:      m.Labels,
+			Labels:      effectiveLabels,
 			Annotations: m.Annotations,
 		},
 		Spec: korifiv1alpha1.CFRouteSpec{
@@ -187,31 +214,20 @@ func (r *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, r
 }
 
 func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info, message ListRoutesMessage) ([]RouteRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	authorizedSpaceNamespaces, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
-	nsList := authorizedSpaceNamespaces.Filter(message.matchesNamespace).Collect()
-	routes := []korifiv1alpha1.CFRoute{}
-	for _, ns := range nsList {
-		cfRouteList := &korifiv1alpha1.CFRouteList{}
-		err := userClient.List(ctx, cfRouteList, client.InNamespace(ns))
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return []RouteRecord{}, fmt.Errorf("failed to list routes namespace %s: %w", ns, apierrors.FromK8sError(err, RouteResourceType))
-		}
-		routes = append(routes, cfRouteList.Items...)
+	labelSelector, err := message.ToLabelSelector(authorizedSpaceNamespaces.Collect()...)
+
+	routeList := &korifiv1alpha1.CFRouteList{}
+	err = r.privilegedClient.List(ctx, routeList, &client.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list routes: %w", err)
 	}
 
-	filteredRoutes := itx.FromSlice(routes).Filter(message.matches)
+	filteredRoutes := itx.FromSlice(routeList.Items).Filter(message.matches)
 	return slices.Collect(it.Map(filteredRoutes, cfRouteToRouteRecord)), nil
 }
 

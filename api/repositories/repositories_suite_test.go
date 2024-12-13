@@ -410,7 +410,7 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 				CFAppRevisionKey: CFAppRevisionValue,
 			},
 			Labels: map[string]string{
-				korifiv1alpha1.CFAppSpaceGUIDLabelKey: space,
+				korifiv1alpha1.CFSpaceGUIDLabelKey: space,
 			},
 		},
 		Spec: korifiv1alpha1.CFAppSpec{

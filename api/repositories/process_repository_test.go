@@ -29,7 +29,7 @@ var _ = Describe("ProcessRepo", func() {
 	)
 
 	BeforeEach(func() {
-		processRepo = repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPerms)
+		processRepo = repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPerms, k8sClient)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 		app1GUID = prefixedGUID("app1")

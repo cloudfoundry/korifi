@@ -51,7 +51,7 @@ func (r *CFApp) defaultLabels(appLabels map[string]string) map[string]string {
 		appLabels = make(map[string]string)
 	}
 	appLabels[CFAppGUIDLabelKey] = r.Name
-	appLabels[CFAppSpaceGUIDLabelKey] = r.Namespace
+	appLabels[CFSpaceGUIDLabelKey] = r.Namespace
 
 	return appLabels
 }

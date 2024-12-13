@@ -239,10 +239,6 @@ type ListAppsMessage struct {
 	OrderBy       string
 }
 
-func (m *ListAppsMessage) matchesNamespace(ns string) bool {
-	return tools.EmptyOrContains(m.SpaceGUIDs, ns)
-}
-
 func (m *ListAppsMessage) matches(cfApp korifiv1alpha1.CFApp) bool {
 	return tools.EmptyOrContains(m.Names, cfApp.Spec.DisplayName) &&
 		tools.EmptyOrContains(m.Guids, cfApp.Name) &&
@@ -260,7 +256,7 @@ func (m *ListAppsMessage) ToLabelSelector(namespaces ...string) (labels.Selector
 	selector = selector.Add(userRequirements...)
 
 	if len(namespaces) > 0 {
-		namespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFAppSpaceGUIDLabelKey, selection.In, namespaces)
+		namespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFSpaceGUIDLabelKey, selection.In, namespaces)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create space requirements: %w", err)
 		}
@@ -268,7 +264,7 @@ func (m *ListAppsMessage) ToLabelSelector(namespaces ...string) (labels.Selector
 	}
 
 	if len(m.SpaceGUIDs) > 0 {
-		userNamespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFAppSpaceGUIDLabelKey, selection.In, m.SpaceGUIDs)
+		userNamespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFSpaceGUIDLabelKey, selection.In, m.SpaceGUIDs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create space requirements: %w", err)
 		}
@@ -644,11 +640,17 @@ func getAppEnv(ctx context.Context, userClient client.Client, app AppRecord) (ma
 }
 
 func (m *CreateAppMessage) toCFApp() korifiv1alpha1.CFApp {
+	effectiveLabels := m.Labels
+	if effectiveLabels == nil {
+		effectiveLabels = map[string]string{}
+	}
+	effectiveLabels[korifiv1alpha1.CFSpaceGUIDLabelKey] = m.SpaceGUID
+
 	return korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        uuid.NewString(),
 			Namespace:   m.SpaceGUID,
-			Labels:      m.Labels,
+			Labels:      effectiveLabels,
 			Annotations: m.Annotations,
 		},
 		Spec: korifiv1alpha1.CFAppSpec{

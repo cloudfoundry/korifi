@@ -8,7 +8,7 @@ const (
 	VersionLabelKey = "korifi.cloudfoundry.org/version"
 
 	CFAppGUIDLabelKey        = "korifi.cloudfoundry.org/app-guid"
-	CFAppSpaceGUIDLabelKey   = "korifi.cloudfoundry.org/space-guid"
+	CFSpaceGUIDLabelKey      = "korifi.cloudfoundry.org/space-guid"
 	CFAppRevisionKey         = "korifi.cloudfoundry.org/app-rev"
 	CFAppLastStopRevisionKey = "korifi.cloudfoundry.org/last-stop-app-rev"
 	CFAppRevisionKeyDefault  = "0"

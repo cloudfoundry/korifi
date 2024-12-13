@@ -43,7 +43,7 @@ var _ = Describe("RouteRepository", func() {
 		route1GUID = prefixedGUID("route1")
 		route2GUID = prefixedGUID("route2")
 		domainGUID = prefixedGUID("domain")
-		routeRepo = NewRouteRepo(namespaceRetriever, userClientFactory, nsPerms)
+		routeRepo = NewRouteRepo(namespaceRetriever, userClientFactory, nsPerms, k8sClient)
 
 		cfDomain := &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{

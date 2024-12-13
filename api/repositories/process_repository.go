@@ -15,18 +15,20 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const ProcessResourceType = "Process"
 
-func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
+func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions, privilegedClient client.Client) *ProcessRepo {
 	return &ProcessRepo{
 		namespaceRetriever:   namespaceRetriever,
 		clientFactory:        userClientFactory,
 		namespacePermissions: namespacePermissions,
+		privilegedClient:     privilegedClient,
 	}
 }
 
@@ -34,6 +36,7 @@ type ProcessRepo struct {
 	namespaceRetriever   NamespaceRetriever
 	clientFactory        authorization.UserK8sClientFactory
 	namespacePermissions *authorization.NamespacePermissions
+	privilegedClient     client.Client
 }
 
 type ProcessRecord struct {
@@ -121,11 +124,26 @@ func (m *ListProcessesMessage) matches(process korifiv1alpha1.CFProcess) bool {
 		tools.EmptyOrContains(m.ProcessTypes, process.Spec.ProcessType)
 }
 
-func (m *ListProcessesMessage) matchesNamespace(ns string) bool {
-	if m.SpaceGUID == "" {
-		return true
+func (m *ListProcessesMessage) ToLabelSelector(namespaces ...string) (labels.Selector, error) {
+	selector := labels.NewSelector()
+
+	if len(namespaces) > 0 {
+		namespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFSpaceGUIDLabelKey, selection.In, namespaces)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create space requirements: %w", err)
+		}
+		selector = selector.Add(*namespaceRequirements)
 	}
-	return ns == m.SpaceGUID
+
+	if m.SpaceGUID != "" {
+		userNamespaceRequirements, err := labels.NewRequirement(korifiv1alpha1.CFSpaceGUIDLabelKey, selection.Equals, []string{m.SpaceGUID})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create space requirements: %w", err)
+		}
+		selector = selector.Add(*userNamespaceRequirements)
+	}
+
+	return selector, nil
 }
 
 func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Info, processGUID string) (ProcessRecord, error) {
@@ -149,32 +167,23 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 }
 
 func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.Info, message ListProcessesMessage) ([]ProcessRecord, error) {
-	userClient, err := r.clientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
-	}
-
 	authorisedSpaceNamespacesIter, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
-	processes := []korifiv1alpha1.CFProcess{}
-	nsList := authorisedSpaceNamespacesIter.Filter(message.matchesNamespace).Collect()
-	for _, ns := range nsList {
-		processList := &korifiv1alpha1.CFProcessList{}
-		err = userClient.List(ctx, processList, client.InNamespace(ns))
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
-		}
-
-		processes = append(processes, processList.Items...)
+	labelSelector, err := message.ToLabelSelector(authorisedSpaceNamespacesIter.Collect()...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build label selector: %w", apierrors.FromK8sError(err, PodResourceType))
 	}
 
-	filteredProcesses := itx.FromSlice(processes).Filter(message.matches)
+	processList := &korifiv1alpha1.CFProcessList{}
+	err = r.privilegedClient.List(ctx, processList, &client.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list processes: %w", apierrors.FromK8sError(err, PodResourceType))
+	}
+
+	filteredProcesses := itx.FromSlice(processList.Items).Filter(message.matches)
 	return slices.Collect(it.Map(filteredProcesses, cfProcessToProcessRecord)), nil
 }
 
@@ -218,6 +227,9 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: message.SpaceGUID,
 			Name:      tools.NamespacedUUID(message.AppGUID, message.Type),
+			Labels: map[string]string{
+				korifiv1alpha1.CFSpaceGUIDLabelKey: message.SpaceGUID,
+			},
 		},
 		Spec: korifiv1alpha1.CFProcessSpec{
 			AppRef:      corev1.LocalObjectReference{Name: message.AppGUID},
