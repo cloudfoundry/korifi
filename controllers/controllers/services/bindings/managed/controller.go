@@ -89,6 +89,10 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 		return ctrl.Result{}, err
 	}
 
+	if cfServiceBinding.Spec.Type == korifiv1alpha1.CFServiceBindingTypeKey {
+		return ctrl.Result{}, nil
+	}
+
 	sbServiceBinding, err := r.reconcileSBServiceBinding(ctx, cfServiceBinding)
 	if err != nil {
 		log.Info("error creating/updating servicebinding.io servicebinding", "reason", err)

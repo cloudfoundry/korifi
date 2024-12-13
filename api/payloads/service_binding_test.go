@@ -22,9 +22,11 @@ var _ = Describe("ServiceBindingList", func() {
 			Expect(*actualServiceBindingList).To(Equal(expectedServiceBindingList))
 		},
 		Entry("type", "type=key", payloads.ServiceBindingList{Type: korifiv1alpha1.CFServiceBindingTypeKey}),
+		Entry("type", "type=app", payloads.ServiceBindingList{Type: korifiv1alpha1.CFServiceBindingTypeApp}),
 		Entry("app_guids", "app_guids=app_guid", payloads.ServiceBindingList{AppGUIDs: "app_guid"}),
 		Entry("service_instance_guids", "service_instance_guids=si_guid", payloads.ServiceBindingList{ServiceInstanceGUIDs: "si_guid"}),
 		Entry("include", "include=app", payloads.ServiceBindingList{Include: "app"}),
+		Entry("include", "include=service_instance", payloads.ServiceBindingList{Include: "service_instance"}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceBindingList{LabelSelector: "foo"}),
 		Entry("service_plan_guids=plan-guid", "service_plan_guids=plan-guid", payloads.ServiceBindingList{PlanGUIDs: "plan-guid"}),
 	)
@@ -147,7 +149,6 @@ var _ = Describe("ServiceBindingCreate", func() {
 					Expect(apiError.Detail()).To(ContainSubstring("name cannot be blank"))
 				})
 			})
-
 		})
 
 		When("all relationships are missing", func() {
@@ -204,6 +205,28 @@ var _ = Describe("ServiceBindingCreate", func() {
 				Expect(apiError.Detail()).To(ContainSubstring("relationships.service_instance.data.guid cannot be blank"))
 			})
 		})
+
+		When("binding is key", func() {
+			BeforeEach(func() {
+				createPayload.Type = "key"
+			})
+
+			It("succeeds", func() {
+				Expect(validatorErr).NotTo(HaveOccurred())
+				Expect(serviceBindingCreate).To(PointTo(Equal(createPayload)))
+			})
+
+			When("name field is omitted", func() {
+				BeforeEach(func() {
+					createPayload.Name = ""
+				})
+
+				It("fails validation", func() {
+					Expect(apiError).To(HaveOccurred())
+					Expect(apiError.Detail()).To(ContainSubstring("name cannot be blank"))
+				})
+			})
+		})
 	})
 
 	Describe("ToMessage", func() {
@@ -219,6 +242,7 @@ var _ = Describe("ServiceBindingCreate", func() {
 				ServiceInstanceGUID: createPayload.Relationships.ServiceInstance.Data.GUID,
 				AppGUID:             createPayload.Relationships.App.Data.GUID,
 				SpaceGUID:           "space-guid",
+				Type:                "app",
 				Parameters: map[string]any{
 					"p1": "p1-value",
 				},

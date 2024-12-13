@@ -16,9 +16,9 @@ func ToSBServiceBinding(cfServiceBinding *korifiv1alpha1.CFServiceBinding, bindi
 			Name:      fmt.Sprintf("cf-binding-%s", cfServiceBinding.Name),
 			Namespace: cfServiceBinding.Namespace,
 			Labels: map[string]string{
-				korifiv1alpha1.ServiceBindingGUIDLabel:           cfServiceBinding.Name,
-				korifiv1alpha1.CFAppGUIDLabelKey:                 cfServiceBinding.Spec.AppRef.Name,
-				korifiv1alpha1.ServiceCredentialBindingTypeLabel: "app",
+				korifiv1alpha1.ServiceBindingGUIDLabel: cfServiceBinding.Name,
+				korifiv1alpha1.CFAppGUIDLabelKey:       cfServiceBinding.Spec.AppRef.Name,
+				korifiv1alpha1.ServiceBindingTypeLabel: "app",
 			},
 		},
 		Spec: servicebindingv1beta1.ServiceBindingSpec{

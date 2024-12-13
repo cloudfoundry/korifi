@@ -42,12 +42,12 @@ func (p ServiceBindingCreate) Validate() error {
 		jellidation.Field(&p.Relationships, jellidation.By(func(value any) error {
 			relationships, ok := value.(*ServiceBindingRelationships)
 			if !ok || relationships == nil {
-				return errors.New("relationships cannot be blank")
+				return errors.New("relationships is required")
 			}
 
 			if p.Type == "app" {
 				if relationships.App == nil {
-					return jellidation.NewError("validation_required", "relationships.app cannot be blank")
+					return jellidation.NewError("validation_required", "relationships.app is required")
 				}
 				if relationships.App.Data.GUID == "" {
 					return jellidation.NewError("validation_required", "relationships.app.data.guid cannot be blank")

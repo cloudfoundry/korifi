@@ -750,6 +750,23 @@ var _ = Describe("CFServiceBinding", func() {
 			}).Should(Succeed())
 		})
 
+		When("binding is of type key", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, binding, func() {
+					binding.Spec.Type = korifiv1alpha1.CFServiceBindingTypeKey
+				})).To(Succeed())
+			})
+
+			It("does not create servicebinding.io", func() {
+				Consistently(func(g Gomega) {
+					sbList := &servicebindingv1beta1.ServiceBindingList{}
+					err := adminClient.List(ctx, sbList, client.InNamespace(testNamespace))
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(sbList.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
+		})
+
 		When("the credentials contain type key", func() {
 			BeforeEach(func() {
 				brokerClient.BindReturns(osbapi.BindResponse{
