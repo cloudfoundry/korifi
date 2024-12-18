@@ -214,6 +214,34 @@ webhooks:
         resources:
           - cftasks/status
     sideEffects: None
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
+        path: /mutate-korifi-cloudfoundry-org-v1alpha1-controllers-space-guid
+    failurePolicy: Fail
+    name: mcfspaceguid.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - cfapps
+          - cfbuilds
+          - cfpackages
+          - cfprocesses
+          - cfroutes
+          - cfservicebindings
+          - cfserviceinstances
+          - cftasks
+    sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration

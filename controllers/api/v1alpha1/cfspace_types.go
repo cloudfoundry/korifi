@@ -28,7 +28,6 @@ const (
 	CFSpaceFinalizerName = "cfSpace.korifi.cloudfoundry.org"
 
 	SpaceNameKey = "cloudfoundry.org/space-name"
-	SpaceGUIDKey = "cloudfoundry.org/space-guid"
 )
 
 // CFSpaceSpec defines the desired state of CFSpace
