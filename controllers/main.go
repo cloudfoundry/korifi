@@ -51,6 +51,7 @@ import (
 	controllersfinalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	domainswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/relationships"
 	bindingswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
 	brokerswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/brokers"
 	instanceswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/instances"
@@ -559,6 +560,8 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
 			os.Exit(1)
 		}
+
+		relationships.NewSpaceGUIDWebhook().SetupWebhookWithManager(mgr)
 
 		if controllerConfig.IncludeKpackImageBuilder {
 			kpackimagebuilderfinalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(mgr)
