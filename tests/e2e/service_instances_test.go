@@ -14,21 +14,58 @@ import (
 
 var _ = Describe("Service Instances", func() {
 	var (
-		spaceGUID string
-		upsiGUID  string
-		upsiName  string
-		httpResp  *resty.Response
-		httpError error
+		spaceGUID         string
+		upsiGUID          string
+		upsiWithCredsGUID string
+		upsiName          string
+		httpResp          *resty.Response
+		httpError         error
 	)
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 		upsiName = generateGUID("service-instance")
+		upsiWithCredsGUID = generateGUID("service-instance-creds")
 		upsiGUID = createServiceInstance(spaceGUID, upsiName, nil)
 	})
 
 	AfterEach(func() {
 		deleteSpace(spaceGUID)
+	})
+
+	Describe("Get", func() {
+		var result serviceInstanceResource
+
+		BeforeEach(func() {
+			httpResp, httpError = adminClient.R().SetResult(&result).Get("/v3/service_instances/" + upsiGUID)
+		})
+
+		It("gets the service instance", func() {
+			Expect(httpError).NotTo(HaveOccurred())
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+
+			Expect(result.GUID).To(Equal(upsiGUID))
+			Expect(result.Name).To(Equal(upsiName))
+		})
+	})
+
+	Describe("GetCredentials", func() {
+		var result map[string]any
+
+		BeforeEach(func() {
+			upsiWithCredsGUID = createServiceInstance(spaceGUID, generateGUID("service-instance2"), map[string]string{"a": "b"})
+		})
+
+		JustBeforeEach(func() {
+			httpResp, httpError = adminClient.R().SetResult(&result).Get("/v3/service_instances/" + upsiWithCredsGUID + "/credentials")
+		})
+
+		It("returns the service instance credentials", func() {
+			Expect(httpError).NotTo(HaveOccurred())
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+
+			Expect(result).To(Equal(map[string]any{"a": "b"}))
+		})
 	})
 
 	Describe("Create", func() {
