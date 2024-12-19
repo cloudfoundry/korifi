@@ -313,6 +313,7 @@ func createBuild(ctx context.Context, k8sClient client.Client, namespace, buildG
 			Name:      buildGUID,
 			Namespace: namespace,
 			Labels: map[string]string{
+				korifiv1alpha1.SpaceGUIDKey:      namespace,
 				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
 			},
 		},
