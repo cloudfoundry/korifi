@@ -16,6 +16,7 @@ var _ = Describe("ToSBServiceBinding", func() {
 	var (
 		cfServiceBinding *korifiv1alpha1.CFServiceBinding
 		bindingName      string
+		expectedBinding  *servicebindingv1beta1.ServiceBinding
 	)
 
 	BeforeEach(func() {
@@ -47,8 +48,11 @@ var _ = Describe("ToSBServiceBinding", func() {
 			},
 		}
 	})
+	JustBeforeEach(func() {
+		expectedBinding = sbio.ToSBServiceBinding(cfServiceBinding, korifiv1alpha1.ManagedType)
+	})
 	It("should transform CFServiceBinding to SBerviceBinding correctly", func() {
-		Expect(sbio.ToSBServiceBinding(cfServiceBinding, korifiv1alpha1.ManagedType)).To(Equal(&servicebindingv1beta1.ServiceBinding{
+		Expect(expectedBinding).To(Equal(&servicebindingv1beta1.ServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cf-binding-cf-binding",
 				Namespace: cfServiceBinding.Namespace,

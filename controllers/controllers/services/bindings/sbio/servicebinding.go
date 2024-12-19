@@ -51,8 +51,9 @@ func getSBServiceBindingName(cfServiceBinding *korifiv1alpha1.CFServiceBinding) 
 }
 
 func IsSbServiceBindingReady(sbServiceBinding *servicebindingv1beta1.ServiceBinding) bool {
-	if meta.IsStatusConditionTrue(sbServiceBinding.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
-		return true
+	if sbServiceBinding.Generation != sbServiceBinding.Status.ObservedGeneration {
+		return false
 	}
-	return sbServiceBinding.Generation == sbServiceBinding.Status.ObservedGeneration
+
+	return meta.IsStatusConditionTrue(sbServiceBinding.Status.Conditions, korifiv1alpha1.StatusConditionReady)
 }
