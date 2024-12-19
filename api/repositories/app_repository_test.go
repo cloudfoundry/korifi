@@ -1,11 +1,11 @@
 package repositories_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
@@ -60,7 +60,10 @@ var _ = Describe("AppRepository", func() {
 		sorter.SortStub = func(records []repositories.AppRecord, _ string) []repositories.AppRecord {
 			return records
 		}
-		appRepo = repositories.NewAppRepo(namespaceRetriever, userClientFactory, nsPerms, appAwaiter, sorter)
+		userClientFactory = userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+			return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
+		})
+		appRepo = repositories.NewAppRepo(namespaceRetriever, userClientFactory, appAwaiter, sorter)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
@@ -383,19 +386,19 @@ var _ = Describe("AppRepository", func() {
 			Describe("filtering by label selector", func() {
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-						cfApp.Labels = map[string]string{"foo": "FOO1"}
+						cfApp.Labels["foo"] = "FOO1"
 					})).To(Succeed())
 					Expect(k8s.PatchResource(ctx, k8sClient, cfApp2, func() {
-						cfApp2.Labels = map[string]string{"foo": "FOO2"}
+						cfApp2.Labels["foo"] = "FOO2"
 					})).To(Succeed())
 					Expect(k8s.PatchResource(ctx, k8sClient, cfApp12, func() {
-						cfApp12.Labels = map[string]string{"not_foo": "NOT_FOO"}
+						cfApp12.Labels["not_foo"] = "NOT_FOO"
 					})).To(Succeed())
 				})
 
 				DescribeTable("valid label selectors",
 					func(selector string, appGUIDPrefixes ...string) {
-						serviceBindings, err := appRepo.ListApps(context.Background(), authInfo, repositories.ListAppsMessage{
+						serviceBindings, err := appRepo.ListApps(ctx, authInfo, repositories.ListAppsMessage{
 							LabelSelector: selector,
 						})
 						Expect(err).NotTo(HaveOccurred())

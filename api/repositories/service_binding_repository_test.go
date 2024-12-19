@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
@@ -48,7 +49,12 @@ var _ = Describe("ServiceBindingRepo", func() {
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
 		]{}
-		repo = repositories.NewServiceBindingRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter)
+		repo = repositories.NewServiceBindingRepo(
+			namespaceRetriever,
+			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
+			}),
+			conditionAwaiter)
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
@@ -88,6 +94,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
@@ -169,6 +178,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 			}
 
@@ -366,6 +378,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
@@ -594,6 +609,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceBindingGUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 					Annotations: map[string]string{
 						korifiv1alpha1.ServiceInstanceTypeAnnotationKey: korifiv1alpha1.UserProvidedType,
 					},
@@ -676,6 +694,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space.Name,
 					Labels: map[string]string{
 						korifiv1alpha1.PlanGUIDLabelKey: "plan-1",
+						korifiv1alpha1.SpaceGUIDKey:     space.Name,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -701,6 +720,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space2.Name,
 					Labels: map[string]string{
 						korifiv1alpha1.PlanGUIDLabelKey: "plan-2",
+						korifiv1alpha1.SpaceGUIDKey:     space2.Name,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -725,6 +745,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space2.Name,
 					Labels: map[string]string{
 						korifiv1alpha1.PlanGUIDLabelKey: "plan-3",
+						korifiv1alpha1.SpaceGUIDKey:     space.Name,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -832,13 +853,13 @@ var _ = Describe("ServiceBindingRepo", func() {
 			When("filtered by label selector", func() {
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding1, func() {
-						serviceBinding1.Labels = map[string]string{"foo": "FOO1"}
+						serviceBinding1.Labels["foo"] = "FOO1"
 					})).To(Succeed())
 					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding2, func() {
-						serviceBinding2.Labels = map[string]string{"foo": "FOO2"}
+						serviceBinding2.Labels["foo"] = "FOO2"
 					})).To(Succeed())
 					Expect(k8s.PatchResource(ctx, k8sClient, serviceBinding3, func() {
-						serviceBinding3.Labels = map[string]string{"not_foo": "NOT_FOO"}
+						serviceBinding3.Labels["not_foo"] = "NOT_FOO"
 					})).To(Succeed())
 				})
 
@@ -933,6 +954,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceBindingGUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
@@ -995,7 +1019,8 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Name:      prefixedGUID("binding"),
 					Namespace: space.Name,
 					Labels: map[string]string{
-						"foo": "bar",
+						"foo":                       "bar",
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
 					},
 					Annotations: map[string]string{
 						"baz": "bat",

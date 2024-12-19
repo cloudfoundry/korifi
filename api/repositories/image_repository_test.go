@@ -5,23 +5,19 @@ import (
 	"context"
 	"errors"
 	"io"
-	"path/filepath"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sclient "k8s.io/client-go/kubernetes"
 )
 
 var _ = Describe("ImageRepository", func() {
 	var (
 		imagePusher *fake.ImagePusher
-		k8sClient   k8sclient.Interface
 		imageSource io.Reader
 		imageRepo   *repositories.ImageRepository
 		imageName   string
@@ -40,7 +36,6 @@ var _ = Describe("ImageRepository", func() {
 		imageSource = bytes.NewBufferString("")
 
 		var err error
-		k8sClient, err = k8sclient.NewForConfig(helpers.SetupTestEnvUser(testEnv, filepath.Join("helm", "korifi", "api", "role.yaml")))
 		Expect(err).NotTo(HaveOccurred())
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
@@ -49,7 +44,6 @@ var _ = Describe("ImageRepository", func() {
 		tags = []string{"foo", "bar"}
 
 		imageRepo = repositories.NewImageRepository(
-			k8sClient,
 			userClientFactory,
 			imagePusher,
 			[]string{"push-secret-name"},

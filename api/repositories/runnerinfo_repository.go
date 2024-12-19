@@ -17,7 +17,7 @@ const (
 type RunnerInfoRepository struct {
 	runnerName        string
 	namespace         string
-	userClientFactory authorization.UserK8sClientFactory
+	userClientFactory authorization.UserClientFactory
 }
 
 type RunnerInfoRecord struct {
@@ -27,7 +27,7 @@ type RunnerInfoRecord struct {
 	Capabilities korifiv1alpha1.RunnerInfoCapabilities
 }
 
-func NewRunnerInfoRepository(userClientFactory authorization.UserK8sClientFactory, runnerName string, namespace string) *RunnerInfoRepository {
+func NewRunnerInfoRepository(userClientFactory authorization.UserClientFactory, runnerName string, namespace string) *RunnerInfoRepository {
 	return &RunnerInfoRepository{
 		runnerName:        runnerName,
 		namespace:         namespace,

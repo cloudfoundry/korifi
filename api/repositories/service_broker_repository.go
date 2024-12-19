@@ -62,7 +62,7 @@ func (m UpdateServiceBrokerMessage) apply(broker *korifiv1alpha1.CFServiceBroker
 }
 
 type ServiceBrokerRepo struct {
-	userClientFactory authorization.UserK8sClientFactory
+	userClientFactory authorization.UserClientFactory
 	rootNamespace     string
 }
 
@@ -76,7 +76,7 @@ func (r ServiceBrokerRecord) Relationships() map[string]string {
 }
 
 func NewServiceBrokerRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	rootNamespace string,
 ) *ServiceBrokerRepo {
 	return &ServiceBrokerRepo{

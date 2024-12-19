@@ -12,7 +12,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 
 	authv1 "k8s.io/api/authorization/v1"
-	k8sclient "k8s.io/client-go/kubernetes"
 )
 
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get,namespace=ROOT_NAMESPACE
@@ -27,22 +26,19 @@ type ImagePusher interface {
 }
 
 type ImageRepository struct {
-	privilegedK8sClient k8sclient.Interface
-	userClientFactory   authorization.UserK8sClientFactory
+	userClientFactory   authorization.UserClientFactory
 	pusher              ImagePusher
 	pushSecretNames     []string
 	pushSecretNamespace string
 }
 
 func NewImageRepository(
-	privilegedK8sClient k8sclient.Interface,
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	pusher ImagePusher,
 	pushSecretNames []string,
 	pushSecretNamespace string,
 ) *ImageRepository {
 	return &ImageRepository{
-		privilegedK8sClient: privilegedK8sClient,
 		userClientFactory:   userClientFactory,
 		pusher:              pusher,
 		pushSecretNames:     pushSecretNames,

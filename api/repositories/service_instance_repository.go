@@ -22,7 +22,6 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -42,12 +41,11 @@ type NamespaceGetter interface {
 }
 
 type ServiceInstanceRepo struct {
-	namespaceRetriever   NamespaceRetriever
-	userClientFactory    authorization.UserK8sClientFactory
-	namespacePermissions *authorization.NamespacePermissions
-	awaiter              Awaiter[*korifiv1alpha1.CFServiceInstance]
-	sorter               ServiceInstanceSorter
-	rootNamespace        string
+	namespaceRetriever NamespaceRetriever
+	userClientFactory  authorization.UserClientFactory
+	awaiter            Awaiter[*korifiv1alpha1.CFServiceInstance]
+	sorter             ServiceInstanceSorter
+	rootNamespace      string
 }
 
 //counterfeiter:generate -o fake -fake-name ServiceInstanceSorter . ServiceInstanceSorter
@@ -91,19 +89,17 @@ func ServiceInstanceComparator(fieldName string) func(ServiceInstanceRecord, Ser
 
 func NewServiceInstanceRepo(
 	namespaceRetriever NamespaceRetriever,
-	userClientFactory authorization.UserK8sClientFactory,
-	namespacePermissions *authorization.NamespacePermissions,
+	userClientFactory authorization.UserClientFactory,
 	awaiter Awaiter[*korifiv1alpha1.CFServiceInstance],
 	sorter ServiceInstanceSorter,
 	rootNamespace string,
 ) *ServiceInstanceRepo {
 	return &ServiceInstanceRepo{
-		namespaceRetriever:   namespaceRetriever,
-		userClientFactory:    userClientFactory,
-		namespacePermissions: namespacePermissions,
-		awaiter:              awaiter,
-		sorter:               sorter,
-		rootNamespace:        rootNamespace,
+		namespaceRetriever: namespaceRetriever,
+		userClientFactory:  userClientFactory,
+		awaiter:            awaiter,
+		sorter:             sorter,
+		rootNamespace:      rootNamespace,
 	}
 }
 
@@ -157,11 +153,8 @@ type ListServiceInstanceMessage struct {
 func (m *ListServiceInstanceMessage) matches(serviceInstance korifiv1alpha1.CFServiceInstance) bool {
 	return tools.EmptyOrContains(m.Names, serviceInstance.Spec.DisplayName) &&
 		tools.EmptyOrContains(m.GUIDs, serviceInstance.Name) &&
-		tools.EmptyOrContains(m.PlanGUIDs, serviceInstance.Spec.PlanGUID)
-}
-
-func (m *ListServiceInstanceMessage) matchesNamespace(ns string) bool {
-	return tools.EmptyOrContains(m.SpaceGUIDs, ns)
+		tools.EmptyOrContains(m.PlanGUIDs, serviceInstance.Spec.PlanGUID) &&
+		tools.EmptyOrContains(m.SpaceGUIDs, serviceInstance.Namespace)
 }
 
 type DeleteServiceInstanceMessage struct {
@@ -407,34 +400,20 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	authorizedSpaceNamespacesIter, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
-
 	labelSelector, err := labels.Parse(message.LabelSelector)
 	if err != nil {
 		return []ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
 	}
 
-	nsList := authorizedSpaceNamespacesIter.Filter(message.matchesNamespace).Collect()
-	var serviceInstances []korifiv1alpha1.CFServiceInstance
-	for _, ns := range nsList {
-		serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
-		err = userClient.List(ctx, serviceInstanceList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return []ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w",
-				ns,
-				apierrors.FromK8sError(err, ServiceInstanceResourceType),
-			)
-		}
-		serviceInstances = append(serviceInstances, serviceInstanceList.Items...)
+	serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
+	err = userClient.List(ctx, serviceInstanceList, &client.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		return []ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances: %w",
+			apierrors.FromK8sError(err, ServiceInstanceResourceType),
+		)
 	}
 
-	filteredServiceInstances := itx.FromSlice(serviceInstances).Filter(message.matches)
+	filteredServiceInstances := itx.FromSlice(serviceInstanceList.Items).Filter(message.matches)
 	return r.sorter.Sort(slices.Collect(it.Map(filteredServiceInstances, cfServiceInstanceToRecord)), message.OrderBy), nil
 }
 

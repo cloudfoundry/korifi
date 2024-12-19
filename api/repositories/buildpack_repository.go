@@ -23,7 +23,7 @@ const (
 
 type BuildpackRepository struct {
 	builderName       string
-	userClientFactory authorization.UserK8sClientFactory
+	userClientFactory authorization.UserClientFactory
 	rootNamespace     string
 	sorter            BuildpackSorter
 }
@@ -82,7 +82,7 @@ type ListBuildpacksMessage struct {
 
 func NewBuildpackRepository(
 	builderName string,
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	rootNamespace string,
 	sorter BuildpackSorter,
 ) *BuildpackRepository {

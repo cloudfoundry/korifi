@@ -15,25 +15,22 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const ProcessResourceType = "Process"
 
-func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
+func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserClientFactory) *ProcessRepo {
 	return &ProcessRepo{
-		namespaceRetriever:   namespaceRetriever,
-		clientFactory:        userClientFactory,
-		namespacePermissions: namespacePermissions,
+		namespaceRetriever: namespaceRetriever,
+		clientFactory:      userClientFactory,
 	}
 }
 
 type ProcessRepo struct {
-	namespaceRetriever   NamespaceRetriever
-	clientFactory        authorization.UserK8sClientFactory
-	namespacePermissions *authorization.NamespacePermissions
+	namespaceRetriever NamespaceRetriever
+	clientFactory      authorization.UserClientFactory
 }
 
 type ProcessRecord struct {
@@ -118,7 +115,8 @@ type ListProcessesMessage struct {
 
 func (m *ListProcessesMessage) matches(process korifiv1alpha1.CFProcess) bool {
 	return tools.EmptyOrContains(m.AppGUIDs, process.Spec.AppRef.Name) &&
-		tools.EmptyOrContains(m.ProcessTypes, process.Spec.ProcessType)
+		tools.EmptyOrContains(m.ProcessTypes, process.Spec.ProcessType) &&
+		m.matchesNamespace(process.Namespace)
 }
 
 func (m *ListProcessesMessage) matchesNamespace(ns string) bool {
@@ -154,27 +152,13 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 		return []ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
 	}
 
-	authorisedSpaceNamespacesIter, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
+	processList := &korifiv1alpha1.CFProcessList{}
+	err = userClient.List(ctx, processList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+		return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
 	}
 
-	processes := []korifiv1alpha1.CFProcess{}
-	nsList := authorisedSpaceNamespacesIter.Filter(message.matchesNamespace).Collect()
-	for _, ns := range nsList {
-		processList := &korifiv1alpha1.CFProcessList{}
-		err = userClient.List(ctx, processList, client.InNamespace(ns))
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
-		}
-
-		processes = append(processes, processList.Items...)
-	}
-
-	filteredProcesses := itx.FromSlice(processes).Filter(message.matches)
+	filteredProcesses := itx.FromSlice(processList.Items).Filter(message.matches)
 	return slices.Collect(it.Map(filteredProcesses, cfProcessToProcessRecord)), nil
 }
 

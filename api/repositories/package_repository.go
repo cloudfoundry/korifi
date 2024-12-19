@@ -20,7 +20,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,32 +43,29 @@ var packageTypeToLifecycleType = map[korifiv1alpha1.PackageType]korifiv1alpha1.L
 }
 
 type PackageRepo struct {
-	userClientFactory    authorization.UserK8sClientFactory
-	namespaceRetriever   NamespaceRetriever
-	namespacePermissions *authorization.NamespacePermissions
-	repositoryCreator    RepositoryCreator
-	repositoryPrefix     string
-	awaiter              Awaiter[*korifiv1alpha1.CFPackage]
-	sorter               PackageSorter
+	userClientFactory  authorization.UserClientFactory
+	namespaceRetriever NamespaceRetriever
+	repositoryCreator  RepositoryCreator
+	repositoryPrefix   string
+	awaiter            Awaiter[*korifiv1alpha1.CFPackage]
+	sorter             PackageSorter
 }
 
 func NewPackageRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	namespaceRetriever NamespaceRetriever,
-	authPerms *authorization.NamespacePermissions,
 	repositoryCreator RepositoryCreator,
 	repositoryPrefix string,
 	awaiter Awaiter[*korifiv1alpha1.CFPackage],
 	sorter PackageSorter,
 ) *PackageRepo {
 	return &PackageRepo{
-		userClientFactory:    userClientFactory,
-		namespaceRetriever:   namespaceRetriever,
-		namespacePermissions: authPerms,
-		repositoryCreator:    repositoryCreator,
-		repositoryPrefix:     repositoryPrefix,
-		awaiter:              awaiter,
-		sorter:               sorter,
+		userClientFactory:  userClientFactory,
+		namespaceRetriever: namespaceRetriever,
+		repositoryCreator:  repositoryCreator,
+		repositoryPrefix:   repositoryPrefix,
+		awaiter:            awaiter,
+		sorter:             sorter,
 	}
 }
 
@@ -359,29 +355,18 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 }
 
 func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {
-	nsList, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return []PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	packages := []korifiv1alpha1.CFPackage{}
-	for ns := range nsList {
-		packageList := &korifiv1alpha1.CFPackageList{}
-		err = userClient.List(ctx, packageList, client.InNamespace(ns))
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return []PackageRecord{}, fmt.Errorf("failed to list packages in namespace %s: %w", ns, apierrors.FromK8sError(err, PackageResourceType))
-		}
-		packages = append(packages, packageList.Items...)
+	packageList := &korifiv1alpha1.CFPackageList{}
+	err = userClient.List(ctx, packageList)
+	if err != nil {
+		return []PackageRecord{}, fmt.Errorf("failed to list packages: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	filteredPackages := itx.FromSlice(packages).Filter(message.matches)
+	filteredPackages := itx.FromSlice(packageList.Items).Filter(message.matches)
 	return r.sorter.Sort(slices.Collect(it.Map(filteredPackages, r.cfPackageToPackageRecord)), message.OrderBy), nil
 }
 

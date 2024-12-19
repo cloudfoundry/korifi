@@ -15,10 +15,10 @@ import (
 )
 
 type PodRepo struct {
-	userClientFactory authorization.UserK8sClientFactory
+	userClientFactory authorization.UserClientFactory
 }
 
-func NewPodRepo(userClientFactory authorization.UserK8sClientFactory) *PodRepo {
+func NewPodRepo(userClientFactory authorization.UserClientFactory) *PodRepo {
 	return &PodRepo{
 		userClientFactory: userClientFactory,
 	}

@@ -18,7 +18,6 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-logr/logr"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,10 +25,9 @@ import (
 const DeploymentResourceType = "Deployment"
 
 type DeploymentRepo struct {
-	userClientFactory    authorization.UserK8sClientFactory
-	namespaceRetriever   NamespaceRetriever
-	namespacePermissions *authorization.NamespacePermissions
-	sorter               DeploymentSorter
+	userClientFactory  authorization.UserClientFactory
+	namespaceRetriever NamespaceRetriever
+	sorter             DeploymentSorter
 }
 
 type DeploymentRecord struct {
@@ -116,16 +114,14 @@ func (m ListDeploymentsMessage) matchesStatusValue(deployment DeploymentRecord) 
 }
 
 func NewDeploymentRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	namespaceRetriever NamespaceRetriever,
-	namespacePermissions *authorization.NamespacePermissions,
 	sorter DeploymentSorter,
 ) *DeploymentRepo {
 	return &DeploymentRepo{
-		userClientFactory:    userClientFactory,
-		namespaceRetriever:   namespaceRetriever,
-		namespacePermissions: namespacePermissions,
-		sorter:               sorter,
+		userClientFactory:  userClientFactory,
+		namespaceRetriever: namespaceRetriever,
+		sorter:             sorter,
 	}
 }
 
@@ -202,26 +198,13 @@ func (r *DeploymentRepo) ListDeployments(ctx context.Context, authInfo authoriza
 		return nil, fmt.Errorf("failed to create user client: %w", err)
 	}
 
-	authorisedSpaceNamespaces, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
+	appList := &korifiv1alpha1.CFAppList{}
+	err = userClient.List(ctx, appList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get namespaces for spaces with user role bindings: %w", err)
+		return nil, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	var apps []korifiv1alpha1.CFApp
-	for _, ns := range authorisedSpaceNamespaces.Collect() {
-		appList := &korifiv1alpha1.CFAppList{}
-		err := userClient.List(ctx, appList, client.InNamespace(ns))
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to list apps in namespace %s: %w", ns, apierrors.FromK8sError(err, AppResourceType))
-		}
-
-		apps = append(apps, appList.Items...)
-	}
-
-	deploymentRecords := it.Map(itx.FromSlice(apps).Filter(message.matchesApp), appToDeploymentRecord)
+	deploymentRecords := it.Map(itx.FromSlice(appList.Items).Filter(message.matchesApp), appToDeploymentRecord)
 	deploymentRecords = it.Filter(deploymentRecords, message.matchesStatusValue)
 
 	return r.sorter.Sort(slices.Collect(deploymentRecords), message.OrderBy), nil

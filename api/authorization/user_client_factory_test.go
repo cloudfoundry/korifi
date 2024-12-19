@@ -3,7 +3,6 @@ package authorization_test
 import (
 	"context"
 	"sync"
-	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
@@ -18,7 +17,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -42,11 +40,7 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 		Expect(err).NotTo(HaveOccurred())
 		mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig, httpClient)
 		Expect(err).NotTo(HaveOccurred())
-		clientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, wait.Backoff{
-			Steps:    6,
-			Duration: 5 * time.Millisecond,
-			Factor:   2.0,
-		})
+		clientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper)
 	})
 
 	JustBeforeEach(func() {
