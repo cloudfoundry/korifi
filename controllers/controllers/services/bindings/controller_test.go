@@ -987,7 +987,204 @@ var _ = Describe("CFServiceBinding", func() {
 				}).Should(Succeed())
 			})
 		})
+		Describe("binding deletion", func() {
+			BeforeEach(func() {
+				brokerClient.UnbindReturns(osbapi.UnbindResponse{
+					Operation: "deprovision-op",
+				}, nil)
+			})
 
+			JustBeforeEach(func() {
+				Expect(k8sManager.GetClient().Delete(ctx, binding)).To(Succeed())
+			})
+
+			It("unbinds the binding with the broker", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+
+					g.Expect(brokerClient.UnbindCallCount()).To(Equal(1))
+					_, actualUnbindRequest := brokerClient.UnbindArgsForCall(0)
+					Expect(actualUnbindRequest).To(Equal(osbapi.UnbindPayload{
+						BindingID:  binding.Name,
+						InstanceID: instance.Name,
+						UnbindRequestParameters: osbapi.UnbindRequestParameters{
+							ServiceId: "service-offering-id",
+							PlanID:    "service-plan-id",
+						},
+					}))
+				}).Should(Succeed())
+			})
+
+			When("unbind fails", func() {
+				BeforeEach(func() {
+					brokerClient.UnbindReturns(osbapi.UnbindResponse{}, errors.New("unbinding-failed"))
+				})
+
+				FIt("the binding is not deleted", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+						g.Expect(brokerClient.UnbindCallCount()).To(BeNumerically(">", 1))
+					}).Should(Succeed())
+				})
+			})
+
+			// When("the binding is deleted asynchronously", func() {
+			// 	BeforeEach(func() {
+			// 		brokerClient.UnbindReturns(osbapi.UnbindResponse{
+			// 			IsAsync:   true,
+			// 			Operation: "deprovision-op",
+			// 		}, nil)
+			// 	})
+
+			// 	When("the last operation is in progress", func() {
+			// 		BeforeEach(func() {
+			// 			brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{
+			// 				State: "in progress",
+			// 			}, nil)
+			// 		})
+
+			// 		It("sets the ready condition to false", func() {
+			// 			Eventually(func(g Gomega) {
+			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+			// 				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+			// 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+			// 					HasStatus(Equal(metav1.ConditionFalse)),
+			// 				)))
+			// 			}).Should(Succeed())
+			// 		})
+
+			// 		It("sets in progress state in instance last operation", func() {
+			// 			Eventually(func(g Gomega) {
+			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+			// 				g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">", 1))
+			// 				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+			// 					Type:  "delete",
+			// 					State: "in progress",
+			// 				}))
+			// 			}).Should(Succeed())
+			// 		})
+
+			// 		It("keeps checking last operation", func() {
+			// 			Eventually(func(g Gomega) {
+			// 				g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 1))
+			// 				_, actualLastOpPayload := brokerClient.GetServiceInstanceLastOperationArgsForCall(1)
+			// 				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetServiceInstanceLastOperationRequest{
+			// 					InstanceID: instance.Name,
+			// 					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
+			// 						ServiceId: "service-offering-id",
+			// 						PlanID:    "service-plan-id",
+			// 						Operation: "deprovision-op",
+			// 					},
+			// 				}))
+			// 			}).Should(Succeed())
+			// 		})
+			// 	})
+
+			// 	When("the last operation is failed", func() {
+			// 		BeforeEach(func() {
+			// 			brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{
+			// 				State: "failed",
+			// 			}, nil)
+			// 		})
+
+			// 		It("sets the failed condition", func() {
+			// 			Eventually(func(g Gomega) {
+			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+			// 				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+			// 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+			// 					HasStatus(Equal(metav1.ConditionFalse)),
+			// 				)))
+
+			// 				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+			// 					HasType(Equal(korifiv1alpha1.DeprovisioningFailedCondition)),
+			// 					HasStatus(Equal(metav1.ConditionTrue)),
+			// 				)))
+			// 			}).Should(Succeed())
+			// 		})
+
+			// 		It("sets failed state in instance last operation", func() {
+			// 			Eventually(func(g Gomega) {
+			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+			// 				g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">", 1))
+			// 				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+			// 					Type:  "delete",
+			// 					State: "failed",
+			// 				}))
+			// 			}).Should(Succeed())
+			// 		})
+			// 	})
+
+			// 	When("service deprovisioning fails with recoverable error", func() {
+			// 		BeforeEach(func() {
+			// 			brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("deprovision-failed"))
+			// 		})
+
+			// 		It("keeps trying to deprovision the instance", func() {
+			// 			Eventually(func(g Gomega) {
+			// 				g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">", 1))
+			// 				_, actualDeprovisionRequest := brokerClient.DeprovisionArgsForCall(0)
+			// 				g.Expect(actualDeprovisionRequest).To(Equal(osbapi.InstanceDeprovisionPayload{
+			// 					ID: instance.Name,
+			// 					InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
+			// 						ServiceId: "service-offering-id",
+			// 						PlanID:    "service-plan-id",
+			// 					},
+			// 				}))
+			// 			}).Should(Succeed())
+			// 		})
+
+			// 		It("sets initial state in instance last operation", func() {
+			// 			Eventually(func(g Gomega) {
+			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+			// 				g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">=", 1))
+			// 				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+			// 					Type:  "delete",
+			// 					State: "initial",
+			// 				}))
+			// 			}).Should(Succeed())
+			// 		})
+			// 	})
+
+			// 	When("service deprovisioning fails with unrecoverable error", func() {
+			// 		BeforeEach(func() {
+			// 			brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{}, osbapi.UnrecoverableError{Status: http.StatusGone})
+			// 		})
+
+			// 		It("fails the instance", func() {
+			// 			Eventually(func(g Gomega) {
+			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+			// 				g.Expect(instance.Status.Conditions).To(ContainElements(
+			// 					SatisfyAll(
+			// 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+			// 						HasStatus(Equal(metav1.ConditionFalse)),
+			// 					),
+			// 					SatisfyAll(
+			// 						HasType(Equal(korifiv1alpha1.DeprovisioningFailedCondition)),
+			// 						HasStatus(Equal(metav1.ConditionTrue)),
+			// 						HasReason(Equal("DeprovisionFailed")),
+			// 						HasMessage(ContainSubstring("The server responded with status: 410")),
+			// 					),
+			// 				))
+			// 			}).Should(Succeed())
+			// 		})
+
+			// 		It("sets failed state in instance last operation", func() {
+			// 			Eventually(func(g Gomega) {
+			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+			// 				g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">=", 1))
+			// 				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+			// 					Type:  "delete",
+			// 					State: "failed",
+			// 				}))
+			// 			}).Should(Succeed())
+			// 		})
+			// 	})
+			// })
+		})
 		When("the binding is deleted", func() {
 			BeforeEach(func() {
 				brokerClient.UnbindReturns(osbapi.UnbindResponse{}, nil)

@@ -305,15 +305,17 @@ func (c *Client) Unbind(ctx context.Context, payload UnbindPayload) (UnbindRespo
 		return UnbindResponse{}, fmt.Errorf("unbind request failed: %w", err)
 	}
 
-	if statusCode == http.StatusGone {
-		return UnbindResponse{}, GoneError{}
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusGone || statusCode == http.StatusUnprocessableEntity {
+		return UnbindResponse{}, UnrecoverableError{Status: statusCode}
 	}
 
 	if statusCode >= 300 {
 		return UnbindResponse{}, fmt.Errorf("unbind request failed with status code: %d", statusCode)
 	}
 
-	var response UnbindResponse
+	response := UnbindResponse{
+		IsAsync: statusCode == http.StatusAccepted,
+	}
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
 		return UnbindResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)

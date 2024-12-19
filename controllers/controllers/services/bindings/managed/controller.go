@@ -2,6 +2,7 @@ package managed
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/sbio"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,12 +44,6 @@ func NewReconciler(k8sClient client.Client, brokerClientFactory osbapi.BrokerCli
 func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("reconcile-managed-service-binding")
 
-	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFServiceBinding(ctx, cfServiceBinding)
-	}
-
-	cfServiceBinding.Labels = tools.SetMapValue(cfServiceBinding.Labels, korifiv1alpha1.PlanGUIDLabelKey, cfServiceInstance.Spec.PlanGUID)
-
 	assets, err := r.assets.GetServiceBindingAssets(ctx, cfServiceBinding)
 	if err != nil {
 		log.Error(err, "failed to get service binding assets")
@@ -58,6 +54,10 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	if err != nil {
 		log.Error(err, "failed to create broker client", "broker", assets.ServiceBroker.Name)
 		return ctrl.Result{}, err
+	}
+
+	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
+		return r.finalizeCFServiceBinding(ctx, cfServiceBinding, assets, osbapiClient)
 	}
 
 	if isReconciled(cfServiceBinding) {
@@ -259,12 +259,20 @@ func (r *ManagedBindingsReconciler) reconcileCredentials(ctx context.Context, cf
 func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
 	ctx context.Context,
 	serviceBinding *korifiv1alpha1.CFServiceBinding,
+	assets osbapi.ServiceBindingAssets,
+	osbapiClient osbapi.BrokerClient,
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalize-managed-service-binding")
+
+	_, err := r.deleteServiceBinding(ctx, serviceBinding, assets, osbapiClient)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
 		log.V(1).Info("finalizer removed")
 	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -279,6 +287,37 @@ func (r *ManagedBindingsReconciler) reconcileSBServiceBinding(ctx context.Contex
 	}
 
 	return sbServiceBinding, nil
+}
+
+// func (r *ManagedBindingsReconciler) pollUnbindOperation
+
+func (r *ManagedBindingsReconciler) deleteServiceBinding(
+	ctx context.Context,
+	serviceBinding *korifiv1alpha1.CFServiceBinding,
+	assets osbapi.ServiceBindingAssets,
+	osbapiClient osbapi.BrokerClient,
+) (osbapi.UnbindResponse, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalize-managed-service-binding")
+	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: serviceBinding.Spec.Service.Name, Namespace: serviceBinding.Namespace}, cfServiceInstance)
+	if err != nil {
+		log.Info("service instance not found", "service-instance", serviceBinding.Spec.Service.Name, "error", err)
+		return osbapi.UnbindResponse{}, err
+	}
+	var deprovisionResponse osbapi.UnbindResponse
+	deprovisionResponse, err = osbapiClient.Unbind(ctx, osbapi.UnbindPayload{
+		InstanceID: cfServiceInstance.Name,
+		BindingID:  serviceBinding.Name,
+		UnbindRequestParameters: osbapi.UnbindRequestParameters{
+			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
+		},
+	})
+	if err != nil {
+		return osbapi.UnbindResponse{}, fmt.Errorf("failed to deprovision service instance: %w", err)
+	}
+
+	return deprovisionResponse, nil
 }
 
 func isBindRequested(binding *korifiv1alpha1.CFServiceBinding) bool {

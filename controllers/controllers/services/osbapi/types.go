@@ -117,6 +117,7 @@ type UnbindRequestParameters struct {
 }
 
 type UnbindResponse struct {
+	IsAsync   bool
 	Operation string `json:"operation,omitempty"`
 }
 

@@ -810,35 +810,23 @@ var _ = Describe("OSBAPI Client", func() {
 			Expect(unbindResp.IsComplete()).To(BeTrue())
 		})
 
-		When("broker return 202 Accepted", func() {
+		When("the broker accepts the unbind request", func() {
 			BeforeEach(func() {
 				brokerServer = brokerServer.WithResponse(
 					"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
 					map[string]any{
-						"operation": "operation-id",
+						"operation": "unbind_op1",
 					},
 					http.StatusAccepted,
 				)
 			})
 
-			It("responds asynchronously", func() {
+			It("unbinds the service asynchronously", func() {
 				Expect(unbindErr).NotTo(HaveOccurred())
-				Expect(unbindResp.IsComplete()).To(BeFalse())
-				Expect(unbindResp.Operation).To(Equal("operation-id"))
-			})
-		})
-
-		When("the binding does not exist", func() {
-			BeforeEach(func() {
-				brokerServer = brokerServer.WithResponse(
-					"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
-					nil,
-					http.StatusGone,
-				)
-			})
-
-			It("returns a gone error", func() {
-				Expect(unbindErr).To(BeAssignableToTypeOf(osbapi.GoneError{}))
+				Expect(unbindResp).To(Equal(osbapi.UnbindResponse{
+					IsAsync:   true,
+					Operation: "unbind_op1",
+				}))
 			})
 		})
 
@@ -853,6 +841,36 @@ var _ = Describe("OSBAPI Client", func() {
 
 			It("returns an error", func() {
 				Expect(unbindErr).To(MatchError(ContainSubstring("unbind request failed")))
+			})
+		})
+
+		When("the unbind request fails with 400 BadRequest error", func() {
+			BeforeEach(func() {
+				brokerServer = brokerServer.WithResponse("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", nil, http.StatusBadRequest)
+			})
+
+			It("returns an unrecoverable error", func() {
+				Expect(unbindErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusBadRequest}))
+			})
+		})
+
+		When("the unbind request fails with 410 Gone error", func() {
+			BeforeEach(func() {
+				brokerServer = brokerServer.WithResponse("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", nil, http.StatusGone)
+			})
+
+			It("returns an unrecoverable error", func() {
+				Expect(unbindErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusGone}))
+			})
+		})
+
+		When("the unbind request fails with 422 Unprocessable entity error", func() {
+			BeforeEach(func() {
+				brokerServer = brokerServer.WithResponse("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", nil, http.StatusUnprocessableEntity)
+			})
+
+			It("returns an unrecoverable error", func() {
+				Expect(unbindErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusUnprocessableEntity}))
 			})
 		})
 	})
