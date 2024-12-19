@@ -159,7 +159,6 @@ func main() {
 	dropletRepo := repositories.NewDropletRepo(
 		userClientFactory,
 		namespaceRetriever,
-		nsPermissions,
 	)
 	routeRepo := repositories.NewRouteRepo(
 		namespaceRetriever,
@@ -174,7 +173,6 @@ func main() {
 	deploymentRepo := repositories.NewDeploymentRepo(
 		userClientFactory,
 		namespaceRetriever,
-		nsPermissions,
 		repositories.NewDeploymentSorter(),
 	)
 	buildRepo := repositories.NewBuildRepo(

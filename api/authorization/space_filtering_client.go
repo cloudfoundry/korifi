@@ -35,6 +35,10 @@ func (c SpaceFilteringClient) List(ctx context.Context, list client.ObjectList, 
 		o.ApplyToList(effectiveListOpts)
 	}
 
+	if effectiveListOpts.Namespace != "" {
+		return c.WithWatch.List(ctx, list, effectiveListOpts)
+	}
+
 	selector, err := c.buildLabelSelector(ctx, effectiveListOpts)
 	if err != nil {
 		return err
@@ -52,7 +56,7 @@ func (c SpaceFilteringClient) buildLabelSelector(ctx context.Context, listOpts *
 	}
 
 	if len(namespaces) == 0 {
-		return labels.Nothing(), nil
+		return matchNotingSelector()
 	}
 
 	selector := labels.NewSelector()
@@ -68,6 +72,20 @@ func (c SpaceFilteringClient) buildLabelSelector(ctx context.Context, listOpts *
 	}
 
 	return selector, nil
+}
+
+func matchNotingSelector() (labels.Selector, error) {
+	r1, err := labels.NewRequirement(korifiv1alpha1.SpaceGUIDKey, selection.Exists, []string{})
+	if err != nil {
+		return nil, err
+	}
+
+	r2, err := labels.NewRequirement(korifiv1alpha1.SpaceGUIDKey, selection.DoesNotExist, []string{})
+	if err != nil {
+		return nil, err
+	}
+
+	return labels.NewSelector().Add(*r1, *r2), nil
 }
 
 func (c SpaceFilteringClient) getAuthorizedSpaceNamespaces(ctx context.Context) ([]string, error) {
