@@ -1,11 +1,11 @@
 package repositories_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
@@ -58,9 +58,10 @@ var _ = Describe("PackageRepository", func() {
 		}
 
 		packageRepo = repositories.NewPackageRepo(
-			userClientFactory,
+			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
+			}),
 			namespaceRetriever,
-			nsPerms,
 			repoCreator,
 			"container.registry/foo/my/prefix-",
 			conditionAwaiter,
@@ -480,7 +481,7 @@ var _ = Describe("PackageRepository", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			packageList, err = packageRepo.ListPackages(context.Background(), authInfo, listMessage)
+			packageList, err = packageRepo.ListPackages(ctx, authInfo, listMessage)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -496,6 +497,9 @@ var _ = Describe("PackageRepository", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      package1GUID,
 						Namespace: space.Name,
+						Labels: map[string]string{
+							korifiv1alpha1.SpaceGUIDKey: space.Name,
+						},
 					},
 					Spec: korifiv1alpha1.CFPackageSpec{
 						Type: "bits",
@@ -510,6 +514,9 @@ var _ = Describe("PackageRepository", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      package2GUID,
 						Namespace: space2.Name,
+						Labels: map[string]string{
+							korifiv1alpha1.SpaceGUIDKey: space2.Name,
+						},
 					},
 					Spec: korifiv1alpha1.CFPackageSpec{
 						Type: "bits",
@@ -534,6 +541,9 @@ var _ = Describe("PackageRepository", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      noPermissionsPackageGUID,
 						Namespace: noPermissionsSpace.Name,
+						Labels: map[string]string{
+							korifiv1alpha1.SpaceGUIDKey: noPermissionsSpace.Name,
+						},
 					},
 					Spec: korifiv1alpha1.CFPackageSpec{
 						Type: "bits",

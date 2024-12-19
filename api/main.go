@@ -192,7 +192,6 @@ func main() {
 	packageRepo := repositories.NewPackageRepo(
 		userClientFactory,
 		namespaceRetriever,
-		nsPermissions,
 		toolsregistry.NewRepositoryCreator(cfg.ContainerRegistryType),
 		cfg.ContainerRepositoryPrefix,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFPackage, korifiv1alpha1.CFPackage, korifiv1alpha1.CFPackageList](conditionTimeout),
