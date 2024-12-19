@@ -43,7 +43,7 @@ type NamespaceGetter interface {
 
 type ServiceInstanceRepo struct {
 	namespaceRetriever   NamespaceRetriever
-	userClientFactory    authorization.UserK8sClientFactory
+	userClientFactory    authorization.UserClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 	awaiter              Awaiter[*korifiv1alpha1.CFServiceInstance]
 	sorter               ServiceInstanceSorter
@@ -91,7 +91,7 @@ func ServiceInstanceComparator(fieldName string) func(ServiceInstanceRecord, Ser
 
 func NewServiceInstanceRepo(
 	namespaceRetriever NamespaceRetriever,
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	namespacePermissions *authorization.NamespacePermissions,
 	awaiter Awaiter[*korifiv1alpha1.CFServiceInstance],
 	sorter ServiceInstanceSorter,

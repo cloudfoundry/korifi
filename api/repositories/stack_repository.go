@@ -21,7 +21,7 @@ const (
 
 type StackRepository struct {
 	builderName       string
-	userClientFactory authorization.UserK8sClientFactory
+	userClientFactory authorization.UserClientFactory
 	rootNamespace     string
 }
 
@@ -35,7 +35,7 @@ type StackRecord struct {
 
 func NewStackRepository(
 	builderName string,
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	rootNamespace string,
 ) *StackRepository {
 	return &StackRepository{

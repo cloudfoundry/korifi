@@ -4,7 +4,9 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	"github.com/go-logr/logr"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,4 +87,20 @@ func (a RetryingClient) retryOnError(ctx context.Context, fn func() error, op st
 		}
 		return err
 	})
+}
+
+// isForbidden returns true for forbidden errors that are NOT korifi webhook
+// validation errors, false otherwise upon webhook validation errors it makes
+// no sense to retry the operation as the webhook is expected to consistently
+// return the same validation error
+func IsForbidden(err error) bool {
+	if !k8serrors.IsForbidden(err) {
+		return false
+	}
+
+	if _, isValidationErr := validation.WebhookErrorToValidationError(err); isValidationErr {
+		return false
+	}
+
+	return true
 }

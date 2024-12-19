@@ -26,7 +26,7 @@ import (
 const DeploymentResourceType = "Deployment"
 
 type DeploymentRepo struct {
-	userClientFactory    authorization.UserK8sClientFactory
+	userClientFactory    authorization.UserClientFactory
 	namespaceRetriever   NamespaceRetriever
 	namespacePermissions *authorization.NamespacePermissions
 	sorter               DeploymentSorter
@@ -116,7 +116,7 @@ func (m ListDeploymentsMessage) matchesStatusValue(deployment DeploymentRecord) 
 }
 
 func NewDeploymentRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	namespaceRetriever NamespaceRetriever,
 	namespacePermissions *authorization.NamespacePermissions,
 	sorter DeploymentSorter,

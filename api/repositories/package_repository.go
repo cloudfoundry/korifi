@@ -44,7 +44,7 @@ var packageTypeToLifecycleType = map[korifiv1alpha1.PackageType]korifiv1alpha1.L
 }
 
 type PackageRepo struct {
-	userClientFactory    authorization.UserK8sClientFactory
+	userClientFactory    authorization.UserClientFactory
 	namespaceRetriever   NamespaceRetriever
 	namespacePermissions *authorization.NamespacePermissions
 	repositoryCreator    RepositoryCreator
@@ -54,7 +54,7 @@ type PackageRepo struct {
 }
 
 func NewPackageRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	namespaceRetriever NamespaceRetriever,
 	authPerms *authorization.NamespacePermissions,
 	repositoryCreator RepositoryCreator,

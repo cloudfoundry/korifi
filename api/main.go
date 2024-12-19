@@ -88,11 +88,11 @@ func main() {
 
 	ctrl.Log.Info("starting Korifi API", "version", version.Version)
 
-	privilegedCRClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
+	privilegedClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
 	if err != nil {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
-	privilegedK8sClient, err := k8sclient.NewForConfig(k8sClientConfig)
+	privilegedClientset, err := k8sclient.NewForConfig(k8sClientConfig)
 	if err != nil {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
@@ -112,11 +112,16 @@ func main() {
 		panic(fmt.Sprintf("could not create kubernetes REST mapper: %v", err))
 	}
 
-	userClientFactory := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper, k8s.NewDefaultBackoff())
-
-	identityProvider := wireIdentityProvider(privilegedCRClient, k8sClientConfig)
+	identityProvider := wireIdentityProvider(privilegedClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
-	nsPermissions := authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider)
+	nsPermissions := authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider)
+	userClientFactoryUnfiltered := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper).
+		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
+		})
+	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+		return authorization.NewSpaceFilteringClient(client, privilegedClient, nsPermissions)
+	})
 
 	serverURL, err := url.Parse(cfg.ServerURL)
 	if err != nil {
@@ -125,15 +130,15 @@ func main() {
 
 	orgRepo := repositories.NewOrgRepo(
 		cfg.RootNamespace,
-		privilegedCRClient,
-		userClientFactory,
+		privilegedClient,
+		userClientFactoryUnfiltered,
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFOrg, korifiv1alpha1.CFOrg, korifiv1alpha1.CFOrgList](conditionTimeout),
 	)
 	spaceRepo := repositories.NewSpaceRepo(
 		namespaceRetriever,
 		orgRepo,
-		userClientFactory,
+		userClientFactoryUnfiltered,
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFSpace, korifiv1alpha1.CFSpace, korifiv1alpha1.CFSpaceList](conditionTimeout),
 	)
@@ -143,12 +148,11 @@ func main() {
 		nsPermissions,
 	)
 	podRepo := repositories.NewPodRepo(
-		userClientFactory,
+		userClientFactoryUnfiltered,
 	)
 	appRepo := repositories.NewAppRepo(
 		namespaceRetriever,
 		userClientFactory,
-		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
 		repositories.NewAppSorter(),
 	)
@@ -163,7 +167,7 @@ func main() {
 		nsPermissions,
 	)
 	domainRepo := repositories.NewDomainRepo(
-		userClientFactory,
+		userClientFactoryUnfiltered,
 		namespaceRetriever,
 		cfg.RootNamespace,
 	)
@@ -178,11 +182,12 @@ func main() {
 		userClientFactory,
 	)
 	logRepo := repositories.NewLogRepo(
-		userClientFactory,
+		userClientFactoryUnfiltered,
+		authorization.NewUnprivilegedClientsetFactory(k8sClientConfig),
 		repositories.DefaultLogStreamer,
 	)
 	runnerInfoRepo := repositories.NewRunnerInfoRepository(
-		userClientFactory,
+		userClientFactoryUnfiltered,
 		cfg.RunnerName,
 		cfg.RootNamespace,
 	)
@@ -210,28 +215,27 @@ func main() {
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBindingList](conditionTimeout),
 	)
 	stackRepo := repositories.NewStackRepository(cfg.BuilderName,
-		userClientFactory,
+		userClientFactoryUnfiltered,
 		cfg.RootNamespace,
 	)
 	buildpackRepo := repositories.NewBuildpackRepository(cfg.BuilderName,
-		userClientFactory,
+		userClientFactoryUnfiltered,
 		cfg.RootNamespace,
 		repositories.NewBuildpackSorter(),
 	)
 	roleRepo := repositories.NewRoleRepo(
 		userClientFactory,
 		spaceRepo,
-		authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider),
-		authorization.NewNamespacePermissions(privilegedCRClient, cachingIdentityProvider),
+		authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider),
+		authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider),
 		cfg.RootNamespace,
 		cfg.RoleMappings,
 		namespaceRetriever,
 		repositories.NewRoleSorter(),
 	)
-	imageClient := image.NewClient(privilegedK8sClient)
+	imageClient := image.NewClient(privilegedClientset)
 	imageRepo := repositories.NewImageRepository(
-		privilegedK8sClient,
-		userClientFactory,
+		userClientFactoryUnfiltered,
 		imageClient,
 		cfg.PackageRegistrySecretNames,
 		cfg.RootNamespace,
@@ -242,7 +246,7 @@ func main() {
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](conditionTimeout),
 	)
-	metricsRepo := repositories.NewMetricsRepo(userClientFactory)
+	metricsRepo := repositories.NewMetricsRepo(userClientFactoryUnfiltered)
 	serviceBrokerRepo := repositories.NewServiceBrokerRepo(userClientFactory, cfg.RootNamespace)
 	serviceOfferingRepo := repositories.NewServiceOfferingRepo(userClientFactory, cfg.RootNamespace, serviceBrokerRepo, nsPermissions)
 	servicePlanRepo := repositories.NewServicePlanRepo(userClientFactory, cfg.RootNamespace, orgRepo)

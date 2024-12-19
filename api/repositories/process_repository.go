@@ -22,7 +22,7 @@ import (
 
 const ProcessResourceType = "Process"
 
-func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
+func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserClientFactory, namespacePermissions *authorization.NamespacePermissions) *ProcessRepo {
 	return &ProcessRepo{
 		namespaceRetriever:   namespaceRetriever,
 		clientFactory:        userClientFactory,
@@ -32,7 +32,7 @@ func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory aut
 
 type ProcessRepo struct {
 	namespaceRetriever   NamespaceRetriever
-	clientFactory        authorization.UserK8sClientFactory
+	clientFactory        authorization.UserClientFactory
 	namespacePermissions *authorization.NamespacePermissions
 }
 

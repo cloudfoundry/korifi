@@ -35,7 +35,7 @@ func (r ServiceOfferingRecord) Relationships() map[string]string {
 }
 
 type ServiceOfferingRepo struct {
-	userClientFactory    authorization.UserK8sClientFactory
+	userClientFactory    authorization.UserClientFactory
 	rootNamespace        string
 	brokerRepo           *ServiceBrokerRepo
 	namespacePermissions *authorization.NamespacePermissions
@@ -59,7 +59,7 @@ func (m *ListServiceOfferingMessage) matches(cfServiceOffering korifiv1alpha1.CF
 }
 
 func NewServiceOfferingRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	rootNamespace string,
 	brokerRepo *ServiceBrokerRepo,
 	namespacePermissions *authorization.NamespacePermissions,

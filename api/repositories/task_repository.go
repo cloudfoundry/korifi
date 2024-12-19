@@ -98,14 +98,14 @@ func (m *CreateTaskMessage) toCFTask() *korifiv1alpha1.CFTask {
 }
 
 type TaskRepo struct {
-	userClientFactory    authorization.UserK8sClientFactory
+	userClientFactory    authorization.UserClientFactory
 	namespaceRetriever   NamespaceRetriever
 	namespacePermissions *authorization.NamespacePermissions
 	taskConditionAwaiter Awaiter[*korifiv1alpha1.CFTask]
 }
 
 func NewTaskRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	nsRetriever NamespaceRetriever,
 	namespacePermissions *authorization.NamespacePermissions,
 	taskConditionAwaiter Awaiter[*korifiv1alpha1.CFTask],

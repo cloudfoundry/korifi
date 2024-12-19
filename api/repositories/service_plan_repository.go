@@ -42,7 +42,7 @@ type PlanVisibility struct {
 }
 
 type ServicePlanRepo struct {
-	userClientFactory authorization.UserK8sClientFactory
+	userClientFactory authorization.UserClientFactory
 	rootNamespace     string
 	orgRepo           *OrgRepo
 }
@@ -100,7 +100,7 @@ func (m *UpdateServicePlanVisibilityMessage) apply(cfServicePlan *korifiv1alpha1
 }
 
 func NewServicePlanRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	rootNamespace string,
 	orgRepo *OrgRepo,
 ) *ServicePlanRepo {

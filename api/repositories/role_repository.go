@@ -91,7 +91,7 @@ type RoleRepo struct {
 	roleMappings         map[string]config.Role
 	authorizedInChecker  AuthorizedInChecker
 	namespacePermissions *authorization.NamespacePermissions
-	userClientFactory    authorization.UserK8sClientFactory
+	userClientFactory    authorization.UserClientFactory
 	spaceRepo            *SpaceRepo
 	namespaceRetriever   NamespaceRetriever
 	sorter               RoleSorter
@@ -137,7 +137,7 @@ type ListRolesMessage struct {
 }
 
 func NewRoleRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	spaceRepo *SpaceRepo,
 	authorizedInChecker AuthorizedInChecker,
 	namespacePermissions *authorization.NamespacePermissions,

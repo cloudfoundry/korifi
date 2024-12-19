@@ -26,13 +26,13 @@ const (
 )
 
 type DropletRepo struct {
-	userClientFactory    authorization.UserK8sClientFactory
+	userClientFactory    authorization.UserClientFactory
 	namespaceRetriever   NamespaceRetriever
 	namespacePermissions *authorization.NamespacePermissions
 }
 
 func NewDropletRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	namespaceRetriever NamespaceRetriever,
 	namespacePermissions *authorization.NamespacePermissions,
 ) *DropletRepo {

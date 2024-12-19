@@ -55,12 +55,12 @@ func (r BuildRecord) Relationships() map[string]string {
 
 type BuildRepo struct {
 	namespaceRetriever NamespaceRetriever
-	userClientFactory  authorization.UserK8sClientFactory
+	userClientFactory  authorization.UserClientFactory
 }
 
 func NewBuildRepo(
 	namespaceRetriever NamespaceRetriever,
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 ) *BuildRepo {
 	return &BuildRepo{
 		namespaceRetriever: namespaceRetriever,
