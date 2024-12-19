@@ -22,7 +22,6 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -42,11 +41,10 @@ const (
 )
 
 type AppRepo struct {
-	namespaceRetriever   NamespaceRetriever
-	userClientFactory    authorization.UserK8sClientFactory
-	namespacePermissions *authorization.NamespacePermissions
-	appAwaiter           Awaiter[*korifiv1alpha1.CFApp]
-	sorter               AppSorter
+	namespaceRetriever NamespaceRetriever
+	userClientFactory  authorization.UserClientFactory
+	appAwaiter         Awaiter[*korifiv1alpha1.CFApp]
+	sorter             AppSorter
 }
 
 //counterfeiter:generate -o fake -fake-name AppSorter . AppSorter
@@ -94,17 +92,15 @@ func AppComparator(fieldName string) func(AppRecord, AppRecord) int {
 
 func NewAppRepo(
 	namespaceRetriever NamespaceRetriever,
-	userClientFactory authorization.UserK8sClientFactory,
-	authPerms *authorization.NamespacePermissions,
+	userClientFactory authorization.UserClientFactory,
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp],
 	sorter AppSorter,
 ) *AppRepo {
 	return &AppRepo{
-		namespaceRetriever:   namespaceRetriever,
-		userClientFactory:    userClientFactory,
-		namespacePermissions: authPerms,
-		appAwaiter:           appAwaiter,
-		sorter:               sorter,
+		namespaceRetriever: namespaceRetriever,
+		userClientFactory:  userClientFactory,
+		appAwaiter:         appAwaiter,
+		sorter:             sorter,
 	}
 }
 
@@ -236,13 +232,10 @@ type ListAppsMessage struct {
 	OrderBy       string
 }
 
-func (m *ListAppsMessage) matchesNamespace(ns string) bool {
-	return tools.EmptyOrContains(m.SpaceGUIDs, ns)
-}
-
 func (m *ListAppsMessage) matches(cfApp korifiv1alpha1.CFApp) bool {
 	return tools.EmptyOrContains(m.Names, cfApp.Spec.DisplayName) &&
-		tools.EmptyOrContains(m.Guids, cfApp.Name)
+		tools.EmptyOrContains(m.Guids, cfApp.Name) &&
+		tools.EmptyOrContains(m.SpaceGUIDs, cfApp.Namespace)
 }
 
 func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGUID string) (AppRecord, error) {
@@ -359,28 +352,13 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		return []AppRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
 	}
 
-	authorisedSpaceNamespacesIter, err := authorizedSpaceNamespaces(ctx, authInfo, f.namespacePermissions)
+	appList := &korifiv1alpha1.CFAppList{}
+	err = userClient.List(ctx, appList, &client.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get namespaces for spaces with user role bindings: %w", err)
+		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	nsList := authorisedSpaceNamespacesIter.Filter(message.matchesNamespace).Collect()
-	var apps []korifiv1alpha1.CFApp
-	for _, ns := range nsList {
-		appList := &korifiv1alpha1.CFAppList{}
-		err := userClient.List(ctx, appList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
-
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return []AppRecord{}, fmt.Errorf("failed to list apps in namespace %s: %w", ns, apierrors.FromK8sError(err, AppResourceType))
-		}
-
-		apps = append(apps, appList.Items...)
-	}
-
-	appRecords := it.Map(itx.FromSlice(apps).Filter(message.matches), cfAppToAppRecord)
+	appRecords := it.Map(itx.FromSlice(appList.Items).Filter(message.matches), cfAppToAppRecord)
 
 	return f.sorter.Sort(slices.Collect(appRecords), message.OrderBy), nil
 }

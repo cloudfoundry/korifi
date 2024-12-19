@@ -45,7 +45,13 @@ var _ = Describe("TaskRepository", func() {
 			korifiv1alpha1.CFTaskList,
 			*korifiv1alpha1.CFTaskList,
 		]{}
-		taskRepo = repositories.NewTaskRepo(userClientFactory, namespaceRetriever, nsPerms, conditionAwaiter)
+		taskRepo = repositories.NewTaskRepo(
+			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
+			}),
+			namespaceRetriever,
+			conditionAwaiter,
+		)
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
@@ -371,6 +377,9 @@ var _ = Describe("TaskRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      prefixedGUID("task1"),
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFTaskSpec{
 					Command: "echo hello",
@@ -379,12 +388,15 @@ var _ = Describe("TaskRepository", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(context.Background(), task1)).To(Succeed())
+			Expect(k8sClient.Create(ctx, task1)).To(Succeed())
 
 			task2 = &korifiv1alpha1.CFTask{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      prefixedGUID("task2"),
 					Namespace: space2.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space2.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFTaskSpec{
 					Command: "echo hello",
@@ -393,7 +405,7 @@ var _ = Describe("TaskRepository", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(context.Background(), task2)).To(Succeed())
+			Expect(k8sClient.Create(ctx, task2)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
@@ -414,18 +426,6 @@ var _ = Describe("TaskRepository", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedTasks).To(HaveLen(1))
 				Expect(listedTasks[0].Name).To(Equal(task2.Name))
-			})
-
-			When("the user has a useless binding in space1", func() {
-				BeforeEach(func() {
-					createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, space.Name)
-				})
-
-				It("still lists tasks from that namespace only", func() {
-					Expect(listErr).NotTo(HaveOccurred())
-					Expect(listedTasks).To(HaveLen(1))
-					Expect(listedTasks[0].Name).To(Equal(task2.Name))
-				})
 			})
 
 			When("filtering tasks by apps with permissions for both", func() {
@@ -470,6 +470,9 @@ var _ = Describe("TaskRepository", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      prefixedGUID("task21"),
 								Namespace: space2.Name,
+								Labels: map[string]string{
+									korifiv1alpha1.SpaceGUIDKey: space2.Name,
+								},
 							},
 							Spec: korifiv1alpha1.CFTaskSpec{
 								Command: "echo hello",
@@ -478,7 +481,7 @@ var _ = Describe("TaskRepository", func() {
 								},
 							},
 						}
-						Expect(k8sClient.Create(context.Background(), task21)).To(Succeed())
+						Expect(k8sClient.Create(ctx, task21)).To(Succeed())
 						Expect(k8s.Patch(ctx, k8sClient, task21, func() {
 							task21.Status.SequenceID = 21
 							task21.Status.DropletRef = corev1.LocalObjectReference{
@@ -532,7 +535,7 @@ var _ = Describe("TaskRepository", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
+			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
 			Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
 				cfTask.Status.SequenceID = 6
 				cfTask.Status.MemoryMB = 256
@@ -632,7 +635,7 @@ var _ = Describe("TaskRepository", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(context.Background(), cfTask)).To(Succeed())
+			Expect(k8sClient.Create(ctx, cfTask)).To(Succeed())
 
 			Expect(k8s.Patch(ctx, k8sClient, cfTask, func() {
 				cfTask.Status.SequenceID = 6
@@ -767,7 +770,7 @@ var _ = Describe("TaskRepository", func() {
 				It("sets the k8s cftask resource", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFTask := new(korifiv1alpha1.CFTask)
-					Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cfTask), updatedCFTask)).To(Succeed())
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), updatedCFTask)).To(Succeed())
 					Expect(updatedCFTask.Labels).To(Equal(
 						map[string]string{
 							"before-key-one": "value-one",

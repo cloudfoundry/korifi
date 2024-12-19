@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -29,7 +30,12 @@ var _ = Describe("ProcessRepo", func() {
 	)
 
 	BeforeEach(func() {
-		processRepo = repositories.NewProcessRepo(namespaceRetriever, userClientFactory, nsPerms)
+		processRepo = repositories.NewProcessRepo(
+			namespaceRetriever,
+			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
+			}),
+		)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 		app1GUID = prefixedGUID("app1")
@@ -45,7 +51,7 @@ var _ = Describe("ProcessRepo", func() {
 		)
 
 		BeforeEach(func() {
-			cfProcess1 = createProcessCR(context.Background(), k8sClient, process1GUID, space.Name, app1GUID)
+			cfProcess1 = createProcessCR(ctx, k8sClient, process1GUID, space.Name, app1GUID)
 			getProcessGUID = process1GUID
 		})
 
@@ -108,9 +114,9 @@ var _ = Describe("ProcessRepo", func() {
 				app2GUID := prefixedGUID("app2")
 
 				namespace2 := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: prefixedGUID("namespace2")}}
-				Expect(k8sClient.Create(context.Background(), namespace2)).To(Succeed())
+				Expect(k8sClient.Create(ctx, namespace2)).To(Succeed())
 
-				_ = createProcessCR(context.Background(), k8sClient, process1GUID, namespace2.Name, app2GUID)
+				_ = createProcessCR(ctx, k8sClient, process1GUID, namespace2.Name, app2GUID)
 			})
 
 			It("returns an untyped error", func() {
@@ -148,8 +154,8 @@ var _ = Describe("ProcessRepo", func() {
 			app2GUID = prefixedGUID("app2")
 			process2GUID = prefixedGUID("process2")
 
-			_ = createProcessCR(context.Background(), k8sClient, process1GUID, space1.Name, app1GUID)
-			_ = createProcessCR(context.Background(), k8sClient, process2GUID, space2.Name, app1GUID)
+			_ = createProcessCR(ctx, k8sClient, process1GUID, space1.Name, app1GUID)
+			_ = createProcessCR(ctx, k8sClient, process2GUID, space2.Name, app1GUID)
 
 			listProcessesMessage = repositories.ListProcessesMessage{
 				AppGUIDs: []string{app1GUID},
@@ -228,7 +234,7 @@ var _ = Describe("ProcessRepo", func() {
 
 		BeforeEach(func() {
 			space1 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
-			cfProcess = createProcessCR(context.Background(), k8sClient, process1GUID, space1.Name, app1GUID)
+			cfProcess = createProcessCR(ctx, k8sClient, process1GUID, space1.Name, app1GUID)
 
 			scaleProcessMessage = &repositories.ScaleProcessMessage{
 				GUID:               process1GUID,
@@ -258,7 +264,7 @@ var _ = Describe("ProcessRepo", func() {
 						DiskMB:    diskMB,
 						MemoryMB:  memoryMB,
 					}
-					scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(context.Background(), authInfo, *scaleProcessMessage)
+					scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(ctx, authInfo, *scaleProcessMessage)
 					Expect(scaleProcessErr).ToNot(HaveOccurred())
 					if instances != nil {
 						Expect(scaleProcessRecord.DesiredInstances).To(Equal(*instances))
@@ -307,7 +313,7 @@ var _ = Describe("ProcessRepo", func() {
 			When("scaling down a process to 0 instances", func() {
 				It("works", func() {
 					scaleProcessMessage.ProcessScaleValues = repositories.ProcessScaleValues{Instances: tools.PtrTo[int32](0)}
-					scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(context.Background(), authInfo, *scaleProcessMessage)
+					scaleProcessRecord, scaleProcessErr := processRepo.ScaleProcess(ctx, authInfo, *scaleProcessMessage)
 					Expect(scaleProcessErr).ToNot(HaveOccurred())
 
 					Expect(scaleProcessRecord.DesiredInstances).To(BeZero())
@@ -495,7 +501,7 @@ var _ = Describe("ProcessRepo", func() {
 					},
 				}
 
-				Expect(k8sClient.Create(context.Background(), cfProcess)).To(Succeed())
+				Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
 			})
 
 			When("users does not have permissions", func() {

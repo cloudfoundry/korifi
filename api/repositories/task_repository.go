@@ -16,7 +16,6 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -98,22 +97,19 @@ func (m *CreateTaskMessage) toCFTask() *korifiv1alpha1.CFTask {
 }
 
 type TaskRepo struct {
-	userClientFactory    authorization.UserK8sClientFactory
+	userClientFactory    authorization.UserClientFactory
 	namespaceRetriever   NamespaceRetriever
-	namespacePermissions *authorization.NamespacePermissions
 	taskConditionAwaiter Awaiter[*korifiv1alpha1.CFTask]
 }
 
 func NewTaskRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	nsRetriever NamespaceRetriever,
-	namespacePermissions *authorization.NamespacePermissions,
 	taskConditionAwaiter Awaiter[*korifiv1alpha1.CFTask],
 ) *TaskRepo {
 	return &TaskRepo{
 		userClientFactory:    userClientFactory,
 		namespaceRetriever:   nsRetriever,
-		namespacePermissions: namespacePermissions,
 		taskConditionAwaiter: taskConditionAwaiter,
 	}
 }
@@ -179,25 +175,13 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	nsList, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
+	taskList := &korifiv1alpha1.CFTaskList{}
+	err = userClient.List(ctx, taskList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+		return nil, fmt.Errorf("failed to list tasks: %w", apierrors.FromK8sError(err, TaskResourceType))
 	}
 
-	var tasks []korifiv1alpha1.CFTask
-	for _, ns := range nsList.Collect() {
-		taskList := &korifiv1alpha1.CFTaskList{}
-		err := userClient.List(ctx, taskList, client.InNamespace(ns))
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to list tasks in namespace %s: %w", ns, apierrors.FromK8sError(err, TaskResourceType))
-		}
-		tasks = append(tasks, taskList.Items...)
-	}
-
-	filteredTasks := itx.FromSlice(tasks).Filter(msg.matches)
+	filteredTasks := itx.FromSlice(taskList.Items).Filter(msg.matches)
 	return slices.Collect(it.Map(filteredTasks, taskToRecord)), nil
 }
 

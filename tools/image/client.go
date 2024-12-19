@@ -24,7 +24,7 @@ import (
 )
 
 type Client struct {
-	k8sClient kubernetes.Interface
+	clientset kubernetes.Interface
 	logger    logr.Logger
 }
 
@@ -42,9 +42,9 @@ type Config struct {
 	ExposedPorts []int32
 }
 
-func NewClient(k8sClient kubernetes.Interface) Client {
+func NewClient(clietnset kubernetes.Interface) Client {
 	return Client{
-		k8sClient: k8sClient,
+		clientset: clietnset,
 		logger:    ctrl.Log.WithName("image.client"),
 	}
 }
@@ -263,12 +263,12 @@ func (c Client) authOpt(ctx context.Context, creds Creds) (remote.Option, error)
 	var err error
 
 	if len(creds.SecretNames) > 0 {
-		keychain, err = k8schain.New(ctx, c.k8sClient, k8schain.Options{
+		keychain, err = k8schain.New(ctx, c.clientset, k8schain.Options{
 			Namespace:        creds.Namespace,
 			ImagePullSecrets: creds.SecretNames,
 		})
 	} else if creds.ServiceAccountName != "" {
-		keychain, err = k8schain.New(ctx, c.k8sClient, k8schain.Options{
+		keychain, err = k8schain.New(ctx, c.clientset, k8schain.Options{
 			Namespace:          creds.Namespace,
 			ServiceAccountName: creds.ServiceAccountName,
 		})

@@ -16,7 +16,6 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,16 +25,14 @@ const (
 )
 
 type RouteRepo struct {
-	namespaceRetriever   NamespaceRetriever
-	userClientFactory    authorization.UserK8sClientFactory
-	namespacePermissions *authorization.NamespacePermissions
+	namespaceRetriever NamespaceRetriever
+	userClientFactory  authorization.UserClientFactory
 }
 
-func NewRouteRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserK8sClientFactory, authPerms *authorization.NamespacePermissions) *RouteRepo {
+func NewRouteRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserClientFactory) *RouteRepo {
 	return &RouteRepo{
-		namespaceRetriever:   namespaceRetriever,
-		userClientFactory:    userClientFactory,
-		namespacePermissions: authPerms,
+		namespaceRetriever: namespaceRetriever,
+		userClientFactory:  userClientFactory,
 	}
 }
 
@@ -113,11 +110,8 @@ func (m *ListRoutesMessage) matches(r korifiv1alpha1.CFRoute) bool {
 	return tools.EmptyOrContains(m.DomainGUIDs, r.Spec.DomainRef.Name) &&
 		tools.EmptyOrContains(m.Hosts, r.Spec.Host) &&
 		tools.EmptyOrContains(m.Paths, r.Spec.Path) &&
+		tools.EmptyOrContains(m.SpaceGUIDs, r.Namespace) &&
 		m.matchesApp(r)
-}
-
-func (m *ListRoutesMessage) matchesNamespace(ns string) bool {
-	return tools.EmptyOrContains(m.SpaceGUIDs, ns)
 }
 
 func (m *ListRoutesMessage) matchesApp(r korifiv1alpha1.CFRoute) bool {
@@ -192,26 +186,13 @@ func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	authorizedSpaceNamespaces, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
+	cfRouteList := &korifiv1alpha1.CFRouteList{}
+	err = userClient.List(ctx, cfRouteList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+		return []RouteRecord{}, fmt.Errorf("failed to list routes: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	nsList := authorizedSpaceNamespaces.Filter(message.matchesNamespace).Collect()
-	routes := []korifiv1alpha1.CFRoute{}
-	for _, ns := range nsList {
-		cfRouteList := &korifiv1alpha1.CFRouteList{}
-		err := userClient.List(ctx, cfRouteList, client.InNamespace(ns))
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return []RouteRecord{}, fmt.Errorf("failed to list routes namespace %s: %w", ns, apierrors.FromK8sError(err, RouteResourceType))
-		}
-		routes = append(routes, cfRouteList.Items...)
-	}
-
-	filteredRoutes := itx.FromSlice(routes).Filter(message.matches)
+	filteredRoutes := itx.FromSlice(cfRouteList.Items).Filter(message.matches)
 	return slices.Collect(it.Map(filteredRoutes, cfRouteToRouteRecord)), nil
 }
 

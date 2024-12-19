@@ -1,13 +1,13 @@
 package repositories_test
 
 import (
-	"context"
 	"errors"
 	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -43,7 +43,12 @@ var _ = Describe("RouteRepository", func() {
 		route1GUID = prefixedGUID("route1")
 		route2GUID = prefixedGUID("route2")
 		domainGUID = prefixedGUID("domain")
-		routeRepo = NewRouteRepo(namespaceRetriever, userClientFactory, nsPerms)
+		routeRepo = NewRouteRepo(
+			namespaceRetriever,
+			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
+			}),
+		)
 
 		cfDomain := &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
@@ -69,6 +74,9 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
@@ -216,6 +224,9 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1-a",
@@ -233,7 +244,7 @@ var _ = Describe("RouteRepository", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(context.Background(), cfRoute1A),
+				k8sClient.Create(ctx, cfRoute1A),
 			).To(Succeed())
 
 			domainGUID2 = prefixedGUID("RouteListDomain2")
@@ -241,6 +252,9 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route2GUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1-b",
@@ -253,7 +267,7 @@ var _ = Describe("RouteRepository", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(context.Background(), cfRoute1B),
+				k8sClient.Create(ctx, cfRoute1B),
 			).To(Succeed())
 
 			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
@@ -261,6 +275,9 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space2.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space2.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-2-a",
@@ -273,14 +290,17 @@ var _ = Describe("RouteRepository", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(context.Background(), cfRoute2A),
+				k8sClient.Create(ctx, cfRoute2A),
 			).To(Succeed())
 
 			space3 := createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space3"))
-			Expect(k8sClient.Create(context.Background(), &korifiv1alpha1.CFRoute{
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space3.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space3.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-3-a",
@@ -428,6 +448,9 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
@@ -475,6 +498,9 @@ var _ = Describe("RouteRepository", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      route2GUID,
 						Namespace: space.Name,
+						Labels: map[string]string{
+							korifiv1alpha1.SpaceGUIDKey: space.Name,
+						},
 					},
 					Spec: korifiv1alpha1.CFRouteSpec{
 						Host:     "my-subdomain-2",
@@ -565,7 +591,7 @@ var _ = Describe("RouteRepository", func() {
 				Expect(createdRouteErr).NotTo(HaveOccurred())
 				cfRouteLookupKey := types.NamespacedName{Name: createdRouteRecord.GUID, Namespace: space.Name}
 				createdCFRoute := new(korifiv1alpha1.CFRoute)
-				Expect(k8sClient.Get(context.Background(), cfRouteLookupKey, createdCFRoute)).To(Succeed())
+				Expect(k8sClient.Get(ctx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
 
 				Expect(createdCFRoute.Spec.Host).To(Equal(createdRouteRecord.Host))
 				Expect(createdCFRoute.Spec.Path).To(Equal(createdRouteRecord.Path))
@@ -611,6 +637,9 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeGUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
@@ -706,7 +735,7 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("creates a new CFRoute CR successfully", func() {
-				Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: routeRecord.GUID, Namespace: space.Name}, &korifiv1alpha1.CFRoute{})).To(Succeed())
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: routeRecord.GUID, Namespace: space.Name}, &korifiv1alpha1.CFRoute{})).To(Succeed())
 			})
 
 			It("returns an RouteRecord with matching fields", func() {
@@ -728,6 +757,17 @@ var _ = Describe("RouteRepository", func() {
 					var err error
 					existingRecord, err = routeRepo.CreateRoute(ctx, authInfo, createRouteMessage)
 					Expect(err).NotTo(HaveOccurred())
+
+					route := &korifiv1alpha1.CFRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      existingRecord.GUID,
+							Namespace: existingRecord.SpaceGUID,
+						},
+					}
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(route), route)).To(Succeed())
+					Expect(k8s.Patch(ctx, k8sClient, route, func() {
+						route.Labels = tools.SetMapValue(route.Labels, korifiv1alpha1.SpaceGUIDKey, existingRecord.SpaceGUID)
+					})).To(Succeed())
 				})
 
 				It("doesn't create a new route", func() {
@@ -740,7 +780,7 @@ var _ = Describe("RouteRepository", func() {
 
 				It("returns the existing record", func() {
 					Expect(routeErr).NotTo(HaveOccurred())
-					Expect(routeRecord).To(Equal(existingRecord))
+					Expect(routeRecord.GUID).To(Equal(existingRecord.GUID))
 				})
 			})
 		})
@@ -775,6 +815,9 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host: routeHost,
@@ -1066,6 +1109,9 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host: routeHost,
@@ -1147,6 +1193,9 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1-a",
@@ -1158,7 +1207,7 @@ var _ = Describe("RouteRepository", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(context.Background(), cfRoute),
+				k8sClient.Create(ctx, cfRoute),
 			).To(Succeed())
 
 			labelsPatch = nil
@@ -1203,36 +1252,20 @@ var _ = Describe("RouteRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(routeRecord.GUID).To(Equal(route1GUID))
 					Expect(routeRecord.SpaceGUID).To(Equal(space.Name))
-					Expect(routeRecord.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
-					))
-					Expect(routeRecord.Annotations).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
-					))
+					Expect(routeRecord.Labels).To(HaveKeyWithValue("key-one", "value-one"))
+					Expect(routeRecord.Labels).To(HaveKeyWithValue("key-two", "value-two"))
+					Expect(routeRecord.Annotations).To(HaveKeyWithValue("key-one", "value-one"))
+					Expect(routeRecord.Annotations).To(HaveKeyWithValue("key-two", "value-two"))
 				})
 
 				It("sets the k8s CFRoute resource", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFRoute := new(korifiv1alpha1.CFRoute)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), updatedCFRoute)).To(Succeed())
-					Expect(updatedCFRoute.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
-					))
-					Expect(updatedCFRoute.Annotations).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
-					))
+					Expect(updatedCFRoute.Labels).To(HaveKeyWithValue("key-one", "value-one"))
+					Expect(updatedCFRoute.Labels).To(HaveKeyWithValue("key-two", "value-two"))
+					Expect(updatedCFRoute.Annotations).To(HaveKeyWithValue("key-one", "value-one"))
+					Expect(updatedCFRoute.Annotations).To(HaveKeyWithValue("key-two", "value-two"))
 				})
 			})
 
@@ -1366,6 +1399,9 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      route1GUID,
 					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
@@ -59,7 +60,15 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			return records
 		}
 
-		serviceInstanceRepo = repositories.NewServiceInstanceRepo(namespaceRetriever, userClientFactory, nsPerms, conditionAwaiter, sorter, rootNamespace)
+		serviceInstanceRepo = repositories.NewServiceInstanceRepo(
+			namespaceRetriever,
+			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
+			}),
+			conditionAwaiter,
+			sorter,
+			rootNamespace,
+		)
 
 		org = createOrgWithCleanup(ctx, uuid.NewString())
 		space = createSpaceWithCleanup(ctx, org.Name, uuid.NewString())
@@ -693,6 +702,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: space.Name,
 					Name:      "service-instance-1" + uuid.NewString(),
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-1",
@@ -706,6 +718,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: space2.Name,
 					Name:      "service-instance-2" + uuid.NewString(),
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space2.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-2",
@@ -719,6 +734,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: space2.Name,
 					Name:      "service-instance-3" + uuid.NewString(),
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space2.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-3",
@@ -733,6 +751,9 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: space3.Name,
 					Name:      uuid.NewString(),
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space3.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: uuid.NewString(),
@@ -851,19 +872,19 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			When("filtered by label selector", func() {
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance1, func() {
-						cfServiceInstance1.Labels = map[string]string{"foo": "FOO1"}
+						cfServiceInstance1.Labels["foo"] = "FOO1"
 					})).To(Succeed())
 					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance2, func() {
-						cfServiceInstance2.Labels = map[string]string{"foo": "FOO2"}
+						cfServiceInstance2.Labels["foo"] = "FOO2"
 					})).To(Succeed())
 					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance3, func() {
-						cfServiceInstance3.Labels = map[string]string{"not_foo": "NOT_FOO"}
+						cfServiceInstance3.Labels["not_foo"] = "NOT_FOO"
 					})).To(Succeed())
 				})
 
 				DescribeTable("valid label selectors",
 					func(selector string, serviceBindingGUIDPrefixes ...string) {
-						serviceInstances, err := serviceInstanceRepo.ListServiceInstances(context.Background(), authInfo, repositories.ListServiceInstanceMessage{
+						serviceInstances, err := serviceInstanceRepo.ListServiceInstances(ctx, authInfo, repositories.ListServiceInstanceMessage{
 							LabelSelector: selector,
 						})
 						Expect(err).NotTo(HaveOccurred())
@@ -1048,7 +1069,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Namespace: space.Name,
 				}
 
-				err := k8sClient.Get(context.Background(), namespacedName, &korifiv1alpha1.CFServiceInstance{})
+				err := k8sClient.Get(ctx, namespacedName, &korifiv1alpha1.CFServiceInstance{})
 				Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("error: %+v", err))
 			})
 
@@ -1119,11 +1140,11 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		It("purges the service instance", func() {
 			Expect(deleteErr).ToNot(HaveOccurred())
 
-			err := k8sClient.Get(context.Background(), types.NamespacedName{Name: serviceInstance.Name, Namespace: space.Name}, &korifiv1alpha1.CFServiceInstance{})
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceInstance.Name, Namespace: space.Name}, &korifiv1alpha1.CFServiceInstance{})
 			Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("error: %+v", err))
 
 			binding := new(korifiv1alpha1.CFServiceBinding)
-			err = k8sClient.Get(context.Background(), types.NamespacedName{Name: serviceBinding.Name, Namespace: space.Name}, binding)
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: serviceBinding.Name, Namespace: space.Name}, binding)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(binding.Finalizers).To(BeEmpty())

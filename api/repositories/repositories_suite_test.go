@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +15,8 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,7 +52,8 @@ var (
 	testEnv               *envtest.Environment
 	k8sClient             client.WithWatch
 	namespaceRetriever    repositories.NamespaceRetriever
-	userClientFactory     authorization.UserK8sClientFactory
+	userClientFactory     authorization.UnprivilegedClientFactory
+	userClientsetFactory  authorization.UnprivilegedClientsetFactory
 	userName              string
 	authInfo              authorization.Info
 	rootNamespace         string
@@ -111,9 +115,15 @@ var _ = AfterSuite(func() {
 
 var _ = BeforeEach(func() {
 	ctx = context.Background()
+
+	logger := stdr.New(log.New(GinkgoWriter, ">>>", log.LstdFlags))
+	ctx = logr.NewContext(ctx, logger)
+
 	userName = uuid.NewString()
 	cert, key := testhelpers.ObtainClientCert(testEnv, userName)
 	authInfo.CertData = testhelpers.JoinCertAndKey(cert, key)
+	ctx = authorization.NewContext(ctx, &authInfo)
+
 	rootNamespace = prefixedGUID("root-ns")
 	builderName = "kpack-image-builder"
 	runnerName = "statefulset-runner"
@@ -127,7 +137,12 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	mapper, err := apiutil.NewDynamicRESTMapper(testEnv.Config, httpClient)
 	Expect(err).NotTo(HaveOccurred())
-	userClientFactory = authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper, k8s.NewDefaultBackoff())
+	userClientFactory = authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper).
+		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
+		})
+
+	userClientsetFactory = authorization.NewUnprivilegedClientsetFactory(testEnv.Config)
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)
@@ -298,6 +313,7 @@ func createBuild(ctx context.Context, k8sClient client.Client, namespace, buildG
 			Name:      buildGUID,
 			Namespace: namespace,
 			Labels: map[string]string{
+				korifiv1alpha1.SpaceGUIDKey:      namespace,
 				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
 			},
 		},
@@ -332,6 +348,7 @@ func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, 
 			Namespace: spaceGUID,
 			Labels: map[string]string{
 				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
+				korifiv1alpha1.SpaceGUIDKey:      spaceGUID,
 			},
 		},
 		Spec: korifiv1alpha1.CFProcessSpec{
@@ -408,6 +425,9 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 			Namespace: space,
 			Annotations: map[string]string{
 				CFAppRevisionKey: CFAppRevisionValue,
+			},
+			Labels: map[string]string{
+				korifiv1alpha1.SpaceGUIDKey: space,
 			},
 		},
 		Spec: korifiv1alpha1.CFAppSpec{

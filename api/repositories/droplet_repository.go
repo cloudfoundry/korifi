@@ -14,7 +14,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,20 +25,17 @@ const (
 )
 
 type DropletRepo struct {
-	userClientFactory    authorization.UserK8sClientFactory
-	namespaceRetriever   NamespaceRetriever
-	namespacePermissions *authorization.NamespacePermissions
+	userClientFactory  authorization.UserClientFactory
+	namespaceRetriever NamespaceRetriever
 }
 
 func NewDropletRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
 	namespaceRetriever NamespaceRetriever,
-	namespacePermissions *authorization.NamespacePermissions,
 ) *DropletRepo {
 	return &DropletRepo{
-		userClientFactory:    userClientFactory,
-		namespaceRetriever:   namespaceRetriever,
-		namespacePermissions: namespacePermissions,
+		userClientFactory:  userClientFactory,
+		namespaceRetriever: namespaceRetriever,
 	}
 }
 
@@ -158,31 +154,18 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 }
 
 func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
-	buildList := &korifiv1alpha1.CFBuildList{}
-
-	namespaces, err := r.namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
-
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return []DropletRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	var allBuilds []korifiv1alpha1.CFBuild
-	for ns := range namespaces {
-		err := userClient.List(ctx, buildList, client.InNamespace(ns), client.MatchingLabels(message.createSelector()))
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
-		}
-		allBuilds = append(allBuilds, buildList.Items...)
+	buildList := &korifiv1alpha1.CFBuildList{}
+	err = userClient.List(ctx, buildList, client.MatchingLabels(message.createSelector()))
+	if err != nil {
+		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 
-	filteredBuilds := itx.FromSlice(allBuilds)
+	filteredBuilds := itx.FromSlice(buildList.Items)
 	return slices.Collect(it.Map(filteredBuilds, cfBuildToDropletRecord)), nil
 }
 

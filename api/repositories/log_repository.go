@@ -67,17 +67,20 @@ var descendingOrder logRecordSortOrder = func(r1, r2 LogRecord) int {
 }
 
 type LogRepo struct {
-	userClientFactory authorization.UserK8sClientFactory
-	logStreamer       LogStreamer
+	userClientFactory    authorization.UserClientFactory
+	userClientsetFactory authorization.UserClientsetFactory
+	logStreamer          LogStreamer
 }
 
 func NewLogRepo(
-	userClientFactory authorization.UserK8sClientFactory,
+	userClientFactory authorization.UserClientFactory,
+	userClientsetFactory authorization.UserClientsetFactory,
 	logStreamer LogStreamer,
 ) *LogRepo {
 	return &LogRepo{
-		userClientFactory: userClientFactory,
-		logStreamer:       logStreamer,
+		userClientFactory:    userClientFactory,
+		userClientsetFactory: userClientsetFactory,
+		logStreamer:          logStreamer,
 	}
 }
 
@@ -208,7 +211,7 @@ func (r *LogRepo) getLogs(
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	logClient, err := r.userClientFactory.BuildK8sClient(authInfo)
+	logClient, err := r.userClientsetFactory.BuildClientset(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}

@@ -116,7 +116,7 @@ var _ = Describe("LogRepository", func() {
 			return nil, nil
 		}
 
-		logRepo = repositories.NewLogRepo(userClientFactory, logStreamer.Spy)
+		logRepo = repositories.NewLogRepo(userClientFactory, userClientsetFactory, logStreamer.Spy)
 
 		message = repositories.GetLogsMessage{
 			App: repositories.AppRecord{

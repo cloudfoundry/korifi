@@ -19,10 +19,10 @@ const (
 )
 
 type MetricsRepo struct {
-	userClientFactory authorization.UserK8sClientFactory
+	userClientFactory authorization.UserClientFactory
 }
 
-func NewMetricsRepo(userClientFactory authorization.UserK8sClientFactory) *MetricsRepo {
+func NewMetricsRepo(userClientFactory authorization.UserClientFactory) *MetricsRepo {
 	return &MetricsRepo{
 		userClientFactory: userClientFactory,
 	}

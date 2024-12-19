@@ -22,7 +22,6 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,21 +34,18 @@ const (
 )
 
 type ServiceBindingRepo struct {
-	userClientFactory       authorization.UserK8sClientFactory
-	namespacePermissions    *authorization.NamespacePermissions
+	userClientFactory       authorization.UserClientFactory
 	namespaceRetriever      NamespaceRetriever
 	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding]
 }
 
 func NewServiceBindingRepo(
 	namespaceRetriever NamespaceRetriever,
-	userClientFactory authorization.UserK8sClientFactory,
-	namespacePermissions *authorization.NamespacePermissions,
+	userClientFactory authorization.UserClientFactory,
 	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding],
 ) *ServiceBindingRepo {
 	return &ServiceBindingRepo{
 		userClientFactory:       userClientFactory,
-		namespacePermissions:    namespacePermissions,
 		namespaceRetriever:      namespaceRetriever,
 		bindingConditionAwaiter: bindingConditionAwaiter,
 	}
@@ -359,32 +355,19 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 		return []ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	authorizedSpaceNamespaces, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
-
 	labelSelector, err := labels.Parse(message.LabelSelector)
 	if err != nil {
 		return []ServiceBindingRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
 	}
 
-	var serviceBindings []korifiv1alpha1.CFServiceBinding
-	for _, ns := range authorizedSpaceNamespaces.Collect() {
-		serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
-		err = userClient.List(ctx, serviceBindingList, client.InNamespace(ns), &client.ListOptions{LabelSelector: labelSelector})
-		if k8serrors.IsForbidden(err) {
-			continue
-		}
-		if err != nil {
-			return []ServiceBindingRecord{}, fmt.Errorf("failed to list service instances in namespace %s: %w",
-				ns,
-				apierrors.FromK8sError(err, ServiceBindingResourceType),
-			)
-		}
-		serviceBindings = append(serviceBindings, serviceBindingList.Items...)
+	serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
+	err = userClient.List(ctx, serviceBindingList, &client.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		return []ServiceBindingRecord{}, fmt.Errorf("failed to list service instances: %w",
+			apierrors.FromK8sError(err, ServiceBindingResourceType),
+		)
 	}
 
-	filteredServiceBindings := itx.FromSlice(serviceBindings).Filter(message.matches)
+	filteredServiceBindings := itx.FromSlice(serviceBindingList.Items).Filter(message.matches)
 	return slices.Collect(it.Map(filteredServiceBindings, serviceBindingToRecord)), nil
 }
