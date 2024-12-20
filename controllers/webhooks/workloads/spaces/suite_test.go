@@ -2,19 +2,16 @@ package spaces_test
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
-	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/orgs"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/spaces"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -53,13 +50,19 @@ var _ = BeforeSuite(func() {
 
 	ctx = context.Background()
 
+	webhookManifestsPath := helpers.GenerateWebhookManifest(
+		`code.cloudfoundry.org/korifi/controllers/webhooks/workloads/spaces`,
+	)
+	DeferCleanup(func() {
+		Expect(os.RemoveAll(filepath.Dir(webhookManifestsPath))).To(Succeed())
+	})
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "manifests.yaml")},
+			Paths: []string{webhookManifestsPath},
 		},
 	}
 
@@ -71,7 +74,6 @@ var _ = BeforeSuite(func() {
 	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
-	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
 	adminNonSyncClient, err = client.New(testEnv.Config, client.Options{
 		Scheme: scheme.Scheme,
@@ -88,13 +90,6 @@ var _ = BeforeSuite(func() {
 	})).To(Succeed())
 
 	uncachedClient := helpers.NewUncachedClient(k8sManager.GetConfig())
-
-	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
-	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
-
-	orgNameDuplicateValidator := validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, orgs.CFOrgEntityType))
-	orgPlacementValidator := validation.NewPlacementValidator(uncachedClient, rootNamespace)
-	Expect(orgs.NewValidator(orgNameDuplicateValidator, orgPlacementValidator).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	spaceNameDuplicateValidator := validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, spaces.CFSpaceEntityType))
 	spacePlacementValidator := validation.NewPlacementValidator(uncachedClient, rootNamespace)
