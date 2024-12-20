@@ -40,7 +40,7 @@ func NewReconciler(k8sClient client.Client, brokerClientFactory osbapi.BrokerCli
 	}
 }
 
-func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, _ *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("reconcile-managed-service-binding")
 
 	assets, err := r.assets.GetServiceBindingAssets(ctx, cfServiceBinding)
@@ -56,7 +56,7 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	}
 
 	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFServiceBinding(ctx, cfServiceBinding, cfServiceInstance, assets, osbapiClient)
+		return r.finalizeCFServiceBinding(ctx, cfServiceBinding, assets, osbapiClient)
 	}
 
 	if isReconciled(cfServiceBinding) {
@@ -260,13 +260,12 @@ func (r *ManagedBindingsReconciler) reconcileCredentials(ctx context.Context, cf
 func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
 	ctx context.Context,
 	serviceBinding *korifiv1alpha1.CFServiceBinding,
-	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	assets osbapi.ServiceBindingAssets,
 	osbapiClient osbapi.BrokerClient,
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalize-managed-service-binding")
 
-	unbindResponse, err := r.deleteServiceBinding(ctx, serviceBinding, serviceInstance, assets, osbapiClient)
+	unbindResponse, err := r.deleteServiceBinding(ctx, serviceBinding, assets, osbapiClient)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -339,12 +338,11 @@ func (r *ManagedBindingsReconciler) pollLastOperation(
 func (r *ManagedBindingsReconciler) deleteServiceBinding(
 	ctx context.Context,
 	serviceBinding *korifiv1alpha1.CFServiceBinding,
-	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	assets osbapi.ServiceBindingAssets,
 	osbapiClient osbapi.BrokerClient,
 ) (osbapi.UnbindResponse, error) {
 	unbindResponse, err := osbapiClient.Unbind(ctx, osbapi.UnbindPayload{
-		InstanceID: serviceInstance.Name,
+		InstanceID: serviceBinding.Spec.Service.Name,
 		BindingID:  serviceBinding.Name,
 		UnbindRequestParameters: osbapi.UnbindRequestParameters{
 			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
