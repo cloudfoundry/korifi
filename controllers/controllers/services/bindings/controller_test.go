@@ -805,24 +805,6 @@ var _ = Describe("CFServiceBinding", func() {
 				}).Should(Succeed())
 			})
 
-			It("sets the BindRequested condition", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(korifiv1alpha1.BindingRequestedCondition)),
-						HasStatus(Equal(metav1.ConditionTrue)),
-					)))
-				}).Should(Succeed())
-
-				Consistently(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(korifiv1alpha1.BindingRequestedCondition)),
-						HasStatus(Equal(metav1.ConditionTrue)),
-					)))
-				}).Should(Succeed())
-			})
-
 			It("keeps checking last operation", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeNumerically(">", 1))
@@ -890,7 +872,7 @@ var _ = Describe("CFServiceBinding", func() {
 						State: "succeeded",
 					}, nil)
 
-					brokerClient.GetServiceBindingReturns(osbapi.GetBindingResponse{
+					brokerClient.BindReturns(osbapi.BindResponse{
 						Credentials: map[string]any{
 							"foo": "bar",
 						},
@@ -941,48 +923,69 @@ var _ = Describe("CFServiceBinding", func() {
 						})))
 					}).Should(Succeed())
 				})
-
-				When("getting the binding fails", func() {
-					BeforeEach(func() {
-						brokerClient.GetServiceBindingReturns(osbapi.GetBindingResponse{}, errors.New("get-binding-err"))
-					})
-
-					It("sets the ready condition to false", func() {
-						Eventually(func(g Gomega) {
-							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-
-							g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-								HasStatus(Equal(metav1.ConditionFalse)),
-								HasMessage(ContainSubstring("get-binding-err")),
-							)))
-						}).Should(Succeed())
-					})
-				})
 			})
 		})
 
-		When("binding fails with the broker", func() {
-			BeforeEach(func() {
-				brokerClient.BindReturns(osbapi.BindResponse{}, errors.New("binding-failed"))
+		Describe("bind failures", func() {
+			When("bind fails with recoverable error", func() {
+				BeforeEach(func() {
+					brokerClient.BindReturns(osbapi.BindResponse{}, errors.New("binding-failed"))
+				})
+
+				It("keeps trying to bind", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(brokerClient.BindCallCount()).To(BeNumerically(">", 1))
+						_, payload := brokerClient.BindArgsForCall(1)
+						g.Expect(payload).To(Equal(osbapi.BindPayload{
+							InstanceID: instance.Name,
+							BindingID:  binding.Name,
+							BindRequest: osbapi.BindRequest{
+								ServiceId: "service-offering-id",
+								PlanID:    "service-plan-id",
+								AppGUID:   cfAppGUID,
+								BindResource: osbapi.BindResource{
+									AppGUID: cfAppGUID,
+								},
+							},
+						}))
+					}).Should(Succeed())
+				})
+
+				It("sets ready to false", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+						g.Expect(binding.Status.Conditions).To(ContainElements(
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+							),
+						))
+					}).Should(Succeed())
+				})
 			})
 
-			It("fails the binding", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					g.Expect(binding.Status.Conditions).To(ContainElements(
-						SatisfyAll(
-							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-							HasStatus(Equal(metav1.ConditionFalse)),
-						),
-						SatisfyAll(
-							HasType(Equal(korifiv1alpha1.BindingFailedCondition)),
-							HasStatus(Equal(metav1.ConditionTrue)),
-							HasReason(Equal("BindingFailed")),
-							HasMessage(ContainSubstring("binding-failed")),
-						),
-					))
-				}).Should(Succeed())
+			When("bind fails with unrecoverable error", func() {
+				BeforeEach(func() {
+					brokerClient.BindReturns(osbapi.BindResponse{}, osbapi.UnrecoverableError{Status: http.StatusConflict})
+				})
+
+				It("fails the binding", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+						g.Expect(binding.Status.Conditions).To(ContainElements(
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+							),
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.BindingFailedCondition)),
+								HasStatus(Equal(metav1.ConditionTrue)),
+								HasReason(Equal("BindingFailed")),
+								HasMessage(ContainSubstring("binding-failed")),
+							),
+						))
+					}).Should(Succeed())
+				})
 			})
 		})
 

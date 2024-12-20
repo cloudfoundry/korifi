@@ -20,12 +20,6 @@ func (g GoneError) Error() string {
 	return "The operation resource is gone"
 }
 
-type ConflictError struct{}
-
-func (c ConflictError) Error() string {
-	return "The service binding already exists"
-}
-
 type UnrecoverableError struct {
 	Status int
 }
@@ -186,6 +180,7 @@ func (c *Client) GetServiceInstanceLastOperation(ctx context.Context, request Ge
 	return response, nil
 }
 
+TODO: This seems to be no longer used
 func (c *Client) GetServiceBinding(ctx context.Context, request GetBindingRequest) (GetBindingResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
@@ -231,8 +226,8 @@ func (c *Client) Bind(ctx context.Context, payload BindPayload) (BindResponse, e
 		return BindResponse{}, fmt.Errorf("bind request failed: %w", err)
 	}
 
-	if statusCode == http.StatusConflict {
-		return BindResponse{}, ConflictError{}
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusConflict || statusCode == http.StatusUnprocessableEntity {
+		return BindResponse{}, UnrecoverableError{Status: statusCode}
 	}
 
 	if statusCode >= 300 {

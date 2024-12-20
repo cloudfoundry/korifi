@@ -597,7 +597,7 @@ var _ = Describe("OSBAPI Client", func() {
 				})
 			})
 
-			When("binding request fails with 409 Confilct", func() {
+			When("binding request fails with 409 Conflict", func() {
 				BeforeEach(func() {
 					brokerServer = brokerServer.WithResponse(
 						"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
@@ -606,8 +606,36 @@ var _ = Describe("OSBAPI Client", func() {
 					)
 				})
 
-				It("returns a confilct error", func() {
-					Expect(bindErr).To(BeAssignableToTypeOf(osbapi.ConflictError{}))
+				It("returns an unrecoverable error", func() {
+					Expect(bindErr).To(BeAssignableToTypeOf(osbapi.UnrecoverableError{}))
+				})
+			})
+
+			When("binding request fails with 422 Unprocessable Entity", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse(
+						"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
+						nil,
+						http.StatusUnprocessableEntity,
+					)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(bindErr).To(BeAssignableToTypeOf(osbapi.UnrecoverableError{}))
+				})
+			})
+
+			When("binding request fails with 400 Bad Request", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse(
+						"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
+						nil,
+						http.StatusBadRequest,
+					)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(bindErr).To(BeAssignableToTypeOf(osbapi.UnrecoverableError{}))
 				})
 			})
 		})

@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	BindingFailedCondition    = "BindingFailed"
-	BindingRequestedCondition = "BindingRequested"
+	BindingFailedCondition = "BindingFailed"
 
+	// TODO: remove UnbindingRequestedCondition
 	UnbindingRequestedCondition = "UnbindingRequested"
 	UnbindingFailedCondition    = "UnbindingFailed"
 
@@ -58,14 +58,6 @@ type CFServiceBindingStatus struct {
 	// servicebinding.io [spec](https://servicebinding.io/spec/core/1.0.0-rc3/#Duck%20Type)
 	// +optional
 	Binding v1.LocalObjectReference `json:"binding"`
-
-	// The
-	// [operation](https://github.com/openservicebrokerapi/servicebroker/blob/master/spec.md#binding)
-	// of the bind request to the the OSBAPI broker. Only makes sense for
-	// bindings to managed service instances
-	// +optional
-	// TODO: do we need to store the bind operation in the status? Can we not do whatever we do for instances instead
-	BindingOperation string `json:"bindingOperation"`
 
 	// A reference to the Secret containing the binding Credentials object. For
 	// bindings to user-provided services this refers to the credentials secret
