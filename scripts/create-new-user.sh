@@ -16,7 +16,7 @@ createCert() {
     echo "Error: 'openssl' is not installed or not available in PATH." >&2
     exit 1
   fi
-  
+
   openssl req -new -newkey rsa:4096 \
     -keyout "${priv_key_file}" \
     -out "${csr_file}" \

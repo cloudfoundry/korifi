@@ -2,18 +2,16 @@ package apps_test
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
-	"code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/apps"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -50,13 +48,19 @@ func TestWorkloadsWebhooks(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
+	webhookManifestsPath := helpers.GenerateWebhookManifest(
+		"code.cloudfoundry.org/korifi/controllers/webhooks/workloads/apps",
+	)
+	DeferCleanup(func() {
+		Expect(os.RemoveAll(filepath.Dir(webhookManifestsPath))).To(Succeed())
+	})
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "manifests.yaml")},
+			Paths: []string{webhookManifestsPath},
 		},
 	}
 
@@ -65,10 +69,8 @@ var _ = BeforeSuite(func() {
 	Expect(adminConfig).NotTo(BeNil())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
-	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
 	adminNonSyncClient, err = client.New(testEnv.Config, client.Options{
 		Scheme: scheme.Scheme,
@@ -76,9 +78,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
-
-	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
-	finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(k8sManager)
 
 	(&apps.AppRevWebhook{}).SetupWebhookWithManager(k8sManager)
 

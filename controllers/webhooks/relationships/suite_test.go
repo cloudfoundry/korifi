@@ -2,9 +2,7 @@ package relationships_test
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -15,7 +13,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec" //lint:ignore ST1001 this is a test file
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,7 +41,9 @@ func TestWorkloadsWebhooks(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	webhookManifestsPath := generateWebhookManifest()
+	webhookManifestsPath := helpers.GenerateWebhookManifest(
+		"code.cloudfoundry.org/korifi/controllers/webhooks/relationships",
+	)
 	DeferCleanup(func() {
 		Expect(os.RemoveAll(filepath.Dir(webhookManifestsPath))).To(Succeed())
 	})
@@ -82,20 +81,3 @@ var _ = AfterSuite(func() {
 	stopManager()
 	Expect(testEnv.Stop()).To(Succeed())
 })
-
-func generateWebhookManifest() string {
-	tmpDir, err := os.MkdirTemp("", "")
-	Expect(err).NotTo(HaveOccurred())
-
-	controllerGenSession, err := gexec.Start(exec.Command(
-		"controller-gen",
-		"paths=code.cloudfoundry.org/korifi/controllers/webhooks/relationships",
-		"webhook",
-		fmt.Sprintf("output:webhook:artifacts:config=%s", tmpDir),
-	), GinkgoWriter, GinkgoWriter)
-
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(controllerGenSession).Should(gexec.Exit(0))
-
-	return filepath.Join(tmpDir, "manifests.yaml")
-}
