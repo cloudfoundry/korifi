@@ -987,6 +987,7 @@ var _ = Describe("CFServiceBinding", func() {
 				}).Should(Succeed())
 			})
 		})
+
 		Describe("binding deletion", func() {
 			BeforeEach(func() {
 				brokerClient.UnbindReturns(osbapi.UnbindResponse{
@@ -1021,7 +1022,13 @@ var _ = Describe("CFServiceBinding", func() {
 					brokerClient.UnbindReturns(osbapi.UnbindResponse{}, errors.New("unbinding-failed"))
 				})
 
-				FIt("the binding is not deleted", func() {
+				It("does not delete the binding", func() {
+					Consistently(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					}).Should(Succeed())
+				})
+
+				It("keeps trying to unbind with the broker", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 						g.Expect(brokerClient.UnbindCallCount()).To(BeNumerically(">", 1))
