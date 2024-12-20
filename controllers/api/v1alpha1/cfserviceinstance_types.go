@@ -31,7 +31,8 @@ const (
 
 	CFServiceInstanceFinalizerName = "cfServiceInstance.korifi.cloudfoundry.org"
 
-	ProvisioningFailedCondition = "ProvisioningFailed"
+	ProvisioningFailedCondition   = "ProvisioningFailed"
+	DeprovisioningFailedCondition = "DeprovisioningFailed"
 )
 
 // CFServiceInstanceSpec defines the desired state of CFServiceInstance

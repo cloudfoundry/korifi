@@ -32,11 +32,12 @@ type SmokeTestSharedData struct {
 	CfAdmin          string `json:"cf_admin"`
 	RootNamespace    string `json:"root_namespace"`
 	OrgName          string `json:"org_name"`
+	BrokerOrgName    string `json:"broker_org_name"`
 	SpaceName        string `json:"space_name"`
 	AppsDomain       string `json:"apps_domain"`
 	BuildpackAppName string `json:"buildpack_app_name"`
 	DockerAppName    string `json:"docker_app_name"`
-	BrokerAppName    string `json:"broker_app_name"`
+	BrokerURL        string `json:"broker_url"`
 }
 
 var sharedData SmokeTestSharedData
@@ -48,7 +49,7 @@ func TestSmoke(t *testing.T) {
 			Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
 				printCfApp(config)
 				fail_handler.PrintKorifiLogs(config, "", failure.StartTime)
-				printBuildLogs(config, sharedData.SpaceName)
+				printBuildLogs(config)
 			},
 		}).Fail)
 
@@ -58,33 +59,40 @@ func TestSmoke(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	data := SmokeTestSharedData{
+	sharedData = SmokeTestSharedData{
 		CfAdmin:          uuid.NewString(),
 		RootNamespace:    helpers.GetDefaultedEnvVar("ROOT_NAMESPACE", "cf"),
 		OrgName:          uuid.NewString(),
+		BrokerOrgName:    uuid.NewString(),
 		SpaceName:        uuid.NewString(),
 		AppsDomain:       helpers.GetRequiredEnvVar("APP_FQDN"),
 		BuildpackAppName: uuid.NewString(),
 		DockerAppName:    uuid.NewString(),
-		BrokerAppName:    uuid.NewString(),
 	}
-	serviceAccountFactory := helpers.NewServiceAccountFactory(data.RootNamespace)
+	serviceAccountFactory := helpers.NewServiceAccountFactory(sharedData.RootNamespace)
 
-	cfAdminToken := serviceAccountFactory.CreateAdminServiceAccount(data.CfAdmin)
-	helpers.AddUserToKubeConfig(data.CfAdmin, cfAdminToken)
+	cfAdminToken := serviceAccountFactory.CreateAdminServiceAccount(sharedData.CfAdmin)
+	helpers.AddUserToKubeConfig(sharedData.CfAdmin, cfAdminToken)
 
 	Expect(helpers.Cf("api", helpers.GetRequiredEnvVar("API_SERVER_ROOT"), "--skip-ssl-validation")).To(Exit(0))
-	Expect(helpers.Cf("auth", data.CfAdmin)).To(Exit(0))
+	Expect(helpers.Cf("auth", sharedData.CfAdmin)).To(Exit(0))
 
-	Expect(helpers.Cf("create-org", data.OrgName)).To(Exit(0))
-	Expect(helpers.Cf("create-space", "-o", data.OrgName, data.SpaceName)).To(Exit(0))
-	Expect(helpers.Cf("target", "-o", data.OrgName, "-s", data.SpaceName)).To(Exit(0))
+	brokerSpaceName := uuid.NewString()
+	brokerAppName := uuid.NewString()
+	Expect(helpers.Cf("create-org", sharedData.BrokerOrgName)).To(Exit(0))
+	Expect(helpers.Cf("create-space", "-o", sharedData.BrokerOrgName, brokerSpaceName)).To(Exit(0))
+	Expect(helpers.Cf("target", "-o", sharedData.BrokerOrgName, "-s", brokerSpaceName)).To(Exit(0))
+	Expect(helpers.Cf("push", brokerAppName, "-p", "../assets/sample-broker")).To(Exit(0))
+	sharedData.BrokerURL = helpers.GetInClusterURL(getAppGUID(brokerAppName))
 
-	Expect(helpers.Cf("push", data.BuildpackAppName, "-p", "../assets/dorifi")).To(Exit(0))
-	Expect(helpers.Cf("push", data.BrokerAppName, "-p", "../assets/sample-broker")).To(Exit(0))
-	Expect(helpers.Cf("push", data.DockerAppName, "-o", "eirini/dorini")).To(Exit(0))
+	Expect(helpers.Cf("create-org", sharedData.OrgName)).To(Exit(0))
+	Expect(helpers.Cf("create-space", "-o", sharedData.OrgName, sharedData.SpaceName)).To(Exit(0))
+	Expect(helpers.Cf("target", "-o", sharedData.OrgName, "-s", sharedData.SpaceName)).To(Exit(0))
 
-	sharedDataBytes, err := json.Marshal(data)
+	Expect(helpers.Cf("push", sharedData.BuildpackAppName, "-p", "../assets/dorifi")).To(Exit(0))
+	Expect(helpers.Cf("push", sharedData.DockerAppName, "-o", "eirini/dorini")).To(Exit(0))
+
+	sharedDataBytes, err := json.Marshal(sharedData)
 	Expect(err).NotTo(HaveOccurred())
 	return sharedDataBytes
 }, func(sharedDataBytes []byte) {
@@ -98,6 +106,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = SynchronizedAfterSuite(func() {
 }, func() {
 	Expect(helpers.Cf("delete-org", sharedData.OrgName, "-f").Wait()).To(Exit())
+	Expect(helpers.Cf("delete-org", sharedData.BrokerOrgName, "-f").Wait()).To(Exit())
 	serviceAccountFactory := helpers.NewServiceAccountFactory(sharedData.RootNamespace)
 
 	serviceAccountFactory.DeleteServiceAccount(sharedData.CfAdmin)
@@ -175,7 +184,7 @@ func printObject(k8sClient client.Client, obj client.Object) error {
 	return nil
 }
 
-func printBuildLogs(config *rest.Config, spaceName string) {
+func printBuildLogs(config *rest.Config) {
 	spaceGUID, err := sessionOutput(helpers.Cf("space", sharedData.SpaceName, "--guid").Wait())
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "failed to get space guid: %v\n", err)

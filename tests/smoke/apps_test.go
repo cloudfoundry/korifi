@@ -21,11 +21,4 @@ var _ = Describe("apps", func() {
 			HaveHTTPBody(ContainSubstring("Hi, I'm not Dora!")),
 		))
 	})
-
-	It("broker app is reachable via its route", func() {
-		appResponseShould(sharedData.BrokerAppName, "/", SatisfyAll(
-			HaveHTTPStatus(http.StatusOK),
-			HaveHTTPBody(ContainSubstring("Hi, I'm the sample broker!")),
-		))
-	})
 })

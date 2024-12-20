@@ -131,11 +131,18 @@ func (c *Client) Deprovision(ctx context.Context, payload InstanceDeprovisionPay
 		return ServiceInstanceOperationResponse{}, fmt.Errorf("deprovision request failed: %w", err)
 	}
 
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusGone || statusCode == http.StatusUnprocessableEntity {
+		return ServiceInstanceOperationResponse{}, UnrecoverableError{Status: statusCode}
+	}
+
 	if statusCode >= 300 {
 		return ServiceInstanceOperationResponse{}, fmt.Errorf("deprovision request failed with status code: %d", statusCode)
 	}
 
-	var response ServiceInstanceOperationResponse
+	response := ServiceInstanceOperationResponse{
+		IsAsync: statusCode == http.StatusAccepted,
+	}
+
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
 		return ServiceInstanceOperationResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
