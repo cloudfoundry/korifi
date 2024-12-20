@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
 	"code.cloudfoundry.org/korifi/model/services"
@@ -198,9 +197,9 @@ var _ = Describe("CFServiceBinding", func() {
 				g.Expect(sbServiceBinding.Spec.Provider).To(BeEmpty())
 
 				g.Expect(sbServiceBinding.Labels).To(SatisfyAll(
-					HaveKeyWithValue(bindings.ServiceBindingGUIDLabel, binding.Name),
+					HaveKeyWithValue(korifiv1alpha1.ServiceBindingGUIDLabel, binding.Name),
 					HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID),
-					HaveKeyWithValue(bindings.ServiceCredentialBindingTypeLabel, "app"),
+					HaveKeyWithValue(korifiv1alpha1.ServiceCredentialBindingTypeLabel, "app"),
 				))
 
 				g.Expect(sbServiceBinding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{

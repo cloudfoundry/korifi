@@ -25,3 +25,12 @@ func NilOrEquals[E comparable](value *E, expectedValue E) bool {
 
 	return expectedValue == *value
 }
+
+func SetMapValue[K comparable, V any](m map[K]V, key K, value V) map[K]V {
+	if m == nil {
+		m = map[K]V{}
+	}
+	m[key] = value
+
+	return m
+}
