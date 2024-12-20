@@ -149,7 +149,7 @@ func (r *ManagedBindingsReconciler) requestBind(
 		Reason:             "BindingRequested",
 	})
 
-	if bindResponse.Complete {
+	if !bindResponse.IsAsync {
 		return bindResponse.Credentials, nil
 	}
 

@@ -560,7 +560,6 @@ var _ = Describe("OSBAPI Client", func() {
 					Credentials: map[string]any{
 						"foo": "bar",
 					},
-					Complete: true,
 				}))
 			})
 
@@ -579,7 +578,7 @@ var _ = Describe("OSBAPI Client", func() {
 					Expect(bindErr).NotTo(HaveOccurred())
 					Expect(bindResp).To(Equal(osbapi.BindResponse{
 						Operation: "bind_op1",
-						Complete:  false,
+						IsAsync:   true,
 					}))
 				})
 			})

@@ -114,7 +114,7 @@ type BindPayload struct {
 type BindResponse struct {
 	Credentials map[string]any `json:"credentials"`
 	Operation   string         `json:"operation"`
-	Complete    bool
+	IsAsync     bool
 }
 
 type BindResource struct {

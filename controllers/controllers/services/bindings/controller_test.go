@@ -550,7 +550,6 @@ var _ = Describe("CFServiceBinding", func() {
 				Credentials: map[string]any{
 					"foo": "bar",
 				},
-				Complete: true,
 			}, nil)
 
 			instance = &korifiv1alpha1.CFServiceInstance{
@@ -678,7 +677,6 @@ var _ = Describe("CFServiceBinding", func() {
 						"foo":  "bar",
 						"type": "please-ignore-me",
 					},
-					Complete: true,
 				}, nil)
 			})
 
@@ -705,7 +703,6 @@ var _ = Describe("CFServiceBinding", func() {
 						"foo":      "bar",
 						"provider": "please-ignore-me",
 					},
-					Complete: true,
 				}, nil)
 			})
 
@@ -789,7 +786,7 @@ var _ = Describe("CFServiceBinding", func() {
 			BeforeEach(func() {
 				brokerClient.BindReturns(osbapi.BindResponse{
 					Operation: "operation-1",
-					Complete:  false,
+					IsAsync:   true,
 				}, nil)
 
 				brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{

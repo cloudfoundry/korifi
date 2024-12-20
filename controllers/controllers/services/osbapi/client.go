@@ -239,9 +239,8 @@ func (c *Client) Bind(ctx context.Context, payload BindPayload) (BindResponse, e
 		return BindResponse{}, fmt.Errorf("binding request failed with code: %d", statusCode)
 	}
 
-	var response BindResponse
-	if statusCode == http.StatusCreated {
-		response.Complete = true
+	response := BindResponse{
+		IsAsync: statusCode == http.StatusAccepted,
 	}
 
 	err = json.Unmarshal(respBytes, &response)
