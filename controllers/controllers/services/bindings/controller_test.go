@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
@@ -67,7 +68,7 @@ var _ = Describe("CFServiceBinding", func() {
 		Expect(adminClient.Create(ctx, binding)).To(Succeed())
 	})
 
-	Describe("user-provided instances", func() {
+	Describe("user-provided bindings", func() {
 		var (
 			instance                  *korifiv1alpha1.CFServiceInstance
 			instanceCredentialsSecret *corev1.Secret
@@ -475,7 +476,7 @@ var _ = Describe("CFServiceBinding", func() {
 		})
 	})
 
-	Describe("managed service instances", func() {
+	Describe("managed service bindings", func() {
 		var (
 			brokerClient *fake.BrokerClient
 
@@ -990,9 +991,7 @@ var _ = Describe("CFServiceBinding", func() {
 
 		Describe("binding deletion", func() {
 			BeforeEach(func() {
-				brokerClient.UnbindReturns(osbapi.UnbindResponse{
-					Operation: "deprovision-op",
-				}, nil)
+				brokerClient.UnbindReturns(osbapi.UnbindResponse{}, nil)
 			})
 
 			JustBeforeEach(func() {
@@ -1017,197 +1016,119 @@ var _ = Describe("CFServiceBinding", func() {
 				}).Should(Succeed())
 			})
 
-			When("unbind fails", func() {
+			Describe("unbind failure", func() {
+				When("unbind fails with recoverable error", func() {
+					BeforeEach(func() {
+						brokerClient.UnbindReturns(osbapi.UnbindResponse{}, errors.New("unbinding-failed"))
+					})
+
+					It("does not delete the binding", func() {
+						Consistently(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+						}).Should(Succeed())
+					})
+
+					It("keeps trying to unbind with the broker", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+							g.Expect(brokerClient.UnbindCallCount()).To(BeNumerically(">", 1))
+						}).Should(Succeed())
+					})
+				})
+
+				When("unbind fails with unrecoverable error", func() {
+					BeforeEach(func() {
+						brokerClient.UnbindReturns(osbapi.UnbindResponse{}, osbapi.UnrecoverableError{Status: http.StatusGone})
+					})
+
+					It("fails the binding", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+
+							g.Expect(binding.Status.Conditions).To(ContainElements(
+								SatisfyAll(
+									HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+									HasStatus(Equal(metav1.ConditionFalse)),
+								),
+								SatisfyAll(
+									HasType(Equal(korifiv1alpha1.UnbindingFailedCondition)),
+									HasStatus(Equal(metav1.ConditionTrue)),
+									HasReason(Equal("UnbindingFailed")),
+									HasMessage(ContainSubstring("The server responded with status: 410")),
+								),
+							))
+						}).Should(Succeed())
+					})
+				})
+			})
+
+			When("the unbind is asynchronous", func() {
 				BeforeEach(func() {
-					brokerClient.UnbindReturns(osbapi.UnbindResponse{}, errors.New("unbinding-failed"))
+					brokerClient.UnbindReturns(osbapi.UnbindResponse{
+						IsAsync:   true,
+						Operation: "unbind-op",
+					}, nil)
 				})
 
-				It("does not delete the binding", func() {
-					Consistently(func(g Gomega) {
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					}).Should(Succeed())
+				When("the last operation is in progress", func() {
+					BeforeEach(func() {
+						brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
+							State: "in progress",
+						}, nil)
+					})
+
+					It("sets the ready condition to false", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+
+							g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+								HasReason(Equal("UnbindingInProgress")),
+							)))
+						}).Should(Succeed())
+					})
+
+					It("keeps checking last operation", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeNumerically(">", 1))
+							_, actualLastOpPayload := brokerClient.GetServiceBindingLastOperationArgsForCall(1)
+							g.Expect(actualLastOpPayload).To(Equal(osbapi.GetServiceBindingLastOperationRequest{
+								InstanceID: instance.Name,
+								BindingID:  binding.Name,
+								GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
+									ServiceId: "service-offering-id",
+									PlanID:    "service-plan-id",
+									Operation: "unbind-op",
+								},
+							}))
+						}).Should(Succeed())
+					})
 				})
 
-				It("keeps trying to unbind with the broker", func() {
-					Eventually(func(g Gomega) {
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-						g.Expect(brokerClient.UnbindCallCount()).To(BeNumerically(">", 1))
-					}).Should(Succeed())
+				When("the last operation is failed", func() {
+					BeforeEach(func() {
+						brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
+							State: "failed",
+						}, nil)
+					})
+
+					It("sets the failed condition", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+
+							g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+							)))
+
+							g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+								HasType(Equal(korifiv1alpha1.UnbindingFailedCondition)),
+								HasStatus(Equal(metav1.ConditionTrue)),
+							)))
+						}).Should(Succeed())
+					})
 				})
-			})
-
-			// When("the binding is deleted asynchronously", func() {
-			// 	BeforeEach(func() {
-			// 		brokerClient.UnbindReturns(osbapi.UnbindResponse{
-			// 			IsAsync:   true,
-			// 			Operation: "deprovision-op",
-			// 		}, nil)
-			// 	})
-
-			// 	When("the last operation is in progress", func() {
-			// 		BeforeEach(func() {
-			// 			brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{
-			// 				State: "in progress",
-			// 			}, nil)
-			// 		})
-
-			// 		It("sets the ready condition to false", func() {
-			// 			Eventually(func(g Gomega) {
-			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-
-			// 				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-			// 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-			// 					HasStatus(Equal(metav1.ConditionFalse)),
-			// 				)))
-			// 			}).Should(Succeed())
-			// 		})
-
-			// 		It("sets in progress state in instance last operation", func() {
-			// 			Eventually(func(g Gomega) {
-			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-			// 				g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">", 1))
-			// 				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
-			// 					Type:  "delete",
-			// 					State: "in progress",
-			// 				}))
-			// 			}).Should(Succeed())
-			// 		})
-
-			// 		It("keeps checking last operation", func() {
-			// 			Eventually(func(g Gomega) {
-			// 				g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 1))
-			// 				_, actualLastOpPayload := brokerClient.GetServiceInstanceLastOperationArgsForCall(1)
-			// 				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetServiceInstanceLastOperationRequest{
-			// 					InstanceID: instance.Name,
-			// 					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
-			// 						ServiceId: "service-offering-id",
-			// 						PlanID:    "service-plan-id",
-			// 						Operation: "deprovision-op",
-			// 					},
-			// 				}))
-			// 			}).Should(Succeed())
-			// 		})
-			// 	})
-
-			// 	When("the last operation is failed", func() {
-			// 		BeforeEach(func() {
-			// 			brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{
-			// 				State: "failed",
-			// 			}, nil)
-			// 		})
-
-			// 		It("sets the failed condition", func() {
-			// 			Eventually(func(g Gomega) {
-			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-
-			// 				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-			// 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-			// 					HasStatus(Equal(metav1.ConditionFalse)),
-			// 				)))
-
-			// 				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-			// 					HasType(Equal(korifiv1alpha1.DeprovisioningFailedCondition)),
-			// 					HasStatus(Equal(metav1.ConditionTrue)),
-			// 				)))
-			// 			}).Should(Succeed())
-			// 		})
-
-			// 		It("sets failed state in instance last operation", func() {
-			// 			Eventually(func(g Gomega) {
-			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-			// 				g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">", 1))
-			// 				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
-			// 					Type:  "delete",
-			// 					State: "failed",
-			// 				}))
-			// 			}).Should(Succeed())
-			// 		})
-			// 	})
-
-			// 	When("service deprovisioning fails with recoverable error", func() {
-			// 		BeforeEach(func() {
-			// 			brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("deprovision-failed"))
-			// 		})
-
-			// 		It("keeps trying to deprovision the instance", func() {
-			// 			Eventually(func(g Gomega) {
-			// 				g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">", 1))
-			// 				_, actualDeprovisionRequest := brokerClient.DeprovisionArgsForCall(0)
-			// 				g.Expect(actualDeprovisionRequest).To(Equal(osbapi.InstanceDeprovisionPayload{
-			// 					ID: instance.Name,
-			// 					InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
-			// 						ServiceId: "service-offering-id",
-			// 						PlanID:    "service-plan-id",
-			// 					},
-			// 				}))
-			// 			}).Should(Succeed())
-			// 		})
-
-			// 		It("sets initial state in instance last operation", func() {
-			// 			Eventually(func(g Gomega) {
-			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-			// 				g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">=", 1))
-			// 				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
-			// 					Type:  "delete",
-			// 					State: "initial",
-			// 				}))
-			// 			}).Should(Succeed())
-			// 		})
-			// 	})
-
-			// 	When("service deprovisioning fails with unrecoverable error", func() {
-			// 		BeforeEach(func() {
-			// 			brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{}, osbapi.UnrecoverableError{Status: http.StatusGone})
-			// 		})
-
-			// 		It("fails the instance", func() {
-			// 			Eventually(func(g Gomega) {
-			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-
-			// 				g.Expect(instance.Status.Conditions).To(ContainElements(
-			// 					SatisfyAll(
-			// 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-			// 						HasStatus(Equal(metav1.ConditionFalse)),
-			// 					),
-			// 					SatisfyAll(
-			// 						HasType(Equal(korifiv1alpha1.DeprovisioningFailedCondition)),
-			// 						HasStatus(Equal(metav1.ConditionTrue)),
-			// 						HasReason(Equal("DeprovisionFailed")),
-			// 						HasMessage(ContainSubstring("The server responded with status: 410")),
-			// 					),
-			// 				))
-			// 			}).Should(Succeed())
-			// 		})
-
-			// 		It("sets failed state in instance last operation", func() {
-			// 			Eventually(func(g Gomega) {
-			// 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-			// 				g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">=", 1))
-			// 				g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
-			// 					Type:  "delete",
-			// 					State: "failed",
-			// 				}))
-			// 			}).Should(Succeed())
-			// 		})
-			// 	})
-			// })
-		})
-		When("the binding is deleted", func() {
-			BeforeEach(func() {
-				brokerClient.UnbindReturns(osbapi.UnbindResponse{}, nil)
-			})
-
-			JustBeforeEach(func() {
-				// For deletion test we want to request deletion and verify the behaviour when finalization fails.
-				// Therefore we use the standard k8s client instead  of `adminClient` as it ensures that the object is deleted
-				Expect(k8sManager.GetClient().Delete(ctx, binding)).To(Succeed())
-			})
-
-			It("deletes the binding", func() {
-				Eventually(func(g Gomega) {
-					err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
-					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
-				}).Should(Succeed())
 			})
 		})
 	})

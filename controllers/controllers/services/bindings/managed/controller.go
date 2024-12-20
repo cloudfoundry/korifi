@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,7 +56,7 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	}
 
 	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFServiceBinding(ctx, cfServiceBinding, assets, osbapiClient)
+		return r.finalizeCFServiceBinding(ctx, cfServiceBinding, cfServiceInstance, assets, osbapiClient)
 	}
 
 	if isReconciled(cfServiceBinding) {
@@ -67,6 +66,8 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	if isFailed(cfServiceBinding) {
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingFailed").WithNoRequeue()
 	}
+
+	cfServiceBinding.Labels = tools.SetMapValue(cfServiceBinding.Labels, korifiv1alpha1.PlanGUIDLabelKey, assets.ServicePlan.Name)
 
 	credentials, err := r.bind(ctx, cfServiceBinding, assets, osbapiClient)
 	if err != nil {
@@ -259,14 +260,18 @@ func (r *ManagedBindingsReconciler) reconcileCredentials(ctx context.Context, cf
 func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
 	ctx context.Context,
 	serviceBinding *korifiv1alpha1.CFServiceBinding,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	assets osbapi.ServiceBindingAssets,
 	osbapiClient osbapi.BrokerClient,
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalize-managed-service-binding")
 
-	_, err := r.deleteServiceBinding(ctx, serviceBinding, assets, osbapiClient)
+	unbindResponse, err := r.deleteServiceBinding(ctx, serviceBinding, serviceInstance, assets, osbapiClient)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+	if unbindResponse.IsAsync {
+		return r.pollLastOperation(ctx, serviceBinding, assets, osbapiClient, unbindResponse.Operation)
 	}
 
 	if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
@@ -289,24 +294,57 @@ func (r *ManagedBindingsReconciler) reconcileSBServiceBinding(ctx context.Contex
 	return sbServiceBinding, nil
 }
 
-// func (r *ManagedBindingsReconciler) pollUnbindOperation
-
-func (r *ManagedBindingsReconciler) deleteServiceBinding(
+func (r *ManagedBindingsReconciler) pollLastOperation(
 	ctx context.Context,
 	serviceBinding *korifiv1alpha1.CFServiceBinding,
 	assets osbapi.ServiceBindingAssets,
 	osbapiClient osbapi.BrokerClient,
-) (osbapi.UnbindResponse, error) {
-	log := logr.FromContextOrDiscard(ctx).WithName("finalize-managed-service-binding")
-	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: serviceBinding.Spec.Service.Name, Namespace: serviceBinding.Namespace}, cfServiceInstance)
+	operationID string,
+) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("poll-operation")
+
+	lastOpResponse, err := osbapiClient.GetServiceBindingLastOperation(ctx, osbapi.GetServiceBindingLastOperationRequest{
+		InstanceID: serviceBinding.Spec.Service.Name,
+		BindingID:  serviceBinding.Name,
+		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
+			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
+			Operation: operationID,
+		},
+	})
 	if err != nil {
-		log.Info("service instance not found", "service-instance", serviceBinding.Spec.Service.Name, "error", err)
-		return osbapi.UnbindResponse{}, err
+		log.Error(err, "getting service binding last operation failed")
+		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("GetLastOperationFailed")
 	}
-	var deprovisionResponse osbapi.UnbindResponse
-	deprovisionResponse, err = osbapiClient.Unbind(ctx, osbapi.UnbindPayload{
-		InstanceID: cfServiceInstance.Name,
+
+	if lastOpResponse.State == "in progress" {
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindingInProgress").WithRequeue()
+	}
+	if lastOpResponse.State == "failed" {
+		meta.SetStatusCondition(&serviceBinding.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.UnbindingFailedCondition,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: serviceBinding.Generation,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			Reason:             "UnbindingFailed",
+			Message:            lastOpResponse.Description,
+		})
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindFailed")
+
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *ManagedBindingsReconciler) deleteServiceBinding(
+	ctx context.Context,
+	serviceBinding *korifiv1alpha1.CFServiceBinding,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	assets osbapi.ServiceBindingAssets,
+	osbapiClient osbapi.BrokerClient,
+) (osbapi.UnbindResponse, error) {
+	unbindResponse, err := osbapiClient.Unbind(ctx, osbapi.UnbindPayload{
+		InstanceID: serviceInstance.Name,
 		BindingID:  serviceBinding.Name,
 		UnbindRequestParameters: osbapi.UnbindRequestParameters{
 			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
@@ -314,10 +352,22 @@ func (r *ManagedBindingsReconciler) deleteServiceBinding(
 		},
 	})
 	if err != nil {
-		return osbapi.UnbindResponse{}, fmt.Errorf("failed to deprovision service instance: %w", err)
+		if osbapi.IsUnrecoveralbeError(err) {
+			meta.SetStatusCondition(&serviceBinding.Status.Conditions, metav1.Condition{
+				Type:               korifiv1alpha1.UnbindingFailedCondition,
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: serviceBinding.Generation,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Reason:             "UnbindingFailed",
+				Message:            err.Error(),
+			})
+			return osbapi.UnbindResponse{}, k8s.NewNotReadyError().WithReason("UnbindingFailed")
+		}
+
+		return osbapi.UnbindResponse{}, fmt.Errorf("failed to unbind: %w", err)
 	}
 
-	return deprovisionResponse, nil
+	return unbindResponse, nil
 }
 
 func isBindRequested(binding *korifiv1alpha1.CFServiceBinding) bool {

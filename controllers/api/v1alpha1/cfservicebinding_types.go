@@ -24,9 +24,11 @@ import (
 )
 
 const (
-	BindingFailedCondition      = "BindingFailed"
-	BindingRequestedCondition   = "BindingRequested"
+	BindingFailedCondition    = "BindingFailed"
+	BindingRequestedCondition = "BindingRequested"
+
 	UnbindingRequestedCondition = "UnbindingRequested"
+	UnbindingFailedCondition    = "UnbindingFailed"
 
 	ServiceInstanceTypeAnnotationKey = "korifi.cloudfoundry.org/service-instance-type"
 	PlanGUIDLabelKey                 = "korifi.cloudfoundry.org/plan-guid"
@@ -62,14 +64,8 @@ type CFServiceBindingStatus struct {
 	// of the bind request to the the OSBAPI broker. Only makes sense for
 	// bindings to managed service instances
 	// +optional
+	// TODO: do we need to store the bind operation in the status? Can we not do whatever we do for instances instead
 	BindingOperation string `json:"bindingOperation"`
-
-	// The
-	// [operation](https://github.com/openservicebrokerapi/servicebroker/blob/master/spec.md#unbinding)
-	// of the unbind request to the the OSBAPI broker. Only makes sense for
-	// bindings to managed service instances
-	// +optional
-	UnbindingOperation string `json:"unbindingOperation"`
 
 	// A reference to the Secret containing the binding Credentials object. For
 	// bindings to user-provided services this refers to the credentials secret
