@@ -256,7 +256,7 @@ var _ = Describe("OSBAPI Client", func() {
 				brokerServer.WithResponse(
 					"/v2/service_instances/{id}",
 					map[string]any{
-						"operation": "provision_op1",
+						"operation": "deprovision_op1",
 					},
 					http.StatusOK,
 				)
@@ -272,10 +272,11 @@ var _ = Describe("OSBAPI Client", func() {
 				})
 			})
 
-			It("deprovisions the service", func() {
+			It("deprovisions the service synchronously", func() {
 				Expect(deprovisionErr).NotTo(HaveOccurred())
 				Expect(deprovisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
-					Operation: "provision_op1",
+					IsAsync:   false,
+					Operation: "deprovision_op1",
 				}))
 			})
 
@@ -306,6 +307,56 @@ var _ = Describe("OSBAPI Client", func() {
 					"service_id": Equal("service-guid"),
 					"plan_id":    Equal("plan-guid"),
 				}))
+			})
+
+			When("the broker accepts the deprovision request", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse(
+						"/v2/service_instances/{id}",
+						map[string]any{
+							"operation": "deprovision_op1",
+						},
+						http.StatusAccepted,
+					)
+				})
+
+				It("deprovisions the service asynchronously", func() {
+					Expect(deprovisionErr).NotTo(HaveOccurred())
+					Expect(deprovisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+						IsAsync:   true,
+						Operation: "deprovision_op1",
+					}))
+				})
+			})
+
+			When("the deprovision request fails with 400 BadRequest error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusBadRequest)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(deprovisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusBadRequest}))
+				})
+			})
+
+			When("the provision request fails with 410 Gone error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusGone)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(deprovisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusGone}))
+				})
+			})
+
+			When("the provision request fails with 422 Unprocessable entity error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusUnprocessableEntity)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(deprovisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusUnprocessableEntity}))
+				})
 			})
 
 			When("the deprovision request fails", func() {

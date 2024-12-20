@@ -46,6 +46,7 @@ var (
 	rootNamespace           string
 	appFQDN                 string
 	commonTestOrgGUID       string
+	brokerOrgGUID           string
 	commonTestOrgName       string
 	defaultAppBitsFile      string
 	multiProcessAppBitsFile string
@@ -327,6 +328,7 @@ type sharedSetupData struct {
 	MultiProcessAppBitsFile  string `json:"multiProcessAppBitsFile"`
 	AdminServiceAccount      string `json:"admin_service_account"`
 	AdminServiceAccountToken string `json:"admin_service_account_token"`
+	BrokerOrgGUID            string `json:"broker_org_guid"`
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
@@ -339,6 +341,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 	commonTestOrgName = generateGUID("common-test-org")
 	commonTestOrgGUID = createOrg(commonTestOrgName)
+	brokerOrgGUID = createOrg(uuid.NewString())
 
 	sharedData := sharedSetupData{
 		CommonOrgName: commonTestOrgName,
@@ -352,6 +355,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		MultiProcessAppBitsFile:  helpers.ZipDirectory("../assets/multi-process"),
 		AdminServiceAccount:      adminServiceAccount,
 		AdminServiceAccountToken: adminServiceAccountToken,
+		BrokerOrgGUID:            brokerOrgGUID,
 	}
 
 	bs, err := json.Marshal(sharedData)
@@ -372,13 +376,15 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	multiProcessAppBitsFile = sharedSetup.MultiProcessAppBitsFile
 	adminServiceAccount = sharedSetup.AdminServiceAccount
 	adminClient = makeTokenClient(sharedSetup.AdminServiceAccountToken)
+	brokerOrgGUID = sharedSetup.BrokerOrgGUID
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 })
 
 var _ = SynchronizedAfterSuite(func() {
 }, func() {
-	deleteOrg(commonTestOrgGUID)
+	expectJobCompletes(deleteOrg(commonTestOrgGUID))
+	expectJobCompletes(deleteOrg(brokerOrgGUID))
 	serviceAccountFactory.DeleteServiceAccount(adminServiceAccount)
 })
 
@@ -429,17 +435,19 @@ func generateGUID(prefix string) string {
 	return fmt.Sprintf("%s-%s", prefix, guid[:13])
 }
 
-func deleteOrg(guid string) {
+func deleteOrg(guid string) *resty.Response {
 	GinkgoHelper()
 
 	if guid == "" {
-		return
+		return nil
 	}
 
 	resp, err := adminClient.R().
 		Delete("/v3/organizations/" + guid)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+
+	return resp
 }
 
 func createOrgRaw(orgName string) (string, error) {
@@ -1162,8 +1170,8 @@ func printAllRoleBindings(config *rest.Config) {
 }
 
 func pushSampleBroker(brokerBitsFile string) string {
-	spaceGUID := createSpace(uuid.NewString(), commonTestOrgGUID)
-	brokerAppGUID, _ := pushTestApp(spaceGUID, brokerBitsFile)
+	brokerSpaceGUID := createSpace(uuid.NewString(), brokerOrgGUID)
+	brokerAppGUID, _ := pushTestApp(brokerSpaceGUID, brokerBitsFile)
 	body := curlApp(brokerAppGUID, "")
 	Expect(body).To(ContainSubstring("Hi, I'm the sample broker!"))
 	return helpers.GetInClusterURL(brokerAppGUID)

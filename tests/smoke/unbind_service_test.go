@@ -43,7 +43,7 @@ var _ = Describe("cf unbind-service", func() {
 				brokerName,
 				"broker-user",
 				"broker-password",
-				helpers.GetInClusterURL(getAppGUID(sharedData.BrokerAppName)),
+				sharedData.BrokerURL,
 			)).To(Exit(0))
 
 			Expect(helpers.Cf("enable-service-access", "sample-service", "-b", brokerName)).To(Exit(0))

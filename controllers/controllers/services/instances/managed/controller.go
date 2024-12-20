@@ -126,8 +126,20 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	serviceInstance.Status.ObservedGeneration = serviceInstance.Generation
 	log.V(1).Info("set observed generation", "generation", serviceInstance.Status.ObservedGeneration)
 
+	serviceInstanceAssets, err := r.assets.GetServiceInstanceAssets(ctx, serviceInstance)
+	if err != nil {
+		log.Error(err, "failed to get service instance assets")
+		return ctrl.Result{}, err
+	}
+
+	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, serviceInstanceAssets.ServiceBroker)
+	if err != nil {
+		log.Error(err, "failed to create broker client", "broker", serviceInstanceAssets.ServiceBroker.Name)
+		return ctrl.Result{}, fmt.Errorf("failed to create client for broker %q: %w", serviceInstanceAssets.ServiceBroker.Name, err)
+	}
+
 	if !serviceInstance.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFServiceInstance(ctx, serviceInstance)
+		return r.finalizeCFServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 	}
 
 	if isReady(serviceInstance) {
@@ -136,12 +148,6 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 
 	if isFailed(serviceInstance) {
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisioningFailed").WithNoRequeue()
-	}
-
-	serviceInstanceAssets, err := r.assets.GetServiceInstanceAssets(ctx, serviceInstance)
-	if err != nil {
-		log.Error(err, "failed to get service instance assets")
-		return ctrl.Result{}, err
 	}
 
 	planVisible, err := r.isServicePlanVisible(ctx, serviceInstance, serviceInstanceAssets.ServicePlan)
@@ -159,12 +165,6 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		serviceInstance.Spec.ServiceLabel = tools.PtrTo(serviceInstanceAssets.ServiceOffering.Spec.Name)
 	}
 
-	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, serviceInstanceAssets.ServiceBroker)
-	if err != nil {
-		log.Error(err, "failed to create broker client", "broker", serviceInstanceAssets.ServiceBroker.Name)
-		return ctrl.Result{}, fmt.Errorf("failed to create client for broker %q: %w", serviceInstanceAssets.ServiceBroker.Name, err)
-	}
-
 	provisionResponse, err := r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 	if err != nil {
 		log.Error(err, "failed to provision service instance")
@@ -172,37 +172,15 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	}
 
 	if provisionResponse.IsAsync {
-		return r.pollProvisionOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, provisionResponse.Operation)
+		lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, provisionResponse.Operation)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return r.processProvisionOperation(serviceInstance, lastOpResponse)
 	}
 
 	serviceInstance.Status.LastOperation.State = "succeeded"
 	return ctrl.Result{}, nil
-}
-
-func (r *Reconciler) isServicePlanVisible(
-	ctx context.Context,
-	serviceInstance *korifiv1alpha1.CFServiceInstance,
-	servicePlan *korifiv1alpha1.CFServicePlan,
-) (bool, error) {
-	if servicePlan.Spec.Visibility.Type == korifiv1alpha1.AdminServicePlanVisibilityType {
-		return false, nil
-	}
-
-	if servicePlan.Spec.Visibility.Type == korifiv1alpha1.PublicServicePlanVisibilityType {
-		return true, nil
-	}
-
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: serviceInstance.Namespace,
-		},
-	}
-	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(namespace), namespace)
-	if err != nil {
-		return false, err
-	}
-
-	return slices.Contains(servicePlan.Spec.Visibility.Organizations, namespace.Labels[korifiv1alpha1.OrgGUIDKey]), nil
 }
 
 func (r *Reconciler) provisionServiceInstance(
@@ -265,31 +243,10 @@ func (r *Reconciler) provisionServiceInstance(
 	return provisionResponse, nil
 }
 
-func (r *Reconciler) pollProvisionOperation(
-	ctx context.Context,
+func (r *Reconciler) processProvisionOperation(
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
-	assets osbapi.ServiceInstanceAssets,
-	osbapiClient osbapi.BrokerClient,
-	operationID string,
+	lastOpResponse osbapi.LastOperationResponse,
 ) (ctrl.Result, error) {
-	log := logr.FromContextOrDiscard(ctx).WithName("poll-provision-operation")
-
-	lastOpResponse, err := osbapiClient.GetServiceInstanceLastOperation(ctx, osbapi.GetServiceInstanceLastOperationRequest{
-		InstanceID: serviceInstance.Name,
-		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
-			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
-			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
-			Operation: operationID,
-		},
-	})
-	if err != nil {
-		log.Error(err, "getting service instance last operation failed")
-		return ctrl.Result{}, k8s.NewNotReadyError().WithCause(err).WithReason("GetLastOperationFailed")
-	}
-
-	serviceInstance.Status.LastOperation.State = lastOpResponse.State
-	serviceInstance.Status.LastOperation.Description = lastOpResponse.Description
-
 	if lastOpResponse.State == "in progress" {
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionInProgress").WithRequeue()
 	}
@@ -309,6 +266,126 @@ func (r *Reconciler) pollProvisionOperation(
 	return ctrl.Result{}, nil
 }
 
+func (r *Reconciler) finalizeCFServiceInstance(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	assets osbapi.ServiceInstanceAssets,
+	osbapiClient osbapi.BrokerClient,
+) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
+
+	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
+		return ctrl.Result{}, nil
+	}
+
+	deprovisionResponse, err := r.deprovisionServiceInstance(ctx, serviceInstance, assets, osbapiClient)
+	if err != nil {
+		log.Error(err, "failed to deprovision service instance with broker")
+		return ctrl.Result{}, err
+	}
+
+	if deprovisionResponse.IsAsync {
+
+		lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, assets, osbapiClient, deprovisionResponse.Operation)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return r.processDeprovisionOperation(serviceInstance, lastOpResponse)
+	}
+
+	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
+	log.V(1).Info("finalizer removed")
+
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) deprovisionServiceInstance(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	assets osbapi.ServiceInstanceAssets,
+	osbapiClient osbapi.BrokerClient,
+) (osbapi.ServiceInstanceOperationResponse, error) {
+	serviceInstance.Status.LastOperation = services.LastOperation{
+		Type:  "delete",
+		State: "initial",
+	}
+	deprovisionResponse, err := osbapiClient.Deprovision(ctx, osbapi.InstanceDeprovisionPayload{
+		ID: serviceInstance.Name,
+		InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
+			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
+		},
+	})
+	if err != nil {
+		if osbapi.IsUnrecoveralbeError(err) {
+			serviceInstance.Status.LastOperation.State = "failed"
+			meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+				Type:               korifiv1alpha1.DeprovisioningFailedCondition,
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: serviceInstance.Generation,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Reason:             "DeprovisionFailed",
+				Message:            err.Error(),
+			})
+			return osbapi.ServiceInstanceOperationResponse{},
+				k8s.NewNotReadyError().WithReason("DeprovisionFailed")
+		}
+
+		return osbapi.ServiceInstanceOperationResponse{}, fmt.Errorf("failed to deprovision service instance: %w", err)
+	}
+
+	return deprovisionResponse, nil
+}
+
+func (r *Reconciler) processDeprovisionOperation(
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	lastOpResponse osbapi.LastOperationResponse,
+) (ctrl.Result, error) {
+	if lastOpResponse.State == "in progress" {
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("DeprovisionInProgress").WithRequeue()
+	}
+
+	if lastOpResponse.State == "failed" {
+		meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.DeprovisioningFailedCondition,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: serviceInstance.Generation,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			Reason:             "DeprovisionFailed",
+			Message:            lastOpResponse.Description,
+		})
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("DeprovisionFailed")
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) pollLastOperation(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	assets osbapi.ServiceInstanceAssets,
+	osbapiClient osbapi.BrokerClient,
+	operationID string,
+) (osbapi.LastOperationResponse, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("poll-operation")
+	lastOpResponse, err := osbapiClient.GetServiceInstanceLastOperation(ctx, osbapi.GetServiceInstanceLastOperationRequest{
+		InstanceID: serviceInstance.Name,
+		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
+			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
+			Operation: operationID,
+		},
+	})
+	if err != nil {
+		log.Error(err, "getting service instance last operation failed")
+		return osbapi.LastOperationResponse{}, k8s.NewNotReadyError().WithCause(err).WithReason("GetLastOperationFailed")
+	}
+
+	serviceInstance.Status.LastOperation.State = lastOpResponse.State
+	serviceInstance.Status.LastOperation.Description = lastOpResponse.Description
+	return lastOpResponse, nil
+}
+
 func getServiceInstanceParameters(serviceInstance *korifiv1alpha1.CFServiceInstance) (map[string]any, error) {
 	if serviceInstance.Spec.Parameters == nil {
 		return nil, nil
@@ -323,54 +400,30 @@ func getServiceInstanceParameters(serviceInstance *korifiv1alpha1.CFServiceInsta
 	return parametersMap, nil
 }
 
-func (r *Reconciler) finalizeCFServiceInstance(
+func (r *Reconciler) isServicePlanVisible(
 	ctx context.Context,
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
-) (ctrl.Result, error) {
-	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
-
-	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
-		return ctrl.Result{}, nil
+	servicePlan *korifiv1alpha1.CFServicePlan,
+) (bool, error) {
+	if servicePlan.Spec.Visibility.Type == korifiv1alpha1.AdminServicePlanVisibilityType {
+		return false, nil
 	}
 
-	_, err := r.deprovisionServiceInstance(ctx, serviceInstance)
-	if err != nil {
-		log.Error(err, "failed to deprovision service instance with broker")
+	if servicePlan.Spec.Visibility.Type == korifiv1alpha1.PublicServicePlanVisibilityType {
+		return true, nil
 	}
 
-	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
-	log.V(1).Info("finalizer removed")
-
-	return ctrl.Result{}, nil
-}
-
-func (r *Reconciler) deprovisionServiceInstance(
-	ctx context.Context,
-	serviceInstance *korifiv1alpha1.CFServiceInstance,
-) (osbapi.ServiceInstanceOperationResponse, error) {
-	assets, err := r.assets.GetServiceInstanceAssets(ctx, serviceInstance)
-	if err != nil {
-		return osbapi.ServiceInstanceOperationResponse{}, fmt.Errorf("failed to get service instance assets: %w", err)
-	}
-
-	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, assets.ServiceBroker)
-	if err != nil {
-		return osbapi.ServiceInstanceOperationResponse{}, fmt.Errorf("failed to create broker client: %w", err)
-	}
-
-	var deprovisionResponse osbapi.ServiceInstanceOperationResponse
-	deprovisionResponse, err = osbapiClient.Deprovision(ctx, osbapi.InstanceDeprovisionPayload{
-		ID: serviceInstance.Name,
-		InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
-			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
-			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: serviceInstance.Namespace,
 		},
-	})
+	}
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(namespace), namespace)
 	if err != nil {
-		return osbapi.ServiceInstanceOperationResponse{}, fmt.Errorf("failed to deprovision service instance: %w", err)
+		return false, err
 	}
 
-	return deprovisionResponse, nil
+	return slices.Contains(servicePlan.Spec.Visibility.Organizations, namespace.Labels[korifiv1alpha1.OrgGUIDKey]), nil
 }
 
 func (r *Reconciler) getNamespace(ctx context.Context, namespaceName string) (*corev1.Namespace, error) {
