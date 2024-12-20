@@ -114,7 +114,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(record.Name).To(Equal(serviceInstanceName))
 				Expect(record.Type).To(Equal("user-provided"))
 				Expect(record.Tags).To(ConsistOf([]string{"foo", "bar"}))
-				Expect(record.SecretName).NotTo(BeEmpty())
 				Expect(record.Relationships()).To(Equal(map[string]string{
 					"space": space.Name,
 				}))
@@ -143,10 +142,18 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			It("creates the credentials secret", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
+				cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: record.SpaceGUID,
+						Name:      record.GUID,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance)).To(Succeed())
+
 				credentialsSecret := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: record.SpaceGUID,
-						Name:      record.SecretName,
+						Name:      cfServiceInstance.Spec.SecretName,
 					},
 				}
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
@@ -218,7 +225,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(record.Name).To(Equal(serviceInstanceName))
 				Expect(record.Type).To(Equal("managed"))
 				Expect(record.Tags).To(ConsistOf([]string{"foo", "bar"}))
-				Expect(record.SecretName).To(BeEmpty())
 				Expect(record.Relationships()).To(Equal(map[string]string{
 					"service_plan": servicePlan.Name,
 					"space":        space.Name,
@@ -668,11 +674,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						})).To(Succeed())
 					})
 
-					It("updates the secret in the record", func() {
-						Expect(err).NotTo(HaveOccurred())
-						Expect(serviceInstanceRecord.SecretName).To(Equal("foo"))
-					})
-
 					It("updates the secret in the spec", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Eventually(func(g Gomega) {
@@ -973,7 +974,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(record.Name).To(Equal(serviceInstance.Spec.DisplayName))
 				Expect(record.GUID).To(Equal(serviceInstance.Name))
 				Expect(record.SpaceGUID).To(Equal(serviceInstance.Namespace))
-				Expect(record.SecretName).To(Equal(serviceInstance.Spec.SecretName))
 				Expect(record.Tags).To(Equal(serviceInstance.Spec.Tags))
 				Expect(record.Type).To(Equal(string(serviceInstance.Spec.Type)))
 				Expect(record.Labels).To(Equal(map[string]string{"a-label": "a-label-value"}))
@@ -1033,6 +1033,88 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			It("returns a error", func() {
 				Expect(getErr).To(HaveOccurred())
+			})
+		})
+	})
+
+	Describe("GetServiceInstanceCredentials", func() {
+		var (
+			instanceGUID string
+			secretName   string
+			credential   map[string]any
+			secret       *corev1.Secret
+			getErr       error
+		)
+
+		BeforeEach(func() {
+			instanceGUID = prefixedGUID("service-instance")
+			secretName = prefixedGUID("secret")
+
+			serviceInstance := &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instanceGUID,
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					SecretName: secretName,
+					Type:       "user-provided",
+					Tags:       []string{"database", "mysql"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceInstance)).To(Succeed())
+
+			secretData, decodeErr := tools.ToCredentialsSecretData(map[string]any{"foo": "bar"})
+			Expect(decodeErr).ToNot(HaveOccurred())
+
+			secret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: space.Name,
+				},
+				Data: secretData,
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			credential, getErr = serviceInstanceRepo.GetServiceInstanceCredentials(ctx, authInfo, instanceGUID)
+		})
+
+		When("there are not permissions on the secret", func() {
+			It("returns a forbidden error", func() {
+				Expect(errors.As(getErr, &apierrors.ForbiddenError{})).To(BeTrue())
+			})
+		})
+
+		When("the user has permissions to get the secret", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("returns the correct secret", func() {
+				Expect(getErr).ToNot(HaveOccurred())
+				Expect(credential).To(HaveKeyWithValue("foo", "bar"))
+			})
+
+			When("the service instance does not exist", func() {
+				BeforeEach(func() {
+					instanceGUID = "does-not-exist"
+				})
+
+				It("returns a 404 error", func() {
+					Expect(errors.As(getErr, &apierrors.NotFoundError{})).To(BeTrue())
+				})
+			})
+
+			When("the secret data is invalid json", func() {
+				BeforeEach(func() {
+					secret.Data = map[string][]byte{tools.CredentialsSecretKey: []byte("not-json")}
+					Expect(k8sClient.Update(ctx, secret)).To(Succeed())
+				})
+
+				It("returns a unprocessiable entity error", func() {
+					Expect(errors.As(getErr, &apierrors.UnprocessableEntityError{})).To(BeTrue())
+				})
 			})
 		})
 	})

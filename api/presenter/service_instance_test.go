@@ -26,14 +26,13 @@ var _ = Describe("Service Instance", func() {
 		baseURL, err = url.Parse("https://api.example.org")
 		Expect(err).NotTo(HaveOccurred())
 		record = repositories.ServiceInstanceRecord{
-			Name:       "service-instance-name",
-			GUID:       "service-instance-guid",
-			SpaceGUID:  "space-guid",
-			SecretName: "secret-name",
-			Tags:       []string{"foo", "bar"},
-			Type:       "user-provided",
-			CreatedAt:  time.UnixMilli(1000),
-			UpdatedAt:  tools.PtrTo(time.UnixMilli(2000)),
+			Name:      "service-instance-name",
+			GUID:      "service-instance-guid",
+			SpaceGUID: "space-guid",
+			Tags:      []string{"foo", "bar"},
+			Type:      "user-provided",
+			CreatedAt: time.UnixMilli(1000),
+			UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
 			Labels: map[string]string{
 				"foo": "bar",
 			},

@@ -167,7 +167,6 @@ type ServiceInstanceRecord struct {
 	GUID          string
 	SpaceGUID     string
 	PlanGUID      string
-	SecretName    string
 	Tags          []string
 	Type          string
 	Labels        map[string]string
@@ -436,6 +435,41 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 	return cfServiceInstanceToRecord(*serviceInstance), nil
 }
 
+func (r *ServiceInstanceRepo) GetServiceInstanceCredentials(ctx context.Context, authInfo authorization.Info, instanceGUID string) (map[string]any, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return map[string]any{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, instanceGUID, ServiceInstanceResourceType)
+	if err != nil {
+		return map[string]any{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
+	}
+
+	serviceInstance := &korifiv1alpha1.CFServiceInstance{}
+	if err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: instanceGUID}, serviceInstance); err != nil {
+		return map[string]any{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
+	}
+
+	credentialsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceInstance.Spec.SecretName,
+			Namespace: namespace,
+		},
+	}
+
+	if err = userClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret); err != nil {
+		return map[string]any{}, fmt.Errorf("failed to get credentials secret for service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
+	}
+
+	credentials, err := tools.FromCredentialsSecretData(credentialsSecret.Data)
+	if err != nil {
+		return map[string]any{}, apierrors.NewUnprocessableEntityError(err, fmt.Sprintf("failed to decode credentials secret for service instance: %s", instanceGUID))
+	}
+
+	return credentials, nil
+}
+
 func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInfo authorization.Info, message DeleteServiceInstanceMessage) (ServiceInstanceRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
@@ -530,7 +564,6 @@ func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstanc
 		GUID:          cfServiceInstance.Name,
 		SpaceGUID:     cfServiceInstance.Namespace,
 		PlanGUID:      cfServiceInstance.Spec.PlanGUID,
-		SecretName:    cfServiceInstance.Spec.SecretName,
 		Tags:          cfServiceInstance.Spec.Tags,
 		Type:          string(cfServiceInstance.Spec.Type),
 		Labels:        cfServiceInstance.Labels,

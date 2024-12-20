@@ -26,6 +26,7 @@ type ServiceInstanceResponse struct {
 	Relationships map[string]model.ToOneRelationship `json:"relationships"`
 	Metadata      Metadata                           `json:"metadata"`
 	Links         ServiceInstanceLinks               `json:"links"`
+	Included      map[string][]any                   `json:"included,omitempty"`
 }
 
 type lastOperation struct {
@@ -81,5 +82,6 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 				HRef: buildURL(baseURL).appendPath(serviceRouteBindingsBase).setQuery("service_instance_guids=" + serviceInstanceRecord.GUID).build(),
 			},
 		},
+		Included: includedResources(includes...),
 	}
 }
