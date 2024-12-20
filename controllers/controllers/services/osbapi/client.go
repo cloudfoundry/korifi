@@ -82,7 +82,7 @@ func (c *Client) GetCatalog(ctx context.Context) (Catalog, error) {
 	return catalog, nil
 }
 
-func (c *Client) Provision(ctx context.Context, payload InstanceProvisionPayload) (ServiceInstanceOperationResponse, error) {
+func (c *Client) Provision(ctx context.Context, payload ProvisionPayload) (ProvisionResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
 		async().
@@ -91,32 +91,32 @@ func (c *Client) Provision(ctx context.Context, payload InstanceProvisionPayload
 			"/v2/service_instances/"+payload.InstanceID,
 			http.MethodPut,
 			nil,
-			payload.InstanceProvisionRequest,
+			payload.ProvisionRequest,
 		)
 	if err != nil {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("provision request failed: %w", err)
+		return ProvisionResponse{}, fmt.Errorf("provision request failed: %w", err)
 	}
 	if statusCode == http.StatusBadRequest || statusCode == http.StatusConflict || statusCode == http.StatusUnprocessableEntity {
-		return ServiceInstanceOperationResponse{}, UnrecoverableError{Status: statusCode}
+		return ProvisionResponse{}, UnrecoverableError{Status: statusCode}
 	}
 
 	if statusCode >= 300 {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("provision request failed with status code: %d", statusCode)
+		return ProvisionResponse{}, fmt.Errorf("provision request failed with status code: %d", statusCode)
 	}
 
-	response := ServiceInstanceOperationResponse{
+	response := ProvisionResponse{
 		IsAsync: statusCode == http.StatusAccepted,
 	}
 
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
+		return ProvisionResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return response, nil
 }
 
-func (c *Client) Deprovision(ctx context.Context, payload InstanceDeprovisionPayload) (ServiceInstanceOperationResponse, error) {
+func (c *Client) Deprovision(ctx context.Context, payload DeprovisionPayload) (ProvisionResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
 		async().
@@ -125,33 +125,33 @@ func (c *Client) Deprovision(ctx context.Context, payload InstanceDeprovisionPay
 			"/v2/service_instances/"+payload.ID,
 			http.MethodDelete,
 			nil,
-			payload.InstanceDeprovisionRequest,
+			payload.DeprovisionRequest,
 		)
 	if err != nil {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("deprovision request failed: %w", err)
+		return ProvisionResponse{}, fmt.Errorf("deprovision request failed: %w", err)
 	}
 
 	if statusCode == http.StatusBadRequest || statusCode == http.StatusGone || statusCode == http.StatusUnprocessableEntity {
-		return ServiceInstanceOperationResponse{}, UnrecoverableError{Status: statusCode}
+		return ProvisionResponse{}, UnrecoverableError{Status: statusCode}
 	}
 
 	if statusCode >= 300 {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("deprovision request failed with status code: %d", statusCode)
+		return ProvisionResponse{}, fmt.Errorf("deprovision request failed with status code: %d", statusCode)
 	}
 
-	response := ServiceInstanceOperationResponse{
+	response := ProvisionResponse{
 		IsAsync: statusCode == http.StatusAccepted,
 	}
 
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
+		return ProvisionResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return response, nil
 }
 
-func (c *Client) GetServiceInstanceLastOperation(ctx context.Context, request GetServiceInstanceLastOperationRequest) (LastOperationResponse, error) {
+func (c *Client) GetServiceInstanceLastOperation(ctx context.Context, request GetInstanceLastOperationRequest) (LastOperationResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
 		sendRequest(
@@ -186,7 +186,7 @@ func (c *Client) GetServiceInstanceLastOperation(ctx context.Context, request Ge
 	return response, nil
 }
 
-func (c *Client) GetServiceBinding(ctx context.Context, request GetServiceBindingRequest) (GetBindingResponse, error) {
+func (c *Client) GetServiceBinding(ctx context.Context, request GetBindingRequest) (GetBindingResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
 		sendRequest(
@@ -252,7 +252,7 @@ func (c *Client) Bind(ctx context.Context, payload BindPayload) (BindResponse, e
 	return response, nil
 }
 
-func (c *Client) GetServiceBindingLastOperation(ctx context.Context, request GetServiceBindingLastOperationRequest) (LastOperationResponse, error) {
+func (c *Client) GetServiceBindingLastOperation(ctx context.Context, request GetBindingLastOperationRequest) (LastOperationResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
 		sendRequest(

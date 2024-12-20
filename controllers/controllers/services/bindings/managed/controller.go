@@ -164,7 +164,7 @@ func (r *ManagedBindingsReconciler) pollBindOperation(
 ) (map[string]any, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
-	lastOperation, err := osbapiClient.GetServiceBindingLastOperation(ctx, osbapi.GetServiceBindingLastOperationRequest{
+	lastOperation, err := osbapiClient.GetServiceBindingLastOperation(ctx, osbapi.GetBindingLastOperationRequest{
 		InstanceID: cfServiceBinding.Spec.Service.Name,
 		BindingID:  cfServiceBinding.Name,
 		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
@@ -195,7 +195,7 @@ func (r *ManagedBindingsReconciler) pollBindOperation(
 		return nil, k8s.NewNotReadyError().WithReason("BindingFailed")
 	}
 
-	binding, err := osbapiClient.GetServiceBinding(ctx, osbapi.GetServiceBindingRequest{
+	binding, err := osbapiClient.GetServiceBinding(ctx, osbapi.GetBindingRequest{
 		InstanceID: cfServiceBinding.Spec.Service.Name,
 		BindingID:  cfServiceBinding.Name,
 		ServiceId:  assets.ServiceOffering.Spec.BrokerCatalog.ID,
@@ -302,7 +302,7 @@ func (r *ManagedBindingsReconciler) pollLastOperation(
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("poll-operation")
 
-	lastOpResponse, err := osbapiClient.GetServiceBindingLastOperation(ctx, osbapi.GetServiceBindingLastOperationRequest{
+	lastOpResponse, err := osbapiClient.GetServiceBindingLastOperation(ctx, osbapi.GetBindingLastOperationRequest{
 		InstanceID: serviceBinding.Spec.Service.Name,
 		BindingID:  serviceBinding.Name,
 		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{

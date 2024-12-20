@@ -830,7 +830,7 @@ var _ = Describe("CFServiceBinding", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeNumerically(">", 1))
 					_, actualLastOpPayload := brokerClient.GetServiceBindingLastOperationArgsForCall(1)
-					g.Expect(actualLastOpPayload).To(Equal(osbapi.GetServiceBindingLastOperationRequest{
+					g.Expect(actualLastOpPayload).To(Equal(osbapi.GetBindingLastOperationRequest{
 						InstanceID: instance.Name,
 						BindingID:  binding.Name,
 						GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
@@ -1093,7 +1093,7 @@ var _ = Describe("CFServiceBinding", func() {
 						Eventually(func(g Gomega) {
 							g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeNumerically(">", 1))
 							_, actualLastOpPayload := brokerClient.GetServiceBindingLastOperationArgsForCall(1)
-							g.Expect(actualLastOpPayload).To(Equal(osbapi.GetServiceBindingLastOperationRequest{
+							g.Expect(actualLastOpPayload).To(Equal(osbapi.GetBindingLastOperationRequest{
 								InstanceID: instance.Name,
 								BindingID:  binding.Name,
 								GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{

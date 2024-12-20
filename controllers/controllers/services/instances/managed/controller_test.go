@@ -38,7 +38,7 @@ var _ = Describe("CFServiceInstance", func() {
 		brokerClient = new(fake.BrokerClient)
 		brokerClientFactory.CreateClientReturns(brokerClient, nil)
 
-		brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{
+		brokerClient.ProvisionReturns(osbapi.ProvisionResponse{
 			IsAsync:   true,
 			Operation: "operation-1",
 		}, nil)
@@ -185,9 +185,9 @@ var _ = Describe("CFServiceInstance", func() {
 		Eventually(func(g Gomega) {
 			g.Expect(brokerClient.ProvisionCallCount()).NotTo(BeZero())
 			_, payload := brokerClient.ProvisionArgsForCall(0)
-			g.Expect(payload).To(Equal(osbapi.InstanceProvisionPayload{
+			g.Expect(payload).To(Equal(osbapi.ProvisionPayload{
 				InstanceID: instance.Name,
-				InstanceProvisionRequest: osbapi.InstanceProvisionRequest{
+				ProvisionRequest: osbapi.ProvisionRequest{
 					ServiceId: "service-offering-id",
 					PlanID:    "service-plan-id",
 					SpaceGUID: "space-guid",
@@ -200,7 +200,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 			g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 0))
 			_, lastOp := brokerClient.GetServiceInstanceLastOperationArgsForCall(brokerClient.GetServiceInstanceLastOperationCallCount() - 1)
-			g.Expect(lastOp).To(Equal(osbapi.GetServiceInstanceLastOperationRequest{
+			g.Expect(lastOp).To(Equal(osbapi.GetInstanceLastOperationRequest{
 				InstanceID: instance.Name,
 				GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 					ServiceId: "service-offering-id",
@@ -298,7 +298,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 	When("the provisioning is synchronous", func() {
 		BeforeEach(func() {
-			brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{}, nil)
+			brokerClient.ProvisionReturns(osbapi.ProvisionResponse{}, nil)
 		})
 
 		It("does not check last operation", func() {
@@ -321,16 +321,16 @@ var _ = Describe("CFServiceInstance", func() {
 
 	When("service provisioning fails with recoverable error", func() {
 		BeforeEach(func() {
-			brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("provision-failed"))
+			brokerClient.ProvisionReturns(osbapi.ProvisionResponse{}, errors.New("provision-failed"))
 		})
 
 		It("keeps trying to provision the instance", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(brokerClient.ProvisionCallCount()).To(BeNumerically(">", 1))
 				_, provisionPayload := brokerClient.ProvisionArgsForCall(1)
-				g.Expect(provisionPayload).To(Equal(osbapi.InstanceProvisionPayload{
+				g.Expect(provisionPayload).To(Equal(osbapi.ProvisionPayload{
 					InstanceID: instance.Name,
-					InstanceProvisionRequest: osbapi.InstanceProvisionRequest{
+					ProvisionRequest: osbapi.ProvisionRequest{
 						ServiceId: "service-offering-id",
 						PlanID:    "service-plan-id",
 						SpaceGUID: "space-guid",
@@ -357,7 +357,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 	When("service provisioning fails with unrecoverable error", func() {
 		BeforeEach(func() {
-			brokerClient.ProvisionReturns(osbapi.ServiceInstanceOperationResponse{}, osbapi.UnrecoverableError{Status: http.StatusBadRequest})
+			brokerClient.ProvisionReturns(osbapi.ProvisionResponse{}, osbapi.UnrecoverableError{Status: http.StatusBadRequest})
 		})
 
 		It("fails the instance", func() {
@@ -441,7 +441,7 @@ var _ = Describe("CFServiceInstance", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 1))
 				_, actualLastOpPayload := brokerClient.GetServiceInstanceLastOperationArgsForCall(1)
-				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetServiceInstanceLastOperationRequest{
+				g.Expect(actualLastOpPayload).To(Equal(osbapi.GetInstanceLastOperationRequest{
 					InstanceID: instance.Name,
 					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 						ServiceId: "service-offering-id",
@@ -730,7 +730,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 	Describe("instance deletion", func() {
 		BeforeEach(func() {
-			brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{
+			brokerClient.DeprovisionReturns(osbapi.ProvisionResponse{
 				Operation: "deprovision-op",
 			}, nil)
 		})
@@ -748,9 +748,9 @@ var _ = Describe("CFServiceInstance", func() {
 
 				g.Expect(brokerClient.DeprovisionCallCount()).To(Equal(1))
 				_, actualDeprovisionRequest := brokerClient.DeprovisionArgsForCall(0)
-				Expect(actualDeprovisionRequest).To(Equal(osbapi.InstanceDeprovisionPayload{
+				Expect(actualDeprovisionRequest).To(Equal(osbapi.DeprovisionPayload{
 					ID: instance.Name,
-					InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
+					DeprovisionRequest: osbapi.DeprovisionRequest{
 						ServiceId: "service-offering-id",
 						PlanID:    "service-plan-id",
 					},
@@ -760,7 +760,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 		When("deprovision fails", func() {
 			BeforeEach(func() {
-				brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("deprovision-failed"))
+				brokerClient.DeprovisionReturns(osbapi.ProvisionResponse{}, errors.New("deprovision-failed"))
 			})
 
 			It("the instance is not deleted", func() {
@@ -773,7 +773,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 		When("the instance is deleted asynchronously", func() {
 			BeforeEach(func() {
-				brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{
+				brokerClient.DeprovisionReturns(osbapi.ProvisionResponse{
 					IsAsync:   true,
 					Operation: "deprovision-op",
 				}, nil)
@@ -812,7 +812,7 @@ var _ = Describe("CFServiceInstance", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 1))
 						_, actualLastOpPayload := brokerClient.GetServiceInstanceLastOperationArgsForCall(1)
-						g.Expect(actualLastOpPayload).To(Equal(osbapi.GetServiceInstanceLastOperationRequest{
+						g.Expect(actualLastOpPayload).To(Equal(osbapi.GetInstanceLastOperationRequest{
 							InstanceID: instance.Name,
 							GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 								ServiceId: "service-offering-id",
@@ -861,16 +861,16 @@ var _ = Describe("CFServiceInstance", func() {
 
 			When("service deprovisioning fails with recoverable error", func() {
 				BeforeEach(func() {
-					brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{}, errors.New("deprovision-failed"))
+					brokerClient.DeprovisionReturns(osbapi.ProvisionResponse{}, errors.New("deprovision-failed"))
 				})
 
 				It("keeps trying to deprovision the instance", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">", 1))
 						_, actualDeprovisionRequest := brokerClient.DeprovisionArgsForCall(0)
-						g.Expect(actualDeprovisionRequest).To(Equal(osbapi.InstanceDeprovisionPayload{
+						g.Expect(actualDeprovisionRequest).To(Equal(osbapi.DeprovisionPayload{
 							ID: instance.Name,
-							InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
+							DeprovisionRequest: osbapi.DeprovisionRequest{
 								ServiceId: "service-offering-id",
 								PlanID:    "service-plan-id",
 							},
@@ -892,7 +892,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 			When("service deprovisioning fails with unrecoverable error", func() {
 				BeforeEach(func() {
-					brokerClient.DeprovisionReturns(osbapi.ServiceInstanceOperationResponse{}, osbapi.UnrecoverableError{Status: http.StatusGone})
+					brokerClient.DeprovisionReturns(osbapi.ProvisionResponse{}, osbapi.UnrecoverableError{Status: http.StatusGone})
 				})
 
 				It("fails the instance", func() {

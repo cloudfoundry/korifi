@@ -119,7 +119,7 @@ var _ = Describe("OSBAPI Client", func() {
 	Describe("Instances", func() {
 		Describe("Provision", func() {
 			var (
-				provisionResp osbapi.ServiceInstanceOperationResponse
+				provisionResp osbapi.ProvisionResponse
 				provisionErr  error
 			)
 
@@ -132,9 +132,9 @@ var _ = Describe("OSBAPI Client", func() {
 			})
 
 			JustBeforeEach(func() {
-				provisionResp, provisionErr = brokerClient.Provision(ctx, osbapi.InstanceProvisionPayload{
+				provisionResp, provisionErr = brokerClient.Provision(ctx, osbapi.ProvisionPayload{
 					InstanceID: "my-service-instance",
-					InstanceProvisionRequest: osbapi.InstanceProvisionRequest{
+					ProvisionRequest: osbapi.ProvisionRequest{
 						ServiceId: "service-guid",
 						PlanID:    "plan-guid",
 						SpaceGUID: "space-guid",
@@ -182,7 +182,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			It("provisions the service synchronously", func() {
 				Expect(provisionErr).NotTo(HaveOccurred())
-				Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{}))
+				Expect(provisionResp).To(Equal(osbapi.ProvisionResponse{}))
 			})
 
 			When("the broker accepts the provision request", func() {
@@ -198,7 +198,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 				It("provisions the service asynchronously", func() {
 					Expect(provisionErr).NotTo(HaveOccurred())
-					Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+					Expect(provisionResp).To(Equal(osbapi.ProvisionResponse{
 						IsAsync:   true,
 						Operation: "provision_op1",
 					}))
@@ -248,7 +248,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 		Describe("Deprovision", func() {
 			var (
-				deprovisionResp osbapi.ServiceInstanceOperationResponse
+				deprovisionResp osbapi.ProvisionResponse
 				deprovisionErr  error
 			)
 
@@ -263,9 +263,9 @@ var _ = Describe("OSBAPI Client", func() {
 			})
 
 			JustBeforeEach(func() {
-				deprovisionResp, deprovisionErr = brokerClient.Deprovision(ctx, osbapi.InstanceDeprovisionPayload{
+				deprovisionResp, deprovisionErr = brokerClient.Deprovision(ctx, osbapi.DeprovisionPayload{
 					ID: "my-service-instance",
-					InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
+					DeprovisionRequest: osbapi.DeprovisionRequest{
 						ServiceId: "service-guid",
 						PlanID:    "plan-guid",
 					},
@@ -274,7 +274,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			It("deprovisions the service synchronously", func() {
 				Expect(deprovisionErr).NotTo(HaveOccurred())
-				Expect(deprovisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+				Expect(deprovisionResp).To(Equal(osbapi.ProvisionResponse{
 					IsAsync:   false,
 					Operation: "deprovision_op1",
 				}))
@@ -322,7 +322,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 				It("deprovisions the service asynchronously", func() {
 					Expect(deprovisionErr).NotTo(HaveOccurred())
-					Expect(deprovisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+					Expect(deprovisionResp).To(Equal(osbapi.ProvisionResponse{
 						IsAsync:   true,
 						Operation: "deprovision_op1",
 					}))
@@ -378,7 +378,7 @@ var _ = Describe("OSBAPI Client", func() {
 			var (
 				lastOpResp           osbapi.LastOperationResponse
 				lastOpErr            error
-				lastOperationRequest osbapi.GetServiceInstanceLastOperationRequest
+				lastOperationRequest osbapi.GetInstanceLastOperationRequest
 			)
 
 			BeforeEach(func() {
@@ -391,7 +391,7 @@ var _ = Describe("OSBAPI Client", func() {
 					http.StatusOK,
 				)
 
-				lastOperationRequest = osbapi.GetServiceInstanceLastOperationRequest{
+				lastOperationRequest = osbapi.GetInstanceLastOperationRequest{
 					InstanceID: "my-service-instance",
 					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 						ServiceId: "service-guid",
@@ -434,7 +434,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			When("request parameters are not specified", func() {
 				BeforeEach(func() {
-					lastOperationRequest = osbapi.GetServiceInstanceLastOperationRequest{
+					lastOperationRequest = osbapi.GetInstanceLastOperationRequest{
 						InstanceID: "my-service-instance",
 					}
 				})
@@ -631,7 +631,7 @@ var _ = Describe("OSBAPI Client", func() {
 			})
 
 			JustBeforeEach(func() {
-				lastOpResp, lastOpErr = brokerClient.GetServiceBindingLastOperation(ctx, osbapi.GetServiceBindingLastOperationRequest{
+				lastOpResp, lastOpErr = brokerClient.GetServiceBindingLastOperation(ctx, osbapi.GetBindingLastOperationRequest{
 					InstanceID: "my-service-instance",
 					BindingID:  "my-binding-id",
 					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
@@ -712,7 +712,7 @@ var _ = Describe("OSBAPI Client", func() {
 			})
 
 			JustBeforeEach(func() {
-				getBindingResponse, getBindingErr = brokerClient.GetServiceBinding(ctx, osbapi.GetServiceBindingRequest{
+				getBindingResponse, getBindingErr = brokerClient.GetServiceBinding(ctx, osbapi.GetBindingRequest{
 					InstanceID: "my-service-instance",
 					BindingID:  "my-binding-id",
 					ServiceId:  "service-guid",
