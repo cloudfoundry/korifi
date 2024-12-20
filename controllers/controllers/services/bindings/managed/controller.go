@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/sbio"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -12,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
+	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,12 +39,14 @@ func NewReconciler(k8sClient client.Client, brokerClientFactory osbapi.BrokerCli
 	}
 }
 
-func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("reconcile-managed-service-binding")
 
 	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFServiceBinding(ctx, cfServiceBinding)
 	}
+
+	cfServiceBinding.Labels = tools.SetMapValue(cfServiceBinding.Labels, korifiv1alpha1.PlanGUIDLabelKey, cfServiceInstance.Spec.PlanGUID)
 
 	assets, err := r.assets.GetServiceBindingAssets(ctx, cfServiceBinding)
 	if err != nil {
@@ -72,6 +76,16 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	err = r.reconcileCredentials(ctx, cfServiceBinding, credentials)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	sbServiceBinding, err := r.reconcileSBServiceBinding(ctx, cfServiceBinding)
+	if err != nil {
+		log.Info("error creating/updating servicebinding.io servicebinding", "reason", err)
+		return ctrl.Result{}, err
+	}
+
+	if !sbio.IsSbServiceBindingReady(sbServiceBinding) {
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceBindingNotReady")
 	}
 
 	return ctrl.Result{}, nil
@@ -252,6 +266,19 @@ func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
 		log.V(1).Info("finalizer removed")
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *ManagedBindingsReconciler) reconcileSBServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (*servicebindingv1beta1.ServiceBinding, error) {
+	sbServiceBinding := sbio.ToSBServiceBinding(cfServiceBinding, korifiv1alpha1.ManagedType)
+
+	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, sbServiceBinding, func() error {
+		return controllerutil.SetControllerReference(cfServiceBinding, sbServiceBinding, r.scheme)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return sbServiceBinding, nil
 }
 
 func isBindRequested(binding *korifiv1alpha1.CFServiceBinding) bool {
