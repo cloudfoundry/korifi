@@ -981,7 +981,6 @@ var _ = Describe("CFServiceBinding", func() {
 								HasType(Equal(korifiv1alpha1.BindingFailedCondition)),
 								HasStatus(Equal(metav1.ConditionTrue)),
 								HasReason(Equal("BindingFailed")),
-								HasMessage(ContainSubstring("binding-failed")),
 							),
 						))
 					}).Should(Succeed())

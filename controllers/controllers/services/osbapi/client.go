@@ -180,7 +180,7 @@ func (c *Client) GetServiceInstanceLastOperation(ctx context.Context, request Ge
 	return response, nil
 }
 
-TODO: This seems to be no longer used
+// TODO: This seems to be no longer used
 func (c *Client) GetServiceBinding(ctx context.Context, request GetBindingRequest) (GetBindingResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
