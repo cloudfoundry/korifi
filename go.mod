@@ -12,7 +12,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.36.8
 	github.com/blendle/zapdriver v1.3.1
-	github.com/bsm/gomega v1.26.0
 	github.com/buildpacks/pack v0.36.1
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
 	github.com/distribution/distribution/v3 v3.0.0-rc.2
@@ -49,6 +48,7 @@ require (
 
 require (
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1 // indirect
+	github.com/bsm/gomega v1.27.10 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect

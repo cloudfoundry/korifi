@@ -109,8 +109,9 @@ github.com/blendle/zapdriver v1.3.1/go.mod h1:mdXfREi6u5MArG4j9fewC+FGnXaBR+T4Ox
 github.com/bsm/ginkgo/v2 v2.7.0/go.mod h1:AiKlXPm7ItEHNc/2+OkrNG4E0ITzojb9/xWzvQ9XZ9w=
 github.com/bsm/ginkgo/v2 v2.9.5 h1:rtVBYPs3+TC5iLUVOis1B9tjLTup7Cj5IfzosKtvTJ0=
 github.com/bsm/ginkgo/v2 v2.9.5/go.mod h1:SwYbGRRDovPVboqFv0tPTcG1sN61LM1Z4ARdbAV9g4c=
-github.com/bsm/gomega v1.26.0 h1:LhQm+AFcgV2M0WyKroMASzAzCAJVpAxQXv4SaI9a69Y=
 github.com/bsm/gomega v1.26.0/go.mod h1:JyEr/xRbxbtgWNi8tIEVPUYZ5Dzef52k01W3YH0H+O0=
+github.com/bsm/gomega v1.27.10 h1:yeMWxP2pV2fG3FgAODIY8EiRE3dy0aeFYt4l7wh6yKA=
+github.com/bsm/gomega v1.27.10/go.mod h1:JyEr/xRbxbtgWNi8tIEVPUYZ5Dzef52k01W3YH0H+O0=
 github.com/buildpacks/imgutil v0.0.0-20240605145725-186f89b2d168 h1:yVYVi1V7x1bXklOx9lpbTfteyzQKGZC/wkl+IlaVRlU=
 github.com/buildpacks/imgutil v0.0.0-20240605145725-186f89b2d168/go.mod h1:n2R6VRuWsAX3cyHCp/u0Z4WJcixny0gYg075J39owrk=
 github.com/buildpacks/lifecycle v0.20.4 h1:VVVTrd9y1LHY3adchh6oktw0wKQuYsWLq3/g23TLaGQ=
