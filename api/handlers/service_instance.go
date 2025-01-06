@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	ServiceInstancesPath = "/v3/service_instances"
-	ServiceInstancePath  = "/v3/service_instances/{guid}"
+	ServiceInstancesPath           = "/v3/service_instances"
+	ServiceInstancePath            = "/v3/service_instances/{guid}"
+	ServiceInstanceCredentialsPath = "/v3/service_instances/{guid}/credentials"
 )
 
 //counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
@@ -32,6 +33,7 @@ type CFServiceInstanceRepository interface {
 	PatchServiceInstance(context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
 	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
 	GetServiceInstance(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
+	GetServiceInstanceCredentials(context.Context, authorization.Info, string) (map[string]any, error)
 	DeleteServiceInstance(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
 }
 
@@ -60,6 +62,54 @@ func NewServiceInstance(
 		requestValidator:    requestValidator,
 		includeResolver:     include.NewIncludeResolver[[]repositories.ServiceInstanceRecord](relationshipRepo, presenter.NewResource(serverURL)),
 	}
+}
+
+func (h *ServiceInstance) get(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.get")
+
+	payload := new(payloads.ServiceInstanceGet)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, payload)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
+	serviceInstanceGUID := routing.URLParam(r, "guid")
+
+	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceInstanceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance", "GUID", serviceInstanceGUID)
+	}
+
+	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, []repositories.ServiceInstanceRecord{serviceInstance}, payload.IncludeResourceRules)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceInstance(serviceInstance, h.serverURL, includedResources...)), nil
+}
+
+func (h *ServiceInstance) getCredentials(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-instance.get-credentials")
+
+	serviceInstanceGUID := routing.URLParam(r, "guid")
+
+	serviceInstance, err := h.serviceInstanceRepo.GetServiceInstance(r.Context(), authInfo, serviceInstanceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance", "GUID", serviceInstanceGUID)
+	}
+
+	if serviceInstance.Type != korifiv1alpha1.UserProvidedType {
+		return nil, apierrors.NewNotFoundError(nil, repositories.ServiceInstanceResourceType)
+	}
+
+	credentials, err := h.serviceInstanceRepo.GetServiceInstanceCredentials(r.Context(), authInfo, serviceInstanceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get service instance credentials")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(credentials), nil
 }
 
 //nolint:dupl
@@ -199,6 +249,8 @@ func (h *ServiceInstance) AuthenticatedRoutes() []routing.Route {
 		{Method: "POST", Pattern: ServiceInstancesPath, Handler: h.create},
 		{Method: "PATCH", Pattern: ServiceInstancePath, Handler: h.patch},
 		{Method: "GET", Pattern: ServiceInstancesPath, Handler: h.list},
+		{Method: "GET", Pattern: ServiceInstancePath, Handler: h.get},
+		{Method: "GET", Pattern: ServiceInstanceCredentialsPath, Handler: h.getCredentials},
 		{Method: "DELETE", Pattern: ServiceInstancePath, Handler: h.delete},
 	}
 }

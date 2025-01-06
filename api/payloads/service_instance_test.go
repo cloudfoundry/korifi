@@ -97,6 +97,46 @@ var _ = Describe("ServiceInstanceList", func() {
 			}))
 		})
 	})
+
+	_ = Describe("ServiceInstanceGet", func() {
+		DescribeTable("valid query",
+			func(query string, expectedServiceInstanceGet payloads.ServiceInstanceGet) {
+				actualServiceInstanceGet, decodeErr := decodeQuery[payloads.ServiceInstanceGet](query)
+
+				Expect(decodeErr).NotTo(HaveOccurred())
+				Expect(*actualServiceInstanceGet).To(Equal(expectedServiceInstanceGet))
+			},
+			Entry("fields[service_plan.service_offering.service_broker]",
+				"fields[service_plan.service_offering.service_broker]=guid,name",
+				payloads.ServiceInstanceGet{IncludeResourceRules: []params.IncludeResourceRule{{
+					RelationshipPath: []string{"service_plan", "service_offering", "service_broker"},
+					Fields:           []string{"guid", "name"},
+				}}}),
+			Entry("fields[service_plan.service_offering]",
+				"fields[service_plan.service_offering]=guid,name,relationships.service_broker",
+				payloads.ServiceInstanceGet{IncludeResourceRules: []params.IncludeResourceRule{{
+					RelationshipPath: []string{"service_plan", "service_offering"},
+					Fields:           []string{"guid", "name", "relationships.service_broker"},
+				}}}),
+
+			Entry("fields[service_plan]",
+				"fields[service_plan]=guid,name,relationships.service_offering",
+				payloads.ServiceInstanceGet{IncludeResourceRules: []params.IncludeResourceRule{{
+					RelationshipPath: []string{"service_plan"},
+					Fields:           []string{"guid", "name", "relationships.service_offering"},
+				}}}),
+		)
+
+		DescribeTable("invalid query",
+			func(query string, expectedErrMsg string) {
+				_, decodeErr := decodeQuery[payloads.ServiceInstanceGet](query)
+				Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+			},
+			Entry("invalid service offering fields", "fields[service_plan.service_offering]=foo", "value must be one of"),
+			Entry("invalid service broker fields", "fields[service_plan.service_offering.service_broker]=foo", "value must be one of"),
+			Entry("invalid service plan fields", "fields[service_plan]=foo", "value must be one of"),
+		)
+	})
 })
 
 var _ = Describe("ServiceInstanceCreate", func() {
