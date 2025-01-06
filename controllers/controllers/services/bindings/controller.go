@@ -23,6 +23,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
 	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
@@ -125,7 +126,14 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 
 	cfServiceBinding.Annotations = tools.SetMapValue(cfServiceBinding.Annotations, korifiv1alpha1.ServiceInstanceTypeAnnotationKey, string(cfServiceInstance.Spec.Type))
 
-	err = controllerutil.SetOwnerReference(cfServiceInstance, cfServiceBinding, r.scheme)
+	if err = k8s.Patch(ctx, r.k8sClient, cfServiceInstance, func() {
+		controllerutil.AddFinalizer(cfServiceInstance, metav1.FinalizerDeleteDependents)
+	}); err != nil {
+		log.Info("error when setting the foreground deletion finalizer on the service instance", "reason", err)
+		return ctrl.Result{}, err
+	}
+
+	err = controllerutil.SetOwnerReference(cfServiceInstance, cfServiceBinding, r.scheme, controllerutil.WithBlockOwnerDeletion(true))
 	if err != nil {
 		log.Info("error when making the service instance owner of the service binding", "reason", err)
 		return ctrl.Result{}, err

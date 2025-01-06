@@ -117,11 +117,19 @@ var _ = Describe("CFServiceBinding", func() {
 			}).Should(Succeed())
 		})
 
+		It("sets the foregroundDeletion finalizer on the service instance", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+				g.Expect(instance.Finalizers).To(ContainElement(metav1.FinalizerDeleteDependents))
+			}).Should(Succeed())
+		})
+
 		It("sets an owner reference from the instance to the binding", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name": Equal(instance.Name),
+					"Name":               Equal(instance.Name),
+					"BlockOwnerDeletion": PointTo(BeTrue()),
 				})))
 			}).Should(Succeed())
 		})
