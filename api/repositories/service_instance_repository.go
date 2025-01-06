@@ -491,7 +491,7 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 		}
 	}
 
-	if err := userClient.Delete(ctx, serviceInstance); err != nil {
+	if err := userClient.Delete(ctx, serviceInstance, client.PropagationPolicy(metav1.DeletePropagationForeground)); err != nil {
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to delete service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
