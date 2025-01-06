@@ -24,7 +24,6 @@ type BrokerClient interface {
 	Bind(context.Context, BindPayload) (BindResponse, error)
 	Unbind(context.Context, UnbindPayload) (UnbindResponse, error)
 	GetServiceBindingLastOperation(context.Context, GetBindingLastOperationRequest) (LastOperationResponse, error)
-	GetServiceBinding(context.Context, GetBindingRequest) (GetBindingResponse, error)
 }
 
 //counterfeiter:generate -o fake -fake-name BrokerClientFactory code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi.BrokerClientFactory

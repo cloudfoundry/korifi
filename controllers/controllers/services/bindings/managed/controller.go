@@ -102,17 +102,6 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	return ctrl.Result{}, nil
 }
 
-// func (r *ManagedBindingsReconciler) bind(
-// 	ctx context.Context,
-// 	cfServiceBinding *korifiv1alpha1.CFServiceBinding,
-// 	assets osbapi.ServiceBindingAssets,
-// 	osbapiClient osbapi.BrokerClient,
-// ) (map[string]any, error) {
-// 	bindResponse, err := r.requestBind(ctx, cfServiceBinding, assets, osbapiClient)
-
-// 	return r.pollBindOperation(ctx, cfServiceBinding, assets, osbapiClient)
-// }
-
 func (r *ManagedBindingsReconciler) bind(
 	ctx context.Context,
 	cfServiceBinding *korifiv1alpha1.CFServiceBinding,
@@ -173,17 +162,6 @@ func (r *ManagedBindingsReconciler) processBindOperation(
 		})
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingFailed")
 	}
-
-	// binding, err := osbapiClient.GetServiceBinding(ctx, osbapi.GetBindingRequest{
-	// 	InstanceID: cfServiceBinding.Spec.Service.Name,
-	// 	BindingID:  cfServiceBinding.Name,
-	// 	ServiceId:  assets.ServiceOffering.Spec.BrokerCatalog.ID,
-	// 	PlanID:     assets.ServicePlan.Spec.BrokerCatalog.ID,
-	// })
-	// if err != nil {
-	// 	log.Error(err, "failed to get binding")
-	// 	return nil, err
-	// }
 
 	return ctrl.Result{}, nil
 }

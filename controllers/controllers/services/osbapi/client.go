@@ -180,37 +180,6 @@ func (c *Client) GetServiceInstanceLastOperation(ctx context.Context, request Ge
 	return response, nil
 }
 
-// TODO: This seems to be no longer used
-func (c *Client) GetServiceBinding(ctx context.Context, request GetBindingRequest) (GetBindingResponse, error) {
-	statusCode, respBytes, err := c.newBrokerRequester().
-		forBroker(c.broker).
-		sendRequest(
-			ctx,
-			"/v2/service_instances/"+request.InstanceID+"/service_bindings/"+request.BindingID,
-			http.MethodGet,
-			map[string]string{
-				"service_id": request.ServiceId,
-				"plan_id":    request.PlanID,
-			},
-			nil,
-		)
-	if err != nil {
-		return GetBindingResponse{}, fmt.Errorf("get binding request failed: %w", err)
-	}
-
-	if statusCode != http.StatusOK {
-		return GetBindingResponse{}, fmt.Errorf("get binding request failed with code: %d", statusCode)
-	}
-
-	var response GetBindingResponse
-	err = json.Unmarshal(respBytes, &response)
-	if err != nil {
-		return GetBindingResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	return response, nil
-}
-
 func (c *Client) Bind(ctx context.Context, payload BindPayload) (BindResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).

@@ -988,7 +988,7 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 		})
 
-		Describe("binding deletion", func() {
+		Describe("unbind", func() {
 			BeforeEach(func() {
 				brokerClient.UnbindReturns(osbapi.UnbindResponse{}, nil)
 			})
@@ -999,9 +999,6 @@ var _ = Describe("CFServiceBinding", func() {
 
 			It("unbinds the binding with the broker", func() {
 				Eventually(func(g Gomega) {
-					err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
-					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
-
 					g.Expect(brokerClient.UnbindCallCount()).To(Equal(1))
 					_, actualUnbindRequest := brokerClient.UnbindArgsForCall(0)
 					Expect(actualUnbindRequest).To(Equal(osbapi.UnbindPayload{
@@ -1015,49 +1012,54 @@ var _ = Describe("CFServiceBinding", func() {
 				}).Should(Succeed())
 			})
 
-			Describe("unbind failure", func() {
-				When("unbind fails with recoverable error", func() {
-					BeforeEach(func() {
-						brokerClient.UnbindReturns(osbapi.UnbindResponse{}, errors.New("unbinding-failed"))
-					})
+			It("deletes the binding", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			})
 
-					It("does not delete the binding", func() {
-						Consistently(func(g Gomega) {
-							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-						}).Should(Succeed())
-					})
-
-					It("keeps trying to unbind with the broker", func() {
-						Eventually(func(g Gomega) {
-							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-							g.Expect(brokerClient.UnbindCallCount()).To(BeNumerically(">", 1))
-						}).Should(Succeed())
-					})
+			When("unbind fails with recoverable error", func() {
+				BeforeEach(func() {
+					brokerClient.UnbindReturns(osbapi.UnbindResponse{}, errors.New("unbinding-failed"))
 				})
 
-				When("unbind fails with unrecoverable error", func() {
-					BeforeEach(func() {
-						brokerClient.UnbindReturns(osbapi.UnbindResponse{}, osbapi.UnrecoverableError{Status: http.StatusGone})
-					})
+				It("does not delete the binding", func() {
+					Consistently(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					}).Should(Succeed())
+				})
 
-					It("fails the binding", func() {
-						Eventually(func(g Gomega) {
-							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				It("keeps trying to unbind with the broker", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+						g.Expect(brokerClient.UnbindCallCount()).To(BeNumerically(">", 1))
+					}).Should(Succeed())
+				})
+			})
 
-							g.Expect(binding.Status.Conditions).To(ContainElements(
-								SatisfyAll(
-									HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-									HasStatus(Equal(metav1.ConditionFalse)),
-								),
-								SatisfyAll(
-									HasType(Equal(korifiv1alpha1.UnbindingFailedCondition)),
-									HasStatus(Equal(metav1.ConditionTrue)),
-									HasReason(Equal("UnbindingFailed")),
-									HasMessage(ContainSubstring("The server responded with status: 410")),
-								),
-							))
-						}).Should(Succeed())
-					})
+			When("unbind fails with unrecoverable error", func() {
+				BeforeEach(func() {
+					brokerClient.UnbindReturns(osbapi.UnbindResponse{}, osbapi.UnrecoverableError{Status: http.StatusGone})
+				})
+
+				It("fails the binding", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+
+						g.Expect(binding.Status.Conditions).To(ContainElements(
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+							),
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.UnbindingFailedCondition)),
+								HasStatus(Equal(metav1.ConditionTrue)),
+								HasReason(Equal("UnbindingFailed")),
+								HasMessage(ContainSubstring("The server responded with status: 410")),
+							),
+						))
+					}).Should(Succeed())
 				})
 			})
 
@@ -1067,6 +1069,12 @@ var _ = Describe("CFServiceBinding", func() {
 						IsAsync:   true,
 						Operation: "unbind-op",
 					}, nil)
+				})
+
+				It("does not delete the binding", func() {
+					Consistently(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					}).Should(Succeed())
 				})
 
 				When("the last operation is in progress", func() {
@@ -1125,6 +1133,19 @@ var _ = Describe("CFServiceBinding", func() {
 								HasType(Equal(korifiv1alpha1.UnbindingFailedCondition)),
 								HasStatus(Equal(metav1.ConditionTrue)),
 							)))
+						}).Should(Succeed())
+					})
+				})
+
+				When("the broker unbind succeeds", func() {
+					BeforeEach(func() {
+						brokerClient.UnbindReturns(osbapi.UnbindResponse{}, nil)
+					})
+
+					It("deletes the binding", func() {
+						Eventually(func(g Gomega) {
+							err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+							g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 						}).Should(Succeed())
 					})
 				})
