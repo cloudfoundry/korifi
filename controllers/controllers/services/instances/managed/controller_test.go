@@ -892,7 +892,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 			When("service deprovisioning fails with unrecoverable error", func() {
 				BeforeEach(func() {
-					brokerClient.DeprovisionReturns(osbapi.ProvisionResponse{}, osbapi.UnrecoverableError{Status: http.StatusGone})
+					brokerClient.DeprovisionReturns(osbapi.ProvisionResponse{}, osbapi.UnrecoverableError{Status: http.StatusUnprocessableEntity})
 				})
 
 				It("fails the instance", func() {
@@ -908,7 +908,7 @@ var _ = Describe("CFServiceInstance", func() {
 								HasType(Equal(korifiv1alpha1.DeprovisioningFailedCondition)),
 								HasStatus(Equal(metav1.ConditionTrue)),
 								HasReason(Equal("DeprovisionFailed")),
-								HasMessage(ContainSubstring("The server responded with status: 410")),
+								HasMessage(ContainSubstring("The server responded with status: 422")),
 							),
 						))
 					}).Should(Succeed())
@@ -922,6 +922,19 @@ var _ = Describe("CFServiceInstance", func() {
 							Type:  "delete",
 							State: "failed",
 						}))
+					}).Should(Succeed())
+				})
+			})
+
+			When("the instance is gone", func() {
+				BeforeEach(func() {
+					brokerClient.DeprovisionReturns(osbapi.ProvisionResponse{}, osbapi.GoneError{})
+				})
+
+				It("deletes the instance", func() {
+					Eventually(func(g Gomega) {
+						err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 					}).Should(Succeed())
 				})
 			})

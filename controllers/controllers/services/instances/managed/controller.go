@@ -316,7 +316,7 @@ func (r *Reconciler) deprovisionServiceInstance(
 			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
 		},
 	})
-	if err != nil {
+	if osbapi.IgnoreGone(err) != nil {
 		if osbapi.IsUnrecoveralbeError(err) {
 			serviceInstance.Status.LastOperation.State = "failed"
 			meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{

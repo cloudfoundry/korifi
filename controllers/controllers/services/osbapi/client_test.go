@@ -339,13 +339,13 @@ var _ = Describe("OSBAPI Client", func() {
 				})
 			})
 
-			When("the provision request fails with 410 Gone error", func() {
+			When("the deprovision request fails with 410 Gone error", func() {
 				BeforeEach(func() {
 					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusGone)
 				})
 
-				It("returns an unrecoverable error", func() {
-					Expect(deprovisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusGone}))
+				It("returns a Gone error", func() {
+					Expect(deprovisionErr).To(Equal(osbapi.GoneError{}))
 				})
 			})
 
@@ -815,8 +815,8 @@ var _ = Describe("OSBAPI Client", func() {
 					brokerServer = brokerServer.WithResponse("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", nil, http.StatusGone)
 				})
 
-				It("returns an unrecoverable error", func() {
-					Expect(unbindErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusGone}))
+				It("returns a Gone error", func() {
+					Expect(unbindErr).To(Equal(osbapi.GoneError{}))
 				})
 			})
 

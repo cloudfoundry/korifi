@@ -318,7 +318,7 @@ func (r *ManagedBindingsReconciler) deleteServiceBinding(
 			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
 		},
 	})
-	if err != nil {
+	if osbapi.IgnoreGone(err) != nil {
 		if osbapi.IsUnrecoveralbeError(err) {
 			meta.SetStatusCondition(&serviceBinding.Status.Conditions, metav1.Condition{
 				Type:               korifiv1alpha1.UnbindingFailedCondition,

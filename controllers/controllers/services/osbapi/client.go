@@ -125,7 +125,11 @@ func (c *Client) Deprovision(ctx context.Context, payload DeprovisionPayload) (P
 		return ProvisionResponse{}, fmt.Errorf("deprovision request failed: %w", err)
 	}
 
-	if statusCode == http.StatusBadRequest || statusCode == http.StatusGone || statusCode == http.StatusUnprocessableEntity {
+	if statusCode == http.StatusGone {
+		return ProvisionResponse{}, GoneError{}
+	}
+
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusUnprocessableEntity {
 		return ProvisionResponse{}, UnrecoverableError{Status: statusCode}
 	}
 
@@ -268,7 +272,11 @@ func (c *Client) Unbind(ctx context.Context, payload UnbindPayload) (UnbindRespo
 		return UnbindResponse{}, fmt.Errorf("unbind request failed: %w", err)
 	}
 
-	if statusCode == http.StatusBadRequest || statusCode == http.StatusGone || statusCode == http.StatusUnprocessableEntity {
+	if statusCode == http.StatusGone {
+		return UnbindResponse{}, GoneError{}
+	}
+
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusUnprocessableEntity {
 		return UnbindResponse{}, UnrecoverableError{Status: statusCode}
 	}
 

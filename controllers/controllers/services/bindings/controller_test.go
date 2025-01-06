@@ -1149,6 +1149,19 @@ var _ = Describe("CFServiceBinding", func() {
 						}).Should(Succeed())
 					})
 				})
+
+				When("the binding is gone", func() {
+					BeforeEach(func() {
+						brokerClient.UnbindReturns(osbapi.UnbindResponse{}, osbapi.GoneError{})
+					})
+
+					It("deletes the binding", func() {
+						Eventually(func(g Gomega) {
+							err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+							g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+						}).Should(Succeed())
+					})
+				})
 			})
 		})
 	})
