@@ -10,6 +10,6 @@ import (
 
 var _ = Describe("cf run-task", func() {
 	It("succeeds", func() {
-		Eventually(helpers.Cf("run-task", sharedData.BuildpackAppName, "-c", `echo "Hello from the task"`)).Should(Exit(0))
+		Expect(helpers.Cf("run-task", sharedData.BuildpackAppName, "-c", `echo "Hello from the task"`)).To(Exit(0))
 	})
 })

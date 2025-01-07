@@ -41,6 +41,8 @@ func AddUserToKubeConfig(userName, userToken string) {
 }
 
 func RemoveUserFromKubeConfig(userName string) {
+	GinkgoHelper()
+
 	configAccess := clientcmd.NewDefaultPathOptions()
 	config, err := configAccess.GetStartingConfig()
 	Expect(err).NotTo(HaveOccurred())
