@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -38,6 +40,7 @@ type SmokeTestSharedData struct {
 	BuildpackAppName string `json:"buildpack_app_name"`
 	DockerAppName    string `json:"docker_app_name"`
 	BrokerURL        string `json:"broker_url"`
+	FLockPath        string `json:"f_lock_path"`
 }
 
 var sharedData SmokeTestSharedData
@@ -59,6 +62,11 @@ func TestSmoke(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
+	setCFHome(GinkgoParallelProcess())
+
+	lockDir, err := os.MkdirTemp("", "")
+	Expect(err).NotTo(HaveOccurred())
+
 	sharedData = SmokeTestSharedData{
 		CfAdmin:          uuid.NewString(),
 		RootNamespace:    helpers.GetDefaultedEnvVar("ROOT_NAMESPACE", "cf"),
@@ -68,6 +76,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		AppsDomain:       helpers.GetRequiredEnvVar("APP_FQDN"),
 		BuildpackAppName: uuid.NewString(),
 		DockerAppName:    uuid.NewString(),
+		FLockPath:        filepath.Join(lockDir, "lock"),
 	}
 	serviceAccountFactory := helpers.NewServiceAccountFactory(sharedData.RootNamespace)
 
@@ -105,13 +114,37 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 var _ = SynchronizedAfterSuite(func() {
 }, func() {
+	setCFHome(GinkgoParallelProcess())
+
+	Expect(helpers.Cf("api", helpers.GetRequiredEnvVar("API_SERVER_ROOT"), "--skip-ssl-validation")).To(Exit(0))
+	Expect(helpers.Cf("auth", sharedData.CfAdmin)).To(Exit(0))
+
 	Expect(helpers.Cf("delete-org", sharedData.OrgName, "-f").Wait()).To(Exit())
 	Expect(helpers.Cf("delete-org", sharedData.BrokerOrgName, "-f").Wait()).To(Exit())
 	serviceAccountFactory := helpers.NewServiceAccountFactory(sharedData.RootNamespace)
 
 	serviceAccountFactory.DeleteServiceAccount(sharedData.CfAdmin)
 	helpers.RemoveUserFromKubeConfig(sharedData.CfAdmin)
+
+	Expect(os.RemoveAll(filepath.Dir(sharedData.FLockPath))).To(Succeed())
 })
+
+var _ = BeforeEach(func() {
+	setCFHome(GinkgoParallelProcess())
+
+	Expect(helpers.Cf("api", helpers.GetRequiredEnvVar("API_SERVER_ROOT"), "--skip-ssl-validation")).To(Exit(0))
+	Expect(helpers.Cf("auth", sharedData.CfAdmin)).To(Exit(0))
+	Expect(helpers.Cf("target", "-o", sharedData.OrgName, "-s", sharedData.SpaceName)).To(Exit(0))
+})
+
+func setCFHome(ginkgoNode int) {
+	cfHomeDir, err := os.MkdirTemp("", fmt.Sprintf("ginkgo-%d", ginkgoNode))
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() {
+		Expect(os.RemoveAll(cfHomeDir)).To(Succeed())
+	})
+	os.Setenv("CF_HOME", cfHomeDir)
+}
 
 func sessionOutput(session *Session) (string, error) {
 	if session.ExitCode() != 0 {
