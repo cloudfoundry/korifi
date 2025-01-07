@@ -120,5 +120,8 @@ bin/yq: bin
 bin/setup-envtest: bin
 	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
+clean-bin:
+	rm -f **/bin/*
+
 vendir-update-dependencies: bin/vendir
 	vendir sync --chdir tests
