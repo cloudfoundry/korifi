@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	gomega_types "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -109,7 +108,7 @@ var _ = Describe("AppRepository", func() {
 						Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 					},
 				}))
-				Expect(app.IsStaged).To(BeFalse())
+				Expect(app.IsStaged).To(BeTrue())
 				Expect(app.DeletedAt).To(BeNil())
 
 				Expect(app.Relationships()).To(Equal(map[string]string{
@@ -117,43 +116,11 @@ var _ = Describe("AppRepository", func() {
 				}))
 			})
 
-			When("the app has staged condition true", func() {
+			When("the app has no current droplet set", func() {
 				BeforeEach(func() {
-					cfApp.Status.Conditions = []metav1.Condition{{
-						Type:               korifiv1alpha1.StatusConditionReady,
-						Status:             metav1.ConditionTrue,
-						LastTransitionTime: metav1.Now(),
-						Reason:             "staged",
-						Message:            "staged",
-					}}
-					Expect(k8sClient.Status().Update(ctx, cfApp)).To(Succeed())
-					Eventually(func(g Gomega) {
-						app := korifiv1alpha1.CFApp{}
-						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
-						g.Expect(app.Status.Conditions).NotTo(BeEmpty())
-					}).Should(Succeed())
-				})
-
-				It("sets IsStaged to true", func() {
-					Expect(getErr).ToNot(HaveOccurred())
-					Expect(app.IsStaged).To(BeTrue())
-				})
-			})
-
-			When("the app has staged condition false", func() {
-				BeforeEach(func() {
-					meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-						Type:    korifiv1alpha1.StatusConditionReady,
-						Status:  metav1.ConditionFalse,
-						Reason:  "appStaged",
-						Message: "",
-					})
-					Expect(k8sClient.Status().Update(ctx, cfApp)).To(Succeed())
-					Eventually(func(g Gomega) {
-						app := korifiv1alpha1.CFApp{}
-						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), &app)).To(Succeed())
-						g.Expect(meta.IsStatusConditionFalse(app.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
-					}).Should(Succeed())
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+						cfApp.Spec.CurrentDropletRef.Name = ""
+					})).To(Succeed())
 				})
 
 				It("sets IsStaged to false", func() {
