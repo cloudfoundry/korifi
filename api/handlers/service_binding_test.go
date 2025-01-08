@@ -105,6 +105,32 @@ var _ = Describe("ServiceBinding", func() {
 					expectUnprocessableEntityError("Service credential bindings of type 'key' are not supported for user-provided service instances.")
 				})
 			})
+
+			When("binding to a managed service", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+						GUID:      "service-instance-guid",
+						SpaceGUID: "space-guid",
+						Type:      korifiv1alpha1.ManagedType,
+					}, nil)
+
+					serviceBindingRepo.CreateServiceBindingReturns(repositories.ServiceBindingRecord{
+						GUID: "service-binding-guid",
+						Type: korifiv1alpha1.CFServiceBindingTypeKey,
+					}, nil)
+				})
+
+				It("creates a binding", func() {
+					Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
+					Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+
+					_, actualAuthInfo, createServiceBindingMessage := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
+					Expect(actualAuthInfo).To(Equal(authInfo))
+					Expect(createServiceBindingMessage.ServiceInstanceGUID).To(Equal("service-instance-guid"))
+					Expect(createServiceBindingMessage.SpaceGUID).To(Equal("space-guid"))
+					Expect(createServiceBindingMessage.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeKey))
+				})
+			})
 		})
 
 		When("creating a service binding of type app", func() {
