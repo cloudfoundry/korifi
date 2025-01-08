@@ -17,14 +17,13 @@ import (
 
 //counterfeiter:generate -o fake -fake-name BrokerClient code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi.BrokerClient
 type BrokerClient interface {
-	Provision(context.Context, InstanceProvisionPayload) (ServiceInstanceOperationResponse, error)
-	Deprovision(context.Context, InstanceDeprovisionPayload) (ServiceInstanceOperationResponse, error)
-	GetServiceInstanceLastOperation(context.Context, GetServiceInstanceLastOperationRequest) (LastOperationResponse, error)
+	Provision(context.Context, ProvisionPayload) (ProvisionResponse, error)
+	Deprovision(context.Context, DeprovisionPayload) (ProvisionResponse, error)
+	GetServiceInstanceLastOperation(context.Context, GetInstanceLastOperationRequest) (LastOperationResponse, error)
 	GetCatalog(context.Context) (Catalog, error)
 	Bind(context.Context, BindPayload) (BindResponse, error)
 	Unbind(context.Context, UnbindPayload) (UnbindResponse, error)
-	GetServiceBindingLastOperation(context.Context, GetServiceBindingLastOperationRequest) (LastOperationResponse, error)
-	GetServiceBinding(context.Context, GetServiceBindingRequest) (GetBindingResponse, error)
+	GetServiceBindingLastOperation(context.Context, GetBindingLastOperationRequest) (LastOperationResponse, error)
 }
 
 //counterfeiter:generate -o fake -fake-name BrokerClientFactory code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi.BrokerClientFactory

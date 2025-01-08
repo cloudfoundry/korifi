@@ -23,18 +23,18 @@ type BrokerClient struct {
 		result1 osbapi.BindResponse
 		result2 error
 	}
-	DeprovisionStub        func(context.Context, osbapi.InstanceDeprovisionPayload) (osbapi.ServiceInstanceOperationResponse, error)
+	DeprovisionStub        func(context.Context, osbapi.DeprovisionPayload) (osbapi.ProvisionResponse, error)
 	deprovisionMutex       sync.RWMutex
 	deprovisionArgsForCall []struct {
 		arg1 context.Context
-		arg2 osbapi.InstanceDeprovisionPayload
+		arg2 osbapi.DeprovisionPayload
 	}
 	deprovisionReturns struct {
-		result1 osbapi.ServiceInstanceOperationResponse
+		result1 osbapi.ProvisionResponse
 		result2 error
 	}
 	deprovisionReturnsOnCall map[int]struct {
-		result1 osbapi.ServiceInstanceOperationResponse
+		result1 osbapi.ProvisionResponse
 		result2 error
 	}
 	GetCatalogStub        func(context.Context) (osbapi.Catalog, error)
@@ -50,11 +50,11 @@ type BrokerClient struct {
 		result1 osbapi.Catalog
 		result2 error
 	}
-	GetServiceBindingStub        func(context.Context, osbapi.GetServiceBindingRequest) (osbapi.GetBindingResponse, error)
+	GetServiceBindingStub        func(context.Context, osbapi.GetBindingRequest) (osbapi.GetBindingResponse, error)
 	getServiceBindingMutex       sync.RWMutex
 	getServiceBindingArgsForCall []struct {
 		arg1 context.Context
-		arg2 osbapi.GetServiceBindingRequest
+		arg2 osbapi.GetBindingRequest
 	}
 	getServiceBindingReturns struct {
 		result1 osbapi.GetBindingResponse
@@ -64,11 +64,11 @@ type BrokerClient struct {
 		result1 osbapi.GetBindingResponse
 		result2 error
 	}
-	GetServiceBindingLastOperationStub        func(context.Context, osbapi.GetServiceBindingLastOperationRequest) (osbapi.LastOperationResponse, error)
+	GetServiceBindingLastOperationStub        func(context.Context, osbapi.GetBindingLastOperationRequest) (osbapi.LastOperationResponse, error)
 	getServiceBindingLastOperationMutex       sync.RWMutex
 	getServiceBindingLastOperationArgsForCall []struct {
 		arg1 context.Context
-		arg2 osbapi.GetServiceBindingLastOperationRequest
+		arg2 osbapi.GetBindingLastOperationRequest
 	}
 	getServiceBindingLastOperationReturns struct {
 		result1 osbapi.LastOperationResponse
@@ -78,11 +78,11 @@ type BrokerClient struct {
 		result1 osbapi.LastOperationResponse
 		result2 error
 	}
-	GetServiceInstanceLastOperationStub        func(context.Context, osbapi.GetServiceInstanceLastOperationRequest) (osbapi.LastOperationResponse, error)
+	GetServiceInstanceLastOperationStub        func(context.Context, osbapi.GetInstanceLastOperationRequest) (osbapi.LastOperationResponse, error)
 	getServiceInstanceLastOperationMutex       sync.RWMutex
 	getServiceInstanceLastOperationArgsForCall []struct {
 		arg1 context.Context
-		arg2 osbapi.GetServiceInstanceLastOperationRequest
+		arg2 osbapi.GetInstanceLastOperationRequest
 	}
 	getServiceInstanceLastOperationReturns struct {
 		result1 osbapi.LastOperationResponse
@@ -92,18 +92,18 @@ type BrokerClient struct {
 		result1 osbapi.LastOperationResponse
 		result2 error
 	}
-	ProvisionStub        func(context.Context, osbapi.InstanceProvisionPayload) (osbapi.ServiceInstanceOperationResponse, error)
+	ProvisionStub        func(context.Context, osbapi.ProvisionPayload) (osbapi.ProvisionResponse, error)
 	provisionMutex       sync.RWMutex
 	provisionArgsForCall []struct {
 		arg1 context.Context
-		arg2 osbapi.InstanceProvisionPayload
+		arg2 osbapi.ProvisionPayload
 	}
 	provisionReturns struct {
-		result1 osbapi.ServiceInstanceOperationResponse
+		result1 osbapi.ProvisionResponse
 		result2 error
 	}
 	provisionReturnsOnCall map[int]struct {
-		result1 osbapi.ServiceInstanceOperationResponse
+		result1 osbapi.ProvisionResponse
 		result2 error
 	}
 	UnbindStub        func(context.Context, osbapi.UnbindPayload) (osbapi.UnbindResponse, error)
@@ -189,12 +189,12 @@ func (fake *BrokerClient) BindReturnsOnCall(i int, result1 osbapi.BindResponse, 
 	}{result1, result2}
 }
 
-func (fake *BrokerClient) Deprovision(arg1 context.Context, arg2 osbapi.InstanceDeprovisionPayload) (osbapi.ServiceInstanceOperationResponse, error) {
+func (fake *BrokerClient) Deprovision(arg1 context.Context, arg2 osbapi.DeprovisionPayload) (osbapi.ProvisionResponse, error) {
 	fake.deprovisionMutex.Lock()
 	ret, specificReturn := fake.deprovisionReturnsOnCall[len(fake.deprovisionArgsForCall)]
 	fake.deprovisionArgsForCall = append(fake.deprovisionArgsForCall, struct {
 		arg1 context.Context
-		arg2 osbapi.InstanceDeprovisionPayload
+		arg2 osbapi.DeprovisionPayload
 	}{arg1, arg2})
 	stub := fake.DeprovisionStub
 	fakeReturns := fake.deprovisionReturns
@@ -215,41 +215,41 @@ func (fake *BrokerClient) DeprovisionCallCount() int {
 	return len(fake.deprovisionArgsForCall)
 }
 
-func (fake *BrokerClient) DeprovisionCalls(stub func(context.Context, osbapi.InstanceDeprovisionPayload) (osbapi.ServiceInstanceOperationResponse, error)) {
+func (fake *BrokerClient) DeprovisionCalls(stub func(context.Context, osbapi.DeprovisionPayload) (osbapi.ProvisionResponse, error)) {
 	fake.deprovisionMutex.Lock()
 	defer fake.deprovisionMutex.Unlock()
 	fake.DeprovisionStub = stub
 }
 
-func (fake *BrokerClient) DeprovisionArgsForCall(i int) (context.Context, osbapi.InstanceDeprovisionPayload) {
+func (fake *BrokerClient) DeprovisionArgsForCall(i int) (context.Context, osbapi.DeprovisionPayload) {
 	fake.deprovisionMutex.RLock()
 	defer fake.deprovisionMutex.RUnlock()
 	argsForCall := fake.deprovisionArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *BrokerClient) DeprovisionReturns(result1 osbapi.ServiceInstanceOperationResponse, result2 error) {
+func (fake *BrokerClient) DeprovisionReturns(result1 osbapi.ProvisionResponse, result2 error) {
 	fake.deprovisionMutex.Lock()
 	defer fake.deprovisionMutex.Unlock()
 	fake.DeprovisionStub = nil
 	fake.deprovisionReturns = struct {
-		result1 osbapi.ServiceInstanceOperationResponse
+		result1 osbapi.ProvisionResponse
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *BrokerClient) DeprovisionReturnsOnCall(i int, result1 osbapi.ServiceInstanceOperationResponse, result2 error) {
+func (fake *BrokerClient) DeprovisionReturnsOnCall(i int, result1 osbapi.ProvisionResponse, result2 error) {
 	fake.deprovisionMutex.Lock()
 	defer fake.deprovisionMutex.Unlock()
 	fake.DeprovisionStub = nil
 	if fake.deprovisionReturnsOnCall == nil {
 		fake.deprovisionReturnsOnCall = make(map[int]struct {
-			result1 osbapi.ServiceInstanceOperationResponse
+			result1 osbapi.ProvisionResponse
 			result2 error
 		})
 	}
 	fake.deprovisionReturnsOnCall[i] = struct {
-		result1 osbapi.ServiceInstanceOperationResponse
+		result1 osbapi.ProvisionResponse
 		result2 error
 	}{result1, result2}
 }
@@ -318,12 +318,12 @@ func (fake *BrokerClient) GetCatalogReturnsOnCall(i int, result1 osbapi.Catalog,
 	}{result1, result2}
 }
 
-func (fake *BrokerClient) GetServiceBinding(arg1 context.Context, arg2 osbapi.GetServiceBindingRequest) (osbapi.GetBindingResponse, error) {
+func (fake *BrokerClient) GetServiceBinding(arg1 context.Context, arg2 osbapi.GetBindingRequest) (osbapi.GetBindingResponse, error) {
 	fake.getServiceBindingMutex.Lock()
 	ret, specificReturn := fake.getServiceBindingReturnsOnCall[len(fake.getServiceBindingArgsForCall)]
 	fake.getServiceBindingArgsForCall = append(fake.getServiceBindingArgsForCall, struct {
 		arg1 context.Context
-		arg2 osbapi.GetServiceBindingRequest
+		arg2 osbapi.GetBindingRequest
 	}{arg1, arg2})
 	stub := fake.GetServiceBindingStub
 	fakeReturns := fake.getServiceBindingReturns
@@ -344,13 +344,13 @@ func (fake *BrokerClient) GetServiceBindingCallCount() int {
 	return len(fake.getServiceBindingArgsForCall)
 }
 
-func (fake *BrokerClient) GetServiceBindingCalls(stub func(context.Context, osbapi.GetServiceBindingRequest) (osbapi.GetBindingResponse, error)) {
+func (fake *BrokerClient) GetServiceBindingCalls(stub func(context.Context, osbapi.GetBindingRequest) (osbapi.GetBindingResponse, error)) {
 	fake.getServiceBindingMutex.Lock()
 	defer fake.getServiceBindingMutex.Unlock()
 	fake.GetServiceBindingStub = stub
 }
 
-func (fake *BrokerClient) GetServiceBindingArgsForCall(i int) (context.Context, osbapi.GetServiceBindingRequest) {
+func (fake *BrokerClient) GetServiceBindingArgsForCall(i int) (context.Context, osbapi.GetBindingRequest) {
 	fake.getServiceBindingMutex.RLock()
 	defer fake.getServiceBindingMutex.RUnlock()
 	argsForCall := fake.getServiceBindingArgsForCall[i]
@@ -383,12 +383,12 @@ func (fake *BrokerClient) GetServiceBindingReturnsOnCall(i int, result1 osbapi.G
 	}{result1, result2}
 }
 
-func (fake *BrokerClient) GetServiceBindingLastOperation(arg1 context.Context, arg2 osbapi.GetServiceBindingLastOperationRequest) (osbapi.LastOperationResponse, error) {
+func (fake *BrokerClient) GetServiceBindingLastOperation(arg1 context.Context, arg2 osbapi.GetBindingLastOperationRequest) (osbapi.LastOperationResponse, error) {
 	fake.getServiceBindingLastOperationMutex.Lock()
 	ret, specificReturn := fake.getServiceBindingLastOperationReturnsOnCall[len(fake.getServiceBindingLastOperationArgsForCall)]
 	fake.getServiceBindingLastOperationArgsForCall = append(fake.getServiceBindingLastOperationArgsForCall, struct {
 		arg1 context.Context
-		arg2 osbapi.GetServiceBindingLastOperationRequest
+		arg2 osbapi.GetBindingLastOperationRequest
 	}{arg1, arg2})
 	stub := fake.GetServiceBindingLastOperationStub
 	fakeReturns := fake.getServiceBindingLastOperationReturns
@@ -409,13 +409,13 @@ func (fake *BrokerClient) GetServiceBindingLastOperationCallCount() int {
 	return len(fake.getServiceBindingLastOperationArgsForCall)
 }
 
-func (fake *BrokerClient) GetServiceBindingLastOperationCalls(stub func(context.Context, osbapi.GetServiceBindingLastOperationRequest) (osbapi.LastOperationResponse, error)) {
+func (fake *BrokerClient) GetServiceBindingLastOperationCalls(stub func(context.Context, osbapi.GetBindingLastOperationRequest) (osbapi.LastOperationResponse, error)) {
 	fake.getServiceBindingLastOperationMutex.Lock()
 	defer fake.getServiceBindingLastOperationMutex.Unlock()
 	fake.GetServiceBindingLastOperationStub = stub
 }
 
-func (fake *BrokerClient) GetServiceBindingLastOperationArgsForCall(i int) (context.Context, osbapi.GetServiceBindingLastOperationRequest) {
+func (fake *BrokerClient) GetServiceBindingLastOperationArgsForCall(i int) (context.Context, osbapi.GetBindingLastOperationRequest) {
 	fake.getServiceBindingLastOperationMutex.RLock()
 	defer fake.getServiceBindingLastOperationMutex.RUnlock()
 	argsForCall := fake.getServiceBindingLastOperationArgsForCall[i]
@@ -448,12 +448,12 @@ func (fake *BrokerClient) GetServiceBindingLastOperationReturnsOnCall(i int, res
 	}{result1, result2}
 }
 
-func (fake *BrokerClient) GetServiceInstanceLastOperation(arg1 context.Context, arg2 osbapi.GetServiceInstanceLastOperationRequest) (osbapi.LastOperationResponse, error) {
+func (fake *BrokerClient) GetServiceInstanceLastOperation(arg1 context.Context, arg2 osbapi.GetInstanceLastOperationRequest) (osbapi.LastOperationResponse, error) {
 	fake.getServiceInstanceLastOperationMutex.Lock()
 	ret, specificReturn := fake.getServiceInstanceLastOperationReturnsOnCall[len(fake.getServiceInstanceLastOperationArgsForCall)]
 	fake.getServiceInstanceLastOperationArgsForCall = append(fake.getServiceInstanceLastOperationArgsForCall, struct {
 		arg1 context.Context
-		arg2 osbapi.GetServiceInstanceLastOperationRequest
+		arg2 osbapi.GetInstanceLastOperationRequest
 	}{arg1, arg2})
 	stub := fake.GetServiceInstanceLastOperationStub
 	fakeReturns := fake.getServiceInstanceLastOperationReturns
@@ -474,13 +474,13 @@ func (fake *BrokerClient) GetServiceInstanceLastOperationCallCount() int {
 	return len(fake.getServiceInstanceLastOperationArgsForCall)
 }
 
-func (fake *BrokerClient) GetServiceInstanceLastOperationCalls(stub func(context.Context, osbapi.GetServiceInstanceLastOperationRequest) (osbapi.LastOperationResponse, error)) {
+func (fake *BrokerClient) GetServiceInstanceLastOperationCalls(stub func(context.Context, osbapi.GetInstanceLastOperationRequest) (osbapi.LastOperationResponse, error)) {
 	fake.getServiceInstanceLastOperationMutex.Lock()
 	defer fake.getServiceInstanceLastOperationMutex.Unlock()
 	fake.GetServiceInstanceLastOperationStub = stub
 }
 
-func (fake *BrokerClient) GetServiceInstanceLastOperationArgsForCall(i int) (context.Context, osbapi.GetServiceInstanceLastOperationRequest) {
+func (fake *BrokerClient) GetServiceInstanceLastOperationArgsForCall(i int) (context.Context, osbapi.GetInstanceLastOperationRequest) {
 	fake.getServiceInstanceLastOperationMutex.RLock()
 	defer fake.getServiceInstanceLastOperationMutex.RUnlock()
 	argsForCall := fake.getServiceInstanceLastOperationArgsForCall[i]
@@ -513,12 +513,12 @@ func (fake *BrokerClient) GetServiceInstanceLastOperationReturnsOnCall(i int, re
 	}{result1, result2}
 }
 
-func (fake *BrokerClient) Provision(arg1 context.Context, arg2 osbapi.InstanceProvisionPayload) (osbapi.ServiceInstanceOperationResponse, error) {
+func (fake *BrokerClient) Provision(arg1 context.Context, arg2 osbapi.ProvisionPayload) (osbapi.ProvisionResponse, error) {
 	fake.provisionMutex.Lock()
 	ret, specificReturn := fake.provisionReturnsOnCall[len(fake.provisionArgsForCall)]
 	fake.provisionArgsForCall = append(fake.provisionArgsForCall, struct {
 		arg1 context.Context
-		arg2 osbapi.InstanceProvisionPayload
+		arg2 osbapi.ProvisionPayload
 	}{arg1, arg2})
 	stub := fake.ProvisionStub
 	fakeReturns := fake.provisionReturns
@@ -539,41 +539,41 @@ func (fake *BrokerClient) ProvisionCallCount() int {
 	return len(fake.provisionArgsForCall)
 }
 
-func (fake *BrokerClient) ProvisionCalls(stub func(context.Context, osbapi.InstanceProvisionPayload) (osbapi.ServiceInstanceOperationResponse, error)) {
+func (fake *BrokerClient) ProvisionCalls(stub func(context.Context, osbapi.ProvisionPayload) (osbapi.ProvisionResponse, error)) {
 	fake.provisionMutex.Lock()
 	defer fake.provisionMutex.Unlock()
 	fake.ProvisionStub = stub
 }
 
-func (fake *BrokerClient) ProvisionArgsForCall(i int) (context.Context, osbapi.InstanceProvisionPayload) {
+func (fake *BrokerClient) ProvisionArgsForCall(i int) (context.Context, osbapi.ProvisionPayload) {
 	fake.provisionMutex.RLock()
 	defer fake.provisionMutex.RUnlock()
 	argsForCall := fake.provisionArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *BrokerClient) ProvisionReturns(result1 osbapi.ServiceInstanceOperationResponse, result2 error) {
+func (fake *BrokerClient) ProvisionReturns(result1 osbapi.ProvisionResponse, result2 error) {
 	fake.provisionMutex.Lock()
 	defer fake.provisionMutex.Unlock()
 	fake.ProvisionStub = nil
 	fake.provisionReturns = struct {
-		result1 osbapi.ServiceInstanceOperationResponse
+		result1 osbapi.ProvisionResponse
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *BrokerClient) ProvisionReturnsOnCall(i int, result1 osbapi.ServiceInstanceOperationResponse, result2 error) {
+func (fake *BrokerClient) ProvisionReturnsOnCall(i int, result1 osbapi.ProvisionResponse, result2 error) {
 	fake.provisionMutex.Lock()
 	defer fake.provisionMutex.Unlock()
 	fake.ProvisionStub = nil
 	if fake.provisionReturnsOnCall == nil {
 		fake.provisionReturnsOnCall = make(map[int]struct {
-			result1 osbapi.ServiceInstanceOperationResponse
+			result1 osbapi.ProvisionResponse
 			result2 error
 		})
 	}
 	fake.provisionReturnsOnCall[i] = struct {
-		result1 osbapi.ServiceInstanceOperationResponse
+		result1 osbapi.ProvisionResponse
 		result2 error
 	}{result1, result2}
 }

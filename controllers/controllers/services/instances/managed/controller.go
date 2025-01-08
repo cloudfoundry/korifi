@@ -188,20 +188,20 @@ func (r *Reconciler) provisionServiceInstance(
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	assets osbapi.ServiceInstanceAssets,
 	osbapiClient osbapi.BrokerClient,
-) (osbapi.ServiceInstanceOperationResponse, error) {
+) (osbapi.ProvisionResponse, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("provision-service-instance")
 
 	parametersMap, err := getServiceInstanceParameters(serviceInstance)
 	if err != nil {
 		log.Error(err, "failed to get service instance parameters")
-		return osbapi.ServiceInstanceOperationResponse{},
+		return osbapi.ProvisionResponse{},
 			fmt.Errorf("failed to get service instance parameters: %w", err)
 	}
 
 	namespace, err := r.getNamespace(ctx, serviceInstance.Namespace)
 	if err != nil {
 		log.Error(err, "failed to get namespace")
-		return osbapi.ServiceInstanceOperationResponse{}, err
+		return osbapi.ProvisionResponse{}, err
 	}
 
 	serviceInstance.Status.LastOperation = services.LastOperation{
@@ -209,10 +209,10 @@ func (r *Reconciler) provisionServiceInstance(
 		State: "initial",
 	}
 
-	var provisionResponse osbapi.ServiceInstanceOperationResponse
-	provisionResponse, err = osbapiClient.Provision(ctx, osbapi.InstanceProvisionPayload{
+	var provisionResponse osbapi.ProvisionResponse
+	provisionResponse, err = osbapiClient.Provision(ctx, osbapi.ProvisionPayload{
 		InstanceID: serviceInstance.Name,
-		InstanceProvisionRequest: osbapi.InstanceProvisionRequest{
+		ProvisionRequest: osbapi.ProvisionRequest{
 			ServiceId:  assets.ServiceOffering.Spec.BrokerCatalog.ID,
 			PlanID:     assets.ServicePlan.Spec.BrokerCatalog.ID,
 			SpaceGUID:  namespace.Labels[korifiv1alpha1.SpaceGUIDKey],
@@ -233,11 +233,11 @@ func (r *Reconciler) provisionServiceInstance(
 				Reason:             "ProvisionFailed",
 				Message:            err.Error(),
 			})
-			return osbapi.ServiceInstanceOperationResponse{},
+			return osbapi.ProvisionResponse{},
 				k8s.NewNotReadyError().WithReason("ProvisionFailed")
 		}
 
-		return osbapi.ServiceInstanceOperationResponse{}, err
+		return osbapi.ProvisionResponse{}, err
 	}
 
 	return provisionResponse, nil
@@ -304,19 +304,19 @@ func (r *Reconciler) deprovisionServiceInstance(
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	assets osbapi.ServiceInstanceAssets,
 	osbapiClient osbapi.BrokerClient,
-) (osbapi.ServiceInstanceOperationResponse, error) {
+) (osbapi.ProvisionResponse, error) {
 	serviceInstance.Status.LastOperation = services.LastOperation{
 		Type:  "delete",
 		State: "initial",
 	}
-	deprovisionResponse, err := osbapiClient.Deprovision(ctx, osbapi.InstanceDeprovisionPayload{
+	deprovisionResponse, err := osbapiClient.Deprovision(ctx, osbapi.DeprovisionPayload{
 		ID: serviceInstance.Name,
-		InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
+		DeprovisionRequest: osbapi.DeprovisionRequest{
 			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
 			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
 		},
 	})
-	if err != nil {
+	if osbapi.IgnoreGone(err) != nil {
 		if osbapi.IsUnrecoveralbeError(err) {
 			serviceInstance.Status.LastOperation.State = "failed"
 			meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
@@ -327,11 +327,11 @@ func (r *Reconciler) deprovisionServiceInstance(
 				Reason:             "DeprovisionFailed",
 				Message:            err.Error(),
 			})
-			return osbapi.ServiceInstanceOperationResponse{},
+			return osbapi.ProvisionResponse{},
 				k8s.NewNotReadyError().WithReason("DeprovisionFailed")
 		}
 
-		return osbapi.ServiceInstanceOperationResponse{}, fmt.Errorf("failed to deprovision service instance: %w", err)
+		return osbapi.ProvisionResponse{}, fmt.Errorf("failed to deprovision service instance: %w", err)
 	}
 
 	return deprovisionResponse, nil
@@ -368,7 +368,7 @@ func (r *Reconciler) pollLastOperation(
 	operationID string,
 ) (osbapi.LastOperationResponse, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("poll-operation")
-	lastOpResponse, err := osbapiClient.GetServiceInstanceLastOperation(ctx, osbapi.GetServiceInstanceLastOperationRequest{
+	lastOpResponse, err := osbapiClient.GetServiceInstanceLastOperation(ctx, osbapi.GetInstanceLastOperationRequest{
 		InstanceID: serviceInstance.Name,
 		GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
