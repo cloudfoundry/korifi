@@ -85,14 +85,12 @@ func (l ServiceBindingList) Validate() error {
 }
 
 func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage {
-	message := repositories.ListServiceBindingsMessage{
+	return repositories.ListServiceBindingsMessage{
 		ServiceInstanceGUIDs: parse.ArrayParam(l.ServiceInstanceGUIDs),
 		AppGUIDs:             parse.ArrayParam(l.AppGUIDs),
 		LabelSelector:        l.LabelSelector,
 		PlanGUIDs:            parse.ArrayParam(l.PlanGUIDs),
 	}
-
-	return message
 }
 
 func (l *ServiceBindingList) SupportedKeys() []string {

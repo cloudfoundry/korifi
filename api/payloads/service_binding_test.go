@@ -21,9 +21,11 @@ var _ = Describe("ServiceBindingList", func() {
 			Expect(*actualServiceBindingList).To(Equal(expectedServiceBindingList))
 		},
 		Entry("type", "type=key", payloads.ServiceBindingList{Type: korifiv1alpha1.CFServiceBindingTypeKey}),
+		Entry("type", "type=app", payloads.ServiceBindingList{Type: korifiv1alpha1.CFServiceBindingTypeApp}),
 		Entry("app_guids", "app_guids=app_guid", payloads.ServiceBindingList{AppGUIDs: "app_guid"}),
 		Entry("service_instance_guids", "service_instance_guids=si_guid", payloads.ServiceBindingList{ServiceInstanceGUIDs: "si_guid"}),
 		Entry("include", "include=app", payloads.ServiceBindingList{Include: "app"}),
+		Entry("include", "include=key", payloads.ServiceBindingList{Include: "key"}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceBindingList{LabelSelector: "foo"}),
 		Entry("service_plan_guids=plan-guid", "service_plan_guids=plan-guid", payloads.ServiceBindingList{PlanGUIDs: "plan-guid"}),
 	)
@@ -128,7 +130,7 @@ var _ = Describe("ServiceBindingCreate", func() {
 			Expect(serviceBindingCreate).To(gstruct.PointTo(Equal(createPayload)))
 		})
 
-		When("binding is key and name field is omitted", func() {
+		When("name field is omitted", func() {
 			BeforeEach(func() {
 				createPayload.Name = ""
 			})
