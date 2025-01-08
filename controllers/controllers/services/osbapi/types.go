@@ -30,12 +30,24 @@ type Service struct {
 	Plans []Plan `json:"plans"`
 }
 
-type InstanceProvisionPayload struct {
-	InstanceID string
-	InstanceProvisionRequest
+type Plan struct {
+	ID               string                      `json:"id"`
+	Name             string                      `json:"name"`
+	Description      string                      `json:"description"`
+	Metadata         map[string]any              `json:"metadata"`
+	Free             bool                        `json:"free"`
+	Bindable         bool                        `json:"bindable"`
+	BindingRotatable bool                        `json:"binding_rotatable"`
+	PlanUpdateable   bool                        `json:"plan_updateable"`
+	Schemas          services.ServicePlanSchemas `json:"schemas"`
 }
 
-type InstanceProvisionRequest struct {
+type ProvisionPayload struct {
+	InstanceID string
+	ProvisionRequest
+}
+
+type ProvisionRequest struct {
 	ServiceId  string         `json:"service_id"`
 	PlanID     string         `json:"plan_id"`
 	SpaceGUID  string         `json:"space_guid"`
@@ -43,18 +55,12 @@ type InstanceProvisionRequest struct {
 	Parameters map[string]any `json:"parameters"`
 }
 
-type GetServiceInstanceLastOperationRequest struct {
-	InstanceID string
-	GetLastOperationRequestParameters
+type ProvisionResponse struct {
+	IsAsync   bool
+	Operation string `json:"operation,omitempty"`
 }
 
-type GetServiceBindingLastOperationRequest struct {
-	InstanceID string
-	BindingID  string
-	GetLastOperationRequestParameters
-}
-
-type GetServiceBindingRequest struct {
+type GetBindingRequest struct {
 	InstanceID string
 	BindingID  string
 	ServiceId  string
@@ -65,18 +71,28 @@ type GetBindingResponse struct {
 	Credentials map[string]any `json:"credentials"`
 }
 
+type GetInstanceLastOperationRequest struct {
+	InstanceID string
+	GetLastOperationRequestParameters
+}
+
+type GetBindingLastOperationRequest struct {
+	InstanceID string
+	BindingID  string
+	GetLastOperationRequestParameters
+}
+
 type GetLastOperationRequestParameters struct {
 	ServiceId string
 	PlanID    string
 	Operation string
 }
-
-type InstanceDeprovisionPayload struct {
+type DeprovisionPayload struct {
 	ID string
-	InstanceDeprovisionRequest
+	DeprovisionRequest
 }
 
-type InstanceDeprovisionRequest struct {
+type DeprovisionRequest struct {
 	ServiceId string `json:"service_id"`
 	PlanID    string `json:"plan_id"`
 }
@@ -98,7 +114,7 @@ type BindPayload struct {
 type BindResponse struct {
 	Credentials map[string]any `json:"credentials"`
 	Operation   string         `json:"operation"`
-	Complete    bool
+	IsAsync     bool
 }
 
 type BindResource struct {
@@ -117,28 +133,12 @@ type UnbindRequestParameters struct {
 }
 
 type UnbindResponse struct {
+	IsAsync   bool
 	Operation string `json:"operation,omitempty"`
 }
 
 func (r UnbindResponse) IsComplete() bool {
 	return r.Operation == ""
-}
-
-type Plan struct {
-	ID               string                      `json:"id"`
-	Name             string                      `json:"name"`
-	Description      string                      `json:"description"`
-	Metadata         map[string]any              `json:"metadata"`
-	Free             bool                        `json:"free"`
-	Bindable         bool                        `json:"bindable"`
-	BindingRotatable bool                        `json:"binding_rotatable"`
-	PlanUpdateable   bool                        `json:"plan_updateable"`
-	Schemas          services.ServicePlanSchemas `json:"schemas"`
-}
-
-type ServiceInstanceOperationResponse struct {
-	IsAsync   bool
-	Operation string `json:"operation,omitempty"`
 }
 
 type LastOperationResponse struct {

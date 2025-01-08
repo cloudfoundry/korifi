@@ -119,7 +119,7 @@ var _ = Describe("OSBAPI Client", func() {
 	Describe("Instances", func() {
 		Describe("Provision", func() {
 			var (
-				provisionResp osbapi.ServiceInstanceOperationResponse
+				provisionResp osbapi.ProvisionResponse
 				provisionErr  error
 			)
 
@@ -132,9 +132,9 @@ var _ = Describe("OSBAPI Client", func() {
 			})
 
 			JustBeforeEach(func() {
-				provisionResp, provisionErr = brokerClient.Provision(ctx, osbapi.InstanceProvisionPayload{
+				provisionResp, provisionErr = brokerClient.Provision(ctx, osbapi.ProvisionPayload{
 					InstanceID: "my-service-instance",
-					InstanceProvisionRequest: osbapi.InstanceProvisionRequest{
+					ProvisionRequest: osbapi.ProvisionRequest{
 						ServiceId: "service-guid",
 						PlanID:    "plan-guid",
 						SpaceGUID: "space-guid",
@@ -182,7 +182,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			It("provisions the service synchronously", func() {
 				Expect(provisionErr).NotTo(HaveOccurred())
-				Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{}))
+				Expect(provisionResp).To(Equal(osbapi.ProvisionResponse{}))
 			})
 
 			When("the broker accepts the provision request", func() {
@@ -198,7 +198,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 				It("provisions the service asynchronously", func() {
 					Expect(provisionErr).NotTo(HaveOccurred())
-					Expect(provisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+					Expect(provisionResp).To(Equal(osbapi.ProvisionResponse{
 						IsAsync:   true,
 						Operation: "provision_op1",
 					}))
@@ -248,7 +248,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 		Describe("Deprovision", func() {
 			var (
-				deprovisionResp osbapi.ServiceInstanceOperationResponse
+				deprovisionResp osbapi.ProvisionResponse
 				deprovisionErr  error
 			)
 
@@ -263,9 +263,9 @@ var _ = Describe("OSBAPI Client", func() {
 			})
 
 			JustBeforeEach(func() {
-				deprovisionResp, deprovisionErr = brokerClient.Deprovision(ctx, osbapi.InstanceDeprovisionPayload{
+				deprovisionResp, deprovisionErr = brokerClient.Deprovision(ctx, osbapi.DeprovisionPayload{
 					ID: "my-service-instance",
-					InstanceDeprovisionRequest: osbapi.InstanceDeprovisionRequest{
+					DeprovisionRequest: osbapi.DeprovisionRequest{
 						ServiceId: "service-guid",
 						PlanID:    "plan-guid",
 					},
@@ -274,7 +274,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			It("deprovisions the service synchronously", func() {
 				Expect(deprovisionErr).NotTo(HaveOccurred())
-				Expect(deprovisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+				Expect(deprovisionResp).To(Equal(osbapi.ProvisionResponse{
 					IsAsync:   false,
 					Operation: "deprovision_op1",
 				}))
@@ -322,7 +322,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 				It("deprovisions the service asynchronously", func() {
 					Expect(deprovisionErr).NotTo(HaveOccurred())
-					Expect(deprovisionResp).To(Equal(osbapi.ServiceInstanceOperationResponse{
+					Expect(deprovisionResp).To(Equal(osbapi.ProvisionResponse{
 						IsAsync:   true,
 						Operation: "deprovision_op1",
 					}))
@@ -339,13 +339,13 @@ var _ = Describe("OSBAPI Client", func() {
 				})
 			})
 
-			When("the provision request fails with 410 Gone error", func() {
+			When("the deprovision request fails with 410 Gone error", func() {
 				BeforeEach(func() {
 					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusGone)
 				})
 
-				It("returns an unrecoverable error", func() {
-					Expect(deprovisionErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusGone}))
+				It("returns a Gone error", func() {
+					Expect(deprovisionErr).To(Equal(osbapi.GoneError{}))
 				})
 			})
 
@@ -378,7 +378,7 @@ var _ = Describe("OSBAPI Client", func() {
 			var (
 				lastOpResp           osbapi.LastOperationResponse
 				lastOpErr            error
-				lastOperationRequest osbapi.GetServiceInstanceLastOperationRequest
+				lastOperationRequest osbapi.GetInstanceLastOperationRequest
 			)
 
 			BeforeEach(func() {
@@ -391,7 +391,7 @@ var _ = Describe("OSBAPI Client", func() {
 					http.StatusOK,
 				)
 
-				lastOperationRequest = osbapi.GetServiceInstanceLastOperationRequest{
+				lastOperationRequest = osbapi.GetInstanceLastOperationRequest{
 					InstanceID: "my-service-instance",
 					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
 						ServiceId: "service-guid",
@@ -434,7 +434,7 @@ var _ = Describe("OSBAPI Client", func() {
 
 			When("request parameters are not specified", func() {
 				BeforeEach(func() {
-					lastOperationRequest = osbapi.GetServiceInstanceLastOperationRequest{
+					lastOperationRequest = osbapi.GetInstanceLastOperationRequest{
 						InstanceID: "my-service-instance",
 					}
 				})
@@ -560,7 +560,6 @@ var _ = Describe("OSBAPI Client", func() {
 					Credentials: map[string]any{
 						"foo": "bar",
 					},
-					Complete: true,
 				}))
 			})
 
@@ -579,7 +578,7 @@ var _ = Describe("OSBAPI Client", func() {
 					Expect(bindErr).NotTo(HaveOccurred())
 					Expect(bindResp).To(Equal(osbapi.BindResponse{
 						Operation: "bind_op1",
-						Complete:  false,
+						IsAsync:   true,
 					}))
 				})
 			})
@@ -598,7 +597,7 @@ var _ = Describe("OSBAPI Client", func() {
 				})
 			})
 
-			When("binding request fails with 409 Confilct", func() {
+			When("binding request fails with 409 Conflict", func() {
 				BeforeEach(func() {
 					brokerServer = brokerServer.WithResponse(
 						"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
@@ -607,8 +606,36 @@ var _ = Describe("OSBAPI Client", func() {
 					)
 				})
 
-				It("returns a confilct error", func() {
-					Expect(bindErr).To(BeAssignableToTypeOf(osbapi.ConflictError{}))
+				It("returns an unrecoverable error", func() {
+					Expect(bindErr).To(BeAssignableToTypeOf(osbapi.UnrecoverableError{}))
+				})
+			})
+
+			When("binding request fails with 422 Unprocessable Entity", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse(
+						"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
+						nil,
+						http.StatusUnprocessableEntity,
+					)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(bindErr).To(BeAssignableToTypeOf(osbapi.UnrecoverableError{}))
+				})
+			})
+
+			When("binding request fails with 400 Bad Request", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse(
+						"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
+						nil,
+						http.StatusBadRequest,
+					)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(bindErr).To(BeAssignableToTypeOf(osbapi.UnrecoverableError{}))
 				})
 			})
 		})
@@ -631,7 +658,7 @@ var _ = Describe("OSBAPI Client", func() {
 			})
 
 			JustBeforeEach(func() {
-				lastOpResp, lastOpErr = brokerClient.GetServiceBindingLastOperation(ctx, osbapi.GetServiceBindingLastOperationRequest{
+				lastOpResp, lastOpErr = brokerClient.GetServiceBindingLastOperation(ctx, osbapi.GetBindingLastOperationRequest{
 					InstanceID: "my-service-instance",
 					BindingID:  "my-binding-id",
 					GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
@@ -693,62 +720,73 @@ var _ = Describe("OSBAPI Client", func() {
 			})
 		})
 
-		Describe("GetServiceBinding", func() {
+		Describe("Unbind", func() {
 			var (
-				getBindingResponse osbapi.GetBindingResponse
-				getBindingErr      error
+				unbindResp osbapi.UnbindResponse
+				unbindErr  error
 			)
 
 			BeforeEach(func() {
 				brokerServer.WithResponse(
 					"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
-					map[string]any{
-						"credentials": map[string]any{
-							"credentialKey": "credentialValue",
-						},
-					},
+					nil,
 					http.StatusOK,
 				)
 			})
 
 			JustBeforeEach(func() {
-				getBindingResponse, getBindingErr = brokerClient.GetServiceBinding(ctx, osbapi.GetServiceBindingRequest{
-					InstanceID: "my-service-instance",
-					BindingID:  "my-binding-id",
-					ServiceId:  "service-guid",
-					PlanID:     "plan-guid",
+				unbindResp, unbindErr = brokerClient.Unbind(ctx, osbapi.UnbindPayload{
+					InstanceID: "instance-id",
+					BindingID:  "binding-id",
+					UnbindRequestParameters: osbapi.UnbindRequestParameters{
+						ServiceId: "service-guid",
+						PlanID:    "plan-guid",
+					},
 				})
 			})
 
-			It("gets the binding", func() {
-				Expect(getBindingErr).NotTo(HaveOccurred())
-				Expect(getBindingResponse).To(Equal(osbapi.GetBindingResponse{
-					Credentials: map[string]any{
-						"credentialKey": "credentialValue",
-					},
-				}))
-			})
-
-			It("sends correct request to broker", func() {
-				Expect(getBindingErr).NotTo(HaveOccurred())
+			It("sends an unbind request to broker", func() {
+				Expect(unbindErr).NotTo(HaveOccurred())
 				requests := brokerServer.ServedRequests()
 
 				Expect(requests).To(HaveLen(1))
 
-				Expect(requests[0].Method).To(Equal(http.MethodGet))
-				Expect(requests[0].URL.Path).To(Equal("/v2/service_instances/my-service-instance/service_bindings/my-binding-id"))
+				Expect(requests[0].Method).To(Equal(http.MethodDelete))
+				Expect(requests[0].URL.Path).To(Equal("/v2/service_instances/instance-id/service_bindings/binding-id"))
 
 				Expect(requests[0].URL.Query()).To(BeEquivalentTo(map[string][]string{
-					"service_id": {"service-guid"},
-					"plan_id":    {"plan-guid"},
+					"service_id":         {"service-guid"},
+					"plan_id":            {"plan-guid"},
+					"accepts_incomplete": {"true"},
 				}))
-
-				requestBytes, err := io.ReadAll(requests[0].Body)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(requestBytes).To(BeEmpty())
 			})
 
-			When("getting the binding fails", func() {
+			It("responds synchronously", func() {
+				Expect(unbindErr).NotTo(HaveOccurred())
+				Expect(unbindResp.IsComplete()).To(BeTrue())
+			})
+
+			When("the broker accepts the unbind request", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse(
+						"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
+						map[string]any{
+							"operation": "unbind_op1",
+						},
+						http.StatusAccepted,
+					)
+				})
+
+				It("unbinds the service asynchronously", func() {
+					Expect(unbindErr).NotTo(HaveOccurred())
+					Expect(unbindResp).To(Equal(osbapi.UnbindResponse{
+						IsAsync:   true,
+						Operation: "unbind_op1",
+					}))
+				})
+			})
+
+			When("the unbind request fails", func() {
 				BeforeEach(func() {
 					brokerServer = brokerServer.WithResponse(
 						"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
@@ -758,101 +796,38 @@ var _ = Describe("OSBAPI Client", func() {
 				})
 
 				It("returns an error", func() {
-					Expect(getBindingErr).To(MatchError(ContainSubstring("get binding request failed")))
+					Expect(unbindErr).To(MatchError(ContainSubstring("unbind request failed")))
 				})
 			})
-		})
-	})
 
-	Describe("Unbind", func() {
-		var (
-			unbindResp osbapi.UnbindResponse
-			unbindErr  error
-		)
+			When("the unbind request fails with 400 BadRequest error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", nil, http.StatusBadRequest)
+				})
 
-		BeforeEach(func() {
-			brokerServer.WithResponse(
-				"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
-				nil,
-				http.StatusOK,
-			)
-		})
-
-		JustBeforeEach(func() {
-			unbindResp, unbindErr = brokerClient.Unbind(ctx, osbapi.UnbindPayload{
-				InstanceID: "instance-id",
-				BindingID:  "binding-id",
-				UnbindRequestParameters: osbapi.UnbindRequestParameters{
-					ServiceId: "service-guid",
-					PlanID:    "plan-guid",
-				},
-			})
-		})
-
-		It("sends an unbind request to broker", func() {
-			Expect(unbindErr).NotTo(HaveOccurred())
-			requests := brokerServer.ServedRequests()
-
-			Expect(requests).To(HaveLen(1))
-
-			Expect(requests[0].Method).To(Equal(http.MethodDelete))
-			Expect(requests[0].URL.Path).To(Equal("/v2/service_instances/instance-id/service_bindings/binding-id"))
-
-			Expect(requests[0].URL.Query()).To(BeEquivalentTo(map[string][]string{
-				"service_id":         {"service-guid"},
-				"plan_id":            {"plan-guid"},
-				"accepts_incomplete": {"true"},
-			}))
-		})
-
-		It("responds synchronously", func() {
-			Expect(unbindErr).NotTo(HaveOccurred())
-			Expect(unbindResp.IsComplete()).To(BeTrue())
-		})
-
-		When("broker return 202 Accepted", func() {
-			BeforeEach(func() {
-				brokerServer = brokerServer.WithResponse(
-					"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
-					map[string]any{
-						"operation": "operation-id",
-					},
-					http.StatusAccepted,
-				)
+				It("returns an unrecoverable error", func() {
+					Expect(unbindErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusBadRequest}))
+				})
 			})
 
-			It("responds asynchronously", func() {
-				Expect(unbindErr).NotTo(HaveOccurred())
-				Expect(unbindResp.IsComplete()).To(BeFalse())
-				Expect(unbindResp.Operation).To(Equal("operation-id"))
-			})
-		})
+			When("the unbind request fails with 410 Gone error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", nil, http.StatusGone)
+				})
 
-		When("the binding does not exist", func() {
-			BeforeEach(func() {
-				brokerServer = brokerServer.WithResponse(
-					"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
-					nil,
-					http.StatusGone,
-				)
+				It("returns a Gone error", func() {
+					Expect(unbindErr).To(Equal(osbapi.GoneError{}))
+				})
 			})
 
-			It("returns a gone error", func() {
-				Expect(unbindErr).To(BeAssignableToTypeOf(osbapi.GoneError{}))
-			})
-		})
+			When("the unbind request fails with 422 Unprocessable entity error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{instance_id}/service_bindings/{binding_id}", nil, http.StatusUnprocessableEntity)
+				})
 
-		When("the unbind request fails", func() {
-			BeforeEach(func() {
-				brokerServer = brokerServer.WithResponse(
-					"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
-					nil,
-					http.StatusTeapot,
-				)
-			})
-
-			It("returns an error", func() {
-				Expect(unbindErr).To(MatchError(ContainSubstring("unbind request failed")))
+				It("returns an unrecoverable error", func() {
+					Expect(unbindErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusUnprocessableEntity}))
+				})
 			})
 		})
 	})

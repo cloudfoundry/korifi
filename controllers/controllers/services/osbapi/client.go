@@ -20,12 +20,6 @@ func (g GoneError) Error() string {
 	return "The operation resource is gone"
 }
 
-type ConflictError struct{}
-
-func (c ConflictError) Error() string {
-	return "The service binding already exists"
-}
-
 type UnrecoverableError struct {
 	Status int
 }
@@ -82,7 +76,7 @@ func (c *Client) GetCatalog(ctx context.Context) (Catalog, error) {
 	return catalog, nil
 }
 
-func (c *Client) Provision(ctx context.Context, payload InstanceProvisionPayload) (ServiceInstanceOperationResponse, error) {
+func (c *Client) Provision(ctx context.Context, payload ProvisionPayload) (ProvisionResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
 		async().
@@ -91,32 +85,32 @@ func (c *Client) Provision(ctx context.Context, payload InstanceProvisionPayload
 			"/v2/service_instances/"+payload.InstanceID,
 			http.MethodPut,
 			nil,
-			payload.InstanceProvisionRequest,
+			payload.ProvisionRequest,
 		)
 	if err != nil {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("provision request failed: %w", err)
+		return ProvisionResponse{}, fmt.Errorf("provision request failed: %w", err)
 	}
 	if statusCode == http.StatusBadRequest || statusCode == http.StatusConflict || statusCode == http.StatusUnprocessableEntity {
-		return ServiceInstanceOperationResponse{}, UnrecoverableError{Status: statusCode}
+		return ProvisionResponse{}, UnrecoverableError{Status: statusCode}
 	}
 
 	if statusCode >= 300 {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("provision request failed with status code: %d", statusCode)
+		return ProvisionResponse{}, fmt.Errorf("provision request failed with status code: %d", statusCode)
 	}
 
-	response := ServiceInstanceOperationResponse{
+	response := ProvisionResponse{
 		IsAsync: statusCode == http.StatusAccepted,
 	}
 
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
+		return ProvisionResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return response, nil
 }
 
-func (c *Client) Deprovision(ctx context.Context, payload InstanceDeprovisionPayload) (ServiceInstanceOperationResponse, error) {
+func (c *Client) Deprovision(ctx context.Context, payload DeprovisionPayload) (ProvisionResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
 		async().
@@ -125,33 +119,37 @@ func (c *Client) Deprovision(ctx context.Context, payload InstanceDeprovisionPay
 			"/v2/service_instances/"+payload.ID,
 			http.MethodDelete,
 			nil,
-			payload.InstanceDeprovisionRequest,
+			payload.DeprovisionRequest,
 		)
 	if err != nil {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("deprovision request failed: %w", err)
+		return ProvisionResponse{}, fmt.Errorf("deprovision request failed: %w", err)
 	}
 
-	if statusCode == http.StatusBadRequest || statusCode == http.StatusGone || statusCode == http.StatusUnprocessableEntity {
-		return ServiceInstanceOperationResponse{}, UnrecoverableError{Status: statusCode}
+	if statusCode == http.StatusGone {
+		return ProvisionResponse{}, GoneError{}
+	}
+
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusUnprocessableEntity {
+		return ProvisionResponse{}, UnrecoverableError{Status: statusCode}
 	}
 
 	if statusCode >= 300 {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("deprovision request failed with status code: %d", statusCode)
+		return ProvisionResponse{}, fmt.Errorf("deprovision request failed with status code: %d", statusCode)
 	}
 
-	response := ServiceInstanceOperationResponse{
+	response := ProvisionResponse{
 		IsAsync: statusCode == http.StatusAccepted,
 	}
 
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
-		return ServiceInstanceOperationResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
+		return ProvisionResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return response, nil
 }
 
-func (c *Client) GetServiceInstanceLastOperation(ctx context.Context, request GetServiceInstanceLastOperationRequest) (LastOperationResponse, error) {
+func (c *Client) GetServiceInstanceLastOperation(ctx context.Context, request GetInstanceLastOperationRequest) (LastOperationResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
 		sendRequest(
@@ -186,36 +184,6 @@ func (c *Client) GetServiceInstanceLastOperation(ctx context.Context, request Ge
 	return response, nil
 }
 
-func (c *Client) GetServiceBinding(ctx context.Context, request GetServiceBindingRequest) (GetBindingResponse, error) {
-	statusCode, respBytes, err := c.newBrokerRequester().
-		forBroker(c.broker).
-		sendRequest(
-			ctx,
-			"/v2/service_instances/"+request.InstanceID+"/service_bindings/"+request.BindingID,
-			http.MethodGet,
-			map[string]string{
-				"service_id": request.ServiceId,
-				"plan_id":    request.PlanID,
-			},
-			nil,
-		)
-	if err != nil {
-		return GetBindingResponse{}, fmt.Errorf("get binding request failed: %w", err)
-	}
-
-	if statusCode != http.StatusOK {
-		return GetBindingResponse{}, fmt.Errorf("get binding request failed with code: %d", statusCode)
-	}
-
-	var response GetBindingResponse
-	err = json.Unmarshal(respBytes, &response)
-	if err != nil {
-		return GetBindingResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	return response, nil
-}
-
 func (c *Client) Bind(ctx context.Context, payload BindPayload) (BindResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
@@ -231,17 +199,16 @@ func (c *Client) Bind(ctx context.Context, payload BindPayload) (BindResponse, e
 		return BindResponse{}, fmt.Errorf("bind request failed: %w", err)
 	}
 
-	if statusCode == http.StatusConflict {
-		return BindResponse{}, ConflictError{}
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusConflict || statusCode == http.StatusUnprocessableEntity {
+		return BindResponse{}, UnrecoverableError{Status: statusCode}
 	}
 
 	if statusCode >= 300 {
 		return BindResponse{}, fmt.Errorf("binding request failed with code: %d", statusCode)
 	}
 
-	var response BindResponse
-	if statusCode == http.StatusCreated {
-		response.Complete = true
+	response := BindResponse{
+		IsAsync: statusCode == http.StatusAccepted,
 	}
 
 	err = json.Unmarshal(respBytes, &response)
@@ -252,7 +219,7 @@ func (c *Client) Bind(ctx context.Context, payload BindPayload) (BindResponse, e
 	return response, nil
 }
 
-func (c *Client) GetServiceBindingLastOperation(ctx context.Context, request GetServiceBindingLastOperationRequest) (LastOperationResponse, error) {
+func (c *Client) GetServiceBindingLastOperation(ctx context.Context, request GetBindingLastOperationRequest) (LastOperationResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
 		sendRequest(
@@ -309,11 +276,17 @@ func (c *Client) Unbind(ctx context.Context, payload UnbindPayload) (UnbindRespo
 		return UnbindResponse{}, GoneError{}
 	}
 
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusUnprocessableEntity {
+		return UnbindResponse{}, UnrecoverableError{Status: statusCode}
+	}
+
 	if statusCode >= 300 {
 		return UnbindResponse{}, fmt.Errorf("unbind request failed with status code: %d", statusCode)
 	}
 
-	var response UnbindResponse
+	response := UnbindResponse{
+		IsAsync: statusCode == http.StatusAccepted,
+	}
 	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
 		return UnbindResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
