@@ -12,7 +12,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 COPY model model
 COPY controllers controllers
-COPY statefulset-runner statefulset-runner
 COPY tools tools
 COPY version version
 
