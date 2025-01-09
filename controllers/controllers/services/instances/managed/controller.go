@@ -247,8 +247,8 @@ func (r *Reconciler) processProvisionOperation(
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	lastOpResponse osbapi.LastOperationResponse,
 ) (ctrl.Result, error) {
-	if lastOpResponse.State == "in progress" {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionInProgress").WithRequeue()
+	if lastOpResponse.State == "succeeded" {
+		return ctrl.Result{}, nil
 	}
 
 	if lastOpResponse.State == "failed" {
@@ -263,7 +263,7 @@ func (r *Reconciler) processProvisionOperation(
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionFailed")
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionInProgress").WithRequeue()
 }
 
 func (r *Reconciler) finalizeCFServiceInstance(
@@ -381,7 +381,7 @@ func (r *Reconciler) pollLastOperation(
 		return osbapi.LastOperationResponse{}, k8s.NewNotReadyError().WithCause(err).WithReason("GetLastOperationFailed")
 	}
 
-	serviceInstance.Status.LastOperation.State = lastOpResponse.State
+	serviceInstance.Status.LastOperation.State = lastOpResponse.State.Value()
 	serviceInstance.Status.LastOperation.Description = lastOpResponse.Description
 	return lastOpResponse, nil
 }
