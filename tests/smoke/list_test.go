@@ -20,9 +20,12 @@ var _ = Describe("list", func() {
 	BeforeEach(func() {
 		Expect(helpers.Cf("run-task", sharedData.BuildpackAppName, "-c", "sleep 120")).To(Exit(0))
 
+		appName := uuid.NewString()
+		Expect(helpers.Cf("create-app", appName)).To(Exit(0))
+
 		upsiName := uuid.NewString()
 		Expect(helpers.Cf("create-user-provided-service", upsiName)).To(Exit(0))
-		Expect(helpers.Cf("bind-service", sharedData.BuildpackAppName, upsiName)).To(Exit(0))
+		Expect(helpers.Cf("bind-service", appName, upsiName)).To(Exit(0))
 	})
 
 	DescribeTable("authorised users get the resources",
