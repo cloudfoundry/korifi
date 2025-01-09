@@ -142,6 +142,16 @@ func (r UnbindResponse) IsComplete() bool {
 }
 
 type LastOperationResponse struct {
-	State       string `json:"state"`
-	Description string `json:"description"`
+	State       LastOperationResponseState `json:"state"`
+	Description string                     `json:"description"`
+}
+
+type LastOperationResponseState string
+
+func (s LastOperationResponseState) Value() string {
+	if s == "succeeded" || s == "failed" {
+		return string(s)
+	}
+
+	return "in progress"
 }

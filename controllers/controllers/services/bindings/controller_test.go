@@ -798,7 +798,7 @@ var _ = Describe("CFServiceBinding", func() {
 				}, nil)
 
 				brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
-					State: "in progress",
+					State: "in-progress-or-whatever",
 				}, nil)
 			})
 
@@ -809,6 +809,7 @@ var _ = Describe("CFServiceBinding", func() {
 					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("BindingInProgress")),
 					)))
 				}).Should(Succeed())
 			})
@@ -841,6 +842,7 @@ var _ = Describe("CFServiceBinding", func() {
 						g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
 							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 							HasStatus(Equal(metav1.ConditionFalse)),
+							HasReason(Equal("GetLastOperationFailed")),
 							HasMessage(ContainSubstring("get-last-op-failed")),
 						)))
 					}).Should(Succeed())
@@ -880,11 +882,22 @@ var _ = Describe("CFServiceBinding", func() {
 						State: "succeeded",
 					}, nil)
 
-					brokerClient.BindReturns(osbapi.BindResponse{
+					brokerClient.BindReturnsOnCall(3, osbapi.BindResponse{
 						Credentials: map[string]any{
 							"foo": "bar",
 						},
 					}, nil)
+				})
+
+				It("sets the ready condition to true", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+
+						g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+							HasStatus(Equal(metav1.ConditionTrue)),
+						)))
+					}).Should(Succeed())
 				})
 
 				It("creates the credentials secret", func() {

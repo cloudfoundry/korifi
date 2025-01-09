@@ -147,8 +147,8 @@ func (r *ManagedBindingsReconciler) processBindOperation(
 	cfServiceBinding *korifiv1alpha1.CFServiceBinding,
 	lastOperation osbapi.LastOperationResponse,
 ) (ctrl.Result, error) {
-	if lastOperation.State == "in progress" {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingInProgress").WithRequeue()
+	if lastOperation.State == "succeeded" {
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if lastOperation.State == "failed" {
@@ -160,10 +160,10 @@ func (r *ManagedBindingsReconciler) processBindOperation(
 			Reason:             "BindingFailed",
 			Message:            lastOperation.Description,
 		})
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingFailed")
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingFailed").WithMessage(lastOperation.Description)
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingInProgress").WithRequeue()
 }
 
 func (r *ManagedBindingsReconciler) reconcileCredentials(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, creds map[string]any) error {
