@@ -62,9 +62,9 @@ var _ = Describe("SBIO", func() {
 					Name:      "cf-binding-cf-binding",
 					Namespace: cfServiceBinding.Namespace,
 					Labels: map[string]string{
-						korifiv1alpha1.ServiceBindingGUIDLabel:           bindingName,
-						korifiv1alpha1.CFAppGUIDLabelKey:                 cfServiceBinding.Spec.AppRef.Name,
-						korifiv1alpha1.ServiceCredentialBindingTypeLabel: "app",
+						korifiv1alpha1.ServiceBindingGUIDLabel: bindingName,
+						korifiv1alpha1.CFAppGUIDLabelKey:       cfServiceBinding.Spec.AppRef.Name,
+						korifiv1alpha1.ServiceBindingTypeLabel: "app",
 					},
 				},
 				Spec: servicebindingv1beta1.ServiceBindingSpec{

@@ -90,6 +90,7 @@ func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage
 		AppGUIDs:             parse.ArrayParam(l.AppGUIDs),
 		LabelSelector:        l.LabelSelector,
 		PlanGUIDs:            parse.ArrayParam(l.PlanGUIDs),
+		Type:                 &l.Type,
 	}
 }
 

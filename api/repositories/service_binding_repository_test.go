@@ -800,6 +800,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space2.Name,
 					Labels: map[string]string{
 						korifiv1alpha1.PlanGUIDLabelKey: "plan-4",
+						korifiv1alpha1.SpaceGUIDKey:     space.Name,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{

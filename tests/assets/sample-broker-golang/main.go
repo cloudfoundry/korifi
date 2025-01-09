@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
-
 	"sample-broker/osbapi"
+	"strings"
 )
 
 const (
