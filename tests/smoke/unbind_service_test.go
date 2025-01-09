@@ -11,15 +11,19 @@ import (
 
 var _ = Describe("cf unbind-service", func() {
 	var (
+		appName       string
 		serviceName   string
 		unbindSession *Session
 	)
 	BeforeEach(func() {
+		appName = uuid.NewString()
+		Expect(helpers.Cf("create-app", appName)).To(Exit(0))
+
 		serviceName = uuid.NewString()
 	})
 
 	JustBeforeEach(func() {
-		unbindSession = helpers.Cf("unbind-service", sharedData.BuildpackAppName, serviceName)
+		unbindSession = helpers.Cf("unbind-service", appName, serviceName)
 	})
 
 	Describe("Unbinding from user-provided service instances", func() {
@@ -27,7 +31,7 @@ var _ = Describe("cf unbind-service", func() {
 			Expect(
 				helpers.Cf("create-user-provided-service", serviceName, "-p", `{"key1":"value1","key2":"value2"}`),
 			).To(Exit(0))
-			Expect(helpers.Cf("bind-service", sharedData.BuildpackAppName, serviceName)).To(Exit(0))
+			Expect(helpers.Cf("bind-service", appName, serviceName)).To(Exit(0))
 		})
 
 		It("succeeds", func() {
@@ -49,7 +53,7 @@ var _ = Describe("cf unbind-service", func() {
 			Expect(helpers.Cf("enable-service-access", "sample-service", "-b", brokerName)).To(Exit(0))
 			session := helpers.Cf("create-service", "sample-service", "sample", serviceName, "-b", brokerName)
 			Expect(session).To(Exit(0))
-			Expect(helpers.Cf("bind-service", sharedData.BuildpackAppName, serviceName)).To(Exit(0))
+			Expect(helpers.Cf("bind-service", appName, serviceName)).To(Exit(0))
 		})
 
 		It("succeeds", func() {
