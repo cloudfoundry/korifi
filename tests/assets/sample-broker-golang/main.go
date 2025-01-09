@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"sample-broker/osbapi"
 )
@@ -17,33 +18,39 @@ const (
 	hardcodedPassword = "broker-password"
 )
 
+var inProgressOperations sync.Map
+
 func main() {
 	http.HandleFunc("GET /", helloWorldHandler)
 	http.HandleFunc("GET /v2/catalog", getCatalogHandler)
+
 	http.HandleFunc("PUT /v2/service_instances/{id}", provisionServiceInstanceHandler)
 	http.HandleFunc("DELETE /v2/service_instances/{id}", deprovisionServiceInstanceHandler)
-	http.HandleFunc("GET /v2/service_instances/{id}/last_operation", serviceInstanceLastOperationHandler)
+	http.HandleFunc("GET /v2/service_instances/{id}/last_operation", getLastOperationHandler)
+
 	http.HandleFunc("PUT /v2/service_instances/{instance_id}/service_bindings/{binding_id}", bindHandler)
-	http.HandleFunc("GET /v2/service_instances/{instance_id}/service_bindings/{binding_id}/last_operation", serviceBindingLastOperationHandler)
-	http.HandleFunc("GET /v2/service_instances/{instance_id}/service_bindings/{binding_id}", getServiceBindingHandler)
 	http.HandleFunc("DELETE /v2/service_instances/{instance_id}/service_bindings/{binding_id}", unbindHandler)
+	http.HandleFunc("GET /v2/service_instances/{instance_id}/service_bindings/{binding_id}/last_operation", getLastOperationHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	fmt.Printf("Listening on port %s\n", port)
+	log(fmt.Sprintf("Listening on port %s", port))
 	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 }
 
-func helloWorldHandler(w http.ResponseWriter, _ *http.Request) {
-	fmt.Fprintln(w, "Hi, I'm the sample broker!")
+func helloWorldHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
+	respond(w, http.StatusOK, "Hi, I'm the sample broker!")
 }
 
 func getCatalogHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
 	if status, err := checkCredentials(w, r); err != nil {
-		w.WriteHeader(status)
-		fmt.Fprintf(w, "Credentials check failed: %v", err)
+		respond(w, status, fmt.Sprintf("Credentials check failed: %v", err))
 		return
 	}
 
@@ -64,88 +71,91 @@ func getCatalogHandler(w http.ResponseWriter, r *http.Request) {
 
 	catalogBytes, err := json.Marshal(catalog)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Failed to marshal catalog: %v", err)
+		log(fmt.Sprintf("failed to marshal catalog: %v", err))
+		respond(w, http.StatusInternalServerError, fmt.Sprintf("failed to marshal catalog: %v", err))
 		return
 	}
 
-	fmt.Fprintln(w, string(catalogBytes))
+	respond(w, http.StatusOK, string(catalogBytes))
 }
 
 func provisionServiceInstanceHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
 	if status, err := checkCredentials(w, r); err != nil {
-		w.WriteHeader(status)
-		fmt.Fprintf(w, "Credentials check failed: %v", err)
+		respond(w, status, fmt.Sprintf("Credentials check failed: %v", err))
 		return
 	}
 
-	fmt.Fprintf(w, `{"operation":"provision-%s"}`, r.PathValue("id"))
+	asyncOperation(w, fmt.Sprintf("provision-%s", r.PathValue("id")), "{}")
 }
 
 func deprovisionServiceInstanceHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
 	if status, err := checkCredentials(w, r); err != nil {
 		w.WriteHeader(status)
-		fmt.Fprintf(w, "Credentials check failed: %v", err)
+		fmt.Fprintf(w, "Credentials check failed: %v\n", err)
 		return
 	}
 
-	fmt.Fprintf(w, `{"operation":"deprovision-%s"}`, r.PathValue("id"))
-}
-
-func serviceInstanceLastOperationHandler(w http.ResponseWriter, r *http.Request) {
-	if status, err := checkCredentials(w, r); err != nil {
-		w.WriteHeader(status)
-		fmt.Fprintf(w, "Credentials check failed: %v", err)
-		return
-	}
-
-	fmt.Fprint(w, `{"state":"succeeded"}`)
+	asyncOperation(w, fmt.Sprintf("deprovision-%s", r.PathValue("id")), "{}")
 }
 
 func bindHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
 	if status, err := checkCredentials(w, r); err != nil {
 		w.WriteHeader(status)
-		fmt.Fprintf(w, "Credentials check failed: %v", err)
+		fmt.Fprintf(w, "Credentials check failed: %v\n", err)
 		return
 	}
 
-	w.WriteHeader(http.StatusAccepted)
-	fmt.Fprint(w, `{
-		"operation":"bind-operation"
+	asyncOperation(w, fmt.Sprintf("bind-%s-%s", r.PathValue("instance_id"), r.PathValue("binding_id")), `{
+		"credentials": {
+			"username": "binding-user",
+			"password": "binding-password"
+		}
 	}`)
 }
 
-func serviceBindingLastOperationHandler(w http.ResponseWriter, r *http.Request) {
-	if status, err := checkCredentials(w, r); err != nil {
-		w.WriteHeader(status)
-		fmt.Fprintf(w, "Credentials check failed: %v", err)
-		return
-	}
-
-	fmt.Fprint(w, `{"state":"succeeded"}`)
-}
-
-func getServiceBindingHandler(w http.ResponseWriter, r *http.Request) {
-	if status, err := checkCredentials(w, r); err != nil {
-		w.WriteHeader(status)
-		fmt.Fprintf(w, "Credentials check failed: %v", err)
-		return
-	}
-
-	fmt.Fprint(w, `{"credentials":{
-		"user":"my-user",
-		"password":"my-password"
-	}}`)
-}
-
 func unbindHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
 	if status, err := checkCredentials(w, r); err != nil {
 		w.WriteHeader(status)
-		fmt.Fprintf(w, "Credentials check failed: %v", err)
+		fmt.Fprintf(w, "Credentials check failed: %v\n", err)
 		return
 	}
 
-	fmt.Fprintf(w, `{"operation":"unbind-%s"}`, r.PathValue("binding_id"))
+	asyncOperation(w, fmt.Sprintf("unbind-%s-%s", r.PathValue("instance_id"), r.PathValue("binding_id")), "{}")
+}
+
+func getLastOperationHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
+	if status, err := checkCredentials(w, r); err != nil {
+		w.WriteHeader(status)
+		fmt.Fprintf(w, "Credentials check failed: %v\n", err)
+		return
+	}
+
+	operation, err := getOperation(r)
+	if err != nil {
+		log(fmt.Sprintf("failed to get operation: %v\n", err))
+		respond(w, http.StatusInternalServerError, fmt.Sprintf("failed to get operation: %v\n", err))
+		return
+	}
+
+	isDone := inProgressOperations.CompareAndSwap(operation, true, false)
+	if isDone {
+		log(fmt.Sprintf("operation %q succeeds", operation))
+		respond(w, http.StatusOK, `{"state":"succeeded"}`)
+		return
+	}
+
+	log(fmt.Sprintf("operation %q is in progress", operation))
+	respond(w, http.StatusOK, `{"state":"in progress"}`)
 }
 
 func checkCredentials(_ http.ResponseWriter, r *http.Request) (int, error) {
@@ -181,4 +191,41 @@ func checkCredentials(_ http.ResponseWriter, r *http.Request) (int, error) {
 	}
 
 	return -1, nil
+}
+
+func asyncOperation(w http.ResponseWriter, operationName string, asyncResultBody string) {
+	inProgress, _ := inProgressOperations.LoadOrStore(operationName, true)
+	if inProgress.(bool) {
+		log(fmt.Sprintf("operation %q in progress", operationName))
+		respond(w, http.StatusAccepted, fmt.Sprintf(`{
+			"operation":"%s"
+		}`, operationName))
+		return
+	}
+
+	inProgressOperations.Delete(operationName)
+	log(fmt.Sprintf("operation %q is done", operationName))
+	respond(w, http.StatusOK, asyncResultBody)
+}
+
+func getOperation(r *http.Request) (string, error) {
+	operation := r.URL.Query().Get("operation")
+	if operation == "" {
+		return "", fmt.Errorf("last operation request %q body does not contain operation query parameter", r.URL)
+	}
+
+	return operation, nil
+}
+
+func logRequest(r *http.Request) {
+	log(fmt.Sprintf("%s %v", r.Method, r.URL))
+}
+
+func log(s string) {
+	fmt.Printf("%s\n", s)
+}
+
+func respond(w http.ResponseWriter, statusCode int, responseContent string) {
+	w.WriteHeader(statusCode)
+	fmt.Fprintf(w, "%s\n", responseContent)
 }
