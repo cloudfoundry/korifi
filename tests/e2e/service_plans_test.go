@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-resty/resty/v2"
@@ -118,6 +119,36 @@ var _ = Describe("Service Plans", func() {
 					HaveRestyBody(MatchJSON(`{
 						"type": "admin"
 					}`)),
+				))
+			})
+		})
+
+		Describe("Delete Visibility", func() {
+			BeforeEach(func() {
+				resp, err = adminClient.R().
+					SetBody(planVisibilityResource{
+						Type: "organization",
+						Organizations: []services.VisibilityOrganization{{
+							GUID: "org-guid",
+						}},
+					}).
+					Post(fmt.Sprintf("/v3/service_plans/%s/visibility", planGUID))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusOK),
+				))
+			})
+
+			JustBeforeEach(func() {
+				resp, err = adminClient.R().
+					SetResult(&result).
+					Delete(fmt.Sprintf("/v3/service_plans/%s/visibility/%s", planGUID, "org-guid"))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("deletes the plan visibility", func() {
+				Expect(resp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusNoContent),
 				))
 			})
 		})

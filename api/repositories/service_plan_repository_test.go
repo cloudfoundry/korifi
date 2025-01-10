@@ -544,7 +544,7 @@ var _ = Describe("ServicePlanRepo", func() {
 
 				When("the plan already has the org visibility type", func() {
 					BeforeEach(func() {
-						anotherOrg := createOrgWithCleanup(ctx, uuid.NewString())
+						anotherOrg = createOrgWithCleanup(ctx, uuid.NewString())
 						createRoleBinding(ctx, userName, orgUserRole.Name, anotherOrg.Name)
 
 						cfServicePlan := &korifiv1alpha1.CFServicePlan{
@@ -602,6 +602,88 @@ var _ = Describe("ServicePlanRepo", func() {
 						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
 
 						Expect(servicePlan.Spec.Visibility.Organizations).To(ConsistOf(cfOrg.Name))
+					})
+				})
+			})
+		})
+
+		Describe("DeletePlanVisibility", func() {
+			var deleteMessage repositories.DeleteServicePlanVisibilityMessage
+
+			BeforeEach(func() {
+				cfServicePlan := &korifiv1alpha1.CFServicePlan{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: rootNamespace,
+						Name:      planGUID,
+					},
+				}
+				Expect(k8s.PatchResource(ctx, k8sClient, cfServicePlan, func() {
+					cfServicePlan.Spec.Visibility.Type = visibilityType
+					cfServicePlan.Spec.Visibility.Organizations = []string{cfOrg.Name, anotherOrg.Name}
+				})).To(Succeed())
+
+				deleteMessage = repositories.DeleteServicePlanVisibilityMessage{
+					PlanGUID: planGUID,
+					OrgGUID:  anotherOrg.Name,
+				}
+			})
+
+			JustBeforeEach(func() {
+				visibilityErr = repo.DeletePlanVisibility(ctx, authInfo, deleteMessage)
+			})
+
+			When("the user is not authorized", func() {
+				It("returns unauthorized error", func() {
+					Expect(visibilityErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+				})
+			})
+
+			When("The user has persmissions", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+				})
+
+				When("the plan and org visibility exist", func() {
+					It("deletes the plan visibility in kubernetes", func() {
+						Expect(visibilityErr).ToNot(HaveOccurred())
+
+						servicePlan := &korifiv1alpha1.CFServicePlan{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: rootNamespace,
+								Name:      planGUID,
+							},
+						}
+						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
+						Expect(servicePlan.Spec.Visibility.Organizations).To(ConsistOf(cfOrg.Name))
+					})
+				})
+
+				When("the plan does not exist", func() {
+					BeforeEach(func() {
+						deleteMessage.PlanGUID = "does-not-exist"
+					})
+
+					It("returns an NotFoundError", func() {
+						Expect(errors.As(visibilityErr, &apierrors.NotFoundError{})).To(BeTrue())
+					})
+				})
+
+				When("the org does not exist", func() {
+					BeforeEach(func() {
+						deleteMessage.OrgGUID = "does-not-exist"
+					})
+
+					It("does not change the visibility orgs", func() {
+						Expect(visibilityErr).ToNot(HaveOccurred())
+
+						servicePlan := &korifiv1alpha1.CFServicePlan{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: rootNamespace,
+								Name:      planGUID,
+							},
+						}
+						Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)).To(Succeed())
+						Expect(servicePlan.Spec.Visibility.Organizations).To(ConsistOf(cfOrg.Name, anotherOrg.Name))
 					})
 				})
 			})
