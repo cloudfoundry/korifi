@@ -65,6 +65,22 @@ spec:
                 description: The mutable, user-friendly name of the service binding.
                   Unlike metadata.name, the user can change this field
                 type: string
+              parameters:
+                description: |-
+                  A reference to the secret that contains the service binding parameters.
+                  Only makes sense for bindings to managed service instances
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
               service:
                 description: The Service this binding uses. When created by the korifi
                   API, this will refer to a CFServiceInstance
@@ -111,6 +127,7 @@ spec:
                 x-kubernetes-map-type: atomic
             required:
             - appRef
+            - parameters
             - service
             type: object
           status:

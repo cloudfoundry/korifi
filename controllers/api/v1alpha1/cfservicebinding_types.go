@@ -46,6 +46,10 @@ type CFServiceBindingSpec struct {
 
 	// A reference to the CFApp that owns this service binding. The CFApp must be in the same namespace
 	AppRef v1.LocalObjectReference `json:"appRef"`
+
+	// A reference to the secret that contains the service binding parameters.
+	// Only makes sense for bindings to managed service instances
+	Parameters v1.LocalObjectReference `json:"parameters"`
 }
 
 // CFServiceBindingStatus defines the observed state of CFServiceBinding
