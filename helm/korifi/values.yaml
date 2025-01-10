@@ -108,6 +108,23 @@ kpackImageBuilder:
   clusterStackID: io.buildpacks.stacks.jammy
   clusterStackBuildImage: paketobuildpacks/build-jammy-full
   clusterStackRunImage: paketobuildpacks/run-jammy-full
+  clusterStoreSources:
+  - image: gcr.io/paketo-buildpacks/java
+  - image: gcr.io/paketo-buildpacks/nodejs
+  - image: gcr.io/paketo-buildpacks/ruby
+  - image: gcr.io/paketo-buildpacks/procfile
+  - image: gcr.io/paketo-buildpacks/go
+  clusterBuilderOrder:
+  - group:
+    - id: paketo-buildpacks/java
+  - group:
+    - id: paketo-buildpacks/go
+  - group:
+    - id: paketo-buildpacks/nodejs
+  - group:
+    - id: paketo-buildpacks/ruby
+  - group:
+    - id: paketo-buildpacks/procfile
   builderRepository: ""
 
 statefulsetRunner:

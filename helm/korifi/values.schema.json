@@ -460,6 +460,47 @@
           "description": "The image to use for running defined in the `ClusterStack`. Used when `clusterBuilderName` is blank.",
           "type": "string"
         },
+        "clusterStoreSources": {
+          "description": "The sources for the `ClusterStore`.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "image": {
+                "description": "The image to use for the source.",
+                "type": "string"
+              }
+            },
+            "required": ["image"]
+          }
+        },
+        "clusterBuilderOrder": {
+          "description": "The order of the buildpacks in the `ClusterBuilder`.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "group": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "description": "The ID of the buildpack.",
+                      "type": "string"
+                    },
+                    "version": {
+                      "description": "The version of the buildpack.",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "builderRepository": {
           "description": "Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.",
           "type": "string",
