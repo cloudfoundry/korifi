@@ -8,6 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -87,6 +89,7 @@ type CreateServiceBindingMessage struct {
 	ServiceInstanceGUID string
 	AppGUID             string
 	SpaceGUID           string
+	Parameters          map[string]any
 }
 
 type DeleteServiceBindingMessage struct {
@@ -106,8 +109,8 @@ func (m *ListServiceBindingsMessage) matches(serviceBinding korifiv1alpha1.CFSer
 		tools.EmptyOrContains(m.PlanGUIDs, serviceBinding.Labels[korifiv1alpha1.PlanGUIDLabelKey])
 }
 
-func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServiceBinding {
-	return &korifiv1alpha1.CFServiceBinding{
+func (m CreateServiceBindingMessage) toCFServiceBinding(instanceType korifiv1alpha1.InstanceType) *korifiv1alpha1.CFServiceBinding {
+	binding := &korifiv1alpha1.CFServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      uuid.NewString(),
 			Namespace: m.SpaceGUID,
@@ -123,6 +126,12 @@ func (m CreateServiceBindingMessage) toCFServiceBinding() *korifiv1alpha1.CFServ
 			AppRef: corev1.LocalObjectReference{Name: m.AppGUID},
 		},
 	}
+
+	if instanceType == korifiv1alpha1.ManagedType {
+		binding.Spec.Parameters.Name = uuid.NewString()
+	}
+
+	return binding
 }
 
 type UpdateServiceBindingMessage struct {
@@ -136,10 +145,20 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 		return ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	cfServiceBinding := message.toCFServiceBinding()
+	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+	err = userClient.Get(ctx, types.NamespacedName{Name: message.ServiceInstanceGUID, Namespace: message.SpaceGUID}, cfServiceInstance)
+	if err != nil {
+		return ServiceBindingRecord{},
+			apierrors.AsUnprocessableEntity(
+				apierrors.FromK8sError(err, ServiceBindingResourceType),
+				"Unable to bind to instance. Ensure that the instance exists and you have access to it.",
+				apierrors.ForbiddenError{},
+				apierrors.NotFoundError{},
+			)
+	}
 
 	cfApp := new(korifiv1alpha1.CFApp)
-	err = userClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
+	err = userClient.Get(ctx, types.NamespacedName{Name: message.AppGUID, Namespace: message.SpaceGUID}, cfApp)
 	if err != nil {
 		return ServiceBindingRecord{},
 			apierrors.AsUnprocessableEntity(
@@ -150,6 +169,7 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 			)
 	}
 
+	cfServiceBinding := message.toCFServiceBinding(cfServiceInstance.Spec.Type)
 	err = userClient.Create(ctx, cfServiceBinding)
 	if err != nil {
 		if validationError, ok := validation.WebhookErrorToValidationError(err); ok {
@@ -161,10 +181,11 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
-	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-	err = userClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
-	if err != nil {
-		return ServiceBindingRecord{}, fmt.Errorf("failed to get service instance: %w", err)
+	if cfServiceInstance.Spec.Type == korifiv1alpha1.ManagedType {
+		err = r.createParametersSecret(ctx, userClient, cfServiceBinding, message.Parameters)
+		if err != nil {
+			return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
+		}
 	}
 
 	if cfServiceInstance.Spec.Type == korifiv1alpha1.UserProvidedType {
@@ -175,6 +196,25 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 	}
 
 	return serviceBindingToRecord(*cfServiceBinding), nil
+}
+
+func (r *ServiceBindingRepo) createParametersSecret(ctx context.Context, userClient client.Client, cfServiceBinding *korifiv1alpha1.CFServiceBinding, parameters map[string]any) error {
+	parametersData, err := tools.ToParametersSecretData(parameters)
+	if err != nil {
+		return err
+	}
+
+	paramsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceBinding.Namespace,
+			Name:      cfServiceBinding.Spec.Parameters.Name,
+		},
+		Data: parametersData,
+	}
+
+	_ = controllerutil.SetOwnerReference(cfServiceBinding, paramsSecret, scheme.Scheme)
+
+	return userClient.Create(ctx, paramsSecret)
 }
 
 func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo authorization.Info, guid string) error {

@@ -273,7 +273,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			})
 		})
 
-		It("returns a forbidden error", func() {
+		It("returns a unprocessable entity error", func() {
 			Expect(createErr).To(BeAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
 		})
 
@@ -523,6 +523,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ServiceInstanceGUID: cfServiceInstance.Name,
 				AppGUID:             appGUID,
 				SpaceGUID:           space.Name,
+				Parameters: map[string]any{
+					"p1": "p1-value",
+				},
 			})
 		})
 
@@ -558,19 +561,45 @@ var _ = Describe("ServiceBindingRepo", func() {
 				).To(Succeed())
 
 				Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
-				Expect(serviceBinding.Spec).To(Equal(
-					korifiv1alpha1.CFServiceBindingSpec{
-						DisplayName: nil,
-						Service: corev1.ObjectReference{
-							Kind:       "CFServiceInstance",
-							APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
-							Name:       cfServiceInstance.Name,
-						},
-						AppRef: corev1.LocalObjectReference{
-							Name: appGUID,
-						},
+				Expect(serviceBinding.Spec).To(MatchFields(IgnoreExtras, Fields{
+					"DisplayName": BeNil(),
+					"Service": MatchFields(IgnoreExtras, Fields{
+						"Kind": Equal("CFServiceInstance"),
+						"Name": Equal(cfServiceInstance.Name),
+					}),
+					"AppRef": Equal(corev1.LocalObjectReference{
+						Name: appGUID,
+					}),
+					"Parameters": MatchAllFields(Fields{
+						"Name": Not(BeEmpty()),
+					}),
+				}))
+			})
+
+			It("creates the parameters secret", func() {
+				serviceBinding := new(korifiv1alpha1.CFServiceBinding)
+				Expect(
+					k8sClient.Get(ctx, types.NamespacedName{Name: serviceBindingRecord.GUID, Namespace: space.Name}, serviceBinding),
+				).To(Succeed())
+
+				paramsSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: serviceBinding.Namespace,
+						Name:      serviceBinding.Spec.Parameters.Name,
 					},
-				))
+				}
+				Expect(
+					k8sClient.Get(ctx, client.ObjectKeyFromObject(paramsSecret), paramsSecret),
+				).To(Succeed())
+
+				Expect(paramsSecret.Data).To(Equal(map[string][]byte{
+					tools.ParametersSecretKey: []byte(`{"p1":"p1-value"}`),
+				}))
+
+				Expect(paramsSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"Kind": Equal("CFServiceBinding"),
+					"Name": Equal(serviceBinding.Name),
+				})))
 			})
 
 			When("the app does not exist", func() {

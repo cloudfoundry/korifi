@@ -110,6 +110,11 @@ func (r *ManagedBindingsReconciler) bind(
 ) (osbapi.BindResponse, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
+	parameters, err := r.getParameters(ctx, cfServiceBinding)
+	if err != nil {
+		return osbapi.BindResponse{}, k8s.NewNotReadyError().WithReason("InvalidParameters")
+	}
+
 	bindResponse, err := osbapiClient.Bind(ctx, osbapi.BindPayload{
 		BindingID:  cfServiceBinding.Name,
 		InstanceID: assets.ServiceInstance.Name,
@@ -120,6 +125,7 @@ func (r *ManagedBindingsReconciler) bind(
 			BindResource: osbapi.BindResource{
 				AppGUID: cfServiceBinding.Spec.AppRef.Name,
 			},
+			Parameters: parameters,
 		},
 	})
 	if err != nil {
@@ -141,6 +147,26 @@ func (r *ManagedBindingsReconciler) bind(
 	}
 
 	return bindResponse, nil
+}
+
+func (r *ManagedBindingsReconciler) getParameters(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (map[string]any, error) {
+	if cfServiceBinding.Spec.Parameters.Name == "" {
+		return nil, nil
+	}
+
+	paramsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceBinding.Namespace,
+			Name:      cfServiceBinding.Spec.Parameters.Name,
+		},
+	}
+
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(paramsSecret), paramsSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return tools.FromParametersSecretData(paramsSecret.Data)
 }
 
 func (r *ManagedBindingsReconciler) processBindOperation(
