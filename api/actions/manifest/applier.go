@@ -175,15 +175,12 @@ func (a *Applier) deleteAppDestinations(
 	existingAppRoutes map[string]repositories.RouteRecord,
 ) error {
 	for _, route := range existingAppRoutes {
-		existingDestinations := route.Destinations
-
 		for _, destination := range route.Destinations {
 			if destination.AppGUID != appGUID {
 				continue
 			}
 
-			var err error
-			existingDestinations, err = a.deleteAppDestination(ctx, authInfo, route, destination.GUID, existingDestinations)
+			err := a.deleteAppDestination(ctx, authInfo, route, destination.GUID)
 			if err != nil {
 				return err
 			}
@@ -192,65 +189,62 @@ func (a *Applier) deleteAppDestinations(
 	return nil
 }
 
-func (a *Applier) deleteAppDestination(ctx context.Context, authInfo authorization.Info, route repositories.RouteRecord, destinationGUID string, existingDestinations []repositories.DestinationRecord) ([]repositories.DestinationRecord, error) {
-	route, err := a.routeRepo.RemoveDestinationFromRoute(ctx, authInfo, repositories.RemoveDestinationMessage{
+func (a *Applier) deleteAppDestination(ctx context.Context, authInfo authorization.Info, route repositories.RouteRecord, destinationGUID string) error {
+	_, err := a.routeRepo.RemoveDestinationFromRoute(ctx, authInfo, repositories.RemoveDestinationMessage{
 		RouteGUID: route.GUID,
 		SpaceGUID: route.SpaceGUID,
 		GUID:      destinationGUID,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return route.Destinations, nil
+	return err
 }
 
 func (a *Applier) applyServices(ctx context.Context, authInfo authorization.Info, appInfo payloads.ManifestApplication, appState AppState) error {
-	desiredServiceNames := map[string]bool{}
+	manifestServiceNames := map[string]bool{}
 	for _, s := range appInfo.Services {
-		desiredServiceNames[s.Name] = true
+		manifestServiceNames[s.Name] = true
 	}
 	for serviceName := range appState.ServiceBindings {
-		delete(desiredServiceNames, serviceName)
+		delete(manifestServiceNames, serviceName)
 	}
 
-	if len(desiredServiceNames) == 0 {
+	if len(manifestServiceNames) == 0 {
 		return nil
 	}
 
 	serviceInstances, err := a.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, repositories.ListServiceInstanceMessage{
-		Names: slices.Collect(maps.Keys(desiredServiceNames)),
+		Names: slices.Collect(maps.Keys(manifestServiceNames)),
 	})
 	if err != nil {
 		return err
 	}
 
-	serviceNameToServiceInstance := map[string]repositories.ServiceInstanceRecord{}
+	serviceGUIDToInstanceRecord := map[string]repositories.ServiceInstanceRecord{}
 	for _, serviceInstance := range serviceInstances {
-		serviceNameToServiceInstance[serviceInstance.Name] = serviceInstance
+		serviceGUIDToInstanceRecord[serviceInstance.Name] = serviceInstance
 	}
 
-	serviceNameToServiceBinding := map[string]*string{}
-	for _, manifestService := range appInfo.Services {
-		serviceNameToServiceBinding[manifestService.Name] = manifestService.BindingName
-	}
-
-	for serviceName := range desiredServiceNames {
-		serviceInstance, ok := serviceNameToServiceInstance[serviceName]
+	for manifestServiceName := range manifestServiceNames {
+		serviceInstanceRecord, ok := serviceGUIDToInstanceRecord[manifestServiceName]
 		if !ok {
 			return apierrors.NewNotFoundError(
 				nil,
 				repositories.ServiceInstanceResourceType,
 				"application", appInfo.Name,
-				"service", serviceName,
+				"service", manifestServiceName,
 			)
 		}
 
-		_, err := a.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, repositories.CreateServiceBindingMessage{
-			Name:                serviceNameToServiceBinding[serviceName],
-			ServiceInstanceGUID: serviceInstance.GUID,
+		manifestService, err := getManifestService(appInfo, manifestServiceName)
+		if err != nil {
+			return apierrors.NewUnknownError(err)
+		}
+
+		_, err = a.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, repositories.CreateServiceBindingMessage{
+			Name:                manifestService.BindingName,
+			ServiceInstanceGUID: serviceInstanceRecord.GUID,
 			AppGUID:             appState.App.GUID,
 			SpaceGUID:           appState.App.SpaceGUID,
+			Parameters:          manifestService.Parameters,
 		})
 		if err != nil {
 			return err
@@ -258,6 +252,16 @@ func (a *Applier) applyServices(ctx context.Context, authInfo authorization.Info
 	}
 
 	return nil
+}
+
+func getManifestService(manifestApp payloads.ManifestApplication, serviceName string) (payloads.ManifestApplicationService, error) {
+	for _, manifestService := range manifestApp.Services {
+		if manifestService.Name == serviceName {
+			return manifestService, nil
+		}
+	}
+
+	return payloads.ManifestApplicationService{}, fmt.Errorf("service %q not found in app %q manifest", serviceName, manifestApp.Name)
 }
 
 func splitRoute(route string) (string, string, string) {

@@ -71,6 +71,14 @@ var _ = Describe("SpaceManifest", func() {
 						Memory:                       tools.PtrTo("256M"),
 						Timeout:                      tools.PtrTo[int32](10),
 					}},
+					Services: []payloads.ManifestApplicationService{
+						{
+							Name: "my-service",
+							Parameters: map[string]any{
+								"binding-param": "binding-param-value",
+							},
+						},
+					},
 				}},
 			})
 		})
@@ -104,6 +112,13 @@ var _ = Describe("SpaceManifest", func() {
 			Expect(payload.Applications[0].Processes[0].Instances).To(PointTo(BeEquivalentTo(1)))
 			Expect(payload.Applications[0].Processes[0].Memory).To(PointTo(Equal("256M")))
 			Expect(payload.Applications[0].Processes[0].Timeout).To(PointTo(Equal(int32(10))))
+
+			Expect(payload.Applications[0].Services).To(ConsistOf(payloads.ManifestApplicationService{
+				Name: "my-service",
+				Parameters: map[string]any{
+					"binding-param": "binding-param-value",
+				},
+			}))
 		})
 
 		When("the manifest is invalid", func() {
