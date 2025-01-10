@@ -91,6 +91,9 @@ function main() {
     configure_crd_tests $@
   elif grep -q "tests/smoke" <(echo "$@"); then
     configure_smoke_tests $@
+  elif grep -q "tests/perf" <(echo "$@"); then
+    export GINKGO_NODES=1
+    configure_smoke_tests $@
   else
     configure_non_e2e_tests $@
   fi
