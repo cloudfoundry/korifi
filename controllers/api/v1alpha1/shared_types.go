@@ -19,7 +19,8 @@ const (
 	CFRouteGUIDLabelKey      = "korifi.cloudfoundry.org/route-guid"
 	CFTaskGUIDLabelKey       = "korifi.cloudfoundry.org/task-guid"
 
-	SpaceGUIDKey = "korifi.cloudfoundry.org/space-guid"
+	SpaceGUIDKey            = "korifi.cloudfoundry.org/space-guid"
+	ServiceBindingTypeLabel = "korifi.cloudfoundry.org/service-binding-type"
 
 	PodIndexLabelKey = "apps.kubernetes.io/pod-index"
 
