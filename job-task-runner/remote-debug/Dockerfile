@@ -10,14 +10,16 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-COPY model model
+COPY api api
 COPY controllers controllers
+COPY job-task-runner job-task-runner
+COPY model model
 COPY tools tools
 COPY version version
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags "-X code.cloudfoundry.org/korifi/version.Version=${version}" -gcflags=all="-N -l" -o manager controllers/main.go
+    CGO_ENABLED=0 GOOS=linux go build -ldflags "-X code.cloudfoundry.org/korifi/version.Version=${version}" -gcflags=all="-N -l" -o manager job-task-runner/main.go
 
 # Get Delve from a GOPATH not from a Go Modules project
 WORKDIR /go/src/

@@ -96,6 +96,51 @@ A sample VSCode `launch.json` configuration is provided below:
             ],
             "host": "localhost",
             "port": 30052
+        },
+        {
+            "name": "Attach to Debug Job Task Runner on Kind",
+            "type": "go",
+            "debugAdapter": "dlv-dap",
+            "request": "attach",
+            "mode": "remote",
+            "substitutePath": [
+                {
+                    "from": "${workspaceFolder}",
+                    "to": "/workspace"
+                }
+            ],
+            "host": "localhost",
+            "port": 30053
+        },
+        {
+            "name": "Attach to Debug Kpack Image Builder on Kind",
+            "type": "go",
+            "debugAdapter": "dlv-dap",
+            "request": "attach",
+            "mode": "remote",
+            "substitutePath": [
+                {
+                    "from": "${workspaceFolder}",
+                    "to": "/workspace"
+                }
+            ],
+            "host": "localhost",
+            "port": 30054
+        },
+        {
+            "name": "Attach to Debug Statefulset Runner on Kind",
+            "type": "go",
+            "debugAdapter": "dlv-dap",
+            "request": "attach",
+            "mode": "remote",
+            "substitutePath": [
+                {
+                    "from": "${workspaceFolder}",
+                    "to": "/workspace"
+                }
+            ],
+            "host": "localhost",
+            "port": 30055
         }
     ]
 }

@@ -62,13 +62,8 @@ import (
 	packageswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/packages"
 	spaceswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/spaces"
 	taskswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/tasks"
-	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
-	kpackimagebuilderfinalizer "code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
-	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
-	"code.cloudfoundry.org/korifi/tools/registry"
 	"code.cloudfoundry.org/korifi/version"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -345,91 +340,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		if controllerConfig.IncludeKpackImageBuilder {
-			var builderReadinessTimeout time.Duration
-			builderReadinessTimeout, err = controllerConfig.ParseBuilderReadinessTimeout()
-			if err != nil {
-				setupLog.Error(err, "error parsing builderReadinessTimeout")
-				os.Exit(1)
-			}
-			if err = controllers.NewBuildWorkloadReconciler(
-				mgr.GetClient(),
-				mgr.GetScheme(),
-				controllersLog,
-				controllerConfig,
-				imageClient,
-				controllerConfig.ContainerRepositoryPrefix,
-				registry.NewRepositoryCreator(controllerConfig.ContainerRegistryType),
-				builderReadinessTimeout,
-			).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "BuildWorkload")
-				os.Exit(1)
-			}
-
-			if err = controllers.NewBuilderInfoReconciler(
-				mgr.GetClient(),
-				mgr.GetScheme(),
-				controllersLog,
-				controllerConfig.ClusterBuilderName,
-				controllerConfig.CFRootNamespace,
-			).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "BuilderInfo")
-				os.Exit(1)
-			}
-
-			if err = controllers.NewKpackBuildController(
-				mgr.GetClient(),
-				controllersLog,
-				imageClient,
-				controllerConfig.BuilderServiceAccount,
-			).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "KpackBuild")
-				os.Exit(1)
-			}
-		}
-
-		if controllerConfig.IncludeJobTaskRunner {
-			var jobTTL time.Duration
-			jobTTL, err = controllerConfig.ParseJobTTL()
-			if err != nil {
-				panic(err)
-			}
-
-			taskWorkloadReconciler := jobtaskrunnercontrollers.NewTaskWorkloadReconciler(
-				controllersLog,
-				mgr.GetClient(),
-				mgr.GetScheme(),
-				jobtaskrunnercontrollers.NewStatusGetter(mgr.GetClient()),
-				jobTTL,
-			)
-			if err = taskWorkloadReconciler.SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "TaskWorkload")
-				os.Exit(1)
-			}
-		}
-
-		if controllerConfig.IncludeStatefulsetRunner {
-			if err = statefulsetcontrollers.NewAppWorkloadReconciler(
-				mgr.GetClient(),
-				mgr.GetScheme(),
-				statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme()),
-				statefulsetcontrollers.NewPDBUpdater(mgr.GetClient()),
-				controllersLog,
-			).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "AppWorkload")
-				os.Exit(1)
-			}
-
-			if err = statefulsetcontrollers.NewRunnerInfoReconciler(
-				mgr.GetClient(),
-				mgr.GetScheme(),
-				controllersLog,
-			).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "RunnerInfo")
-				os.Exit(1)
-			}
-		}
-
 		if err = routes.NewReconciler(
 			mgr.GetClient(),
 			mgr.GetScheme(),
@@ -562,10 +472,6 @@ func main() {
 		}
 
 		relationships.NewSpaceGUIDWebhook().SetupWebhookWithManager(mgr)
-
-		if controllerConfig.IncludeKpackImageBuilder {
-			kpackimagebuilderfinalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(mgr)
-		}
 
 		if err = mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
 			setupLog.Error(err, "unable to set up ready check")
