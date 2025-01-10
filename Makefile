@@ -80,6 +80,9 @@ test-crds: build-dorifi
 test-smoke: build-dorifi bin/cf
 	./scripts/run-tests.sh tests/smoke
 
+test-perf: build-dorifi bin/cf
+	./scripts/run-tests.sh tests/perf
+
 
 build-dorifi:
 	CGO_ENABLED=0 GOOS=linux go build -C tests/assets/dorifi-golang -o ../dorifi/dorifi .
