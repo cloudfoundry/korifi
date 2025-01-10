@@ -11,16 +11,20 @@ import (
 
 var _ = Describe("cf bind-service", func() {
 	var (
+		appName     string
 		serviceName string
 		bindSession *Session
 	)
 
 	BeforeEach(func() {
+		appName = uuid.NewString()
+		Expect(helpers.Cf("create-app", appName)).To(Exit(0))
+
 		serviceName = uuid.NewString()
 	})
 
 	JustBeforeEach(func() {
-		bindSession = helpers.Cf("bind-service", sharedData.BuildpackAppName, serviceName)
+		bindSession = helpers.Cf("bind-service", appName, serviceName)
 	})
 
 	Describe("Binding to user-provided service instances", func() {
