@@ -509,6 +509,30 @@ var _ = Describe("Applier", func() {
 			})
 		})
 
+		When("the manifest service has parameters", func() {
+			BeforeEach(func() {
+				appInfo.Services = []payloads.ManifestApplicationService{
+					{
+						Name: "service-name",
+						Parameters: map[string]any{
+							"binding-param": "binding-param-value",
+						},
+					},
+					{Name: "already-bound-service-name"},
+				}
+			})
+
+			It("uses them when creating the binding", func() {
+				Expect(applierErr).NotTo(HaveOccurred())
+
+				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
+				_, _, createMsg := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
+				Expect(createMsg.Parameters).To(Equal(map[string]any{
+					"binding-param": "binding-param-value",
+				}))
+			})
+		})
+
 		When("listing service instances fails", func() {
 			BeforeEach(func() {
 				serviceInstanceRepo.ListServiceInstancesReturns(nil, errors.New("list-services-err"))

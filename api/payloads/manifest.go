@@ -68,8 +68,9 @@ type ManifestApplicationProcess struct {
 }
 
 type ManifestApplicationService struct {
-	Name        string  `json:"name" yaml:"name"`
-	BindingName *string `json:"binding_name" yaml:"binding_name"`
+	Name        string         `json:"name" yaml:"name"`
+	BindingName *string        `json:"binding_name" yaml:"binding_name"`
+	Parameters  map[string]any `json:"parameters" yaml:"parameters"`
 }
 
 func (s *ManifestApplicationService) UnmarshalYAML(value *yaml.Node) error {

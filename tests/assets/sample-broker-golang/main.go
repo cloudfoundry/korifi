@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -218,7 +220,14 @@ func getOperation(r *http.Request) (string, error) {
 }
 
 func logRequest(r *http.Request) {
-	log(fmt.Sprintf("%s %v", r.Method, r.URL))
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		log(fmt.Sprintf("failed to read request %s %v body: %v", r.Method, r.URL, err))
+	}
+
+	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+	log(fmt.Sprintf("%s %v\nBody: %s", r.Method, r.URL, string(bodyBytes)))
 }
 
 func log(s string) {
