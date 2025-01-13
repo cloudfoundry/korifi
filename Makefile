@@ -109,7 +109,7 @@ bin/golangci-lint:
 
 bin/cf:
 	mkdir -p $(GOBIN)
-	curl -fsSL "https://packages.cloudfoundry.org/stable?release=linux64-binary&version=8.8.3&source=github-rel" \
+	curl -fsSL "https://packages.cloudfoundry.org/stable?release=linux64-binary&version=v8&source=github" \
 	  | tar -zx cf8 \
 	  && mv cf8 $(GOBIN)/cf \
 	  && chmod +x $(GOBIN)/cf
