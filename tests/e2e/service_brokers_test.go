@@ -51,7 +51,7 @@ var _ = Describe("Service Brokers", func() {
 			jobURLSplit := strings.Split(jobURL, "~")
 			Expect(jobURLSplit).To(HaveLen(2))
 			DeferCleanup(func() {
-				broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(jobURLSplit[1]).Delete()
+				broker.NewDeleter(rootNamespace).ForBrokerGUID(jobURLSplit[1]).Delete()
 			})
 		})
 	})
@@ -67,7 +67,7 @@ var _ = Describe("Service Brokers", func() {
 		})
 
 		AfterEach(func() {
-			broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
+			broker.NewDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 		})
 
 		JustBeforeEach(func() {
@@ -94,7 +94,7 @@ var _ = Describe("Service Brokers", func() {
 		})
 
 		AfterEach(func() {
-			broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
+			broker.NewDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 		})
 
 		JustBeforeEach(func() {
@@ -123,7 +123,7 @@ var _ = Describe("Service Brokers", func() {
 		})
 
 		AfterEach(func() {
-			broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
+			broker.NewDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 		})
 
 		JustBeforeEach(func() {
@@ -166,7 +166,7 @@ var _ = Describe("Service Brokers", func() {
 		})
 
 		AfterEach(func() {
-			broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
+			broker.NewDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 		})
 
 		JustBeforeEach(func() {

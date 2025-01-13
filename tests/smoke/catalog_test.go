@@ -26,7 +26,7 @@ var _ = Describe("Service Catalog", func() {
 	})
 
 	AfterEach(func() {
-		broker.NewCatalogDeleter(sharedData.RootNamespace).ForBrokerName(brokerName).Delete()
+		broker.NewDeleter(sharedData.RootNamespace).ForBrokerName(brokerName).Delete()
 	})
 
 	Describe("cf service-brokers", func() {

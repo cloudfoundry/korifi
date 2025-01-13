@@ -21,7 +21,7 @@ var _ = Describe("Service Offerings", func() {
 	})
 
 	AfterEach(func() {
-		broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
+		broker.NewDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 	})
 
 	Describe("List", func() {
