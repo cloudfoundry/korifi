@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/go-logr/logr"
 )
 
 const osbapiVersion = "2.17"
@@ -118,8 +120,11 @@ func (c *Client) Deprovision(ctx context.Context, payload DeprovisionPayload) (P
 			ctx,
 			"/v2/service_instances/"+payload.ID,
 			http.MethodDelete,
+			map[string]string{
+				"service_id": payload.ServiceId,
+				"plan_id":    payload.PlanID,
+			},
 			nil,
-			payload.DeprovisionRequest,
 		)
 	if err != nil {
 		return ProvisionResponse{}, fmt.Errorf("deprovision request failed: %w", err)
@@ -329,6 +334,8 @@ func (r *brokerRequester) async() *brokerRequester {
 }
 
 func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, method string, queryParams map[string]string, payload any) (int, []byte, error) {
+	logger := logr.FromContextOrDiscard(ctx).WithName("OSBAPI-CLI")
+
 	requestUrl, err := url.JoinPath(r.broker.URL, requestPath)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to build broker requestUrl for path %q: %w", requestPath, err)
@@ -348,6 +355,7 @@ func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, m
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to create new HTTP request: %w", err)
 	}
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-Broker-API-Version", osbapiVersion)
 
 	queryValues := req.URL.Query()
@@ -368,6 +376,7 @@ func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, m
 	}
 	req.Header.Add("Authorization", authHeader)
 
+	logger.Info(fmt.Sprintf("%s %s", req.Method, req.URL.String()), "qureyParams", queryValues, "body", payload)
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to execute HTTP request: %w", err)
@@ -378,6 +387,7 @@ func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, m
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to read body: %w", err)
 	}
+	logger.Info("Response", "statusCode", resp.StatusCode, "body", string(respBody))
 
 	return resp.StatusCode, respBody, nil
 }
