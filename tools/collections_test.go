@@ -33,6 +33,15 @@ var _ = Describe("Collections", func() {
 		Entry("not-equal", tools.PtrTo("not-needle"), BeFalse()),
 	)
 
+	DescribeTable("ZeroOrEquals",
+		func(value string, match types.GomegaMatcher) {
+			Expect(tools.ZeroOrEquals(value, "needle")).To(match)
+		},
+		Entry("zero value", "", BeTrue()),
+		Entry("equal", "needle", BeTrue()),
+		Entry("not-equal", "not-needle", BeFalse()),
+	)
+
 	DescribeTable("SetMapValue",
 		func(m map[string]int, key string, value int, expected map[string]int) {
 			result := tools.SetMapValue(m, key, value)

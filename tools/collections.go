@@ -2,6 +2,7 @@ package tools
 
 import (
 	"cmp"
+	"reflect"
 	"slices"
 )
 
@@ -24,6 +25,14 @@ func NilOrEquals[E comparable](value *E, expectedValue E) bool {
 	}
 
 	return expectedValue == *value
+}
+
+func ZeroOrEquals[E comparable](value E, expectedValue E) bool {
+	if reflect.ValueOf(value).IsZero() {
+		return true
+	}
+
+	return value == expectedValue
 }
 
 func SetMapValue[K comparable, V any](m map[K]V, key K, value V) map[K]V {

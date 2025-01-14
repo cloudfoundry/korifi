@@ -4,11 +4,13 @@ import (
 	"code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 )
 
 var _ = Describe("ServiceBindingList", func() {
@@ -19,11 +21,23 @@ var _ = Describe("ServiceBindingList", func() {
 			Expect(decodeErr).NotTo(HaveOccurred())
 			Expect(*actualServiceBindingList).To(Equal(expectedServiceBindingList))
 		},
+		Entry("type", "type=key", payloads.ServiceBindingList{Type: korifiv1alpha1.CFServiceBindingTypeKey}),
+		Entry("type", "type=app", payloads.ServiceBindingList{Type: korifiv1alpha1.CFServiceBindingTypeApp}),
 		Entry("app_guids", "app_guids=app_guid", payloads.ServiceBindingList{AppGUIDs: "app_guid"}),
 		Entry("service_instance_guids", "service_instance_guids=si_guid", payloads.ServiceBindingList{ServiceInstanceGUIDs: "si_guid"}),
-		Entry("include", "include=include", payloads.ServiceBindingList{Include: "include"}),
+		Entry("include", "include=app", payloads.ServiceBindingList{Include: "app"}),
+		Entry("include", "include=service_instance", payloads.ServiceBindingList{Include: "service_instance"}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceBindingList{LabelSelector: "foo"}),
 		Entry("service_plan_guids=plan-guid", "service_plan_guids=plan-guid", payloads.ServiceBindingList{PlanGUIDs: "plan-guid"}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, errMatcher types.GomegaMatcher) {
+			_, decodeErr := decodeQuery[payloads.ServiceBindingList](query)
+			Expect(decodeErr).To(errMatcher)
+		},
+		Entry("invalid type", "type=foo", MatchError(ContainSubstring("value must be one of"))),
+		Entry("invalid include type", "include=foo", MatchError(ContainSubstring("value must be one of"))),
 	)
 
 	Describe("ToMessage", func() {
@@ -34,6 +48,7 @@ var _ = Describe("ServiceBindingList", func() {
 
 		BeforeEach(func() {
 			payload = payloads.ServiceBindingList{
+				Type:                 korifiv1alpha1.CFServiceBindingTypeApp,
 				AppGUIDs:             "app1,app2",
 				ServiceInstanceGUIDs: "s1,s2",
 				Include:              "include",
@@ -48,6 +63,7 @@ var _ = Describe("ServiceBindingList", func() {
 
 		It("returns a list service bindings message", func() {
 			Expect(message).To(Equal(repositories.ListServiceBindingsMessage{
+				Type:                 korifiv1alpha1.CFServiceBindingTypeApp,
 				AppGUIDs:             []string{"app1", "app2"},
 				ServiceInstanceGUIDs: []string{"s1", "s2"},
 				LabelSelector:        "foo=bar",
@@ -103,14 +119,36 @@ var _ = Describe("ServiceBindingCreate", func() {
 			Expect(serviceBindingCreate).To(PointTo(Equal(createPayload)))
 		})
 
+		When("name is omitted", func() {
+			BeforeEach(func() {
+				createPayload.Name = nil
+			})
+
+			It("succeeds", func() {
+				Expect(validatorErr).NotTo(HaveOccurred())
+				Expect(serviceBindingCreate).To(PointTo(Equal(createPayload)))
+			})
+		})
+
 		When(`the type is "key"`, func() {
 			BeforeEach(func() {
 				createPayload.Type = "key"
 			})
 
-			It("fails", func() {
-				Expect(apiError).To(HaveOccurred())
-				Expect(apiError.Detail()).To(ContainSubstring("type value must be one of: app"))
+			It("succeeds", func() {
+				Expect(validatorErr).NotTo(HaveOccurred())
+				Expect(serviceBindingCreate).To(PointTo(Equal(createPayload)))
+			})
+
+			When("name field is omitted", func() {
+				BeforeEach(func() {
+					createPayload.Name = nil
+				})
+
+				It("fails validation", func() {
+					Expect(apiError).To(HaveOccurred())
+					Expect(apiError.Detail()).To(ContainSubstring("name cannot be blank"))
+				})
 			})
 		})
 
@@ -179,10 +217,11 @@ var _ = Describe("ServiceBindingCreate", func() {
 
 		It("creates the message", func() {
 			Expect(createMessage).To(Equal(repositories.CreateServiceBindingMessage{
-				Name:                tools.PtrTo(*createPayload.Name),
+				Name:                createPayload.Name,
 				ServiceInstanceGUID: createPayload.Relationships.ServiceInstance.Data.GUID,
 				AppGUID:             createPayload.Relationships.App.Data.GUID,
 				SpaceGUID:           "space-guid",
+				Type:                "app",
 				Parameters: map[string]any{
 					"p1": "p1-value",
 				},

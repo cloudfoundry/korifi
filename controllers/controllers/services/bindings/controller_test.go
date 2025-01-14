@@ -63,6 +63,7 @@ var _ = Describe("CFServiceBinding", func() {
 				AppRef: corev1.LocalObjectReference{
 					Name: cfAppGUID,
 				},
+				Type: korifiv1alpha1.CFServiceBindingTypeApp,
 			},
 		}
 		Expect(adminClient.Create(ctx, binding)).To(Succeed())
@@ -208,7 +209,7 @@ var _ = Describe("CFServiceBinding", func() {
 				g.Expect(sbServiceBinding.Labels).To(SatisfyAll(
 					HaveKeyWithValue(korifiv1alpha1.ServiceBindingGUIDLabel, binding.Name),
 					HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID),
-					HaveKeyWithValue(korifiv1alpha1.ServiceCredentialBindingTypeLabel, "app"),
+					HaveKeyWithValue(korifiv1alpha1.ServiceBindingTypeLabel, "app"),
 				))
 
 				g.Expect(sbServiceBinding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
@@ -747,6 +748,23 @@ var _ = Describe("CFServiceBinding", func() {
 				g.Expect(sbServiceBinding.Spec.Name).To(Equal(binding.Status.Binding.Name))
 				g.Expect(sbServiceBinding.Spec.Type).To(Equal("managed"))
 			}).Should(Succeed())
+		})
+
+		When("binding is of type key", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, binding, func() {
+					binding.Spec.Type = korifiv1alpha1.CFServiceBindingTypeKey
+				})).To(Succeed())
+			})
+
+			It("does not create servicebinding.io", func() {
+				Consistently(func(g Gomega) {
+					sbList := &servicebindingv1beta1.ServiceBindingList{}
+					err := adminClient.List(ctx, sbList, client.InNamespace(testNamespace))
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(sbList.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
 		})
 
 		When("the credentials contain type key", func() {

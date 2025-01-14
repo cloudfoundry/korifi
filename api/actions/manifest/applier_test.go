@@ -10,6 +10,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -469,7 +470,7 @@ var _ = Describe("Applier", func() {
 			}
 		})
 
-		It("creates a service binding", func() {
+		It("creates a service binding of type app", func() {
 			Expect(applierErr).NotTo(HaveOccurred())
 
 			Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
@@ -481,6 +482,7 @@ var _ = Describe("Applier", func() {
 			Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
 			_, _, createMsg := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
 			Expect(createMsg).To(Equal(repositories.CreateServiceBindingMessage{
+				Type:                korifiv1alpha1.CFServiceBindingTypeApp,
 				ServiceInstanceGUID: "service-guid",
 				AppGUID:             "app-guid",
 				SpaceGUID:           "space-guid",
@@ -501,6 +503,7 @@ var _ = Describe("Applier", func() {
 				Expect(serviceBindingRepo.CreateServiceBindingCallCount()).To(Equal(1))
 				_, _, createMsg := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
 				Expect(createMsg).To(Equal(repositories.CreateServiceBindingMessage{
+					Type:                korifiv1alpha1.CFServiceBindingTypeApp,
 					Name:                tools.PtrTo("service-binding"),
 					ServiceInstanceGUID: "service-guid",
 					AppGUID:             "app-guid",

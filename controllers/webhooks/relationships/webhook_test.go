@@ -83,6 +83,9 @@ var _ = Describe("Setting the space-guid label", func() {
 					Namespace: spaceNamespace,
 					Name:      uuid.NewString(),
 				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Type: "app",
+				},
 			},
 			&korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
