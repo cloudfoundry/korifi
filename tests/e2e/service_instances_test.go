@@ -148,7 +148,7 @@ var _ = Describe("Service Instances", func() {
 			})
 
 			AfterEach(func() {
-				broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
+				broker.NewDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 			})
 
 			It("succeeds with a job redirect", func() {
@@ -231,7 +231,7 @@ var _ = Describe("Service Instances", func() {
 			})
 
 			AfterEach(func() {
-				broker.NewCatalogDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
+				broker.NewDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
 			})
 
 			It("succeeds with a job redirect", func() {

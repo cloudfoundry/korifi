@@ -17,15 +17,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type CatalogDeleter struct {
-	ctx                  context.Context
-	k8sClient            client.Client
-	rootNamespace        string
-	catalogLabelSelector client.MatchingLabels
-	maxRetries           int
+type Deleter struct {
+	ctx                   context.Context
+	k8sClient             client.Client
+	rootNamespace         string
+	catalogLabelSelector  client.MatchingLabels
+	deleteCFServiceBroker func()
+	maxRetries            int
 }
 
-func NewCatalogDeleter(rootNamespace string) *CatalogDeleter {
+func NewDeleter(rootNamespace string) *Deleter {
 	ctx := context.Background()
 
 	config, err := controllerruntime.GetConfig()
@@ -34,7 +35,7 @@ func NewCatalogDeleter(rootNamespace string) *CatalogDeleter {
 	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 
-	return &CatalogDeleter{
+	return &Deleter{
 		ctx:           ctx,
 		k8sClient:     k8sClient,
 		rootNamespace: rootNamespace,
@@ -42,23 +43,45 @@ func NewCatalogDeleter(rootNamespace string) *CatalogDeleter {
 	}
 }
 
-func (d *CatalogDeleter) ForBrokerGUID(brokerGUID string) *CatalogDeleter {
+func (d *Deleter) ForBrokerGUID(brokerGUID string) *Deleter {
 	d.catalogLabelSelector = client.MatchingLabels{
 		korifiv1alpha1.RelServiceBrokerGUIDLabel: brokerGUID,
 	}
 
-	return d
-}
-
-func (d *CatalogDeleter) ForBrokerName(brokerName string) *CatalogDeleter {
-	d.catalogLabelSelector = client.MatchingLabels{
-		korifiv1alpha1.RelServiceBrokerNameLabel: brokerName,
+	d.deleteCFServiceBroker = func() {
+		Expect(client.IgnoreNotFound(d.k8sClient.Delete(d.ctx, &korifiv1alpha1.CFServiceBroker{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: d.rootNamespace,
+				Name:      brokerGUID,
+			},
+		}))).To(Succeed())
 	}
 
 	return d
 }
 
-func (d *CatalogDeleter) Delete() {
+func (d *Deleter) ForBrokerName(brokerName string) *Deleter {
+	d.catalogLabelSelector = client.MatchingLabels{
+		korifiv1alpha1.RelServiceBrokerNameLabel: brokerName,
+	}
+
+	d.deleteCFServiceBroker = func() {
+		allBrokers := &korifiv1alpha1.CFServiceBrokerList{}
+		Expect(d.k8sClient.List(d.ctx, allBrokers, client.InNamespace(d.rootNamespace))).To(Succeed())
+
+		for _, b := range allBrokers.Items {
+			if b.Spec.Name != brokerName {
+				continue
+			}
+
+			Expect(client.IgnoreNotFound(d.k8sClient.Delete(d.ctx, &b))).To(Succeed())
+		}
+	}
+
+	return d
+}
+
+func (d *Deleter) Delete() {
 	GinkgoHelper()
 
 	servicePlans := &korifiv1alpha1.CFServicePlanList{}
@@ -66,12 +89,6 @@ func (d *CatalogDeleter) Delete() {
 	for _, plan := range servicePlans.Items {
 		Expect(d.cleanupBindings(plan.Name)).To(Succeed())
 		Expect(d.cleanupInsances(plan.Name)).To(Succeed())
-		Expect(client.IgnoreNotFound(d.k8sClient.Delete(d.ctx, &korifiv1alpha1.CFServiceBroker{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: d.rootNamespace,
-				Name:      plan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel],
-			},
-		}))).To(Succeed())
 	}
 
 	Expect(d.k8sClient.DeleteAllOf(
@@ -87,9 +104,11 @@ func (d *CatalogDeleter) Delete() {
 		client.InNamespace(d.rootNamespace),
 		d.catalogLabelSelector,
 	)).To(Succeed())
+
+	d.deleteCFServiceBroker()
 }
 
-func (d *CatalogDeleter) cleanupBindings(planName string) error {
+func (d *Deleter) cleanupBindings(planName string) error {
 	for retries := 0; retries < d.maxRetries; retries++ {
 		serviceBindings := &korifiv1alpha1.CFServiceBindingList{}
 		Expect(d.k8sClient.List(d.ctx, serviceBindings, client.MatchingLabels{
@@ -110,7 +129,7 @@ func (d *CatalogDeleter) cleanupBindings(planName string) error {
 	return fmt.Errorf("failed to clean up service bindings for plan %q", planName)
 }
 
-func (d *CatalogDeleter) cleanupInsances(planName string) error {
+func (d *Deleter) cleanupInsances(planName string) error {
 	for retries := 0; retries < d.maxRetries; retries++ {
 		serviceInstances := &korifiv1alpha1.CFServiceInstanceList{}
 		Expect(d.k8sClient.List(d.ctx, serviceInstances)).To(Succeed())

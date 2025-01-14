@@ -2,6 +2,7 @@ package smoke_test
 
 import (
 	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -49,6 +50,9 @@ var _ = Describe("cf bind-service", func() {
 				"broker-password",
 				sharedData.BrokerURL,
 			)).To(Exit(0))
+			DeferCleanup(func() {
+				broker.NewDeleter(sharedData.RootNamespace).ForBrokerName(brokerName).Delete()
+			})
 
 			Expect(helpers.Cf("enable-service-access", "sample-service", "-b", brokerName)).To(Exit(0))
 			session := helpers.Cf("create-service", "sample-service", "sample", serviceName, "-b", brokerName)
