@@ -70,6 +70,7 @@ var _ = Describe("Builder", func() {
 				},
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
+				Type:        "app",
 				DisplayName: &serviceBindingName,
 				Service: corev1.ObjectReference{
 					Name: "my-service-instance-guid",
@@ -111,6 +112,7 @@ var _ = Describe("Builder", func() {
 				},
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
+				Type:        "app",
 				DisplayName: &serviceBindingName2,
 				Service: corev1.ObjectReference{
 					Name: "my-service-instance-guid-2",

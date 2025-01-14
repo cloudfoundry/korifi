@@ -240,6 +240,7 @@ func (a *Applier) applyServices(ctx context.Context, authInfo authorization.Info
 		}
 
 		_, err = a.serviceBindingRepo.CreateServiceBinding(ctx, authInfo, repositories.CreateServiceBindingMessage{
+			Type:                korifiv1alpha1.CFServiceBindingTypeApp,
 			Name:                manifestService.BindingName,
 			ServiceInstanceGUID: serviceInstanceRecord.GUID,
 			AppGUID:             appState.App.GUID,

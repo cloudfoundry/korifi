@@ -139,6 +139,9 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 					Namespace: "test-org-" + uuid.NewString(),
 					Name:      uuid.NewString(),
 				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Type: korifiv1alpha1.CFServiceBindingTypeApp,
+				},
 			},
 			korifiv1alpha1.CFServiceBindingFinalizerName,
 		),
