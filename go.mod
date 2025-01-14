@@ -43,7 +43,7 @@ require (
 	k8s.io/pod-security-admission v0.32.0
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
 	sigs.k8s.io/controller-runtime v0.19.4
-	sigs.k8s.io/controller-tools v0.17.0
+	sigs.k8s.io/controller-tools v0.17.1
 	sigs.k8s.io/gateway-api v1.2.1
 )
 
