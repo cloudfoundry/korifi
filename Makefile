@@ -1,7 +1,7 @@
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
-SHELL = /usr/bin/env bash -o pipefail -O globstar
+SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 ##@ General
@@ -121,7 +121,8 @@ bin/setup-envtest: bin
 	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 clean-bin:
-	rm -f **/bin/*
+	# globstar (e.g. in rm -f **/bin/*) isn't available in the version of bash packaged with MacOS
+	find . -wholename '*/bin/*' -delete
 
 vendir-update-dependencies: bin/vendir
 	vendir sync --chdir tests
