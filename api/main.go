@@ -56,6 +56,7 @@ func init() {
 }
 
 func main() {
+	oops
 	configPath, found := os.LookupEnv("APICONFIG")
 	if !found {
 		panic("APICONFIG must be set")
