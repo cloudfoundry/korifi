@@ -112,8 +112,6 @@ spec:
             --set=controllers.taskTTL="5s" \
             --set=jobTaskRunner.jobTTL="5s" \
             --set=containerRepositoryPrefix="localregistry-docker-registry.default.svc.cluster.local:30050/" \
-            --set=kpackImageBuilder.clusterStackBuildImage="paketobuildpacks/build-jammy-base" \
-            --set=kpackImageBuilder.clusterStackRunImage="paketobuildpacks/run-jammy-base" \
             --set=kpackImageBuilder.builderRepository="localregistry-docker-registry.default.svc.cluster.local:30050/kpack-builder" \
             --set=networking.gatewayClass="contour" \
             --set=networking.gatewayPorts.http="32080" \
