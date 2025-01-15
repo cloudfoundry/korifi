@@ -1,6 +1,7 @@
 module code.cloudfoundry.org/korifi
 
 go 1.23.0
+toolchain go1.23.4
 
 require (
 	code.cloudfoundry.org/bytefmt v0.25.0
@@ -9,8 +10,8 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
-	github.com/aws/aws-sdk-go-v2/config v1.28.10
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.38.3
+	github.com/aws/aws-sdk-go-v2/config v1.28.11
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.38.4
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.36.3
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
@@ -30,7 +31,7 @@ require (
 	github.com/mileusna/useragent v1.3.5
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
-	github.com/pivotal/kpack v0.15.0
+	github.com/pivotal/kpack v0.16.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/servicebinding/runtime v1.0.0
 	golang.org/x/text v0.21.0
@@ -106,7 +107,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.32.8 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.51 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.52 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.23 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.27 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.27 // indirect
@@ -115,7 +116,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.24.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.33.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.33.7 // indirect
 	github.com/aws/smithy-go v1.22.1 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20240419161514-af205d85bb44 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
