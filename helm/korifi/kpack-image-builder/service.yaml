@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kpack-image-builder-webhook-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    app: kpack-image-builder
+---
+{{- if .Values.debug }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: kpack-image-builder-debug-port
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+    - name: debug-30054
+      nodePort: 30054
+      port: 30054
+      protocol: TCP
+      targetPort: 40000
+  selector:
+    app: kpack-image-builder
+  type: NodePort
+{{- end }}

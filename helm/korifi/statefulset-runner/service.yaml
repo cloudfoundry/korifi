@@ -1,0 +1,18 @@
+---
+{{- if .Values.debug }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: statefulset-runner-debug-port
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+    - name: debug-30055
+      nodePort: 30055
+      port: 30055
+      protocol: TCP
+      targetPort: 40000
+  selector:
+    app: statefulset-runner
+  type: NodePort
+{{- end }}

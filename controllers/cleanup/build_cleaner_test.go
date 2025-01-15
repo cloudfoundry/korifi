@@ -5,7 +5,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
-	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -108,7 +107,7 @@ func createBuild(namespace, appGUID, name string) *korifiv1alpha1.CFBuild {
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				controllers.LabelAppGUID: appGUID,
+				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
 			},
 		},
 		Spec: korifiv1alpha1.CFBuildSpec{Lifecycle: korifiv1alpha1.Lifecycle{Type: "buildpack"}},

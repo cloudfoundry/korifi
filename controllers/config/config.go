@@ -9,11 +9,6 @@ import (
 )
 
 type ControllerConfig struct {
-	// components
-	IncludeKpackImageBuilder bool `yaml:"includeKpackImageBuilder"`
-	IncludeJobTaskRunner     bool `yaml:"includeJobTaskRunner"`
-	IncludeStatefulsetRunner bool `yaml:"includeStatefulsetRunner"`
-
 	// core controllers
 	CFProcessDefaults                CFProcessDefaults  `yaml:"cfProcessDefaults"`
 	CFStagingResources               CFStagingResources `yaml:"cfStagingResources"`
@@ -29,16 +24,7 @@ type ControllerConfig struct {
 	LogLevel                         zapcore.Level      `yaml:"logLevel"`
 	SpaceFinalizerAppDeletionTimeout *int32             `yaml:"spaceFinalizerAppDeletionTimeout"`
 
-	// job-task-runner
-	JobTTL string `yaml:"jobTTL"`
-
-	// kpack-image-builder
-	ClusterBuilderName        string     `yaml:"clusterBuilderName"`
-	BuilderServiceAccount     string     `yaml:"builderServiceAccount"`
-	BuilderReadinessTimeout   string     `yaml:"builderReadinessTimeout"`
-	ContainerRepositoryPrefix string     `yaml:"containerRepositoryPrefix"`
-	ContainerRegistryType     string     `yaml:"containerRegistryType"`
-	Networking                Networking `yaml:"networking"`
+	Networking Networking `yaml:"networking"`
 
 	ExperimentalManagedServicesEnabled bool `yaml:"experimentalManagedServicesEnabled"`
 	TrustInsecureServiceBrokers        bool `yaml:"trustInsecureServiceBrokers"`
@@ -105,16 +91,4 @@ func (c ControllerConfig) ParseTaskTTL() (time.Duration, error) {
 	}
 
 	return tools.ParseDuration(c.TaskTTL)
-}
-
-func (c ControllerConfig) ParseBuilderReadinessTimeout() (time.Duration, error) {
-	return tools.ParseDuration(c.BuilderReadinessTimeout)
-}
-
-func (c ControllerConfig) ParseJobTTL() (time.Duration, error) {
-	if c.JobTTL == "" {
-		return defaultJobTTL, nil
-	}
-
-	return tools.ParseDuration(c.JobTTL)
 }
