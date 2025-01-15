@@ -23,14 +23,15 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/config"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/fake"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	controllersconfig "code.cloudfoundry.org/korifi/controllers/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -105,12 +106,13 @@ var _ = BeforeSuite(func() {
 
 	finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(k8sManager)
 
-	controllerConfig := &config.ControllerConfig{
+	controllerConfig := &config.Config{
 		CFRootNamespace:           PrefixedGUID("cf"),
 		ClusterBuilderName:        "cf-kpack-builder",
-		ContainerRepositoryPrefix: "image/registry/tag",
 		BuilderServiceAccount:     "builder-service-account",
-		CFStagingResources: config.CFStagingResources{
+		BuilderReadinessTimeout:   4 * time.Second,
+		ContainerRepositoryPrefix: "my.repository/my-prefix/",
+		CFStagingResources: controllersconfig.CFStagingResources{
 			BuildCacheMB: 1024,
 			DiskMB:       2048,
 			MemoryMB:     1234,
@@ -125,9 +127,7 @@ var _ = BeforeSuite(func() {
 		ctrl.Log.WithName("kpack-image-builder").WithName("BuildWorkload"),
 		controllerConfig,
 		fakeImageConfigGetter,
-		"my.repository/my-prefix/",
 		imageRepoCreator,
-		4*time.Second,
 	)
 	err = buildWorkloadReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

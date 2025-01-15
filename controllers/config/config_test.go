@@ -45,7 +45,6 @@ var _ = Describe("LoadFromPath", func() {
 			TaskTTL:                          "taskTTL",
 			BuilderName:                      "buildReconciler",
 			RunnerName:                       "statefulset-runner",
-			JobTTL:                           "jobTTL",
 			LogLevel:                         zapcore.DebugLevel,
 			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int32(42)),
 			Networking: config.Networking{
@@ -89,7 +88,6 @@ var _ = Describe("LoadFromPath", func() {
 			RunnerName:                       "statefulset-runner",
 			NamespaceLabels:                  map[string]string{},
 			ExtraVCAPApplicationValues:       map[string]any{},
-			JobTTL:                           "jobTTL",
 			LogLevel:                         zapcore.DebugLevel,
 			SpaceFinalizerAppDeletionTimeout: tools.PtrTo(int32(42)),
 			Networking: config.Networking{
@@ -180,51 +178,6 @@ var _ = Describe("ParseTaskTTL", func() {
 	When("entering something that cannot be parsed", func() {
 		BeforeEach(func() {
 			taskTTLString = "foreva"
-		})
-
-		It("returns an error", func() {
-			Expect(parseErr).To(HaveOccurred())
-		})
-	})
-})
-
-var _ = Describe("ParseJobTTL", func() {
-	var (
-		jobTTL    time.Duration
-		parseErr  error
-		jobTTLStr string
-	)
-
-	BeforeEach(func() {
-		jobTTLStr = ""
-	})
-
-	JustBeforeEach(func() {
-		cfg := config.ControllerConfig{
-			JobTTL: jobTTLStr,
-		}
-		jobTTL, parseErr = cfg.ParseJobTTL()
-	})
-
-	It("return 30 days by default", func() {
-		Expect(parseErr).NotTo(HaveOccurred())
-		Expect(jobTTL).To(Equal(24 * time.Hour))
-	})
-
-	When("jobTTL is something parseable by tools.ParseDuration", func() {
-		BeforeEach(func() {
-			jobTTLStr = "5d12h"
-		})
-
-		It("parses ok", func() {
-			Expect(parseErr).NotTo(HaveOccurred())
-			Expect(jobTTL).To(Equal(5*24*time.Hour + 12*time.Hour))
-		})
-	})
-
-	When("entering something that cannot be parsed", func() {
-		BeforeEach(func() {
-			jobTTLStr = "foreva"
 		})
 
 		It("returns an error", func() {

@@ -216,6 +216,11 @@ function create_namespaces() {
   local security_policy
 
   security_policy="restricted"
+
+  if [[ "$DEBUG" == "true" ]]; then
+    security_policy="privileged"
+  fi
+
   for ns in cf korifi; do
     cat <<EOF | kubectl apply -f -
 apiVersion: v1

@@ -118,6 +118,8 @@ func (r *Reconciler) enqueueCFOrgRequests(ctx context.Context, object client.Obj
 //+kubebuilder:rbac:groups="metrics.k8s.io",resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups="policy",resources=poddisruptionbudgets,verbs=create;deletecollection
 //+kubebuilder:rbac:groups="policy",resources=podsecuritypolicies,verbs=use
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runnerinfos,verbs=get;list;watch;create;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runnerinfos/status,verbs=get;patch
 
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1alpha1.CFOrg) (ctrl.Result, error) {
 	nsReconcileResult, err := r.namespaceReconciler.ReconcileResource(ctx, cfOrg)

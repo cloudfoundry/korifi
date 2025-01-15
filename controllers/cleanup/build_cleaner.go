@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,7 +34,7 @@ func (c BuildCleaner) Clean(ctx context.Context, app types.NamespacedName) error
 	err = c.k8sClient.List(ctx, &cfBuilds,
 		client.InNamespace(app.Namespace),
 		client.MatchingLabels{
-			controllers.LabelAppGUID: app.Name,
+			korifiv1alpha1.CFAppGUIDLabelKey: app.Name,
 		},
 	)
 	if err != nil {
