@@ -94,6 +94,7 @@ controllers:
 
 kpackImageBuilder:
   include: true
+  image: cloudfoundry/korifi-kpack-image-builder:latest
   replicas: 1
   resources:
     limits:
@@ -112,25 +113,27 @@ kpackImageBuilder:
 
 statefulsetRunner:
   include: true
+  image: cloudfoundry/korifi-statefulset-runner:latest
   replicas: 1
   resources:
     limits:
-      cpu: 500m
-      memory: 128Mi
+      cpu: 1000m
+      memory: 1Gi
     requests:
-      cpu: 10m
-      memory: 64Mi
+      cpu: 50m
+      memory: 100Mi
 
 jobTaskRunner:
   include: true
+  image: cloudfoundry/korifi-job-task-runner:latest
   replicas: 1
   resources:
     limits:
-      cpu: 500m
-      memory: 128Mi
+      cpu: 1000m
+      memory: 1Gi
     requests:
-      cpu: 10m
-      memory: 64Mi
+      cpu: 50m
+      memory: 100Mi
 
   jobTTL: 24h
 

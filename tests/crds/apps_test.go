@@ -7,7 +7,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/config"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -175,19 +175,19 @@ func uploadAppBits(appGUID, packageGUID string) {
 		},
 	})).To(Succeed())
 
-	controllersConfigMap := &corev1.ConfigMap{
+	kpackBuilderConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "korifi",
-			Name:      "korifi-controllers-config",
+			Name:      "kpack-image-builder-config",
 		},
 	}
-	Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(controllersConfigMap), controllersConfigMap)).To(Succeed())
+	Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(kpackBuilderConfigMap), kpackBuilderConfigMap)).To(Succeed())
 
-	controllersConfig := config.ControllerConfig{}
-	Expect(yaml.Unmarshal([]byte(controllersConfigMap.Data["config.yaml"]), &controllersConfig)).To(Succeed())
-	repoCreator := registry.NewRepositoryCreator(controllersConfig.ContainerRegistryType)
+	kpackBuilderConfig := config.Config{}
+	Expect(yaml.Unmarshal([]byte(kpackBuilderConfigMap.Data["config.yaml"]), &kpackBuilderConfig)).To(Succeed())
+	repoCreator := registry.NewRepositoryCreator(kpackBuilderConfig.ContainerRegistryType)
 	Expect(repoCreator.CreateRepository(ctx, fmt.Sprintf("%s%s-packages",
-		controllersConfig.ContainerRepositoryPrefix,
+		kpackBuilderConfig.ContainerRepositoryPrefix,
 		appGUID,
 	))).To(Succeed())
 
