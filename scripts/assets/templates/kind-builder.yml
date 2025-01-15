@@ -1,0 +1,44 @@
+# This is a template file! Do not apply directly!
+# It can be instantiated with values from the environment
+# using the envsubst command
+---
+apiVersion: kpack.io/v1alpha2
+kind: ClusterStore
+metadata:
+  name: kind-store
+spec:
+  sources:
+  - image: gcr.io/paketo-buildpacks/procfile
+  - image: gcr.io/paketo-buildpacks/go
+---
+apiVersion: kpack.io/v1alpha2
+kind: ClusterStack
+metadata:
+  name: kind-stack
+spec:
+  id: "io.buildpacks.stacks.jammy"
+  buildImage:
+    image: paketobuildpacks/build-jammy-base
+  runImage:
+    image: paketobuildpacks/run-jammy-base
+---
+apiVersion: kpack.io/v1alpha2
+kind: ClusterBuilder
+metadata:
+  name: kind-builder
+spec:
+  serviceAccountRef:
+    name: kpack-service-account
+    namespace: cf
+  stack:
+    name: kind-stack
+    kind: ClusterStack
+  store:
+    name: kind-store
+    kind: ClusterStore
+  tag: "$BUILDER_TAG"
+  order:
+  - group:
+    - id: paketo-buildpacks/procfile
+  - group:
+    - id: paketo-buildpacks/go

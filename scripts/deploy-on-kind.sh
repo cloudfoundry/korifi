@@ -199,9 +199,7 @@ function deploy_korifi() {
       --set=controllers.taskTTL="5s" \
       --set=jobTaskRunner.jobTTL="5s" \
       --set=containerRepositoryPrefix="$REPOSITORY_PREFIX" \
-      --set=kpackImageBuilder.clusterStackBuildImage="paketobuildpacks/build-jammy-base" \
-      --set=kpackImageBuilder.clusterStackRunImage="paketobuildpacks/run-jammy-base" \
-      --set=kpackImageBuilder.builderRepository="$KPACK_BUILDER_REPOSITORY" \
+      --set=kpackImageBuilder.clusterBuilderName="kind-builder" \
       --set=networking.gatewayClass="contour" \
       --set=networking.gatewayPorts.http="32080" \
       --set=networking.gatewayPorts.https="32443" \
@@ -249,6 +247,14 @@ function create_registry_secret() {
     --docker-password="$DOCKER_PASSWORD"
 }
 
+function create_cluster_builder() {
+  (
+    export BUILDER_TAG="$KPACK_BUILDER_REPOSITORY"
+    envsubst <"$SCRIPT_DIR/assets/templates/kind-builder.yml" | kubectl apply -f -
+  )
+  kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
+}
+
 function main() {
   make -C "$ROOT_DIR" bin/yq
 
@@ -260,6 +266,7 @@ function main() {
   create_namespaces
   create_registry_secret
   deploy_korifi
+  create_cluster_builder
   configure_contour
 }
 
