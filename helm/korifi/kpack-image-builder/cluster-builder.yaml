@@ -10,19 +10,17 @@ spec:
   - image: gcr.io/paketo-buildpacks/ruby
   - image: gcr.io/paketo-buildpacks/procfile
   - image: gcr.io/paketo-buildpacks/go
-
 ---
 apiVersion: kpack.io/v1alpha2
 kind: ClusterStack
 metadata:
   name: cf-default-stack
 spec:
-  id: {{ .Values.kpackImageBuilder.clusterStackID | quote }}
+  id: "io.buildpacks.stacks.jammy"
   buildImage:
-    image: {{ .Values.kpackImageBuilder.clusterStackBuildImage | quote }}
+    image: paketobuildpacks/build-jammy-full
   runImage:
-    image: {{ .Values.kpackImageBuilder.clusterStackRunImage | quote }}
-
+    image: paketobuildpacks/run-jammy-full
 ---
 apiVersion: kpack.io/v1alpha2
 kind: ClusterBuilder
