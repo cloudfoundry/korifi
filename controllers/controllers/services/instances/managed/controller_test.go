@@ -743,7 +743,7 @@ var _ = Describe("CFServiceInstance", func() {
 				_, actualDeprovisionRequest := brokerClient.DeprovisionArgsForCall(0)
 				Expect(actualDeprovisionRequest).To(Equal(osbapi.DeprovisionPayload{
 					ID: instance.Name,
-					DeprovisionRequest: osbapi.DeprovisionRequest{
+					DeprovisionRequestParamaters: osbapi.DeprovisionRequestParamaters{
 						ServiceId: "service-offering-id",
 						PlanID:    "service-plan-id",
 					},
@@ -863,7 +863,7 @@ var _ = Describe("CFServiceInstance", func() {
 						_, actualDeprovisionRequest := brokerClient.DeprovisionArgsForCall(0)
 						g.Expect(actualDeprovisionRequest).To(Equal(osbapi.DeprovisionPayload{
 							ID: instance.Name,
-							DeprovisionRequest: osbapi.DeprovisionRequest{
+							DeprovisionRequestParamaters: osbapi.DeprovisionRequestParamaters{
 								ServiceId: "service-offering-id",
 								PlanID:    "service-plan-id",
 							},

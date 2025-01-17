@@ -32,6 +32,8 @@ func (b *BrokerServer) WithResponse(pattern string, response map[string]any, sta
 	Expect(err).NotTo(HaveOccurred())
 
 	return b.withHandler(pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Expect(r.Header).To(HaveKeyWithValue("Content-Type", ConsistOf("application/json")))
+		Expect(r.Header).To(HaveKeyWithValue("X-Broker-Api-Version", ConsistOf("2.17")))
 		w.WriteHeader(statusCode)
 		_, err := w.Write(respBytes)
 		Expect(err).NotTo(HaveOccurred())
