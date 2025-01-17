@@ -89,10 +89,10 @@ type GetLastOperationRequestParameters struct {
 }
 type DeprovisionPayload struct {
 	ID string
-	DeprovisionRequest
+	DeprovisionRequestParamaters
 }
 
-type DeprovisionRequest struct {
+type DeprovisionRequestParamaters struct {
 	ServiceId string `json:"service_id"`
 	PlanID    string `json:"plan_id"`
 }

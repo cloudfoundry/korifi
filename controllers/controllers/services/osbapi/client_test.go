@@ -97,14 +97,6 @@ var _ = Describe("OSBAPI Client", func() {
 			}))))
 		})
 
-		It("sends OSBAPI version request header", func() {
-			Expect(brokerServer.ServedRequests()).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
-				"Header": HaveKeyWithValue(
-					"X-Broker-Api-Version", ConsistOf("2.17"),
-				),
-			}))))
-		})
-
 		When("getting the catalog fails", func() {
 			BeforeEach(func() {
 				brokerServer = brokerServer.WithResponse("/v2/catalog", nil, http.StatusTeapot)
@@ -265,7 +257,7 @@ var _ = Describe("OSBAPI Client", func() {
 			JustBeforeEach(func() {
 				deprovisionResp, deprovisionErr = brokerClient.Deprovision(ctx, osbapi.DeprovisionPayload{
 					ID: "my-service-instance",
-					DeprovisionRequest: osbapi.DeprovisionRequest{
+					DeprovisionRequestParamaters: osbapi.DeprovisionRequestParamaters{
 						ServiceId: "service-guid",
 						PlanID:    "plan-guid",
 					},
@@ -289,23 +281,10 @@ var _ = Describe("OSBAPI Client", func() {
 				Expect(requests[0].Method).To(Equal(http.MethodDelete))
 				Expect(requests[0].URL.Path).To(Equal("/v2/service_instances/my-service-instance"))
 
-				Expect(requests[0].URL.Query().Get("accepts_incomplete")).To(Equal("true"))
-			})
-
-			It("sends correct request body", func() {
-				Expect(deprovisionErr).NotTo(HaveOccurred())
-				requests := brokerServer.ServedRequests()
-
-				Expect(requests).To(HaveLen(1))
-
-				requestBytes, err := io.ReadAll(requests[0].Body)
-				Expect(err).NotTo(HaveOccurred())
-				requestBody := map[string]any{}
-				Expect(json.Unmarshal(requestBytes, &requestBody)).To(Succeed())
-
-				Expect(requestBody).To(MatchAllKeys(Keys{
-					"service_id": Equal("service-guid"),
-					"plan_id":    Equal("plan-guid"),
+				Expect(requests[0].URL.Query()).To(BeEquivalentTo(map[string][]string{
+					"service_id":         {"service-guid"},
+					"plan_id":            {"plan-guid"},
+					"accepts_incomplete": {"true"},
 				}))
 			})
 

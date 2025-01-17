@@ -311,7 +311,7 @@ func (r *Reconciler) deprovisionServiceInstance(
 	}
 	deprovisionResponse, err := osbapiClient.Deprovision(ctx, osbapi.DeprovisionPayload{
 		ID: serviceInstance.Name,
-		DeprovisionRequest: osbapi.DeprovisionRequest{
+		DeprovisionRequestParamaters: osbapi.DeprovisionRequestParamaters{
 			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
 			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
 		},

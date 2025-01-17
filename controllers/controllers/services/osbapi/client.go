@@ -118,8 +118,11 @@ func (c *Client) Deprovision(ctx context.Context, payload DeprovisionPayload) (P
 			ctx,
 			"/v2/service_instances/"+payload.ID,
 			http.MethodDelete,
+			map[string]string{
+				"service_id": payload.ServiceId,
+				"plan_id":    payload.PlanID,
+			},
 			nil,
-			payload.DeprovisionRequest,
 		)
 	if err != nil {
 		return ProvisionResponse{}, fmt.Errorf("deprovision request failed: %w", err)
@@ -348,6 +351,8 @@ func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, m
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to create new HTTP request: %w", err)
 	}
+
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("X-Broker-API-Version", osbapiVersion)
 
 	queryValues := req.URL.Query()
