@@ -4,10 +4,6 @@ updates:
   directory: "/"
   schedule:
     interval: "daily"
-  groups:
-    gomod:
-      patterns:
-        - "*"
 
 - package-ecosystem: "docker"
   directory: "/api"
