@@ -42,6 +42,10 @@ type ServiceBindingLinks struct {
 	Details         Link `json:"details"`
 }
 
+type ServiceBindingDetailsResponse struct {
+	Credentials map[string]any `json:"credentials"`
+}
+
 func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL, includes ...model.IncludedResource) ServiceBindingResponse {
 	return ServiceBindingResponse{
 		GUID:      record.GUID,
@@ -87,4 +91,10 @@ func ForServiceBindingList(serviceBindingRecords []repositories.ServiceBindingRe
 	}))
 
 	return ForList(ForServiceBinding, serviceBindingRecords, baseURL, requestURL, includedApps...)
+}
+
+func ForServiceBindingDetails(serviceBindingDetailsRecord repositories.ServiceBindingDetailsRecord) ServiceBindingDetailsResponse {
+	return ServiceBindingDetailsResponse{
+		Credentials: serviceBindingDetailsRecord.Credentials,
+	}
 }
