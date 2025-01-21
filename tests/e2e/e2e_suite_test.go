@@ -74,6 +74,10 @@ type resourceList[T any] struct {
 	Resources []T `json:"resources"`
 }
 
+type credentialsResponse struct {
+	Credentials map[string]any `json:"credentials"`
+}
+
 type responseResource struct {
 	Name      string    `json:"name,omitempty"`
 	GUID      string    `json:"guid,omitempty"`
@@ -784,7 +788,6 @@ func createManagedServiceBinding(appGUID, instanceGUID, bindingName string) stri
 			},
 		}).
 		Post("/v3/service_credential_bindings")
-
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(SatisfyAll(
 		HaveRestyStatusCode(http.StatusAccepted),
