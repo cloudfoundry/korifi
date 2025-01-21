@@ -3,6 +3,7 @@ package controllers_test
 import (
 	"context"
 	"errors"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
@@ -170,6 +171,22 @@ var _ = Describe("AppWorkload Reconcile", func() {
 		It("returns an empty result and does not return error", func() {
 			Expect(reconcileResult).To(Equal(ctrl.Result{}))
 			Expect(reconcileErr).NotTo(HaveOccurred())
+		})
+	})
+
+	When("the appworkload is being deleted gracefully", func() {
+		BeforeEach(func() {
+			appWorkload.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+		})
+
+		It("returns an empty result and does not return error", func() {
+			Expect(reconcileResult).To(Equal(ctrl.Result{}))
+			Expect(reconcileErr).NotTo(HaveOccurred())
+		})
+
+		It("creates no statefulset", func() {
+			Expect(fakeWorkloadToStSet.ConvertCallCount()).To(Equal(0))
+			Expect(fakeClient.CreateCallCount()).To(Equal(0))
 		})
 	})
 
