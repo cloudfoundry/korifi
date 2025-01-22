@@ -355,18 +355,18 @@ func main() {
 	// Setup webhooks with manager
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = korifiv1alpha1.NewCFAppDefaulter().SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
 			os.Exit(1)
 		}
 
 		(&appswebhook.AppRevWebhook{}).SetupWebhookWithManager(mgr)
 
-		if err = (&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = korifiv1alpha1.NewCFPackageDefaulter().SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
 			os.Exit(1)
 		}
-		if err = (&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = korifiv1alpha1.NewCFBuildDefaulter().SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFBuild")
 			os.Exit(1)
 		}
@@ -448,7 +448,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = korifiv1alpha1.NewCFRouteDefaulter().SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
 			os.Exit(1)
 		}

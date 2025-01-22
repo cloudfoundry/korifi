@@ -17,32 +17,42 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
+	"code.cloudfoundry.org/korifi/tools"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
 var cfbuildlog = logf.Log.WithName("cfbuild-resource")
 
-func (r *CFBuild) SetupWebhookWithManager(mgr ctrl.Manager) error {
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-cfbuild,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfbuilds,verbs=create;update,versions=v1alpha1,name=mcfbuild.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+
+type CFBuildDefaulter struct{}
+
+func NewCFBuildDefaulter() *CFBuildDefaulter {
+	return &CFBuildDefaulter{}
+}
+
+func (d *CFBuildDefaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&CFBuild{}).
+		WithDefaulter(d).
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-cfbuild,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfbuilds,verbs=create;update,versions=v1alpha1,name=mcfbuild.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
-
-var _ webhook.Defaulter = &CFBuild{}
-
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *CFBuild) Default() {
-	cfbuildlog.V(1).Info("mutating Webhook for CFBuild", "name", r.Name)
-	buildLabels := r.GetLabels()
-	if buildLabels == nil {
-		buildLabels = make(map[string]string)
-	}
-	buildLabels[CFAppGUIDLabelKey] = r.Spec.AppRef.Name
-	buildLabels[CFPackageGUIDLabelKey] = r.Spec.PackageRef.Name
-	r.SetLabels(buildLabels)
+func (r *CFBuildDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	cfBuild := obj.(*CFBuild)
+	cfbuildlog.V(1).Info("mutating Webhook for CFBuild", "name", cfBuild.Name)
+	buildLabels := cfBuild.GetLabels()
+
+	buildLabels = tools.SetMapValue(buildLabels, CFAppGUIDLabelKey, cfBuild.Spec.AppRef.Name)
+	buildLabels = tools.SetMapValue(buildLabels, CFPackageGUIDLabelKey, cfBuild.Spec.PackageRef.Name)
+
+	cfBuild.SetLabels(buildLabels)
+
+	return nil
 }

@@ -17,31 +17,38 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
+	"code.cloudfoundry.org/korifi/tools"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	runtime "k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
 var cfpackagelog = logf.Log.WithName("cfpackage-resource")
 
-func (r *CFPackage) SetupWebhookWithManager(mgr ctrl.Manager) error {
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-cfpackage,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfpackages,verbs=create;update,versions=v1alpha1,name=mcfpackage.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+
+type CFPackageDefaulter struct{}
+
+func NewCFPackageDefaulter() *CFPackageDefaulter {
+	return &CFPackageDefaulter{}
+}
+
+func (d *CFPackageDefaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&CFPackage{}).
+		WithDefaulter(d).
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-cfpackage,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfpackages,verbs=create;update,versions=v1alpha1,name=mcfpackage.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+func (r *CFPackageDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	cfPackage := obj.(*CFPackage)
+	cfpackagelog.V(1).Info("mutating CFPackage webhook handler", "name", cfPackage.Name)
 
-var _ webhook.Defaulter = &CFPackage{}
+	cfPackage.SetLabels(tools.SetMapValue(cfPackage.GetLabels(), CFAppGUIDLabelKey, cfPackage.Spec.AppRef.Name))
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *CFPackage) Default() {
-	cfpackagelog.V(1).Info("mutating CFPackage webhook handler", "name", r.Name)
-	packageLabels := r.GetLabels()
-	if packageLabels == nil {
-		packageLabels = make(map[string]string)
-	}
-	packageLabels[CFAppGUIDLabelKey] = r.Spec.AppRef.Name
-	r.SetLabels(packageLabels)
+	return nil
 }
