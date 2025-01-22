@@ -98,12 +98,12 @@ var _ = BeforeSuite(func() {
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	uncachedClient := helpers.NewUncachedClient(k8sManager.GetConfig())
-	Expect((&korifiv1alpha1.CFApp{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(korifiv1alpha1.NewCFAppDefaulter().SetupWebhookWithManager(k8sManager)).To(Succeed())
 	Expect(apps.NewValidator(
 		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, apps.AppEntityType)),
 	).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	Expect((&korifiv1alpha1.CFRoute{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(korifiv1alpha1.NewCFRouteDefaulter().SetupWebhookWithManager(k8sManager)).To(Succeed())
 	Expect(routes.NewValidator(
 		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, routes.RouteEntityType)),
 		namespace,
@@ -112,12 +112,12 @@ var _ = BeforeSuite(func() {
 
 	Expect(domains.NewValidator(uncachedClient).SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	Expect((&korifiv1alpha1.CFPackage{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(korifiv1alpha1.NewCFPackageDefaulter().SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect(korifiv1alpha1.NewCFProcessDefaulter(defaultMemoryMB, defaultDiskQuotaMB, defaultTimeout).
 		SetupWebhookWithManager(k8sManager)).To(Succeed())
 
-	Expect((&korifiv1alpha1.CFBuild{}).SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(korifiv1alpha1.NewCFBuildDefaulter().SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect(adminClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

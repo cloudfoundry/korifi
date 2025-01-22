@@ -17,9 +17,12 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+
+	"code.cloudfoundry.org/korifi/tools"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 const (
@@ -29,41 +32,42 @@ const (
 // log is for logging in this package.
 var cfapplog = logf.Log.WithName("cfapp-resource")
 
-func (r *CFApp) SetupWebhookWithManager(mgr ctrl.Manager) error {
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-cfapp,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfapps,verbs=create;update,versions=v1alpha1,name=mcfapp.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+
+type CFAppDefaulter struct{}
+
+func NewCFAppDefaulter() *CFAppDefaulter {
+	return &CFAppDefaulter{}
+}
+
+func (d *CFAppDefaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&CFApp{}).
+		WithDefaulter(d).
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-cfapp,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfapps,verbs=create;update,versions=v1alpha1,name=mcfapp.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
-
-var _ webhook.Defaulter = &CFApp{}
-
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *CFApp) Default() {
-	cfapplog.V(1).Info("mutating CFApp webhook handler", "name", r.Name)
-	r.SetLabels(r.defaultLabels(r.GetLabels()))
-	r.SetAnnotations(r.defaultAnnotations(r.GetAnnotations()))
+func (r *CFAppDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	cfApp := obj.(*CFApp)
+	cfapplog.V(1).Info("mutating CFApp webhook handler", "name", cfApp.Name)
+
+	r.defaultLabels(cfApp)
+	r.defaultAnnotations(cfApp)
+
+	return nil
 }
 
-func (r *CFApp) defaultLabels(appLabels map[string]string) map[string]string {
-	if appLabels == nil {
-		appLabels = make(map[string]string)
-	}
-	appLabels[CFAppGUIDLabelKey] = r.Name
-
-	return appLabels
+func (r *CFAppDefaulter) defaultLabels(cfApp *CFApp) {
+	cfApp.SetLabels(tools.SetMapValue(cfApp.GetLabels(), CFAppGUIDLabelKey, cfApp.Name))
 }
 
-func (r *CFApp) defaultAnnotations(appAnnotations map[string]string) map[string]string {
-	if appAnnotations == nil {
-		appAnnotations = make(map[string]string)
-	}
-
+func (r *CFAppDefaulter) defaultAnnotations(cfApp *CFApp) {
+	appAnnotations := cfApp.GetAnnotations()
 	_, hasRevAnnotation := appAnnotations[CFAppRevisionKey]
-	if !hasRevAnnotation {
-		appAnnotations[CFAppRevisionKey] = CFAppRevisionKeyDefault
-	}
 
-	return appAnnotations
+	if !hasRevAnnotation {
+		appAnnotations = tools.SetMapValue(appAnnotations, CFAppRevisionKey, CFAppRevisionKeyDefault)
+	}
+	cfApp.SetAnnotations(appAnnotations)
 }
