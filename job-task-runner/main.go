@@ -8,6 +8,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	jobtaskcontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/version"
 	"go.uber.org/zap/zapcore"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -52,6 +53,8 @@ func main() {
 
 	ctrl.SetLogger(logger)
 	klog.SetLogger(ctrl.Log)
+
+	ctrl.Log.Info("starting Korifi job-task runner", "version", version.Version)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
