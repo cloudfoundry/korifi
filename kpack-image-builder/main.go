@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/registry"
+	"code.cloudfoundry.org/korifi/version"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"go.uber.org/zap/zapcore"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -63,6 +64,8 @@ func main() {
 
 	ctrl.SetLogger(logger)
 	klog.SetLogger(ctrl.Log)
+
+	ctrl.Log.Info("starting Korifi kpack image builder", "version", version.Version)
 
 	conf := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(conf, ctrl.Options{

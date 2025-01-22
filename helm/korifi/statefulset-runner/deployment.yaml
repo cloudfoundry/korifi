@@ -2,14 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: statefulset-runner
-  name: statefulset-runner-controller-manager
+    app: korifi-statefulset-runner
+  name: korifi-statefulset-runner-controller-manager
   namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.statefulsetRunner.replicas }}
   selector:
     matchLabels:
-      app: statefulset-runner
+      app: korifi-statefulset-runner
   template:
     metadata:
       annotations:
@@ -18,7 +18,7 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/scrape: "true"
       labels:
-        app: statefulset-runner
+        app: korifi-statefulset-runner
     spec:
       containers:
       - name: manager
@@ -56,7 +56,7 @@ spec:
         {{- .Values.statefulsetRunner.resources | toYaml | nindent 10 }}
         {{- include "korifi.securityContext" . | indent 8 }}
       {{- include "korifi.podSecurityContext" . | indent 6 }}
-      serviceAccountName: statefulset-runner-controller-manager
+      serviceAccountName: korifi-statefulset-runner-controller-manager
 {{- if .Values.statefulsetRunner.nodeSelector }}
       nodeSelector:
       {{ toYaml .Values.statefulsetRunner.nodeSelector | indent 8 }}

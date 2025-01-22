@@ -178,7 +178,7 @@ func uploadAppBits(appGUID, packageGUID string) {
 	kpackBuilderConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "korifi",
-			Name:      "kpack-image-builder-config",
+			Name:      "korifi-kpack-image-builder-config",
 		},
 	}
 	Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(kpackBuilderConfigMap), kpackBuilderConfigMap)).To(Succeed())
