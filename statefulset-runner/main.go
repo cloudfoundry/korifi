@@ -14,6 +14,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/version"
 	"go.uber.org/zap/zapcore"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -58,6 +59,8 @@ func main() {
 
 	ctrl.SetLogger(logger)
 	klog.SetLogger(ctrl.Log)
+
+	ctrl.Log.Info("starting Korifi statefulset runner", "version", version.Version)
 
 	conf := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(conf, ctrl.Options{

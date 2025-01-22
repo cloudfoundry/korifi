@@ -2,14 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: job-task-runner
-  name: job-task-runner-controller-manager
+    app: korifi-job-task-runner
+  name: korifi-job-task-runner-controller-manager
   namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.jobTaskRunner.replicas }}
   selector:
     matchLabels:
-      app: job-task-runner
+      app: korifi-job-task-runner
   template:
     metadata:
       annotations:
@@ -18,7 +18,7 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/scrape: "true"
       labels:
-        app: job-task-runner
+        app: korifi-job-task-runner
     spec:
       containers:
       - name: manager
@@ -58,7 +58,7 @@ spec:
         {{- .Values.jobTaskRunner.resources | toYaml | nindent 10 }}
         {{- include "korifi.securityContext" . | indent 8 }}
       {{- include "korifi.podSecurityContext" . | indent 6 }}
-      serviceAccountName: job-task-runner-controller-manager
+      serviceAccountName: korifi-job-task-runner-controller-manager
 {{- if .Values.jobTaskRunner.nodeSelector }}
       nodeSelector:
       {{ toYaml .Values.jobTaskRunner.nodeSelector | indent 8 }}

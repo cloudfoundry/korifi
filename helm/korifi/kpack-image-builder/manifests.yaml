@@ -4,14 +4,14 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: korifi-kpack-image-builder-mutating-webhook-configuration
   annotations:
-    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/kpack-image-builder-serving-cert'
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/korifi-kpack-image-builder-serving-cert'
 webhooks:
   - admissionReviewVersions:
       - v1
       - v1beta1
     clientConfig:
       service:
-        name: kpack-image-builder-webhook-service
+        name: korifi-kpack-image-builder-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-kpack-image-builder-finalizer
     failurePolicy: Fail
