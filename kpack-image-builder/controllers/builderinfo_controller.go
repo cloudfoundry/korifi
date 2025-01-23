@@ -107,6 +107,10 @@ func (r *BuilderInfoReconciler) filterBuilderInfos(object client.Object) bool {
 func (r *BuilderInfoReconciler) ReconcileResource(ctx context.Context, info *korifiv1alpha1.BuilderInfo) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
+	if !info.GetDeletionTimestamp().IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	info.Status.ObservedGeneration = info.Generation
 	log.V(1).Info("set observed generation", "generation", info.Status.ObservedGeneration)
 

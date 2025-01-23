@@ -288,6 +288,33 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 			Expect(eventMessageArgs).To(Equal([]interface{}{cfTask.Name}), "Unexpected event message args in event record")
 		})
 
+		When("the task is being deleted gracefully", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, cfTask, func() {
+					cfTask.Finalizers = []string{"do-not-delete-yet"}
+				})).To(Succeed())
+			})
+
+			JustBeforeEach(func() {
+				Expect(k8sManager.GetClient().Delete(ctx, cfTask)).To(Succeed())
+				Expect(k8s.Patch(ctx, adminClient, cfTask, func() {
+					cfTask.Spec.Canceled = true
+				})).To(Succeed())
+			})
+
+			It("does not reconcile the task", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+					g.Expect(cfTask.Status.ObservedGeneration).NotTo(Equal(cfTask.Generation))
+				}).Should(Succeed())
+
+				Consistently(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfTask), cfTask)).To(Succeed())
+					g.Expect(cfTask.Status.ObservedGeneration).NotTo(Equal(cfTask.Generation))
+				}).Should(Succeed())
+			})
+		})
+
 		When("the task workload status condition changes", func() {
 			JustBeforeEach(func() {
 				Eventually(func(g Gomega) {

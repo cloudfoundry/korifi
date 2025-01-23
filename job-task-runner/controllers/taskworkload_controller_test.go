@@ -215,6 +215,25 @@ var _ = Describe("TaskworkloadController", func() {
 		Expect(meta.IsStatusConditionTrue(patchedTaskWorkload.Status.Conditions, "foo")).To(BeTrue())
 	})
 
+	When("the taskworkload is being deleted gracefully", func() {
+		BeforeEach(func() {
+			taskWorkload.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+		})
+
+		It("returns an empty result and does not return error", func() {
+			Expect(reconcileResult).To(Equal(ctrl.Result{}))
+			Expect(reconcileErr).NotTo(HaveOccurred())
+		})
+
+		It("does not reconcile the task", func() {
+			Expect(fakeStatusWriter.PatchCallCount()).To(Equal(1))
+			_, object, _, _ := fakeStatusWriter.PatchArgsForCall(0)
+			patchedTaskWorkload, ok := object.(*korifiv1alpha1.TaskWorkload)
+			Expect(ok).To(BeTrue())
+			Expect(patchedTaskWorkload.Status.ObservedGeneration).To(BeZero())
+		})
+	})
+
 	When("getting the status conditions fails", func() {
 		BeforeEach(func() {
 			statusGetter.GetStatusConditionsReturns(nil, errors.New("get-conditions-error"))

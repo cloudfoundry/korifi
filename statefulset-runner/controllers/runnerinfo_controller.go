@@ -71,6 +71,10 @@ func filterRunnerInfos(object client.Object) bool {
 func (r *RunnerInfoReconciler) ReconcileResource(ctx context.Context, runnerInfo *korifiv1alpha1.RunnerInfo) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
+	if !runnerInfo.GetDeletionTimestamp().IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	runnerInfo.Status.ObservedGeneration = runnerInfo.Generation
 	log.V(1).Info("set observed generation", "generation", runnerInfo.Status.ObservedGeneration)
 

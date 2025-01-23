@@ -66,6 +66,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfBuild *korifiv1alpha1.CFBuild) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
+	if !cfBuild.GetDeletionTimestamp().IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	cfBuild.Status.ObservedGeneration = cfBuild.Generation
 	log.V(1).Info("set observed generation", "generation", cfBuild.Status.ObservedGeneration)
 

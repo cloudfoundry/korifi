@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -65,6 +66,7 @@ var (
 	buildWorkloadReconciler *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload]
 	rootNamespace           *v1.Namespace
 	imageRepoCreator        *fake.RepositoryCreator
+	k8sManager              manager.Manager
 )
 
 func TestAPIs(t *testing.T) {
@@ -101,7 +103,7 @@ var _ = BeforeSuite(func() {
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "kpack-image-builder", "role.yaml"))
+	k8sManager = helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "kpack-image-builder", "role.yaml"))
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(k8sManager)

@@ -3,9 +3,11 @@ package controllers_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,7 +43,7 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 
 	AfterEach(func() {
 		if info != nil {
-			Expect(adminClient.Delete(context.Background(), info)).To(Succeed())
+			Expect(client.IgnoreNotFound(adminClient.Delete(context.Background(), info))).To(Succeed())
 		}
 		if clusterBuilder != nil {
 			Expect(adminClient.Delete(context.Background(), clusterBuilder)).To(Succeed())
@@ -141,6 +143,36 @@ var _ = Describe("BuilderInfoReconciler", Serial, func() {
 					g.Expect(adminClient.Get(context.Background(), client.ObjectKeyFromObject(info), info)).To(Succeed())
 					g.Expect(info.Status.ObservedGeneration).To(Equal(info.Generation))
 				}).Should(Succeed())
+			})
+
+			When("the builder info is being deleted gracefully", func() {
+				JustBeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, adminClient, info, func() {
+						info.Finalizers = []string{"do-not-delete-yet"}
+					})).To(Succeed())
+
+					Expect(k8sManager.GetClient().Delete(ctx, info)).To(Succeed())
+					Expect(k8s.Patch(ctx, adminClient, info, func() {
+						info.Status.Buildpacks = []v1alpha1.BuilderInfoStatusBuildpack{{
+							Name:              "foobar",
+							CreationTimestamp: metav1.NewTime(time.Now()),
+							UpdatedTimestamp:  metav1.NewTime(time.Now()),
+						}}
+					})).To(Succeed())
+				})
+
+				It("does not reconcile the process", func() {
+					Consistently(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(info), info)).To(Succeed())
+						g.Expect(info.Status.ObservedGeneration).NotTo(Equal(info.Generation))
+					}).Should(Succeed())
+
+					// Gross workaround to make `AfterEach` that ensures the info is gone happy
+					// see https://github.com/cloudfoundry/korifi/issues/3743
+					Expect(k8s.PatchResource(ctx, adminClient, info, func() {
+						info.Finalizers = []string{}
+					})).To(Succeed())
+				})
 			})
 
 			When("the cluster builder status is not ready", func() {

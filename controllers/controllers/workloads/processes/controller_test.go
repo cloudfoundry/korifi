@@ -181,6 +181,26 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		}).Should(Succeed())
 	})
 
+	When("the process is being deleted gracefully", func() {
+		BeforeEach(func() {
+			cfProcess.Finalizers = []string{"do-not-delete-yet"}
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sManager.GetClient().Delete(ctx, cfProcess)).To(Succeed())
+			Expect(k8s.Patch(ctx, adminClient, cfProcess, func() {
+				cfProcess.Spec.DiskQuotaMB = 345
+			})).To(Succeed())
+		})
+
+		It("does not reconcile the process", func() {
+			Consistently(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfProcess), cfProcess)).To(Succeed())
+				g.Expect(cfProcess.Status.ObservedGeneration).NotTo(Equal(cfProcess.Generation))
+			}).Should(Succeed())
+		})
+	})
+
 	When("the CFApp desired state is STARTED", func() {
 		BeforeEach(func() {
 			Expect(k8s.PatchResource(ctx, adminClient, cfApp, func() {
