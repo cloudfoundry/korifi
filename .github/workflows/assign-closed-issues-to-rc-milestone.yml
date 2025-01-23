@@ -1,0 +1,19 @@
+name: Assign closed issues to the `release-candidate` milestone
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  update-milestone:
+    runs-on: ubuntu-latest
+    name: Assign to release-candidate milestone
+    steps:
+      - name: Set Milestone for Issue
+        uses: hustcer/milestone-action@v2
+        if: github.event.issue.state == 'closed'
+        with:
+          action: bind-issue
+          milestone: release-candidate
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT }}
