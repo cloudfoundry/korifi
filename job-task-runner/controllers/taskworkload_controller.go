@@ -91,6 +91,10 @@ func (r *TaskWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Bui
 func (r *TaskWorkloadReconciler) ReconcileResource(ctx context.Context, taskWorkload *korifiv1alpha1.TaskWorkload) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
+	if !taskWorkload.GetDeletionTimestamp().IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	taskWorkload.Status.ObservedGeneration = taskWorkload.Generation
 	log.V(1).Info("set observed generation", "generation", taskWorkload.Status.ObservedGeneration)
 

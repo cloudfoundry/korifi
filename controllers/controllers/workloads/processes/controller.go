@@ -126,6 +126,10 @@ func (r *Reconciler) enqueueCFProcessRequestsForRoute(ctx context.Context, o cli
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
+	if !cfProcess.GetDeletionTimestamp().IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	cfProcess.Status.ObservedGeneration = cfProcess.Generation
 	log.V(1).Info("set observed generation", "generation", cfProcess.Status.ObservedGeneration)
 

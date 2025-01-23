@@ -126,6 +126,26 @@ var _ = Describe("CFBuildReconciler", func() {
 		}).Should(Succeed())
 	})
 
+	When("the build is being deleted gracefully", func() {
+		BeforeEach(func() {
+			cfBuild.Finalizers = []string{"do-not-delete-yet"}
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sManager.GetClient().Delete(ctx, cfBuild)).To(Succeed())
+			Expect(k8s.Patch(ctx, adminClient, cfBuild, func() {
+				cfBuild.Spec.StagingDiskMB = 345
+			})).To(Succeed())
+		})
+
+		It("does not reconcile the build", func() {
+			Consistently(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
+				g.Expect(cfBuild.Status.ObservedGeneration).NotTo(Equal(cfBuild.Generation))
+			}).Should(Succeed())
+		})
+	})
+
 	Describe("package type and build type mismatch", func() {
 		When("the package type is bits and build type is docker", func() {
 			BeforeEach(func() {
