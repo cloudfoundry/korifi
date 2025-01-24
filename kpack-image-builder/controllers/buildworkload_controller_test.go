@@ -63,7 +63,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 
 		clusterBuilder = &buildv1alpha2.ClusterBuilder{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "cf-kpack-builder",
+				Name: clusterBuilderName,
 			},
 			Spec: buildv1alpha2.ClusterBuilderSpec{
 				BuilderSpec: buildv1alpha2.BuilderSpec{
@@ -212,7 +212,7 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					g.Expect(kpackImage.Spec.Build.Resources.Requests.Memory().String()).To(Equal(fmt.Sprintf("%dM", 1234)))
 
 					g.Expect(kpackImage.Spec.Builder.Kind).To(Equal("ClusterBuilder"))
-					g.Expect(kpackImage.Spec.Builder.Name).To(Equal("cf-kpack-builder")) // default builder
+					g.Expect(kpackImage.Spec.Builder.Name).To(Equal(clusterBuilder.Name)) // default builder
 					g.Expect(kpackImage.Spec.Cache.Volume.Size.Equal(resource.MustParse(expectedCacheVolumeSize))).To(BeTrue())
 				}).Should(Succeed())
 			})

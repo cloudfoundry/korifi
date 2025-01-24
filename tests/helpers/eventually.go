@@ -12,7 +12,7 @@ import (
 func EventuallyShouldHold(condition func(g Gomega)) {
 	GinkgoHelper()
 
-	Eventually(condition).WithTimeout(EventuallyTimeout()).Should(Succeed())
+	Eventually(condition).Should(Succeed())
 	Consistently(condition).Should(Succeed())
 }
 
