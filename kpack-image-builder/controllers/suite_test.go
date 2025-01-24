@@ -32,6 +32,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	controllersconfig "code.cloudfoundry.org/korifi/controllers/config"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -51,10 +52,6 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-const (
-	clusterBuilderName = "my-amazing-cluster-builder"
-)
-
 var (
 	ctx                     context.Context
 	stopManager             context.CancelFunc
@@ -67,6 +64,7 @@ var (
 	rootNamespace           *v1.Namespace
 	imageRepoCreator        *fake.RepositoryCreator
 	k8sManager              manager.Manager
+	clusterBuilderName      string
 )
 
 func TestAPIs(t *testing.T) {
@@ -103,14 +101,42 @@ var _ = BeforeSuite(func() {
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	k8sManager = helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "kpack-image-builder", "role.yaml"))
+	testEnvClient, err := client.New(testEnv.Config, client.Options{
+		Scheme: scheme.Scheme,
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	// create a test storage class that can't be resized
+	Expect(testEnvClient.Create(ctx, &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "non-resizable-class",
+		},
+		Provisioner:          "some-fancy-provisioner",
+		AllowVolumeExpansion: tools.PtrTo(false),
+	})).To(Succeed())
+})
+
+var _ = AfterSuite(func() {
+	Expect(testEnv.Stop()).To(Succeed())
+})
+
+var _ = BeforeEach(func() {
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
+	k8sManager = helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "kpack-image-builder", "role.yaml"))
 
 	finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(k8sManager)
 
+	rootNamespace = &v1.Namespace{
+		ObjectMeta: ctrl.ObjectMeta{
+			Name: uuid.NewString(),
+		},
+	}
+	Expect(adminClient.Create(ctx, rootNamespace)).To(Succeed())
+
+	clusterBuilderName = uuid.NewString()
 	controllerConfig := &config.Config{
-		CFRootNamespace:           PrefixedGUID("cf"),
-		ClusterBuilderName:        "cf-kpack-builder",
+		CFRootNamespace:           rootNamespace.Name,
+		ClusterBuilderName:        clusterBuilderName,
 		BuilderServiceAccount:     "builder-service-account",
 		BuilderReadinessTimeout:   4 * time.Second,
 		ContainerRepositoryPrefix: "my.repository/my-prefix/",
@@ -131,9 +157,8 @@ var _ = BeforeSuite(func() {
 		fakeImageConfigGetter,
 		imageRepoCreator,
 	)
-	err = buildWorkloadReconciler.SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
 
+	Expect(buildWorkloadReconciler.SetupWithManager(k8sManager)).To(Succeed())
 	Expect(
 		controllers.NewBuilderInfoReconciler(
 			k8sManager.GetClient(),
@@ -151,30 +176,12 @@ var _ = BeforeSuite(func() {
 		fakeImageDeleter,
 		"builder-service-account",
 	)
-	err = kpackBuildReconciler.SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(kpackBuildReconciler.SetupWithManager(k8sManager)).To(Succeed())
 
 	stopManager = helpers.StartK8sManager(k8sManager)
-
-	rootNamespace = &v1.Namespace{
-		ObjectMeta: ctrl.ObjectMeta{
-			Name: controllerConfig.CFRootNamespace,
-		},
-	}
-	Expect(adminClient.Create(ctx, rootNamespace)).To(Succeed())
-
-	// create a test storage class that can't be resized
-	Expect(adminClient.Create(ctx, &storagev1.StorageClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "non-resizable-class",
-		},
-		Provisioner:          "some-fancy-provisioner",
-		AllowVolumeExpansion: tools.PtrTo(false),
-	})).To(Succeed())
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterEach(func() {
 	stopClientCache()
 	stopManager()
-	Expect(testEnv.Stop()).To(Succeed())
 })
