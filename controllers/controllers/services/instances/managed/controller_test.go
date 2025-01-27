@@ -1,7 +1,6 @@
 package managed_test
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -23,7 +22,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ = Describe("CFServiceInstance", func() {
@@ -108,12 +106,6 @@ var _ = Describe("CFServiceInstance", func() {
 		}
 		Expect(adminClient.Create(ctx, servicePlan)).To(Succeed())
 
-		params := map[string]string{
-			"param-key": "param-value",
-		}
-		paramBytes, err := json.Marshal(params)
-		Expect(err).NotTo(HaveOccurred())
-
 		instance = &korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
@@ -126,9 +118,6 @@ var _ = Describe("CFServiceInstance", func() {
 				DisplayName: "service-instance-name",
 				Type:        korifiv1alpha1.ManagedType,
 				PlanGUID:    servicePlan.Name,
-				Parameters: &runtime.RawExtension{
-					Raw: paramBytes,
-				},
 			},
 		}
 
@@ -191,9 +180,6 @@ var _ = Describe("CFServiceInstance", func() {
 					PlanID:    "service-plan-id",
 					SpaceGUID: "space-guid",
 					OrgGUID:   "org-guid",
-					Parameters: map[string]any{
-						"param-key": "param-value",
-					},
 				},
 			}))
 		}).Should(Succeed())
@@ -213,7 +199,7 @@ var _ = Describe("CFServiceInstance", func() {
 	When("the service instance parameters are not set", func() {
 		BeforeEach(func() {
 			Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
-				instance.Spec.Parameters = nil
+				instance.Spec.Parameters.Name = ""
 			})).To(Succeed())
 		})
 
@@ -280,6 +266,56 @@ var _ = Describe("CFServiceInstance", func() {
 					HasStatus(Equal(metav1.ConditionFalse)),
 				)))
 			}).Should(Succeed())
+		})
+	})
+
+	When("the instance has parameters", func() {
+		var paramsSecret *corev1.Secret
+
+		BeforeEach(func() {
+			paramsSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: instance.Namespace,
+					Name:      uuid.NewString(),
+				},
+				Data: map[string][]byte{
+					tools.ParametersSecretKey: []byte(`{"p1":"p1-value"}`),
+				},
+			}
+			Expect(adminClient.Create(ctx, paramsSecret)).To(Succeed())
+
+			Expect(k8s.Patch(ctx, adminClient, instance, func() {
+				instance.Spec.Parameters.Name = paramsSecret.Name
+			})).To(Succeed())
+		})
+
+		It("sends them to the broker on provision", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(brokerClient.ProvisionCallCount()).To(BeNumerically(">", 0))
+				_, payload := brokerClient.ProvisionArgsForCall(0)
+				g.Expect(payload.Parameters).To(Equal(map[string]any{
+					"p1": "p1-value",
+				}))
+			}).Should(Succeed())
+		})
+
+		When("the parameters secret does not exist", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+					instance.Spec.Parameters.Name = "not-valid"
+				})).To(Succeed())
+			})
+
+			It("sets the ready condition to false", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("InvalidParameters")),
+					)))
+				}).Should(Succeed())
+			})
 		})
 	})
 
@@ -431,9 +467,6 @@ var _ = Describe("CFServiceInstance", func() {
 						PlanID:    "service-plan-id",
 						SpaceGUID: "space-guid",
 						OrgGUID:   "org-guid",
-						Parameters: map[string]any{
-							"param-key": "param-value",
-						},
 					},
 				}))
 			}).Should(Succeed())

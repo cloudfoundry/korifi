@@ -197,9 +197,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				PlanGUID:  servicePlan.Name,
 				Tags:      []string{"foo", "bar"},
 				Parameters: map[string]any{
-					"p1": map[string]any{
-						"p11": "v11",
-					},
+					"p11": "v11",
 				},
 			}
 		})
@@ -249,15 +247,33 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(cfServiceInstance.Spec.Type).To(BeEquivalentTo(korifiv1alpha1.ManagedType))
 				Expect(cfServiceInstance.Spec.Tags).To(ConsistOf("foo", "bar"))
 				Expect(cfServiceInstance.Spec.PlanGUID).To(Equal(servicePlan.Name))
-				Expect(cfServiceInstance.Spec.Parameters).NotTo(BeNil())
+				Expect(cfServiceInstance.Spec.Parameters.Name).NotTo(BeNil())
+			})
 
-				actualParams := map[string]any{}
-				Expect(json.Unmarshal(cfServiceInstance.Spec.Parameters.Raw, &actualParams)).To(Succeed())
-				Expect(actualParams).To(Equal(map[string]any{
-					"p1": map[string]any{
-						"p11": "v11",
+			It("creates the parameters secret", func() {
+				serviceInstance := new(korifiv1alpha1.CFServiceInstance)
+				Expect(
+					k8sClient.Get(ctx, types.NamespacedName{Name: record.GUID, Namespace: space.Name}, serviceInstance),
+				).To(Succeed())
+
+				paramsSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: serviceInstance.Namespace,
+						Name:      serviceInstance.Spec.Parameters.Name,
 					},
+				}
+				Expect(
+					k8sClient.Get(ctx, client.ObjectKeyFromObject(paramsSecret), paramsSecret),
+				).To(Succeed())
+
+				Expect(paramsSecret.Data).To(Equal(map[string][]byte{
+					tools.ParametersSecretKey: []byte(`{"p11":"v11"}`),
 				}))
+
+				Expect(paramsSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"Kind": Equal("CFServiceInstance"),
+					"Name": Equal(serviceInstance.Name),
+				})))
 			})
 
 			When("the service plan visibility type is admin", func() {

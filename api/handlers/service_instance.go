@@ -133,7 +133,7 @@ func (h *ServiceInstance) create(r *http.Request) (*routing.Response, error) {
 		)
 	}
 
-	if payload.Type == "managed" {
+	if payload.Type == korifiv1alpha1.ManagedType {
 		return h.createManagedServiceInstance(r.Context(), logger, authInfo, payload)
 	}
 

@@ -18,7 +18,6 @@ package managed
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"time"
@@ -191,11 +190,10 @@ func (r *Reconciler) provisionServiceInstance(
 ) (osbapi.ProvisionResponse, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("provision-service-instance")
 
-	parametersMap, err := getServiceInstanceParameters(serviceInstance)
+	parametersMap, err := r.getServiceInstanceParameters(ctx, serviceInstance)
 	if err != nil {
 		log.Error(err, "failed to get service instance parameters")
-		return osbapi.ProvisionResponse{},
-			fmt.Errorf("failed to get service instance parameters: %w", err)
+		return osbapi.ProvisionResponse{}, k8s.NewNotReadyError().WithReason("InvalidParameters")
 	}
 
 	namespace, err := r.getNamespace(ctx, serviceInstance.Namespace)
@@ -386,18 +384,24 @@ func (r *Reconciler) pollLastOperation(
 	return lastOpResponse, nil
 }
 
-func getServiceInstanceParameters(serviceInstance *korifiv1alpha1.CFServiceInstance) (map[string]any, error) {
-	if serviceInstance.Spec.Parameters == nil {
+func (r *Reconciler) getServiceInstanceParameters(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance) (map[string]any, error) {
+	if serviceInstance.Spec.Parameters.Name == "" {
 		return nil, nil
 	}
 
-	parametersMap := map[string]any{}
-	err := json.Unmarshal(serviceInstance.Spec.Parameters.Raw, &parametersMap)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal parameters: %w", err)
+	paramsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: serviceInstance.Namespace,
+			Name:      serviceInstance.Spec.Parameters.Name,
+		},
 	}
 
-	return parametersMap, nil
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(paramsSecret), paramsSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return tools.FromParametersSecretData(paramsSecret.Data)
 }
 
 func (r *Reconciler) isServicePlanVisible(

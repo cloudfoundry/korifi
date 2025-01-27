@@ -22,7 +22,6 @@ import (
 	"code.cloudfoundry.org/korifi/model/services"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -57,7 +56,7 @@ type CFServiceInstanceSpec struct {
 
 	PlanGUID string `json:"plan_guid"`
 
-	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+	Parameters corev1.LocalObjectReference `json:"parameters,omitempty"`
 }
 
 // InstanceType defines the type of the Service Instance

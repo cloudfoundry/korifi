@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -25,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -237,11 +235,6 @@ func (r *ServiceInstanceRepo) CreateManagedServiceInstance(ctx context.Context, 
 		return ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(nil, "Invalid service plan. Ensure that the service plan exists, is available, and you have access to it.")
 	}
 
-	parameterBytes, err := json.Marshal(message.Parameters)
-	if err != nil {
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to marshal parameters: %w", err)
-	}
-
 	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        uuid.NewString(),
@@ -254,17 +247,42 @@ func (r *ServiceInstanceRepo) CreateManagedServiceInstance(ctx context.Context, 
 			Type:        korifiv1alpha1.ManagedType,
 			PlanGUID:    message.PlanGUID,
 			Tags:        message.Tags,
-			Parameters: &runtime.RawExtension{
-				Raw: parameterBytes,
+			Parameters: corev1.LocalObjectReference{
+				Name: uuid.NewString(),
 			},
 		},
 	}
+
 	err = userClient.Create(ctx, cfServiceInstance)
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
+	err = r.createParametersSecret(ctx, userClient, cfServiceInstance, message.Parameters)
+	if err != nil {
+		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
+	}
+
 	return cfServiceInstanceToRecord(*cfServiceInstance), nil
+}
+
+func (r *ServiceInstanceRepo) createParametersSecret(ctx context.Context, userClient client.Client, cfServiceInstance *korifiv1alpha1.CFServiceInstance, parameters map[string]any) error {
+	parametersData, err := tools.ToParametersSecretData(parameters)
+	if err != nil {
+		return err
+	}
+
+	paramsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceInstance.Namespace,
+			Name:      cfServiceInstance.Spec.Parameters.Name,
+		},
+		Data: parametersData,
+	}
+
+	_ = controllerutil.SetOwnerReference(cfServiceInstance, paramsSecret, scheme.Scheme)
+
+	return userClient.Create(ctx, paramsSecret)
 }
 
 func (r *ServiceInstanceRepo) servicePlanVisible(ctx context.Context, userClient client.Client, planGUID string, spaceGUID string) (bool, error) {

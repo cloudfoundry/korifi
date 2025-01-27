@@ -84,6 +84,18 @@ var _ = Describe("Secrets", func() {
 					Expect(decodeErr).To(MatchError(ContainSubstring("failed to get credentials")))
 				})
 			})
+
+			When("the secret data is invalid", func() {
+				BeforeEach(func() {
+					secretData = map[string][]byte{
+						"foo": []byte("invalid-json"),
+					}
+				})
+
+				It("returns an error", func() {
+					Expect(decodeErr).To(MatchError(ContainSubstring("failed to get credentials")))
+				})
+			})
 		})
 	})
 
