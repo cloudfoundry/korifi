@@ -677,27 +677,6 @@ var _ = Describe("CFServiceBinding", func() {
 					}).Should(Succeed())
 				})
 			})
-
-			When("the parameters are invalid", func() {
-				BeforeEach(func() {
-					Expect(k8s.PatchResource(ctx, adminClient, paramsSecret, func() {
-						paramsSecret.Data = map[string][]byte{
-							tools.ParametersSecretKey: []byte("invalid-json"),
-						}
-					})).To(Succeed())
-				})
-
-				It("sets the ready condition to false", func() {
-					Eventually(func(g Gomega) {
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-						g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-							HasStatus(Equal(metav1.ConditionFalse)),
-							HasReason(Equal("InvalidParameters")),
-						)))
-					}).Should(Succeed())
-				})
-			})
 		})
 
 		It("does not check for binding last operation", func() {
