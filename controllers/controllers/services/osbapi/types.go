@@ -118,6 +118,10 @@ type BindResponse struct {
 	IsAsync     bool
 }
 
+type BindingResponse struct {
+	Parameters map[string]any `json:"parameters"`
+}
+
 type BindResource struct {
 	AppGUID string `json:"app_guid"`
 }

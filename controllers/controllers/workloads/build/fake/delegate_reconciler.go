@@ -7,13 +7,12 @@ import (
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/build"
+	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type DelegateReconciler struct {
-	ReconcileBuildStub        func(context.Context, *v1alpha1.CFBuild, *v1alpha1.CFApp, *v1alpha1.CFPackage) (reconcile.Result, error)
+	ReconcileBuildStub        func(context.Context, *v1alpha1.CFBuild, *v1alpha1.CFApp, *v1alpha1.CFPackage) (controllerruntime.Result, error)
 	reconcileBuildMutex       sync.RWMutex
 	reconcileBuildArgsForCall []struct {
 		arg1 context.Context
@@ -22,17 +21,17 @@ type DelegateReconciler struct {
 		arg4 *v1alpha1.CFPackage
 	}
 	reconcileBuildReturns struct {
-		result1 reconcile.Result
+		result1 controllerruntime.Result
 		result2 error
 	}
 	reconcileBuildReturnsOnCall map[int]struct {
-		result1 reconcile.Result
+		result1 controllerruntime.Result
 		result2 error
 	}
-	SetupWithManagerStub        func(manager.Manager) *builder.Builder
+	SetupWithManagerStub        func(controllerruntime.Manager) *builder.Builder
 	setupWithManagerMutex       sync.RWMutex
 	setupWithManagerArgsForCall []struct {
-		arg1 manager.Manager
+		arg1 controllerruntime.Manager
 	}
 	setupWithManagerReturns struct {
 		result1 *builder.Builder
@@ -44,7 +43,7 @@ type DelegateReconciler struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *DelegateReconciler) ReconcileBuild(arg1 context.Context, arg2 *v1alpha1.CFBuild, arg3 *v1alpha1.CFApp, arg4 *v1alpha1.CFPackage) (reconcile.Result, error) {
+func (fake *DelegateReconciler) ReconcileBuild(arg1 context.Context, arg2 *v1alpha1.CFBuild, arg3 *v1alpha1.CFApp, arg4 *v1alpha1.CFPackage) (controllerruntime.Result, error) {
 	fake.reconcileBuildMutex.Lock()
 	ret, specificReturn := fake.reconcileBuildReturnsOnCall[len(fake.reconcileBuildArgsForCall)]
 	fake.reconcileBuildArgsForCall = append(fake.reconcileBuildArgsForCall, struct {
@@ -72,7 +71,7 @@ func (fake *DelegateReconciler) ReconcileBuildCallCount() int {
 	return len(fake.reconcileBuildArgsForCall)
 }
 
-func (fake *DelegateReconciler) ReconcileBuildCalls(stub func(context.Context, *v1alpha1.CFBuild, *v1alpha1.CFApp, *v1alpha1.CFPackage) (reconcile.Result, error)) {
+func (fake *DelegateReconciler) ReconcileBuildCalls(stub func(context.Context, *v1alpha1.CFBuild, *v1alpha1.CFApp, *v1alpha1.CFPackage) (controllerruntime.Result, error)) {
 	fake.reconcileBuildMutex.Lock()
 	defer fake.reconcileBuildMutex.Unlock()
 	fake.ReconcileBuildStub = stub
@@ -85,37 +84,37 @@ func (fake *DelegateReconciler) ReconcileBuildArgsForCall(i int) (context.Contex
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
-func (fake *DelegateReconciler) ReconcileBuildReturns(result1 reconcile.Result, result2 error) {
+func (fake *DelegateReconciler) ReconcileBuildReturns(result1 controllerruntime.Result, result2 error) {
 	fake.reconcileBuildMutex.Lock()
 	defer fake.reconcileBuildMutex.Unlock()
 	fake.ReconcileBuildStub = nil
 	fake.reconcileBuildReturns = struct {
-		result1 reconcile.Result
+		result1 controllerruntime.Result
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *DelegateReconciler) ReconcileBuildReturnsOnCall(i int, result1 reconcile.Result, result2 error) {
+func (fake *DelegateReconciler) ReconcileBuildReturnsOnCall(i int, result1 controllerruntime.Result, result2 error) {
 	fake.reconcileBuildMutex.Lock()
 	defer fake.reconcileBuildMutex.Unlock()
 	fake.ReconcileBuildStub = nil
 	if fake.reconcileBuildReturnsOnCall == nil {
 		fake.reconcileBuildReturnsOnCall = make(map[int]struct {
-			result1 reconcile.Result
+			result1 controllerruntime.Result
 			result2 error
 		})
 	}
 	fake.reconcileBuildReturnsOnCall[i] = struct {
-		result1 reconcile.Result
+		result1 controllerruntime.Result
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *DelegateReconciler) SetupWithManager(arg1 manager.Manager) *builder.Builder {
+func (fake *DelegateReconciler) SetupWithManager(arg1 controllerruntime.Manager) *builder.Builder {
 	fake.setupWithManagerMutex.Lock()
 	ret, specificReturn := fake.setupWithManagerReturnsOnCall[len(fake.setupWithManagerArgsForCall)]
 	fake.setupWithManagerArgsForCall = append(fake.setupWithManagerArgsForCall, struct {
-		arg1 manager.Manager
+		arg1 controllerruntime.Manager
 	}{arg1})
 	stub := fake.SetupWithManagerStub
 	fakeReturns := fake.setupWithManagerReturns
@@ -136,13 +135,13 @@ func (fake *DelegateReconciler) SetupWithManagerCallCount() int {
 	return len(fake.setupWithManagerArgsForCall)
 }
 
-func (fake *DelegateReconciler) SetupWithManagerCalls(stub func(manager.Manager) *builder.Builder) {
+func (fake *DelegateReconciler) SetupWithManagerCalls(stub func(controllerruntime.Manager) *builder.Builder) {
 	fake.setupWithManagerMutex.Lock()
 	defer fake.setupWithManagerMutex.Unlock()
 	fake.SetupWithManagerStub = stub
 }
 
-func (fake *DelegateReconciler) SetupWithManagerArgsForCall(i int) manager.Manager {
+func (fake *DelegateReconciler) SetupWithManagerArgsForCall(i int) controllerruntime.Manager {
 	fake.setupWithManagerMutex.RLock()
 	defer fake.setupWithManagerMutex.RUnlock()
 	argsForCall := fake.setupWithManagerArgsForCall[i]
