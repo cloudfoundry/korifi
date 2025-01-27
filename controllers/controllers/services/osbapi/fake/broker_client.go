@@ -50,18 +50,18 @@ type BrokerClient struct {
 		result1 osbapi.Catalog
 		result2 error
 	}
-	GetServiceBindingStub        func(context.Context, osbapi.GetBindingRequest) (osbapi.GetBindingResponse, error)
+	GetServiceBindingStub        func(context.Context, osbapi.BindPayload) (osbapi.BindingResponse, error)
 	getServiceBindingMutex       sync.RWMutex
 	getServiceBindingArgsForCall []struct {
 		arg1 context.Context
-		arg2 osbapi.GetBindingRequest
+		arg2 osbapi.BindPayload
 	}
 	getServiceBindingReturns struct {
-		result1 osbapi.GetBindingResponse
+		result1 osbapi.BindingResponse
 		result2 error
 	}
 	getServiceBindingReturnsOnCall map[int]struct {
-		result1 osbapi.GetBindingResponse
+		result1 osbapi.BindingResponse
 		result2 error
 	}
 	GetServiceBindingLastOperationStub        func(context.Context, osbapi.GetBindingLastOperationRequest) (osbapi.LastOperationResponse, error)
@@ -318,12 +318,12 @@ func (fake *BrokerClient) GetCatalogReturnsOnCall(i int, result1 osbapi.Catalog,
 	}{result1, result2}
 }
 
-func (fake *BrokerClient) GetServiceBinding(arg1 context.Context, arg2 osbapi.GetBindingRequest) (osbapi.GetBindingResponse, error) {
+func (fake *BrokerClient) GetServiceBinding(arg1 context.Context, arg2 osbapi.BindPayload) (osbapi.BindingResponse, error) {
 	fake.getServiceBindingMutex.Lock()
 	ret, specificReturn := fake.getServiceBindingReturnsOnCall[len(fake.getServiceBindingArgsForCall)]
 	fake.getServiceBindingArgsForCall = append(fake.getServiceBindingArgsForCall, struct {
 		arg1 context.Context
-		arg2 osbapi.GetBindingRequest
+		arg2 osbapi.BindPayload
 	}{arg1, arg2})
 	stub := fake.GetServiceBindingStub
 	fakeReturns := fake.getServiceBindingReturns
@@ -344,41 +344,41 @@ func (fake *BrokerClient) GetServiceBindingCallCount() int {
 	return len(fake.getServiceBindingArgsForCall)
 }
 
-func (fake *BrokerClient) GetServiceBindingCalls(stub func(context.Context, osbapi.GetBindingRequest) (osbapi.GetBindingResponse, error)) {
+func (fake *BrokerClient) GetServiceBindingCalls(stub func(context.Context, osbapi.BindPayload) (osbapi.BindingResponse, error)) {
 	fake.getServiceBindingMutex.Lock()
 	defer fake.getServiceBindingMutex.Unlock()
 	fake.GetServiceBindingStub = stub
 }
 
-func (fake *BrokerClient) GetServiceBindingArgsForCall(i int) (context.Context, osbapi.GetBindingRequest) {
+func (fake *BrokerClient) GetServiceBindingArgsForCall(i int) (context.Context, osbapi.BindPayload) {
 	fake.getServiceBindingMutex.RLock()
 	defer fake.getServiceBindingMutex.RUnlock()
 	argsForCall := fake.getServiceBindingArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *BrokerClient) GetServiceBindingReturns(result1 osbapi.GetBindingResponse, result2 error) {
+func (fake *BrokerClient) GetServiceBindingReturns(result1 osbapi.BindingResponse, result2 error) {
 	fake.getServiceBindingMutex.Lock()
 	defer fake.getServiceBindingMutex.Unlock()
 	fake.GetServiceBindingStub = nil
 	fake.getServiceBindingReturns = struct {
-		result1 osbapi.GetBindingResponse
+		result1 osbapi.BindingResponse
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *BrokerClient) GetServiceBindingReturnsOnCall(i int, result1 osbapi.GetBindingResponse, result2 error) {
+func (fake *BrokerClient) GetServiceBindingReturnsOnCall(i int, result1 osbapi.BindingResponse, result2 error) {
 	fake.getServiceBindingMutex.Lock()
 	defer fake.getServiceBindingMutex.Unlock()
 	fake.GetServiceBindingStub = nil
 	if fake.getServiceBindingReturnsOnCall == nil {
 		fake.getServiceBindingReturnsOnCall = make(map[int]struct {
-			result1 osbapi.GetBindingResponse
+			result1 osbapi.BindingResponse
 			result2 error
 		})
 	}
 	fake.getServiceBindingReturnsOnCall[i] = struct {
-		result1 osbapi.GetBindingResponse
+		result1 osbapi.BindingResponse
 		result2 error
 	}{result1, result2}
 }

@@ -298,6 +298,36 @@ func (c *Client) Unbind(ctx context.Context, payload UnbindPayload) (UnbindRespo
 	return response, nil
 }
 
+func (c *Client) GetServiceBinding(ctx context.Context, payload BindPayload) (BindingResponse, error) {
+	statusCode, respBytes, err := c.newBrokerRequester().
+		forBroker(c.broker).
+		sendRequest(
+			ctx,
+			"/v2/service_instances/"+payload.InstanceID+"/service_bindings/"+payload.BindingID,
+			http.MethodGet,
+			map[string]string{
+				"service_id": payload.ServiceId,
+				"plan_id":    payload.PlanID,
+			},
+			nil,
+		)
+	if err != nil {
+		return BindingResponse{}, fmt.Errorf("fetching service binding failed: %w", err)
+	}
+
+	if statusCode == http.StatusNotFound {
+		return BindingResponse{}, UnrecoverableError{Status: statusCode}
+	}
+
+	response := BindingResponse{}
+	err = json.Unmarshal(respBytes, &response)
+	if err != nil {
+		return BindingResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return response, nil
+}
+
 func payloadToReader(payload any) (io.Reader, error) {
 	if payload == nil {
 		return nil, nil
