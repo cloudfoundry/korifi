@@ -43,7 +43,7 @@ const (
 )
 
 type DelegateReconciler interface {
-	ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error)
+	ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error)
 }
 
 type Reconciler struct {
@@ -151,10 +151,10 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 
 func (r *Reconciler) reconcileByType(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
 	if cfServiceInstance.Spec.Type == korifiv1alpha1.UserProvidedType {
-		return r.upsiReconciler.ReconcileResource(ctx, cfServiceBinding, cfServiceInstance)
+		return r.upsiReconciler.ReconcileResource(ctx, cfServiceBinding)
 	}
 
-	return r.managedReconciler.ReconcileResource(ctx, cfServiceBinding, cfServiceInstance)
+	return r.managedReconciler.ReconcileResource(ctx, cfServiceBinding)
 }
 
 func needsRequeue(res ctrl.Result, err error) bool {

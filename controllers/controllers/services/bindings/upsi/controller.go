@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -34,7 +35,7 @@ func NewReconciler(k8sClient client.Client, scheme *runtime.Scheme) *UPSIBinding
 	}
 }
 
-func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
 	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
@@ -43,6 +44,13 @@ func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfService
 		}
 
 		return ctrl.Result{}, nil
+	}
+
+	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
+	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
+	if err != nil {
+		log.Info("service instance not found", "service-instance", cfServiceBinding.Spec.Service.Name, "error", err)
+		return ctrl.Result{}, err
 	}
 
 	if cfServiceInstance.Status.Credentials.Name == "" {
