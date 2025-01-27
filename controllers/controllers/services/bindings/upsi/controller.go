@@ -34,7 +34,7 @@ func NewReconciler(k8sClient client.Client, scheme *runtime.Scheme) *UPSIBinding
 	}
 }
 
-func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
 	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
@@ -43,6 +43,18 @@ func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfService
 		}
 
 		return ctrl.Result{}, nil
+	}
+
+	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cfServiceBinding.Namespace,
+			Name:      cfServiceBinding.Spec.Service.Name,
+		},
+	}
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance)
+	if err != nil {
+		log.Info("service instance not found", "service-instance", cfServiceBinding.Spec.Service.Name, "error", err)
+		return ctrl.Result{}, err
 	}
 
 	if cfServiceInstance.Status.Credentials.Name == "" {
@@ -76,6 +88,16 @@ func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfService
 
 	if !sbio.IsSbServiceBindingReady(sbServiceBinding) {
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceBindingNotReady")
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *UPSIBindingReconciler) FinalizeResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalize-upsi-binding")
+
+	if controllerutil.RemoveFinalizer(cfServiceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
+		log.V(1).Info("finalizer removed")
 	}
 
 	return ctrl.Result{}, nil

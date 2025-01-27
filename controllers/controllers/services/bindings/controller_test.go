@@ -482,6 +482,21 @@ var _ = Describe("CFServiceBinding", func() {
 					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 				}).Should(Succeed())
 			})
+
+			When("the service instance is not available", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, adminClient, binding, func() {
+						binding.Spec.Service.Name = "i-do-not-exist"
+					})).To(Succeed())
+				})
+
+				It("is deleted", func() {
+					Eventually(func(g Gomega) {
+						err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+					}).Should(Succeed())
+				})
+			})
 		})
 	})
 
@@ -1104,6 +1119,10 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 
 			JustBeforeEach(func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					g.Expect(binding.Annotations).To(HaveKeyWithValue(korifiv1alpha1.ServiceInstanceTypeAnnotationKey, korifiv1alpha1.ManagedType))
+				}).Should(Succeed())
 				Expect(k8sManager.GetClient().Delete(ctx, binding)).To(Succeed())
 			})
 

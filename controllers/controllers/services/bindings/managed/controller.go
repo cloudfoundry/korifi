@@ -40,7 +40,7 @@ func NewReconciler(k8sClient client.Client, brokerClientFactory osbapi.BrokerCli
 	}
 }
 
-func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, _ *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
+func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("reconcile-managed-service-binding")
 
 	assets, err := r.assets.GetServiceBindingAssets(ctx, cfServiceBinding)
@@ -53,10 +53,6 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	if err != nil {
 		log.Error(err, "failed to create broker client", "broker", assets.ServiceBroker.Name)
 		return ctrl.Result{}, err
-	}
-
-	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFServiceBinding(ctx, cfServiceBinding, assets, osbapiClient)
 	}
 
 	if isReconciled(cfServiceBinding) {
@@ -244,13 +240,20 @@ func (r *ManagedBindingsReconciler) reconcileCredentials(ctx context.Context, cf
 	return nil
 }
 
-func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
-	ctx context.Context,
-	serviceBinding *korifiv1alpha1.CFServiceBinding,
-	assets osbapi.ServiceBindingAssets,
-	osbapiClient osbapi.BrokerClient,
-) (ctrl.Result, error) {
+func (r *ManagedBindingsReconciler) FinalizeResource(ctx context.Context, serviceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalize-managed-service-binding")
+
+	assets, err := r.assets.GetServiceBindingAssets(ctx, serviceBinding)
+	if err != nil {
+		log.Error(err, "failed to get service binding assets")
+		return ctrl.Result{}, err
+	}
+
+	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, assets.ServiceBroker)
+	if err != nil {
+		log.Error(err, "failed to create broker client", "broker", assets.ServiceBroker.Name)
+		return ctrl.Result{}, err
+	}
 
 	unbindResponse, err := r.deleteServiceBinding(ctx, serviceBinding, assets, osbapiClient)
 	if err != nil {

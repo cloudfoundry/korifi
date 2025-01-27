@@ -43,7 +43,8 @@ const (
 )
 
 type DelegateReconciler interface {
-	ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error)
+	ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error)
+	FinalizeResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error)
 }
 
 type Reconciler struct {
@@ -116,6 +117,10 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 	cfServiceBinding.Status.ObservedGeneration = cfServiceBinding.Generation
 	log.V(1).Info("set observed generation", "generation", cfServiceBinding.Status.ObservedGeneration)
 
+	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
+		return r.finalizeByType(ctx, cfServiceBinding)
+	}
+
 	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.Service.Name, Namespace: cfServiceBinding.Namespace}, cfServiceInstance)
 	if err != nil {
@@ -138,7 +143,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 		return ctrl.Result{}, err
 	}
 
-	res, err := r.reconcileByType(ctx, cfServiceInstance, cfServiceBinding)
+	res, err := r.reconcileByType(ctx, cfServiceBinding)
 	if needsRequeue(res, err) {
 		if err != nil {
 			log.Error(err, "failed to reconcile binding credentials")
@@ -149,12 +154,20 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) reconcileByType(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
-	if cfServiceInstance.Spec.Type == korifiv1alpha1.UserProvidedType {
-		return r.upsiReconciler.ReconcileResource(ctx, cfServiceBinding, cfServiceInstance)
+func (r *Reconciler) reconcileByType(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+	if cfServiceBinding.Annotations[korifiv1alpha1.ServiceInstanceTypeAnnotationKey] == korifiv1alpha1.ManagedType {
+		return r.managedReconciler.ReconcileResource(ctx, cfServiceBinding)
 	}
 
-	return r.managedReconciler.ReconcileResource(ctx, cfServiceBinding, cfServiceInstance)
+	return r.upsiReconciler.ReconcileResource(ctx, cfServiceBinding)
+}
+
+func (r *Reconciler) finalizeByType(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
+	if cfServiceBinding.Annotations[korifiv1alpha1.ServiceInstanceTypeAnnotationKey] == korifiv1alpha1.ManagedType {
+		return r.managedReconciler.FinalizeResource(ctx, cfServiceBinding)
+	}
+
+	return r.upsiReconciler.FinalizeResource(ctx, cfServiceBinding)
 }
 
 func needsRequeue(res ctrl.Result, err error) bool {
