@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Set Milestone for Issue
         uses: hustcer/milestone-action@v2
-        if: github.event.issue.state == 'closed'
+        if: github.event.issue.state == 'closed' && !contains(github.event.issue.labels.*.name, 'chore')
         with:
           action: bind-issue
           milestone: release-candidate
