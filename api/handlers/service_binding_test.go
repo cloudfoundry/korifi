@@ -397,6 +397,48 @@ var _ = Describe("ServiceBinding", func() {
 		})
 	})
 
+	Describe("GET /v3/service_credential_bindings/{guid}/parameters", func() {
+		BeforeEach(func() {
+			requestMethod = http.MethodGet
+			requestBody = ""
+			requestPath = "/v3/service_credential_bindings/service-binding-guid/parameters"
+
+			serviceBindingRepo.GetServiceBindingParametersReturns(map[string]any{
+				"foo": "val1",
+				"bar": "val2",
+			}, nil)
+		})
+
+		It("returns the service binding parameters", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.foo", "val1"),
+				MatchJSONPath("$.bar", "val2"),
+			)))
+		})
+
+		When("the service bindding repo returns an error", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.GetServiceBindingParametersReturns(map[string]any{}, errors.New("get-service-binding-error"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the user is not authorized", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.GetServiceBindingParametersReturns(map[string]any{}, apierrors.NewForbiddenError(nil, "CFServiceBinding"))
+			})
+
+			It("returns 404 NotFound", func() {
+				expectNotFoundError("CFServiceBinding")
+			})
+		})
+	})
+
 	Describe("DELETE /v3/service_credential_bindings/:guid", func() {
 		BeforeEach(func() {
 			requestMethod = "DELETE"
