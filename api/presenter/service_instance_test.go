@@ -128,4 +128,22 @@ var _ = Describe("Service Instance", func() {
 			Expect(output).To(MatchJSONPath("$.metadata.annotations", Not(BeNil())))
 		})
 	})
+
+	When("the service instance is managed", func() {
+		BeforeEach(func() {
+			record.Type = "managed"
+			record.MaintenanceInfo = services.MaintenanceInfo{
+				Version: "1.2.3",
+			}
+			record.UpgradeAvailable = true
+		})
+
+		It("returns maintenance_info", func() {
+			Expect(output).To(MatchJSONPath("$.maintenance_info.version", Equal("1.2.3")))
+		})
+
+		It("returns upgrade_available", func() {
+			Expect(output).To(MatchJSONPath("$.upgrade_available", BeTrue()))
+		})
+	})
 })

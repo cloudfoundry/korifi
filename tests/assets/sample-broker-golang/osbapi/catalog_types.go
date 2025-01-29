@@ -17,13 +17,14 @@ type Service struct {
 }
 
 type Plan struct {
-	Id          string       `json:"id"`
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Metadata    PlanMetadata `json:"metadata"`
-	Free        bool         `json:"free"`
-	Bindable    bool         `json:"bindable"`
-	Schemas     Schemas      `json:"schemas"`
+	Id              string          `json:"id"`
+	Name            string          `json:"name"`
+	Description     string          `json:"description"`
+	Metadata        PlanMetadata    `json:"metadata"`
+	Free            bool            `json:"free"`
+	Bindable        bool            `json:"bindable"`
+	Schemas         Schemas         `json:"schemas"`
+	MaintenanceInfo MaintenanceInfo `json:"maintenance_info"`
 }
 
 type PlanMetadata struct {
@@ -48,4 +49,8 @@ type ServiceBindingSchema struct {
 
 type InputParametersSchema struct {
 	parameters map[string]any `json:"parameters"`
+}
+
+type MaintenanceInfo struct {
+	Version string
 }

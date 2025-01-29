@@ -67,6 +67,9 @@ func getCatalogHandler(w http.ResponseWriter, r *http.Request) {
 				Description: "Sample plan",
 				Free:        true,
 				Bindable:    true,
+				MaintenanceInfo: osbapi.MaintenanceInfo{
+					Version: "1.2.3",
+				},
 			}},
 		}},
 	}

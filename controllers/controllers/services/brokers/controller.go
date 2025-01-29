@@ -235,7 +235,8 @@ func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *
 						Bindable:       catalogPlan.Bindable,
 					},
 				},
-				Schemas: catalogPlan.Schemas,
+				Schemas:         catalogPlan.Schemas,
+				MaintenanceInfo: catalogPlan.MaintenanceInfo,
 			},
 			Visibility: korifiv1alpha1.ServicePlanVisibility{
 				Type: visibilityType,

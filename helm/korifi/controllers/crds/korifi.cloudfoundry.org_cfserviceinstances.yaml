@@ -197,11 +197,25 @@ spec:
                 - state
                 - type
                 type: object
+              maintenance_info:
+                description: The service instance maintenance info. Only makes seense
+                  for managed service instances
+                properties:
+                  version:
+                    type: string
+                required:
+                - version
+                type: object
               observedGeneration:
                 description: ObservedGeneration captures the latest generation of
                   the CFServiceInstance that has been reconciled
                 format: int64
                 type: integer
+              upgrade_available:
+                description: True if there is an upgrade available for for the service
+                  instance (i.e. the plan has a new version). Only makes seense for
+                  managed service instances
+                type: boolean
             type: object
         type: object
     served: true

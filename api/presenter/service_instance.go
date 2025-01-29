@@ -5,6 +5,8 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -21,12 +23,14 @@ type ServiceInstanceResponse struct {
 	RouteServiceURL *string       `json:"route_service_url"`
 	SyslogDrainURL  *string       `json:"syslog_drain_url"`
 
-	CreatedAt     string                             `json:"created_at"`
-	UpdatedAt     string                             `json:"updated_at"`
-	Relationships map[string]model.ToOneRelationship `json:"relationships"`
-	Metadata      Metadata                           `json:"metadata"`
-	Links         ServiceInstanceLinks               `json:"links"`
-	Included      map[string][]any                   `json:"included,omitempty"`
+	CreatedAt        string                             `json:"created_at"`
+	UpdatedAt        string                             `json:"updated_at"`
+	Relationships    map[string]model.ToOneRelationship `json:"relationships"`
+	Metadata         Metadata                           `json:"metadata"`
+	Links            ServiceInstanceLinks               `json:"links"`
+	Included         map[string][]any                   `json:"included,omitempty"`
+	MaintenanceInfo  *services.MaintenanceInfo          `json:"maintenance_info,omitempty"`
+	UpgradeAvailable *bool                              `json:"upgrade_available,omitempty"`
 }
 
 type lastOperation struct {
@@ -46,7 +50,7 @@ type ServiceInstanceLinks struct {
 }
 
 func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord, baseURL url.URL, includes ...model.IncludedResource) ServiceInstanceResponse {
-	return ServiceInstanceResponse{
+	response := ServiceInstanceResponse{
 		Name: serviceInstanceRecord.Name,
 		GUID: serviceInstanceRecord.GUID,
 		Type: serviceInstanceRecord.Type,
@@ -84,4 +88,11 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 		},
 		Included: includedResources(includes...),
 	}
+
+	if serviceInstanceRecord.Type == "managed" {
+		response.MaintenanceInfo = tools.PtrTo(serviceInstanceRecord.MaintenanceInfo)
+		response.UpgradeAvailable = tools.PtrTo(serviceInstanceRecord.UpgradeAvailable)
+	}
+
+	return response
 }
