@@ -40,6 +40,7 @@ type Plan struct {
 	BindingRotatable bool                        `json:"binding_rotatable"`
 	PlanUpdateable   bool                        `json:"plan_updateable"`
 	Schemas          services.ServicePlanSchemas `json:"schemas"`
+	MaintenanceInfo  services.MaintenanceInfo    `json:"maintenance_info"`
 }
 
 type ProvisionPayload struct {

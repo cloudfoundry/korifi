@@ -101,6 +101,9 @@ var _ = Describe("CFServiceInstance", func() {
 					BrokerCatalog: services.ServicePlanBrokerCatalog{
 						ID: "service-plan-id",
 					},
+					MaintenanceInfo: services.MaintenanceInfo{
+						Version: "1.2.3",
+					},
 				},
 			},
 		}
@@ -145,6 +148,22 @@ var _ = Describe("CFServiceInstance", func() {
 		Eventually(func(g Gomega) {
 			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 			g.Expect(instance.Spec.ServiceLabel).To(PointTo(Equal("service-offering-name")))
+		}).Should(Succeed())
+	})
+
+	It("sets the plan maintenance info in the status", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+			g.Expect(instance.Status.MaintenanceInfo).To(Equal(services.MaintenanceInfo{
+				Version: "1.2.3",
+			}))
+		}).Should(Succeed())
+	})
+
+	It("sets upgrage available to false in the status", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+			g.Expect(instance.Status.UpgradeAvailable).To(BeFalse())
 		}).Should(Succeed())
 	})
 
@@ -523,6 +542,7 @@ var _ = Describe("CFServiceInstance", func() {
 	When("the instance has become ready", func() {
 		BeforeEach(func() {
 			Expect(k8s.Patch(ctx, adminClient, instance, func() {
+				instance.Status.MaintenanceInfo.Version = "1.2.3"
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:   korifiv1alpha1.StatusConditionReady,
 					Status: metav1.ConditionTrue,
@@ -563,6 +583,28 @@ var _ = Describe("CFServiceInstance", func() {
 				Consistently(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 					g.Expect(meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
+				}).Should(Succeed())
+			})
+		})
+
+		When("the service plan has a new version", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, servicePlan, func() {
+					servicePlan.Spec.MaintenanceInfo.Version = "2.3.4"
+				})).To(Succeed())
+			})
+
+			It("preserves the maintenance info", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status.MaintenanceInfo.Version).To(Equal("1.2.3"))
+				}).Should(Succeed())
+			})
+
+			It("sets upgradeAvailable to true", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status.UpgradeAvailable).To(BeTrue())
 				}).Should(Succeed())
 			})
 		})

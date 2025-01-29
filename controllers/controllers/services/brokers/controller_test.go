@@ -84,6 +84,9 @@ var _ = Describe("CFServiceBroker", func() {
 							},
 						},
 					},
+					MaintenanceInfo: services.MaintenanceInfo{
+						Version: "1.2.3",
+					},
 				}},
 			}},
 		}, nil)
@@ -232,6 +235,9 @@ var _ = Describe("CFServiceBroker", func() {
 								})),
 							}),
 						}),
+					}),
+					"MaintenanceInfo": Equal(services.MaintenanceInfo{
+						Version: "1.2.3",
 					}),
 				}),
 				"Visibility": MatchAllFields(Fields{

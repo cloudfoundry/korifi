@@ -141,6 +141,8 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return r.finalizeCFServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 	}
 
+	serviceInstance.Status.UpgradeAvailable = serviceInstance.Status.MaintenanceInfo.Version != serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo.Version
+
 	if isReady(serviceInstance) {
 		return ctrl.Result{}, nil
 	}
@@ -178,6 +180,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return r.processProvisionOperation(serviceInstance, lastOpResponse)
 	}
 
+	serviceInstance.Status.MaintenanceInfo = serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo
 	serviceInstance.Status.LastOperation.State = "succeeded"
 	return ctrl.Result{}, nil
 }

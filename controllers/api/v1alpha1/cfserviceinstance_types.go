@@ -83,6 +83,14 @@ type CFServiceInstanceStatus struct {
 
 	//+kubebuilder:validation:Optional
 	LastOperation services.LastOperation `json:"last_operation"`
+
+	// The service instance maintenance info. Only makes seense for managed service instances
+	//+kubebuilder:validation:Optional
+	MaintenanceInfo services.MaintenanceInfo `json:"maintenance_info"`
+
+	// True if there is an upgrade available for for the service instance (i.e. the plan has a new version). Only makes seense for managed service instances
+	//+kubebuilder:validation:Optional
+	UpgradeAvailable bool `json:"upgrade_available"`
 }
 
 //+kubebuilder:object:root=true

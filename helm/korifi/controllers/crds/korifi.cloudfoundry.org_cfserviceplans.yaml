@@ -74,6 +74,13 @@ spec:
                 type: string
               free:
                 type: boolean
+              maintenance_info:
+                properties:
+                  version:
+                    type: string
+                required:
+                - version
+                type: object
               name:
                 type: string
               schemas:
@@ -129,6 +136,7 @@ spec:
             required:
             - broker_catalog
             - free
+            - maintenance_info
             - name
             - schemas
             - visibility

@@ -67,6 +67,9 @@ var _ = Describe("Service Plan", func() {
 							},
 						},
 					},
+					MaintenanceInfo: services.MaintenanceInfo{
+						Version: "1.2.3",
+					},
 				},
 				CFResource: model.CFResource{
 					GUID:      "resource-guid",
@@ -131,6 +134,9 @@ var _ = Describe("Service Plan", func() {
 					  }
 					}
 				  }
+				},
+				"maintenance_info": {
+					"version": "1.2.3"
 				},
 				"guid": "resource-guid",
 				"visibility_type": "visibility-type",

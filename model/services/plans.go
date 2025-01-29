@@ -6,11 +6,12 @@ import (
 
 // +kubebuilder:object:generate=true
 type ServicePlan struct {
-	Name          string                   `json:"name"`
-	Free          bool                     `json:"free"`
-	Description   string                   `json:"description,omitempty"`
-	BrokerCatalog ServicePlanBrokerCatalog `json:"broker_catalog"`
-	Schemas       ServicePlanSchemas       `json:"schemas"`
+	Name            string                   `json:"name"`
+	Free            bool                     `json:"free"`
+	Description     string                   `json:"description,omitempty"`
+	BrokerCatalog   ServicePlanBrokerCatalog `json:"broker_catalog"`
+	Schemas         ServicePlanSchemas       `json:"schemas"`
+	MaintenanceInfo MaintenanceInfo          `json:"maintenance_info"`
 }
 
 // +kubebuilder:object:generate=true
@@ -53,4 +54,9 @@ type ServicePlanFeatures struct {
 type VisibilityOrganization struct {
 	GUID string `json:"guid"`
 	Name string `json:"name"`
+}
+
+// +kubebuilder:object:generate=true
+type MaintenanceInfo struct {
+	Version string `json:"version"`
 }

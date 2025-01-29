@@ -997,6 +997,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(record.Relationships()).To(Equal(map[string]string{
 					"space": serviceInstance.Namespace,
 				}))
+				Expect(record.MaintenanceInfo).To(BeZero())
+				Expect(record.UpgradeAvailable).To(BeFalse())
 			})
 
 			When("the service is managed", func() {
@@ -1004,6 +1006,10 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Expect(k8s.Patch(ctx, k8sClient, serviceInstance, func() {
 						serviceInstance.Spec.Type = korifiv1alpha1.ManagedType
 						serviceInstance.Spec.PlanGUID = "plan-guid"
+						serviceInstance.Status.MaintenanceInfo = services.MaintenanceInfo{
+							Version: "1.2.3",
+						}
+						serviceInstance.Status.UpgradeAvailable = true
 					})).To(Succeed())
 				})
 
@@ -1013,6 +1019,18 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						"space":        serviceInstance.Namespace,
 						"service_plan": "plan-guid",
 					}))
+				})
+
+				It("returns the maintenance info", func() {
+					Expect(getErr).NotTo(HaveOccurred())
+					Expect(record.MaintenanceInfo).To(Equal(services.MaintenanceInfo{
+						Version: "1.2.3",
+					}))
+				})
+
+				It("returns upgrade available", func() {
+					Expect(getErr).NotTo(HaveOccurred())
+					Expect(record.UpgradeAvailable).To(BeTrue())
 				})
 			})
 		})
