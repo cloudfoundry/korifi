@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -39,8 +40,8 @@ func ForPackage(record repositories.PackageRecord, baseURL url.URL, includes ...
 		GUID:          record.GUID,
 		Type:          record.Type,
 		State:         record.State,
-		CreatedAt:     formatTimestamp(&record.CreatedAt),
-		UpdatedAt:     formatTimestamp(record.UpdatedAt),
+		CreatedAt:     tools.ZeroIfNil(formatTimestamp(&record.CreatedAt)),
+		UpdatedAt:     tools.ZeroIfNil(formatTimestamp(record.UpdatedAt)),
 		Relationships: ForRelationships(record.Relationships()),
 		Links: PackageLinks{
 			Self: Link{

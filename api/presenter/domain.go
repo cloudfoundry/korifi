@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -51,8 +52,8 @@ func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL, includ
 		Internal:           false,
 		RouterGroup:        nil,
 		SupportedProtocols: []string{"http"},
-		CreatedAt:          formatTimestamp(&responseDomain.CreatedAt),
-		UpdatedAt:          formatTimestamp(responseDomain.UpdatedAt),
+		CreatedAt:          tools.ZeroIfNil(formatTimestamp(&responseDomain.CreatedAt)),
+		UpdatedAt:          tools.ZeroIfNil(formatTimestamp(responseDomain.UpdatedAt)),
 
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(responseDomain.Labels),

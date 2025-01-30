@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -35,8 +36,8 @@ func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL, includes ...model.In
 	return OrgResponse{
 		Name:      org.Name,
 		GUID:      org.GUID,
-		CreatedAt: formatTimestamp(&org.CreatedAt),
-		UpdatedAt: formatTimestamp(org.UpdatedAt),
+		CreatedAt: tools.ZeroIfNil(formatTimestamp(&org.CreatedAt)),
+		UpdatedAt: tools.ZeroIfNil(formatTimestamp(org.UpdatedAt)),
 		Suspended: org.Suspended,
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(org.Labels),

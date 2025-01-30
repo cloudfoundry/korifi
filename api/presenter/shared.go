@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 )
 
@@ -139,9 +140,9 @@ func emptySliceIfNil(m []string) []string {
 	return m
 }
 
-func formatTimestamp(t *time.Time) string {
+func formatTimestamp(t *time.Time) *string {
 	if t == nil {
-		return ""
+		return nil
 	}
-	return t.UTC().Format(time.RFC3339)
+	return tools.PtrTo(t.UTC().Format(time.RFC3339))
 }

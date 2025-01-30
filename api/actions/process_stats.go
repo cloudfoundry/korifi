@@ -34,10 +34,10 @@ type (
 	}
 
 	Usage struct {
-		Time *string
-		CPU  *float64
-		Mem  *int64
-		Disk *int64
+		Timestamp *time.Time
+		CPU       *float64
+		Mem       *int64
+		Disk      *int64
 	}
 
 	PodStatsRecord struct {
@@ -144,13 +144,33 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 			records[index].Usage.Disk = &value
 		}
 
-		time := m.Metrics.Timestamp.UTC().Format(time.RFC3339)
-		records[index].Usage.Time = &time
-
+		records[index].Usage.Timestamp = tools.PtrTo(m.Metrics.Timestamp.Time)
 		records[index].MemQuota = tools.PtrTo(megabytesToBytes(processRecord.MemoryMB))
 		records[index].DiskQuota = tools.PtrTo(megabytesToBytes(processRecord.DiskQuotaMB))
 	}
 	return records, nil
+}
+
+func (a *ProcessStats) FetchAppProcessesStats(ctx context.Context, authInfo authorization.Info, appGUID string) ([]PodStatsRecord, error) {
+	appProcesses, err := a.processRepo.ListProcesses(ctx, authInfo, repositories.ListProcessesMessage{
+		AppGUIDs: []string{appGUID},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list processes for app with guid %s: %w", appGUID, err)
+	}
+
+	var podStats []PodStatsRecord
+	for _, process := range appProcesses {
+		podStatsProcess, err := a.FetchStats(ctx, authInfo, process.GUID)
+		if err != nil {
+			return nil, fmt.Errorf("falied to fetch process stats for process %s: %w", process.GUID, err)
+		}
+
+		podStats = append(podStats, podStatsProcess...)
+
+	}
+
+	return podStats, nil
 }
 
 func extractIndex(pod corev1.Pod) (int, error) {

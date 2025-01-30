@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -73,8 +74,8 @@ func ForRoute(route repositories.RouteRecord, baseURL url.URL, includes ...model
 		Host:          route.Host,
 		Path:          route.Path,
 		URL:           routeURL(route),
-		CreatedAt:     formatTimestamp(&route.CreatedAt),
-		UpdatedAt:     formatTimestamp(route.UpdatedAt),
+		CreatedAt:     tools.ZeroIfNil(formatTimestamp(&route.CreatedAt)),
+		UpdatedAt:     tools.ZeroIfNil(formatTimestamp(route.UpdatedAt)),
 		Relationships: ForRelationships(route.Relationships()),
 		Destinations:  destinations,
 		Metadata: Metadata{

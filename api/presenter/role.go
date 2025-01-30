@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -30,8 +31,8 @@ type RoleLinks struct {
 func ForRole(role repositories.RoleRecord, apiBaseURL url.URL, includes ...model.IncludedResource) RoleResponse {
 	resp := RoleResponse{
 		GUID:          role.GUID,
-		CreatedAt:     formatTimestamp(&role.CreatedAt),
-		UpdatedAt:     formatTimestamp(role.UpdatedAt),
+		CreatedAt:     tools.ZeroIfNil(formatTimestamp(&role.CreatedAt)),
+		UpdatedAt:     tools.ZeroIfNil(formatTimestamp(role.UpdatedAt)),
 		Type:          role.Type,
 		Relationships: ForRelationships(role.Relationships()),
 		Links: RoleLinks{

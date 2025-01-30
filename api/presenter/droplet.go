@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 type DropletResponse struct {
@@ -40,8 +41,8 @@ type BuildpackData struct {
 func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL, includes ...model.IncludedResource) DropletResponse {
 	toReturn := DropletResponse{
 		GUID:      dropletRecord.GUID,
-		CreatedAt: formatTimestamp(&dropletRecord.CreatedAt),
-		UpdatedAt: formatTimestamp(dropletRecord.UpdatedAt),
+		CreatedAt: tools.ZeroIfNil(formatTimestamp(&dropletRecord.CreatedAt)),
+		UpdatedAt: tools.ZeroIfNil(formatTimestamp(dropletRecord.UpdatedAt)),
 		State:     dropletRecord.State,
 		Lifecycle: Lifecycle{
 			Type: dropletRecord.Lifecycle.Type,

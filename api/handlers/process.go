@@ -40,6 +40,7 @@ type CFProcessRepository interface {
 //counterfeiter:generate -o fake -fake-name ProcessStats . ProcessStats
 type ProcessStats interface {
 	FetchStats(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
+	FetchAppProcessesStats(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
 }
 
 type Process struct {

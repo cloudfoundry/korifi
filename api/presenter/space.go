@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -31,8 +32,8 @@ func ForSpace(space repositories.SpaceRecord, apiBaseURL url.URL, includes ...mo
 	return SpaceResponse{
 		Name:      space.Name,
 		GUID:      space.GUID,
-		CreatedAt: formatTimestamp(&space.CreatedAt),
-		UpdatedAt: formatTimestamp(space.UpdatedAt),
+		CreatedAt: tools.ZeroIfNil(formatTimestamp(&space.CreatedAt)),
+		UpdatedAt: tools.ZeroIfNil(formatTimestamp(space.UpdatedAt)),
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(space.Labels),
 			Annotations: emptyMapIfNil(space.Annotations),

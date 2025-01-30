@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -32,8 +33,8 @@ type BuildResponse struct {
 func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildResponse {
 	toReturn := BuildResponse{
 		GUID:            buildRecord.GUID,
-		CreatedAt:       formatTimestamp(&buildRecord.CreatedAt),
-		UpdatedAt:       formatTimestamp(buildRecord.UpdatedAt),
+		CreatedAt:       tools.ZeroIfNil(formatTimestamp(&buildRecord.CreatedAt)),
+		UpdatedAt:       tools.ZeroIfNil(formatTimestamp(buildRecord.UpdatedAt)),
 		CreatedBy:       make(map[string]interface{}),
 		State:           buildRecord.State,
 		StagingMemoryMB: buildRecord.StagingMemoryMB,

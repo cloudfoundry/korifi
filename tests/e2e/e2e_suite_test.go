@@ -153,7 +153,7 @@ type statsUsage struct {
 }
 
 type statsResource struct {
-	Usage statsUsage
+	Usage statsUsage `json:"usage"`
 }
 
 type manifestResource struct {
@@ -243,11 +243,11 @@ type serviceBrokerAuthenticationResource struct {
 	Credentials map[string]any `json:"credentials"`
 }
 
-type appLogResource struct {
-	Envelopes appLogResourceEnvelopes `json:"envelopes"`
+type logCacheResponse struct {
+	Envelopes envelopeBatch `json:"envelopes"`
 }
 
-type appLogResourceEnvelopes struct {
+type envelopeBatch struct {
 	Batch []loggregator_v2.Envelope `json:"batch"`
 }
 

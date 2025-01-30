@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,11 +68,11 @@ var _ = Describe("ProcessStats", func() {
 		podMetrics = []repositories.PodMetrics{
 			{
 				Pod:     createPod("0", "1"),
-				Metrics: createPodMetrics("123m", "456", "890"),
+				Metrics: createPodMetrics("123m", "456", "890", time.UnixMilli(1000).UTC()),
 			},
 			{
 				Pod:     createPod("1", "1"),
-				Metrics: createPodMetrics("124m", "457", "891"),
+				Metrics: createPodMetrics("124m", "457", "891", time.UnixMilli(2000).UTC()),
 			},
 		}
 		metricsRepo.GetMetricsReturns(podMetrics, nil)
@@ -79,214 +80,297 @@ var _ = Describe("ProcessStats", func() {
 		processStats = NewProcessStats(processRepo, appRepo, metricsRepo)
 	})
 
-	JustBeforeEach(func() {
-		responseRecords, responseErr = processStats.FetchStats(context.Background(), authInfo, "the-process-guid")
+	Describe("FetchStats", func() {
+		JustBeforeEach(func() {
+			responseRecords, responseErr = processStats.FetchStats(context.Background(), authInfo, "the-process-guid")
+		})
+
+		It("fetches stats for the process pod", func() {
+			Expect(responseErr).NotTo(HaveOccurred())
+
+			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
+			_, actualAuthInfo, processGUID := processRepo.GetProcessArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(processGUID).To(Equal("the-process-guid"))
+
+			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
+			_, actualAuthInfo, appGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(appGUID).To(Equal("the-app-guid"))
+
+			Expect(metricsRepo.GetMetricsCallCount()).To(Equal(1))
+			_, actualAuthInfo, spaceGUID, labelMatcher := metricsRepo.GetMetricsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(spaceGUID).To(Equal("the-space-guid"))
+			Expect(labelMatcher).To(Equal(client.MatchingLabels{
+				korifiv1alpha1.CFAppGUIDLabelKey: "the-app-guid",
+				korifiv1alpha1.VersionLabelKey:   "1",
+				LabelGUID:                        "the-process-guid",
+			}))
+
+			Expect(responseRecords).To(HaveLen(2))
+
+			Expect(responseRecords[0].Index).To(Equal(0))
+			Expect(responseRecords[0].Type).To(Equal("web"))
+			Expect(responseRecords[0].State).To(Equal("RUNNING"))
+
+			Expect(responseRecords[0].Usage.Timestamp).To(PointTo(Equal(time.UnixMilli(1000).UTC())))
+
+			Expect(responseRecords[0].Usage.CPU).To(Equal(tools.PtrTo(0.123)))
+			Expect(responseRecords[0].Usage.Mem).To(Equal(tools.PtrTo(int64(456))))
+			Expect(responseRecords[0].Usage.Disk).To(Equal(tools.PtrTo(int64(890))))
+			Expect(responseRecords[0].MemQuota).To(Equal(tools.PtrTo(int64(1024 * 1024 * 1024))))
+			Expect(responseRecords[0].DiskQuota).To(Equal(tools.PtrTo(int64(2048 * 1024 * 1024))))
+
+			Expect(responseRecords[1].Index).To(Equal(1))
+			Expect(responseRecords[1].Type).To(Equal("web"))
+			Expect(responseRecords[1].State).To(Equal("RUNNING"))
+
+			Expect(responseRecords[1].Usage.Timestamp).To(PointTo(Equal(time.UnixMilli(2000).UTC())))
+
+			Expect(responseRecords[1].Usage.CPU).To(Equal(tools.PtrTo(0.124)))
+			Expect(responseRecords[1].Usage.Mem).To(Equal(tools.PtrTo(int64(457))))
+			Expect(responseRecords[1].Usage.Disk).To(Equal(tools.PtrTo(int64(891))))
+			Expect(responseRecords[1].MemQuota).To(Equal(tools.PtrTo(int64(1024 * 1024 * 1024))))
+			Expect(responseRecords[1].DiskQuota).To(Equal(tools.PtrTo(int64(2048 * 1024 * 1024))))
+		})
+
+		When("stats for some instances are missing", func() {
+			BeforeEach(func() {
+				metricsRepo.GetMetricsReturns([]repositories.PodMetrics{
+					{
+						Pod:     createPod("1", "1"),
+						Metrics: createPodMetrics("124m", "457", "891", time.UnixMilli(1000).UTC()),
+					},
+				}, nil)
+			})
+
+			It("returns a 'down' stat for that instance", func() {
+				Expect(responseErr).NotTo(HaveOccurred())
+				Expect(responseRecords).To(HaveLen(2))
+				Expect(responseRecords[0]).To(Equal(PodStatsRecord{
+					Type:  "web",
+					Index: 0,
+					State: "DOWN",
+				}))
+			})
+		})
+
+		When("getting the app fails", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("get-app-err"))
+			})
+
+			It("returns the error", func() {
+				Expect(responseErr).To(MatchError("get-app-err"))
+			})
+		})
+
+		When("getting the process fails", func() {
+			BeforeEach(func() {
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("get-process-err"))
+			})
+
+			It("returns the error", func() {
+				Expect(responseErr).To(MatchError("get-process-err"))
+			})
+		})
+
+		When("the app is stopped", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{
+					State: repositories.StoppedState,
+				}, nil)
+			})
+
+			It("returns a single 'down' stat", func() {
+				Expect(responseRecords).To(ConsistOf(PodStatsRecord{
+					Type:  "web",
+					Index: 0,
+					State: "DOWN",
+				}))
+			})
+		})
+
+		When("getting the stats fails", func() {
+			BeforeEach(func() {
+				metricsRepo.GetMetricsReturns(nil, errors.New("get-stats-err"))
+			})
+
+			It("returns the error", func() {
+				Expect(responseErr).To(MatchError("get-stats-err"))
+			})
+		})
+
+		When("the pod-index label is not set", func() {
+			BeforeEach(func() {
+				delete(podMetrics[0].Pod.ObjectMeta.Labels, korifiv1alpha1.PodIndexLabelKey)
+			})
+
+			It("returns an error", func() {
+				Expect(responseErr).To(MatchError(ContainSubstring("label not found")))
+			})
+		})
+
+		When("the pod-index label value cannot be parsed to an int", func() {
+			BeforeEach(func() {
+				podMetrics[0].Pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey] = "one"
+			})
+
+			It("returns an error", func() {
+				Expect(responseErr).To(MatchError(ContainSubstring(`parsing "one"`)))
+			})
+		})
+
+		When("the pod-index label value is a negative integer", func() {
+			BeforeEach(func() {
+				podMetrics[0].Pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey] = "-1"
+			})
+
+			It("returns an error", func() {
+				Expect(responseErr).To(MatchError(ContainSubstring("indexes can't be negative")))
+			})
+		})
+
+		Describe("pod status", func() {
+			It("is ready", func() {
+				Expect(responseRecords[0].State).To(Equal("RUNNING"))
+			})
+
+			When("the pod is not scheduled", func() {
+				BeforeEach(func() {
+					podMetrics[0].Pod.Status.Conditions = nil
+					podMetrics[0].Pod.Status.ContainerStatuses = nil
+				})
+
+				It("is down", func() {
+					Expect(responseRecords[0].State).To(Equal("DOWN"))
+				})
+			})
+
+			When("the pod has a container in waiting state", func() {
+				BeforeEach(func() {
+					podMetrics[0].Pod.Status.Conditions = makeConditions("Initialized")
+					podMetrics[0].Pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+						{
+							Name: "application",
+							State: corev1.ContainerState{
+								Waiting: &corev1.ContainerStateWaiting{},
+							},
+						},
+					}
+				})
+
+				It("is starting", func() {
+					Expect(responseRecords[0].State).To(Equal("STARTING"))
+				})
+
+				When("the reason is CrashLoopBackoff", func() {
+					BeforeEach(func() {
+						podMetrics[0].Pod.Status.ContainerStatuses[0].State.Waiting.Reason = "CrashLoopBackOff"
+					})
+
+					It("is crashed", func() {
+						Expect(responseRecords[0].State).To(Equal("CRASHED"))
+					})
+				})
+			})
+
+			When("scheduled but not running", func() {
+				BeforeEach(func() {
+					podMetrics[0].Pod.Status.Conditions = makeConditions("Initialized")
+				})
+
+				It("is starting", func() {
+					Expect(responseRecords[0].State).To(Equal("STARTING"))
+				})
+			})
+		})
 	})
 
-	It("fetches stats for the process pod", func() {
-		Expect(responseErr).NotTo(HaveOccurred())
-
-		Expect(processRepo.GetProcessCallCount()).To(Equal(1))
-		_, actualAuthInfo, processGUID := processRepo.GetProcessArgsForCall(0)
-		Expect(actualAuthInfo).To(Equal(authInfo))
-		Expect(processGUID).To(Equal("the-process-guid"))
-
-		Expect(processRepo.GetProcessCallCount()).To(Equal(1))
-		_, actualAuthInfo, appGUID := appRepo.GetAppArgsForCall(0)
-		Expect(actualAuthInfo).To(Equal(authInfo))
-		Expect(appGUID).To(Equal("the-app-guid"))
-
-		Expect(metricsRepo.GetMetricsCallCount()).To(Equal(1))
-		_, actualAuthInfo, spaceGUID, labelMatcher := metricsRepo.GetMetricsArgsForCall(0)
-		Expect(actualAuthInfo).To(Equal(authInfo))
-		Expect(spaceGUID).To(Equal("the-space-guid"))
-		Expect(labelMatcher).To(Equal(client.MatchingLabels{
-			korifiv1alpha1.CFAppGUIDLabelKey: "the-app-guid",
-			korifiv1alpha1.VersionLabelKey:   "1",
-			LabelGUID:                        "the-process-guid",
-		}))
-
-		Expect(responseRecords).To(HaveLen(2))
-
-		Expect(responseRecords[0].Index).To(Equal(0))
-		Expect(responseRecords[0].Type).To(Equal("web"))
-		Expect(responseRecords[0].State).To(Equal("RUNNING"))
-
-		Expect(responseRecords[0].Usage.Time).NotTo(BeNil())
-		usageTime, err := time.Parse(time.RFC3339, *responseRecords[0].Usage.Time)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(usageTime).To(BeTemporally("~", time.Now(), 2*time.Second))
-
-		Expect(responseRecords[0].Usage.CPU).To(Equal(tools.PtrTo(0.123)))
-		Expect(responseRecords[0].Usage.Mem).To(Equal(tools.PtrTo(int64(456))))
-		Expect(responseRecords[0].Usage.Disk).To(Equal(tools.PtrTo(int64(890))))
-		Expect(responseRecords[0].MemQuota).To(Equal(tools.PtrTo(int64(1024 * 1024 * 1024))))
-		Expect(responseRecords[0].DiskQuota).To(Equal(tools.PtrTo(int64(2048 * 1024 * 1024))))
-
-		Expect(responseRecords[1].Index).To(Equal(1))
-		Expect(responseRecords[1].Type).To(Equal("web"))
-		Expect(responseRecords[1].State).To(Equal("RUNNING"))
-
-		Expect(responseRecords[1].Usage.Time).NotTo(BeNil())
-		usageTime, err = time.Parse(time.RFC3339, *responseRecords[1].Usage.Time)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(usageTime).To(BeTemporally("~", time.Now(), 2*time.Second))
-
-		Expect(responseRecords[1].Usage.CPU).To(Equal(tools.PtrTo(0.124)))
-		Expect(responseRecords[1].Usage.Mem).To(Equal(tools.PtrTo(int64(457))))
-		Expect(responseRecords[1].Usage.Disk).To(Equal(tools.PtrTo(int64(891))))
-		Expect(responseRecords[1].MemQuota).To(Equal(tools.PtrTo(int64(1024 * 1024 * 1024))))
-		Expect(responseRecords[1].DiskQuota).To(Equal(tools.PtrTo(int64(2048 * 1024 * 1024))))
-	})
-
-	When("stats for some instances are missing", func() {
+	Describe("FetchAppProcessesStats", func() {
 		BeforeEach(func() {
+			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
+				{
+					GUID:             "process-1-guid",
+					AppGUID:          "the-app-guid",
+					DesiredInstances: 1,
+					Type:             "web",
+				},
+				{
+					GUID:             "process-2-guid",
+					AppGUID:          "the-app-guid",
+					DesiredInstances: 1,
+					Type:             "worker",
+				},
+			}, nil)
+
+			processRepo.GetProcessStub = func(_ context.Context, _ authorization.Info, processGUID string) (repositories.ProcessRecord, error) {
+				switch processGUID {
+				case "process-1-guid":
+					return repositories.ProcessRecord{
+						DesiredInstances: 1,
+						Type:             "web",
+					}, nil
+				case "process-2-guid":
+					return repositories.ProcessRecord{
+						DesiredInstances: 1,
+						Type:             "worker",
+					}, nil
+				}
+
+				return repositories.ProcessRecord{}, errors.New("unexpected process guid " + processGUID)
+			}
+
 			metricsRepo.GetMetricsReturns([]repositories.PodMetrics{
 				{
-					Pod:     createPod("1", "1"),
-					Metrics: createPodMetrics("124m", "457", "891"),
+					Pod:     createPod("0", "1"),
+					Metrics: createPodMetrics("123m", "456", "890", time.UnixMilli(1000).UTC()),
 				},
 			}, nil)
 		})
 
-		It("returns a 'down' stat for that instance", func() {
-			Expect(responseErr).NotTo(HaveOccurred())
+		JustBeforeEach(func() {
+			responseRecords, responseErr = processStats.FetchAppProcessesStats(context.Background(), authInfo, "the-app-guid")
+		})
+
+		It("lists the app processes", func() {
+			Expect(processRepo.ListProcessesCallCount()).To(Equal(1))
+			_, _, message := processRepo.ListProcessesArgsForCall(0)
+			Expect(message.AppGUIDs).To(ConsistOf("the-app-guid"))
+		})
+
+		When("listing the app processes fails", func() {
+			BeforeEach(func() {
+				processRepo.ListProcessesReturns(nil, errors.New("failed to list processes"))
+			})
+
+			It("return an error", func() {
+				Expect(responseErr).To(MatchError(ContainSubstring("failed to list processes")))
+			})
+		})
+
+		It("fetches process stats for all app processes", func() {
+			Expect(processRepo.GetProcessCallCount()).To(Equal(2))
+
+			_, _, processGUID := processRepo.GetProcessArgsForCall(0)
+			Expect(processGUID).To(Equal("process-1-guid"))
+
+			_, _, processGUID = processRepo.GetProcessArgsForCall(1)
+			Expect(processGUID).To(Equal("process-2-guid"))
+
 			Expect(responseRecords).To(HaveLen(2))
-			Expect(responseRecords[0]).To(Equal(PodStatsRecord{
-				Type:  "web",
-				Index: 0,
-				State: "DOWN",
-			}))
-		})
-	})
-
-	When("getting the app fails", func() {
-		BeforeEach(func() {
-			appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("get-app-err"))
+			Expect(responseRecords[0].Type).To(Equal("web"))
+			Expect(responseRecords[1].Type).To(Equal("worker"))
 		})
 
-		It("returns the error", func() {
-			Expect(responseErr).To(MatchError("get-app-err"))
-		})
-	})
-
-	When("getting the process fails", func() {
-		BeforeEach(func() {
-			processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("get-process-err"))
-		})
-
-		It("returns the error", func() {
-			Expect(responseErr).To(MatchError("get-process-err"))
-		})
-	})
-
-	When("the app is stopped", func() {
-		BeforeEach(func() {
-			appRepo.GetAppReturns(repositories.AppRecord{
-				State: repositories.StoppedState,
-			}, nil)
-		})
-
-		It("returns a single 'down' stat", func() {
-			Expect(responseRecords).To(ConsistOf(PodStatsRecord{
-				Type:  "web",
-				Index: 0,
-				State: "DOWN",
-			}))
-		})
-	})
-
-	When("getting the stats fails", func() {
-		BeforeEach(func() {
-			metricsRepo.GetMetricsReturns(nil, errors.New("get-stats-err"))
-		})
-
-		It("returns the error", func() {
-			Expect(responseErr).To(MatchError("get-stats-err"))
-		})
-	})
-
-	When("the pod-index label is not set", func() {
-		BeforeEach(func() {
-			delete(podMetrics[0].Pod.ObjectMeta.Labels, korifiv1alpha1.PodIndexLabelKey)
-		})
-
-		It("returns an error", func() {
-			Expect(responseErr).To(MatchError(ContainSubstring("label not found")))
-		})
-	})
-
-	When("the pod-index label value cannot be parsed to an int", func() {
-		BeforeEach(func() {
-			podMetrics[0].Pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey] = "one"
-		})
-
-		It("returns an error", func() {
-			Expect(responseErr).To(MatchError(ContainSubstring(`parsing "one"`)))
-		})
-	})
-
-	When("the pod-index label value is a negative integer", func() {
-		BeforeEach(func() {
-			podMetrics[0].Pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey] = "-1"
-		})
-
-		It("returns an error", func() {
-			Expect(responseErr).To(MatchError(ContainSubstring("indexes can't be negative")))
-		})
-	})
-
-	Describe("pod status", func() {
-		It("is ready", func() {
-			Expect(responseRecords[0].State).To(Equal("RUNNING"))
-		})
-
-		When("the pod is not scheduled", func() {
+		When("get process fails", func() {
 			BeforeEach(func() {
-				podMetrics[0].Pod.Status.Conditions = nil
-				podMetrics[0].Pod.Status.ContainerStatuses = nil
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("failed to get process"))
 			})
 
-			It("is down", func() {
-				Expect(responseRecords[0].State).To(Equal("DOWN"))
-			})
-		})
-
-		When("the pod has a container in waiting state", func() {
-			BeforeEach(func() {
-				podMetrics[0].Pod.Status.Conditions = makeConditions("Initialized")
-				podMetrics[0].Pod.Status.ContainerStatuses = []corev1.ContainerStatus{
-					{
-						Name: "application",
-						State: corev1.ContainerState{
-							Waiting: &corev1.ContainerStateWaiting{},
-						},
-					},
-				}
-			})
-
-			It("is starting", func() {
-				Expect(responseRecords[0].State).To(Equal("STARTING"))
-			})
-
-			When("the reason is CrashLoopBackoff", func() {
-				BeforeEach(func() {
-					podMetrics[0].Pod.Status.ContainerStatuses[0].State.Waiting.Reason = "CrashLoopBackOff"
-				})
-
-				It("is crashed", func() {
-					Expect(responseRecords[0].State).To(Equal("CRASHED"))
-				})
-			})
-		})
-
-		When("scheduled but not running", func() {
-			BeforeEach(func() {
-				podMetrics[0].Pod.Status.Conditions = makeConditions("Initialized")
-			})
-
-			It("is starting", func() {
-				Expect(responseRecords[0].State).To(Equal("STARTING"))
+			It("return an error", func() {
+				Expect(responseErr).To(MatchError(ContainSubstring("failed to get process")))
 			})
 		})
 	})
@@ -348,7 +432,7 @@ func makeConditions(target string) []corev1.PodCondition {
 	return nil
 }
 
-func createPodMetrics(cpuStr, memStr, diskStr string) metricsv1beta1.PodMetrics {
+func createPodMetrics(cpuStr, memStr, diskStr string, timeStamp time.Time) metricsv1beta1.PodMetrics {
 	cpu, err := resource.ParseQuantity(cpuStr)
 	Expect(err).NotTo(HaveOccurred())
 	mem, err := resource.ParseQuantity(memStr)
@@ -358,7 +442,7 @@ func createPodMetrics(cpuStr, memStr, diskStr string) metricsv1beta1.PodMetrics 
 
 	return metricsv1beta1.PodMetrics{
 		Timestamp: metav1.Time{
-			Time: time.Now(),
+			Time: timeStamp,
 		},
 		Window: metav1.Duration{},
 		Containers: []metricsv1beta1.ContainerMetrics{
