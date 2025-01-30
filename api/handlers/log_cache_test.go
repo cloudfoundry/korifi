@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"code.cloudfoundry.org/korifi/api/actions"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
@@ -23,6 +24,7 @@ var _ = Describe("LogCache", func() {
 		appRepo          *fake.CFAppRepository
 		buildRepo        *fake.CFBuildRepository
 		logRepo          *fake.LogRepository
+		processStats     *fake.ProcessStats
 		req              *http.Request
 		requestValidator *fake.RequestValidator
 	)
@@ -32,6 +34,7 @@ var _ = Describe("LogCache", func() {
 		appRepo = new(fake.CFAppRepository)
 		buildRepo = new(fake.CFBuildRepository)
 		logRepo = new(fake.LogRepository)
+		processStats = new(fake.ProcessStats)
 
 		appRepo.GetAppReturns(repositories.AppRecord{
 			GUID:      "app-guid",
@@ -47,6 +50,7 @@ var _ = Describe("LogCache", func() {
 			appRepo,
 			buildRepo,
 			logRepo,
+			processStats,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -70,14 +74,14 @@ var _ = Describe("LogCache", func() {
 	})
 
 	Describe("GET /api/v1/read/<app-guid>", func() {
-		var payload *payloads.LogRead
+		var payload *payloads.LogCacheRead
 
 		BeforeEach(func() {
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/api/v1/read/app-guid", nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			payload = &payloads.LogRead{
+			payload = &payloads.LogCacheRead{
 				StartTime:  tools.PtrTo[int64](12345),
 				Limit:      tools.PtrTo[int64](1000),
 				Descending: true,
@@ -196,6 +200,43 @@ var _ = Describe("LogCache", func() {
 				MatchJSONPath("$.envelopes.batch[1].log.payload", Equal(base64.StdEncoding.EncodeToString([]byte("log1")))),
 				MatchJSONPath("$.envelopes.batch[2].log.payload", Equal(base64.StdEncoding.EncodeToString([]byte("log2")))),
 			)))
+		})
+
+		When("the envelope type is GAUGE", func() {
+			BeforeEach(func() {
+				payload.EnvelopeTypes = []string{"GAUGE"}
+				processStats.FetchAppProcessesStatsReturns([]actions.PodStatsRecord{{
+					Type: "web",
+				}}, nil)
+			})
+
+			It("does not fetch logs", func() {
+				Expect(logRepo.GetAppLogsCallCount()).To(Equal(0))
+			})
+
+			It("gets app metrics", func() {
+				Expect(processStats.FetchAppProcessesStatsCallCount()).To(Equal(1))
+				_, _, appGUID := processStats.FetchAppProcessesStatsArgsForCall(0)
+				Expect(appGUID).To(Equal("app-guid"))
+			})
+
+			When("getting app metrics fails", func() {
+				BeforeEach(func() {
+					processStats.FetchAppProcessesStatsReturns(nil, errors.New("failed-to-fetch-stats"))
+				})
+
+				It("returns an error", func() {
+					expectUnknownError()
+				})
+			})
+
+			It("returns app metrics", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.envelopes.batch[0].gauge", Not(BeEmpty())),
+				)))
+			})
 		})
 	})
 })

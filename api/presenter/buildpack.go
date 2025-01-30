@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 type BuildpackResponse struct {
@@ -24,8 +25,8 @@ type BuildpackResponse struct {
 func ForBuildpack(buildpackRecord repositories.BuildpackRecord, _ url.URL, includes ...model.IncludedResource) BuildpackResponse {
 	toReturn := BuildpackResponse{
 		GUID:      "",
-		CreatedAt: formatTimestamp(&buildpackRecord.CreatedAt),
-		UpdatedAt: formatTimestamp(buildpackRecord.UpdatedAt),
+		CreatedAt: tools.ZeroIfNil(formatTimestamp(&buildpackRecord.CreatedAt)),
+		UpdatedAt: tools.ZeroIfNil(formatTimestamp(buildpackRecord.UpdatedAt)),
 		Name:      buildpackRecord.Name,
 		Filename:  buildpackRecord.Name + "@" + buildpackRecord.Version,
 		Stack:     buildpackRecord.Stack,

@@ -8,26 +8,26 @@ import (
 	jellidation "github.com/jellydator/validation"
 )
 
-type LogRead struct {
+type LogCacheRead struct {
 	StartTime     *int64
 	EnvelopeTypes []string
 	Limit         *int64
 	Descending    bool
 }
 
-func (l LogRead) Validate() error {
+func (l LogCacheRead) Validate() error {
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.EnvelopeTypes,
-			jellidation.Each(validation.OneOf("LOG")),
+			jellidation.Each(validation.OneOf("LOG", "GAUGE")),
 		),
 	)
 }
 
-func (l *LogRead) SupportedKeys() []string {
+func (l *LogCacheRead) SupportedKeys() []string {
 	return []string{"start_time", "end_time", "envelope_types", "limit", "descending"}
 }
 
-func (l *LogRead) DecodeFromURLValues(values url.Values) error {
+func (l *LogCacheRead) DecodeFromURLValues(values url.Values) error {
 	var err error
 	if l.StartTime, err = getIntPtr(values, "start_time"); err != nil {
 		return err

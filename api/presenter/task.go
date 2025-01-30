@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -53,8 +54,8 @@ func ForTask(responseTask repositories.TaskRecord, baseURL url.URL, includes ...
 		Command:     responseTask.Command,
 		SequenceID:  responseTask.SequenceID,
 		DropletGUID: responseTask.DropletGUID,
-		CreatedAt:   formatTimestamp(&responseTask.CreatedAt),
-		UpdatedAt:   formatTimestamp(responseTask.UpdatedAt),
+		CreatedAt:   tools.ZeroIfNil(formatTimestamp(&responseTask.CreatedAt)),
+		UpdatedAt:   tools.ZeroIfNil(formatTimestamp(responseTask.UpdatedAt)),
 		MemoryMB:    responseTask.MemoryMB,
 		DiskMB:      responseTask.DiskMB,
 		State:       responseTask.State,

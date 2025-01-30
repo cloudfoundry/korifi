@@ -56,14 +56,14 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 		Type: serviceInstanceRecord.Type,
 		Tags: emptySliceIfNil(serviceInstanceRecord.Tags),
 		LastOperation: lastOperation{
-			CreatedAt:   formatTimestamp(&serviceInstanceRecord.CreatedAt),
-			UpdatedAt:   formatTimestamp(serviceInstanceRecord.UpdatedAt),
+			CreatedAt:   tools.ZeroIfNil(formatTimestamp(&serviceInstanceRecord.CreatedAt)),
+			UpdatedAt:   tools.ZeroIfNil(formatTimestamp(serviceInstanceRecord.UpdatedAt)),
 			Description: serviceInstanceRecord.LastOperation.Description,
 			State:       serviceInstanceRecord.LastOperation.State,
 			Type:        serviceInstanceRecord.LastOperation.Type,
 		},
-		CreatedAt:     formatTimestamp(&serviceInstanceRecord.CreatedAt),
-		UpdatedAt:     formatTimestamp(serviceInstanceRecord.UpdatedAt),
+		CreatedAt:     tools.ZeroIfNil(formatTimestamp(&serviceInstanceRecord.CreatedAt)),
+		UpdatedAt:     tools.ZeroIfNil(formatTimestamp(serviceInstanceRecord.UpdatedAt)),
 		Relationships: ForRelationships(serviceInstanceRecord.Relationships()),
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(serviceInstanceRecord.Labels),

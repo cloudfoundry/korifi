@@ -6,6 +6,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 )
@@ -46,14 +47,14 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 		GUID:      record.GUID,
 		Type:      record.Type,
 		Name:      record.Name,
-		CreatedAt: formatTimestamp(&record.CreatedAt),
-		UpdatedAt: formatTimestamp(record.UpdatedAt),
+		CreatedAt: tools.ZeroIfNil(formatTimestamp(&record.CreatedAt)),
+		UpdatedAt: tools.ZeroIfNil(formatTimestamp(record.UpdatedAt)),
 		LastOperation: ServiceBindingLastOperationResponse{
 			Type:        record.LastOperation.Type,
 			State:       record.LastOperation.State,
 			Description: record.LastOperation.Description,
-			CreatedAt:   formatTimestamp(&record.LastOperation.CreatedAt),
-			UpdatedAt:   formatTimestamp(record.LastOperation.UpdatedAt),
+			CreatedAt:   tools.ZeroIfNil(formatTimestamp(&record.LastOperation.CreatedAt)),
+			UpdatedAt:   tools.ZeroIfNil(formatTimestamp(record.LastOperation.UpdatedAt)),
 		},
 		Relationships: ForRelationships(record.Relationships()),
 		Links: ServiceBindingLinks{

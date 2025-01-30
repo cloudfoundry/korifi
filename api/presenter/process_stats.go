@@ -1,6 +1,8 @@
 package presenter
 
-import "code.cloudfoundry.org/korifi/api/actions"
+import (
+	"code.cloudfoundry.org/korifi/api/actions"
+)
 
 type ProcessStatsResponse struct {
 	Resources []ProcessStatsResource `json:"resources"`
@@ -50,13 +52,14 @@ func statRecordToResource(record actions.PodStatsRecord) ProcessStatsResource {
 	if record.State != "DOWN" {
 		processInstancePorts = &[]ProcessInstancePort{}
 	}
+
 	return ProcessStatsResource{
 		Type:          record.Type,
 		Index:         record.Index,
 		State:         record.State,
 		InstancePorts: processInstancePorts,
 		Usage: ProcessUsage{
-			Time: record.Usage.Time,
+			Time: formatTimestamp(record.Usage.Timestamp),
 			CPU:  record.Usage.CPU,
 			Mem:  record.Usage.Mem,
 			Disk: record.Usage.Disk,

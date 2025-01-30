@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -45,8 +46,8 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL, includes ...mod
 		Name:          responseApp.Name,
 		GUID:          responseApp.GUID,
 		State:         string(responseApp.State),
-		CreatedAt:     formatTimestamp(&responseApp.CreatedAt),
-		UpdatedAt:     formatTimestamp(responseApp.UpdatedAt),
+		CreatedAt:     tools.ZeroIfNil(formatTimestamp(&responseApp.CreatedAt)),
+		UpdatedAt:     tools.ZeroIfNil(formatTimestamp(responseApp.UpdatedAt)),
 		Relationships: ForRelationships(responseApp.Relationships()),
 		Lifecycle: Lifecycle{
 			Type: responseApp.Lifecycle.Type,

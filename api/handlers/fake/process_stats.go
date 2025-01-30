@@ -11,6 +11,21 @@ import (
 )
 
 type ProcessStats struct {
+	FetchAppProcessesStatsStub        func(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
+	fetchAppProcessesStatsMutex       sync.RWMutex
+	fetchAppProcessesStatsArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	fetchAppProcessesStatsReturns struct {
+		result1 []actions.PodStatsRecord
+		result2 error
+	}
+	fetchAppProcessesStatsReturnsOnCall map[int]struct {
+		result1 []actions.PodStatsRecord
+		result2 error
+	}
 	FetchStatsStub        func(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
 	fetchStatsMutex       sync.RWMutex
 	fetchStatsArgsForCall []struct {
@@ -28,6 +43,72 @@ type ProcessStats struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *ProcessStats) FetchAppProcessesStats(arg1 context.Context, arg2 authorization.Info, arg3 string) ([]actions.PodStatsRecord, error) {
+	fake.fetchAppProcessesStatsMutex.Lock()
+	ret, specificReturn := fake.fetchAppProcessesStatsReturnsOnCall[len(fake.fetchAppProcessesStatsArgsForCall)]
+	fake.fetchAppProcessesStatsArgsForCall = append(fake.fetchAppProcessesStatsArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.FetchAppProcessesStatsStub
+	fakeReturns := fake.fetchAppProcessesStatsReturns
+	fake.recordInvocation("FetchAppProcessesStats", []interface{}{arg1, arg2, arg3})
+	fake.fetchAppProcessesStatsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ProcessStats) FetchAppProcessesStatsCallCount() int {
+	fake.fetchAppProcessesStatsMutex.RLock()
+	defer fake.fetchAppProcessesStatsMutex.RUnlock()
+	return len(fake.fetchAppProcessesStatsArgsForCall)
+}
+
+func (fake *ProcessStats) FetchAppProcessesStatsCalls(stub func(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)) {
+	fake.fetchAppProcessesStatsMutex.Lock()
+	defer fake.fetchAppProcessesStatsMutex.Unlock()
+	fake.FetchAppProcessesStatsStub = stub
+}
+
+func (fake *ProcessStats) FetchAppProcessesStatsArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.fetchAppProcessesStatsMutex.RLock()
+	defer fake.fetchAppProcessesStatsMutex.RUnlock()
+	argsForCall := fake.fetchAppProcessesStatsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *ProcessStats) FetchAppProcessesStatsReturns(result1 []actions.PodStatsRecord, result2 error) {
+	fake.fetchAppProcessesStatsMutex.Lock()
+	defer fake.fetchAppProcessesStatsMutex.Unlock()
+	fake.FetchAppProcessesStatsStub = nil
+	fake.fetchAppProcessesStatsReturns = struct {
+		result1 []actions.PodStatsRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ProcessStats) FetchAppProcessesStatsReturnsOnCall(i int, result1 []actions.PodStatsRecord, result2 error) {
+	fake.fetchAppProcessesStatsMutex.Lock()
+	defer fake.fetchAppProcessesStatsMutex.Unlock()
+	fake.FetchAppProcessesStatsStub = nil
+	if fake.fetchAppProcessesStatsReturnsOnCall == nil {
+		fake.fetchAppProcessesStatsReturnsOnCall = make(map[int]struct {
+			result1 []actions.PodStatsRecord
+			result2 error
+		})
+	}
+	fake.fetchAppProcessesStatsReturnsOnCall[i] = struct {
+		result1 []actions.PodStatsRecord
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *ProcessStats) FetchStats(arg1 context.Context, arg2 authorization.Info, arg3 string) ([]actions.PodStatsRecord, error) {
@@ -99,6 +180,8 @@ func (fake *ProcessStats) FetchStatsReturnsOnCall(i int, result1 []actions.PodSt
 func (fake *ProcessStats) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.fetchAppProcessesStatsMutex.RLock()
+	defer fake.fetchAppProcessesStatsMutex.RUnlock()
 	fake.fetchStatsMutex.RLock()
 	defer fake.fetchStatsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

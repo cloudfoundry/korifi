@@ -388,6 +388,7 @@ func main() {
 			appRepo,
 			buildRepo,
 			logRepo,
+			processStats,
 		),
 		handlers.NewOrg(
 			*serverURL,

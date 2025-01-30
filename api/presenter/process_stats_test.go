@@ -2,6 +2,7 @@ package presenter_test
 
 import (
 	"encoding/json"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/presenter"
@@ -26,10 +27,10 @@ var _ = Describe("Process Stats", func() {
 				Index: 0,
 				State: "RUNNING",
 				Usage: actions.Usage{
-					Time: tools.PtrTo("t1"),
-					CPU:  tools.PtrTo(500.0),
-					Mem:  tools.PtrTo(int64(512)),
-					Disk: tools.PtrTo(int64(256)),
+					Timestamp: tools.PtrTo(time.UnixMilli(1000).UTC()),
+					CPU:       tools.PtrTo(500.0),
+					Mem:       tools.PtrTo(int64(512)),
+					Disk:      tools.PtrTo(int64(256)),
 				},
 				MemQuota:  tools.PtrTo(int64(1024)),
 				DiskQuota: tools.PtrTo(int64(2048)),
@@ -39,10 +40,10 @@ var _ = Describe("Process Stats", func() {
 				Index: 1,
 				State: "RUNNING",
 				Usage: actions.Usage{
-					Time: tools.PtrTo("t2"),
-					CPU:  tools.PtrTo(501.0),
-					Mem:  tools.PtrTo(int64(513)),
-					Disk: tools.PtrTo(int64(257)),
+					Timestamp: tools.PtrTo(time.UnixMilli(2000).UTC()),
+					CPU:       tools.PtrTo(501.0),
+					Mem:       tools.PtrTo(int64(513)),
+					Disk:      tools.PtrTo(int64(257)),
 				},
 				MemQuota:  tools.PtrTo(int64(1024)),
 				DiskQuota: tools.PtrTo(int64(2048)),
@@ -73,7 +74,7 @@ var _ = Describe("Process Stats", func() {
 					"details": null,
 					"instance_ports": [],
 					"usage": {
-						"time": "t1",
+						"time": "1970-01-01T00:00:01Z",
 						"cpu": 500,
 						"mem": 512,
 						"disk": 256
@@ -92,7 +93,7 @@ var _ = Describe("Process Stats", func() {
 					"details": null,
 					"instance_ports": [],
 					"usage": {
-						"time": "t2",
+						"time": "1970-01-01T00:00:02Z",
 						"cpu": 501,
 						"mem": 513,
 						"disk": 257

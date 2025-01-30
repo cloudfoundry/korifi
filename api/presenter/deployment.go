@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -45,8 +46,8 @@ func ForDeployment(responseDeployment repositories.DeploymentRecord, baseURL url
 			Guid: responseDeployment.DropletGUID,
 		},
 		Relationships: ForRelationships(responseDeployment.Relationships()),
-		CreatedAt:     formatTimestamp(&responseDeployment.CreatedAt),
-		UpdatedAt:     formatTimestamp(responseDeployment.UpdatedAt),
+		CreatedAt:     tools.ZeroIfNil(formatTimestamp(&responseDeployment.CreatedAt)),
+		UpdatedAt:     tools.ZeroIfNil(formatTimestamp(responseDeployment.UpdatedAt)),
 		Links: DeploymentLinks{
 			Self: Link{
 				HRef: buildURL(baseURL).appendPath(deploymentsBase, responseDeployment.GUID).build(),

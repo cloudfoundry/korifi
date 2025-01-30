@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 const (
@@ -28,8 +29,8 @@ type StackLinks struct {
 func ForStack(stackRecord repositories.StackRecord, baseURL url.URL, includes ...model.IncludedResource) StackResponse {
 	return StackResponse{
 		GUID:      stackRecord.GUID,
-		CreatedAt: formatTimestamp(&stackRecord.CreatedAt),
-		UpdatedAt: formatTimestamp(stackRecord.UpdatedAt),
+		CreatedAt: tools.ZeroIfNil(formatTimestamp(&stackRecord.CreatedAt)),
+		UpdatedAt: tools.ZeroIfNil(formatTimestamp(stackRecord.UpdatedAt)),
 		Name:      stackRecord.Name,
 		Links: StackLinks{
 			Self: Link{

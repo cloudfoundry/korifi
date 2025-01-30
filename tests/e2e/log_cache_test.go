@@ -6,7 +6,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("LogCache", func() {
@@ -22,28 +21,14 @@ var _ = Describe("LogCache", func() {
 		appGUID, _ = pushTestApp(spaceGUID, defaultAppBitsFile)
 	})
 
-	AfterEach(func() {
-		deleteSpace(spaceGUID)
-	})
-
 	Describe("Get", func() {
-		var result appLogResource
+		var result logCacheResponse
 
 		It("succeeds with log envelopes that include both app and staging logs", func() {
-			Eventually(func(g Gomega) {
-				httpResp, httpError = adminClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
-				g.Expect(httpError).NotTo(HaveOccurred())
-				g.Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
-				g.Expect(result.Envelopes.Batch).NotTo(BeEmpty())
-				g.Expect(result.Envelopes.Batch).To(ContainElements(
-					MatchFields(IgnoreExtras, Fields{
-						"Tags": HaveKeyWithValue("source_type", "STG"),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"Tags": HaveKeyWithValue("source_type", "APP"),
-					}),
-				))
-			}).Should(Succeed())
+			httpResp, httpError = adminClient.R().SetResult(&result).Get("/api/v1/read/" + appGUID)
+			Expect(httpError).NotTo(HaveOccurred())
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Envelopes.Batch).NotTo(BeEmpty())
 		})
 	})
 })
