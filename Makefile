@@ -82,9 +82,9 @@ test-smoke: build-dorifi bin/cf
 
 
 build-dorifi:
-	CGO_ENABLED=0 GOOS=linux go build -C tests/assets/dorifi-golang -o ../dorifi/dorifi .
-	CGO_ENABLED=0 GOOS=linux go build -C tests/assets/dorifi-golang -o ../multi-process/dorifi .
-	CGO_ENABLED=0 GOOS=linux go build -C tests/assets/sample-broker-golang -o ../sample-broker/sample-broker .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -C tests/assets/dorifi-golang -o ../dorifi/dorifi .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -C tests/assets/dorifi-golang -o ../multi-process/dorifi .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -C tests/assets/sample-broker-golang -o ../sample-broker/sample-broker .
 
 bin:
 	mkdir -p bin
