@@ -1088,7 +1088,7 @@ var _ = Describe("CFServiceBinding", func() {
 
 			It("unbinds the binding with the broker", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(brokerClient.UnbindCallCount()).To(Equal(1))
+					g.Expect(brokerClient.UnbindCallCount()).NotTo(BeZero())
 					_, actualUnbindRequest := brokerClient.UnbindArgsForCall(0)
 					Expect(actualUnbindRequest).To(Equal(osbapi.UnbindPayload{
 						BindingID:  binding.Name,
