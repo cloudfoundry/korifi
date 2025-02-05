@@ -1,10 +1,9 @@
 package integration_test
 
 import (
-	"context"
-
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
@@ -14,7 +13,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -23,25 +21,14 @@ import (
 )
 
 var _ = Describe("AppWorkloadsController", func() {
-	var (
-		ctx           context.Context
-		appWorkload   *korifiv1alpha1.AppWorkload
-		namespaceName string
-	)
+	var appWorkload *korifiv1alpha1.AppWorkload
 
 	BeforeEach(func() {
-		ctx = context.Background()
-		namespaceName = uuid.NewString()
-		Expect(k8sClient.Create(ctx, &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: namespaceName,
-			},
-		})).To(Succeed())
-
 		appWorkload = &korifiv1alpha1.AppWorkload{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      uuid.NewString(),
-				Namespace: namespaceName,
+				Name:       uuid.NewString(),
+				Namespace:  namespaceName,
+				Generation: 1,
 			},
 			Spec: korifiv1alpha1.AppWorkloadSpec{
 				GUID:    uuid.NewString(),
@@ -69,11 +56,8 @@ var _ = Describe("AppWorkloadsController", func() {
 	}
 
 	When("AppWorkload is created", func() {
-		var err error
-
-		JustBeforeEach(func() {
+		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, appWorkload)).To(Succeed())
-			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("creates the statefulset", func() {
@@ -88,6 +72,13 @@ var _ = Describe("AppWorkloadsController", func() {
 			Expect(statefulset.OwnerReferences[0].Name).To(Equal(appWorkload.Name))
 		})
 
+		It("sets the observed generation", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
+				g.Expect(appWorkload.Status.ObservedGeneration).To(BeEquivalentTo(1))
+			}).Should(Succeed())
+		})
+
 		It("creates the pod disruption budget", func() {
 			statefulSet := getStatefulsetForAppWorkload(Default)
 			pdb := new(policyv1.PodDisruptionBudget)
@@ -99,11 +90,10 @@ var _ = Describe("AppWorkloadsController", func() {
 
 		When("the statefulset replicas is set", func() {
 			JustBeforeEach(func() {
-				statefulset := getStatefulsetForAppWorkload(Default)
-				updatedStatefulset := statefulset.DeepCopy()
-				updatedStatefulset.Status.Replicas = 1
-
-				Expect(k8sClient.Status().Patch(ctx, updatedStatefulset, client.MergeFrom(&statefulset))).To(Succeed())
+				statefulset := tools.PtrTo(getStatefulsetForAppWorkload(Default))
+				Expect(k8s.Patch(ctx, k8sClient, statefulset, func() {
+					statefulset.Status.Replicas = 1
+				})).To(Succeed())
 			})
 
 			It("updates workload actual instances", func() {
@@ -112,23 +102,85 @@ var _ = Describe("AppWorkloadsController", func() {
 					g.Expect(appWorkload.Status.ActualInstances).To(BeEquivalentTo(1))
 				}).Should(Succeed())
 			})
+
+			When("instance pods are available", func() {
+				var pod *corev1.Pod
+
+				BeforeEach(func() {
+					pod = &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: namespaceName,
+							Name:      uuid.NewString(),
+							Labels: map[string]string{
+								"apps.kubernetes.io/pod-index":             "4",
+								"korifi.cloudfoundry.org/guid":             appWorkload.Spec.GUID,
+								"korifi.cloudfoundry.org/appworkload-guid": appWorkload.Name,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name:  "pod-container",
+								Image: "pod/image",
+							}},
+						},
+					}
+					Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+				})
+
+				It("updates workload instances state", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
+						g.Expect(appWorkload.Status.InstancesState).To(HaveKeyWithValue("4", korifiv1alpha1.InstanceStateDown))
+					}).Should(Succeed())
+				})
+
+				When("the instance pod starts", func() {
+					JustBeforeEach(func() {
+						Eventually(func(g Gomega) {
+							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
+							g.Expect(appWorkload.Status.InstancesState).To(HaveKeyWithValue("4", korifiv1alpha1.InstanceStateDown))
+						}).Should(Succeed())
+
+						Expect(k8s.Patch(ctx, k8sClient, pod, func() {
+							pod.Status = corev1.PodStatus{
+								Conditions: []corev1.PodCondition{{
+									Type:   corev1.PodReady,
+									Status: corev1.ConditionTrue,
+								}},
+							}
+						})).To(Succeed())
+					})
+
+					It("updates workload instances state", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
+							g.Expect(appWorkload.Status.InstancesState).To(HaveKeyWithValue("4", korifiv1alpha1.InstanceStateRunning))
+						}).Should(Succeed())
+					})
+				})
+			})
 		})
 
 		When("the appworkload runner name is not 'statefulset-runner'", func() {
+			var anotherAppWorkload *korifiv1alpha1.AppWorkload
+
 			BeforeEach(func() {
-				appWorkload.Spec.RunnerName = "another-runner"
+				anotherAppWorkload = &korifiv1alpha1.AppWorkload{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: namespaceName,
+					},
+					Spec: korifiv1alpha1.AppWorkloadSpec{
+						RunnerName: "not-statefulset-runner",
+					},
+				}
+				Expect(k8sClient.Create(ctx, anotherAppWorkload)).To(Succeed())
 			})
 
 			It("does not reconcile it", func() {
 				Consistently(func(g Gomega) {
-					stsetList := appsv1.StatefulSetList{}
-					g.Expect(k8sClient.List(ctx, &stsetList, client.MatchingLabels{
-						controllers.LabelGUID: appWorkload.Spec.GUID,
-					})).To(Succeed())
-					g.Expect(stsetList.Items).To(BeEmpty())
-
-					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
-					g.Expect(meta.FindStatusCondition(appWorkload.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeNil())
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(anotherAppWorkload), anotherAppWorkload)).To(Succeed())
+					g.Expect(anotherAppWorkload.Status).To(BeZero())
 				}).Should(Succeed())
 			})
 		})

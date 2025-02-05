@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package runnerinfo
 
 import (
 	"context"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -62,7 +63,7 @@ func filterRunnerInfos(object client.Object) bool {
 		return true
 	}
 
-	return runnerInfo.Name == AppWorkloadReconcilerName
+	return runnerInfo.Name == controllers.AppWorkloadReconcilerName
 }
 
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runnerinfos,verbs=get;list;watch;create;patch;delete

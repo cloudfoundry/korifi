@@ -1,4 +1,4 @@
-package controllers_test
+package runnerinfo_test
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/statefulset-runner/fake"
+	"code.cloudfoundry.org/korifi/controllers/fake"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +17,7 @@ import (
 
 func TestAppWorkloadsController(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Suite")
+	RunSpecs(t, "RunnerInfo Controller Suite")
 }
 
 var (

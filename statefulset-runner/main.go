@@ -12,7 +12,9 @@ import (
 	"os"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	statefulsetcontrollers "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/runnerinfo"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/version"
 	"go.uber.org/zap/zapcore"
@@ -99,17 +101,18 @@ func main() {
 
 func setupControllers(mgr manager.Manager) error {
 	controllersLog := ctrl.Log.WithName("controllers")
-	if err := statefulsetcontrollers.NewAppWorkloadReconciler(
+	if err := appworkload.NewAppWorkloadReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
-		statefulsetcontrollers.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme()),
-		statefulsetcontrollers.NewPDBUpdater(mgr.GetClient()),
+		appworkload.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme()),
+		appworkload.NewPDBUpdater(mgr.GetClient()),
 		controllersLog,
+		state.NewAppWorkloadStateCollector(mgr.GetClient()),
 	).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create AppWorkload controller: %w", err)
 	}
 
-	if err := statefulsetcontrollers.NewRunnerInfoReconciler(
+	if err := runnerinfo.NewRunnerInfoReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		controllersLog,

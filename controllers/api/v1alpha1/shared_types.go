@@ -10,7 +10,7 @@ const (
 	CFAppGUIDLabelKey        = "korifi.cloudfoundry.org/app-guid"
 	CFAppRevisionKey         = "korifi.cloudfoundry.org/app-rev"
 	CFAppLastStopRevisionKey = "korifi.cloudfoundry.org/last-stop-app-rev"
-	CFAppRevisionKeyDefault  = "0"
+	CFAppDefaultRevision     = "0"
 	CFPackageGUIDLabelKey    = "korifi.cloudfoundry.org/package-guid"
 	CFBuildGUIDLabelKey      = "korifi.cloudfoundry.org/build-guid"
 	CFProcessGUIDLabelKey    = "korifi.cloudfoundry.org/process-guid"
@@ -37,6 +37,11 @@ const (
 	RelServiceBrokerNameLabel   = RelationshipsLabelPrefix + "service-broker-name"
 	RelServiceOfferingGUIDLabel = RelationshipsLabelPrefix + "service-offering-guid"
 	RelServiceOfferingNameLabel = RelationshipsLabelPrefix + "service-offering-name"
+
+	InstanceStateDown     InstanceState = "DOWN"
+	InstanceStateCrashed  InstanceState = "CRASHED"
+	InstanceStateStarting InstanceState = "STARTING"
+	InstanceStateRunning  InstanceState = "RUNNING"
 )
 
 type Lifecycle struct {
@@ -75,3 +80,6 @@ type Registry struct {
 type RequiredLocalObjectReference struct {
 	Name string `json:"name"`
 }
+
+// +kubebuilder:validation:Enum=DOWN;CRASHED;STARTING;RUNNING
+type InstanceState string

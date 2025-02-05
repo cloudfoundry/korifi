@@ -1,4 +1,4 @@
-package controllers
+package appworkload
 
 import (
 	"crypto/sha256"
@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 	appsv1 "k8s.io/api/apps/v1"
@@ -182,11 +183,11 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 	}
 
 	labels := map[string]string{
-		LabelGUID:            appWorkload.Spec.GUID,
-		LabelProcessType:     appWorkload.Spec.ProcessType,
-		LabelVersion:         appWorkload.Spec.Version,
-		LabelAppGUID:         appWorkload.Spec.AppGUID,
-		LabelAppWorkloadGUID: appWorkload.Name,
+		controllers.LabelGUID: appWorkload.Spec.GUID,
+		LabelProcessType:      appWorkload.Spec.ProcessType,
+		LabelVersion:          appWorkload.Spec.Version,
+		LabelAppGUID:          appWorkload.Spec.AppGUID,
+		LabelAppWorkloadGUID:  appWorkload.Name,
 	}
 
 	statefulSet.Spec.Template.Labels = labels
@@ -231,7 +232,7 @@ func truncateString(str string, num int) string {
 func statefulSetLabelSelector(appWorkload *korifiv1alpha1.AppWorkload) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			LabelGUID: appWorkload.Spec.GUID,
+			controllers.LabelGUID: appWorkload.Spec.GUID,
 		},
 	}
 }

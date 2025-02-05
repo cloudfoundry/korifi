@@ -1,10 +1,11 @@
-package controllers_test
+package appworkload_test
 
 import (
 	"context"
 	"errors"
 
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,14 +20,14 @@ import (
 
 var _ = Describe("PDB", func() {
 	var (
-		creator   *controllers.PDBUpdater
+		creator   *appworkload.PDBUpdater
 		stSet     *appsv1.StatefulSet
 		ctx       context.Context
 		instances int32
 	)
 
 	BeforeEach(func() {
-		creator = controllers.NewPDBUpdater(fakeClient)
+		creator = appworkload.NewPDBUpdater(fakeClient)
 		instances = 2
 
 		stSet = &appsv1.StatefulSet{
@@ -36,7 +37,7 @@ var _ = Describe("PDB", func() {
 				UID:       "uid",
 				Labels: map[string]string{
 					controllers.LabelGUID:    "label-guid",
-					controllers.LabelVersion: "label-version",
+					appworkload.LabelVersion: "label-version",
 				},
 			},
 			Spec: appsv1.StatefulSetSpec{
@@ -44,7 +45,7 @@ var _ = Describe("PDB", func() {
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						controllers.LabelGUID:    "label-guid",
-						controllers.LabelVersion: "label-version",
+						appworkload.LabelVersion: "label-version",
 					},
 				},
 			},
@@ -75,7 +76,7 @@ var _ = Describe("PDB", func() {
 			Expect(pdb.Name).To(Equal("name"))
 			Expect(pdb.Spec.MinAvailable).To(PointTo(Equal(intstr.FromString("50%"))))
 			Expect(pdb.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelGUID, stSet.Labels[controllers.LabelGUID]))
-			Expect(pdb.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelVersion, stSet.Labels[controllers.LabelVersion]))
+			Expect(pdb.Spec.Selector.MatchLabels).To(HaveKeyWithValue(appworkload.LabelVersion, stSet.Labels[appworkload.LabelVersion]))
 			Expect(pdb.OwnerReferences).To(HaveLen(1))
 			Expect(pdb.OwnerReferences[0].Name).To(Equal(stSet.Name))
 			Expect(pdb.OwnerReferences[0].UID).To(Equal(stSet.UID))

@@ -51,4 +51,13 @@ var _ = Describe("Collections", func() {
 		Entry("Set value in nil map", nil, "a", 1, map[string]int{"a": 1}),
 		Entry("Update existing key in map", map[string]int{"a": 1}, "a", 2, map[string]int{"a": 2}),
 	)
+
+	DescribeTable("GetMapValue",
+		func(m map[string]int, key string, expected int) {
+			result := tools.GetMapValue(m, key, -1)
+			Expect(result).To(Equal(expected))
+		},
+		Entry("Value is present", map[string]int{"a": 1}, "a", 1),
+		Entry("Value is missing", map[string]int{}, "a", -1),
+	)
 })

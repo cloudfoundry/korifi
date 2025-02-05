@@ -16,9 +16,7 @@ import (
 
 var _ = Describe("RunnerInfosController", func() {
 	var (
-		ctx            context.Context
 		runnerInfo     *korifiv1alpha1.RunnerInfo
-		namespaceName  string
 		runnerInfoName string
 	)
 
@@ -26,14 +24,7 @@ var _ = Describe("RunnerInfosController", func() {
 		var err error
 
 		BeforeEach(func() {
-			ctx = context.Background()
 			runnerInfoName = "statefulset-runner"
-			namespaceName = uuid.NewString()
-			Expect(k8sClient.Create(ctx, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespaceName,
-				},
-			})).To(Succeed())
 
 			runnerInfo = &korifiv1alpha1.RunnerInfo{
 				ObjectMeta: metav1.ObjectMeta{

@@ -1,11 +1,11 @@
-package controllers_test
+package runnerinfo_test
 
 import (
 	"context"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/runnerinfo"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/google/uuid"
@@ -51,7 +51,7 @@ var _ = Describe("RunnerInfo Reconcile", func() {
 			}
 		}
 
-		reconciler = controllers.NewRunnerInfoReconciler(
+		reconciler = runnerinfo.NewRunnerInfoReconciler(
 			fakeClient,
 			scheme.Scheme,
 			ctrl.Log.WithName("controllers").WithName("TestRunnerInfo"),
