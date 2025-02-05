@@ -67,7 +67,7 @@ func (r *CFAppDefaulter) defaultAnnotations(cfApp *CFApp) {
 	_, hasRevAnnotation := appAnnotations[CFAppRevisionKey]
 
 	if !hasRevAnnotation {
-		appAnnotations = tools.SetMapValue(appAnnotations, CFAppRevisionKey, CFAppRevisionKeyDefault)
+		appAnnotations = tools.SetMapValue(appAnnotations, CFAppRevisionKey, CFAppDefaultRevision)
 	}
 	cfApp.SetAnnotations(appAnnotations)
 }

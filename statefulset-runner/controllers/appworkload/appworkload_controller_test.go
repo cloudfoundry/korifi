@@ -1,4 +1,4 @@
-package controllers_test
+package appworkload_test
 
 import (
 	"context"
@@ -6,8 +6,9 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
-	"code.cloudfoundry.org/korifi/statefulset-runner/fake"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/fake"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -100,12 +101,13 @@ var _ = Describe("AppWorkload Reconcile", func() {
 			}
 		}
 
-		reconciler = controllers.NewAppWorkloadReconciler(
+		reconciler = appworkload.NewAppWorkloadReconciler(
 			fakeClient,
 			scheme.Scheme,
 			fakeWorkloadToStSet,
 			fakePDB,
 			ctrl.Log.WithName("controllers").WithName("TestAppWorkload"),
+			state.NewAppWorkloadStateCollector(fakeClient),
 		)
 	})
 

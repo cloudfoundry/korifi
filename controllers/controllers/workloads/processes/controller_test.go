@@ -209,7 +209,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		})
 
 		It("reconciles the CFProcess into an AppWorkload", func() {
-			eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+			withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 				g.Expect(appWorkload.OwnerReferences).To(ConsistOf(metav1.OwnerReference{
 					APIVersion:         korifiv1alpha1.SchemeGroupVersion.Identifier(),
 					Kind:               "CFProcess",
@@ -274,7 +274,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 
 			It("sets the startup and liveness probes on the AppWorkload", func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.StartupProbe).ToNot(BeNil())
 					g.Expect(appWorkload.Spec.StartupProbe.HTTPGet).ToNot(BeNil())
 					g.Expect(appWorkload.Spec.StartupProbe.HTTPGet.Path).To(Equal("/healthy"))
@@ -305,7 +305,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 
 			It("sets the startup and liveness probes on the AppWorkload", func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.StartupProbe).ToNot(BeNil())
 					g.Expect(appWorkload.Spec.StartupProbe.TCPSocket).ToNot(BeNil())
 					g.Expect(appWorkload.Spec.StartupProbe.TCPSocket.Port.IntValue()).To(Equal(8080))
@@ -329,16 +329,16 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 
 			It("does not set liveness and startup probes on the AppWorkload", func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.StartupProbe).To(BeNil())
 					g.Expect(appWorkload.Spec.LivenessProbe).To(BeNil())
 				})
 			})
 		})
 
-		When("the app workload instances is set", func() {
+		When("the app workload actual instances are set", func() {
 			JustBeforeEach(func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(k8s.Patch(ctx, adminClient, &appWorkload, func() {
 						appWorkload.Status.ActualInstances = 3
 					})).To(Succeed())
@@ -353,13 +353,34 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 		})
 
+		When("the app workload instance state is set", func() {
+			JustBeforeEach(func() {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+					g.Expect(k8s.Patch(ctx, adminClient, &appWorkload, func() {
+						appWorkload.Status.InstancesState = map[string]korifiv1alpha1.InstanceState{
+							"3": korifiv1alpha1.InstanceStateDown,
+						}
+					})).To(Succeed())
+				})
+			})
+
+			It("updates the process instance state", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfProcess), cfProcess)).To(Succeed())
+					g.Expect(cfProcess.Status.InstancesState).To(Equal(map[string]korifiv1alpha1.InstanceState{
+						"3": korifiv1alpha1.InstanceStateDown,
+					}))
+				}).Should(Succeed())
+			})
+		})
+
 		When("The process command field isn't set", func() {
 			BeforeEach(func() {
 				cfProcess.Spec.Command = ""
 			})
 
 			It("creates an app workload using the detected command", func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.Command).To(ConsistOf("/cnb/lifecycle/launcher", "detected-command"))
 				})
 			})
@@ -373,14 +394,14 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 
 			It("does not create startup and liveness probes on the app workload", func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.StartupProbe).To(BeNil())
 					g.Expect(appWorkload.Spec.LivenessProbe).To(BeNil())
 				})
 			})
 
 			It("does not set port related environment variables on the app workload", func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.Env).NotTo(ContainElements(
 						MatchFields(IgnoreExtras, Fields{"Name": Equal("VCAP_APP_PORT")}),
 						MatchFields(IgnoreExtras, Fields{"Name": Equal("PORT")}),
@@ -391,7 +412,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 		When("a CFApp desired state is updated to STOPPED", func() {
 			JustBeforeEach(func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {})
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {})
 				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
 					cfApp.Spec.DesiredState = korifiv1alpha1.StoppedState
 				})).To(Succeed())
@@ -408,7 +429,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 		When("the app process instances are scaled down to 0", func() {
 			JustBeforeEach(func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {})
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {})
 				Expect(k8s.Patch(ctx, adminClient, cfProcess, func() {
 					cfProcess.Spec.DesiredInstances = tools.PtrTo[int32](0)
 				})).To(Succeed())
@@ -425,7 +446,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 
 		When("the process desired instances are unset", func() {
 			JustBeforeEach(func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {})
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {})
 				Expect(k8s.Patch(ctx, adminClient, cfProcess, func() {
 					cfProcess.Spec.DesiredInstances = nil
 				})).To(Succeed())
@@ -444,7 +465,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			var prevAppWorkloadName string
 
 			JustBeforeEach(func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					prevAppWorkloadName = appWorkload.Name
 				})
 
@@ -455,7 +476,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 
 			It("deletes the app workload and createas a new one", func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Name).NotTo(Equal(prevAppWorkloadName))
 				})
 			})
@@ -465,7 +486,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			var appWorkload *korifiv1alpha1.AppWorkload
 
 			JustBeforeEach(func() {
-				eventuallyCreatedAppWorkloadShould(func(g Gomega, workload korifiv1alpha1.AppWorkload) {
+				withAppWorkload(func(g Gomega, workload korifiv1alpha1.AppWorkload) {
 					appWorkload = &workload
 				})
 
@@ -483,7 +504,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 	})
 })
 
-func eventuallyCreatedAppWorkloadShould(shouldFn func(Gomega, korifiv1alpha1.AppWorkload)) {
+func withAppWorkload(shouldFn func(Gomega, korifiv1alpha1.AppWorkload)) {
 	GinkgoHelper()
 
 	Eventually(func(g Gomega) {

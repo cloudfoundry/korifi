@@ -23,25 +23,34 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/runnerinfo"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
+	ctx             context.Context
+	namespaceName   string
 	stopManager     context.CancelFunc
 	stopClientCache context.CancelFunc
 	k8sClient       client.Client
 	testEnv         *envtest.Environment
+	k8sManager      manager.Manager
 )
 
 func TestAppWorkloadsController(t *testing.T) {
@@ -67,21 +76,24 @@ var _ = BeforeSuite(func() {
 
 	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
+})
 
-	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "statefulset-runner", "role.yaml"))
+var _ = BeforeEach(func() {
+	k8sManager = helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "statefulset-runner", "role.yaml"))
 	k8sClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	appWorkloadReconciler := NewAppWorkloadReconciler(
+	appWorkloadReconciler := appworkload.NewAppWorkloadReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
-		NewAppWorkloadToStatefulsetConverter(k8sManager.GetScheme()),
-		NewPDBUpdater(k8sManager.GetClient()),
+		appworkload.NewAppWorkloadToStatefulsetConverter(k8sManager.GetScheme()),
+		appworkload.NewPDBUpdater(k8sManager.GetClient()),
 		ctrl.Log.WithName("statefulset-runner").WithName("AppWorkload"),
+		state.NewAppWorkloadStateCollector(k8sManager.GetClient()),
 	)
-	err = appWorkloadReconciler.SetupWithManager(k8sManager)
+	err := appWorkloadReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	runnerInfoReconciler := NewRunnerInfoReconciler(
+	runnerInfoReconciler := runnerinfo.NewRunnerInfoReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("statefulset-runner").WithName("RunnerInfo"),
@@ -89,11 +101,25 @@ var _ = BeforeSuite(func() {
 	err = runnerInfoReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	ctx = context.Background()
+
+	namespaceName = uuid.NewString()
+	Expect(k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespaceName,
+		},
+	})).To(Succeed())
+})
+
+var _ = JustBeforeEach(func() {
 	stopManager = helpers.StartK8sManager(k8sManager)
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterEach(func() {
 	stopClientCache()
 	stopManager()
+})
+
+var _ = AfterSuite(func() {
 	Expect(testEnv.Stop()).To(Succeed())
 })

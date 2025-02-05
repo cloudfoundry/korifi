@@ -1,10 +1,11 @@
-package controllers_test
+package appworkload_test
 
 import (
 	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
 	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,7 +22,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	var (
 		statefulSet *appsv1.StatefulSet
 		appWorkload *korifiv1alpha1.AppWorkload
-		converter   *controllers.AppWorkloadToStatefulsetConverter
+		converter   *appworkload.AppWorkloadToStatefulsetConverter
 	)
 
 	BeforeEach(func() {
@@ -84,7 +85,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 			},
 		}
 
-		converter = controllers.NewAppWorkloadToStatefulsetConverter(scheme.Scheme)
+		converter = appworkload.NewAppWorkloadToStatefulsetConverter(scheme.Scheme)
 	})
 
 	JustBeforeEach(func() {
@@ -98,18 +99,18 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		func(annotationName, expectedValue string) {
 			Expect(statefulSet.Annotations).To(HaveKeyWithValue(annotationName, expectedValue))
 		},
-		Entry("ProcessGUID", controllers.AnnotationProcessGUID, "guid_1234-version_1234"),
-		Entry("AppID", controllers.AnnotationAppID, "premium_app_guid_1234"),
-		Entry("Version", controllers.AnnotationVersion, "version_1234"),
+		Entry("ProcessGUID", appworkload.AnnotationProcessGUID, "guid_1234-version_1234"),
+		Entry("AppID", appworkload.AnnotationAppID, "premium_app_guid_1234"),
+		Entry("Version", appworkload.AnnotationVersion, "version_1234"),
 	)
 
 	DescribeTable("Statefulset Template Annotations",
 		func(annotationName, expectedValue string) {
 			Expect(statefulSet.Spec.Template.Annotations).To(HaveKeyWithValue(annotationName, expectedValue))
 		},
-		Entry("ProcessGUID", controllers.AnnotationProcessGUID, "guid_1234-version_1234"),
-		Entry("AppID", controllers.AnnotationAppID, "premium_app_guid_1234"),
-		Entry("Version", controllers.AnnotationVersion, "version_1234"),
+		Entry("ProcessGUID", appworkload.AnnotationProcessGUID, "guid_1234-version_1234"),
+		Entry("AppID", appworkload.AnnotationAppID, "premium_app_guid_1234"),
+		Entry("Version", appworkload.AnnotationVersion, "version_1234"),
 	)
 
 	It("should be owned by the AppWorkload", func() {
@@ -207,17 +208,17 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	})
 
 	It("should set app_guid as a label", func() {
-		Expect(statefulSet.Labels).To(HaveKeyWithValue(controllers.LabelAppGUID, "premium_app_guid_1234"))
-		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(controllers.LabelAppGUID, "premium_app_guid_1234"))
+		Expect(statefulSet.Labels).To(HaveKeyWithValue(appworkload.LabelAppGUID, "premium_app_guid_1234"))
+		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(appworkload.LabelAppGUID, "premium_app_guid_1234"))
 	})
 
 	It("should set appworkload guid as a label on the statefulset only", func() {
-		Expect(statefulSet.Labels).To(HaveKeyWithValue(controllers.LabelAppWorkloadGUID, "guid_1234"))
+		Expect(statefulSet.Labels).To(HaveKeyWithValue(appworkload.LabelAppWorkloadGUID, "guid_1234"))
 	})
 
 	It("should set process_type as a label", func() {
-		Expect(statefulSet.Labels).To(HaveKeyWithValue(controllers.LabelProcessType, "worker"))
-		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(controllers.LabelProcessType, "worker"))
+		Expect(statefulSet.Labels).To(HaveKeyWithValue(appworkload.LabelProcessType, "worker"))
+		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(appworkload.LabelProcessType, "worker"))
 	})
 
 	It("should set guid as a label", func() {
@@ -226,8 +227,8 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 	})
 
 	It("should set version as a label", func() {
-		Expect(statefulSet.Labels).To(HaveKeyWithValue(controllers.LabelVersion, "version_1234"))
-		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(controllers.LabelVersion, "version_1234"))
+		Expect(statefulSet.Labels).To(HaveKeyWithValue(appworkload.LabelVersion, "version_1234"))
+		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(appworkload.LabelVersion, "version_1234"))
 	})
 
 	It("should set guid as a label selector", func() {
@@ -290,10 +291,10 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(statefulSet.Spec.Template.Spec.Containers).To(HaveLen(1))
 		container := statefulSet.Spec.Template.Spec.Containers[0]
 		Expect(container.Env).To(ContainElements(
-			corev1.EnvVar{Name: controllers.EnvPodName, ValueFrom: expectedValFrom("metadata.name")},
-			corev1.EnvVar{Name: controllers.EnvCFInstanceGUID, ValueFrom: expectedValFrom("metadata.uid")},
-			corev1.EnvVar{Name: controllers.EnvCFInstanceInternalIP, ValueFrom: expectedValFrom("status.podIP")},
-			corev1.EnvVar{Name: controllers.EnvCFInstanceIP, ValueFrom: expectedValFrom("status.hostIP")},
+			corev1.EnvVar{Name: appworkload.EnvPodName, ValueFrom: expectedValFrom("metadata.name")},
+			corev1.EnvVar{Name: appworkload.EnvCFInstanceGUID, ValueFrom: expectedValFrom("metadata.uid")},
+			corev1.EnvVar{Name: appworkload.EnvCFInstanceInternalIP, ValueFrom: expectedValFrom("status.podIP")},
+			corev1.EnvVar{Name: appworkload.EnvCFInstanceIP, ValueFrom: expectedValFrom("status.hostIP")},
 		))
 	})
 
@@ -329,11 +330,11 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 			Expect(statefulSet.Spec.Template.Spec.Containers).To(HaveLen(1))
 			container := statefulSet.Spec.Template.Spec.Containers[0]
 			Expect(container.Env).To(ContainElements(
-				corev1.EnvVar{Name: controllers.EnvPodName, ValueFrom: expectedValFrom("metadata.name")},
-				corev1.EnvVar{Name: controllers.EnvCFInstanceGUID, ValueFrom: expectedValFrom("metadata.uid")},
-				corev1.EnvVar{Name: controllers.EnvCFInstanceIndex, ValueFrom: expectedValFrom("metadata.labels['apps.kubernetes.io/pod-index']")},
-				corev1.EnvVar{Name: controllers.EnvCFInstanceInternalIP, ValueFrom: expectedValFrom("status.podIP")},
-				corev1.EnvVar{Name: controllers.EnvCFInstanceIP, ValueFrom: expectedValFrom("status.hostIP")},
+				corev1.EnvVar{Name: appworkload.EnvPodName, ValueFrom: expectedValFrom("metadata.name")},
+				corev1.EnvVar{Name: appworkload.EnvCFInstanceGUID, ValueFrom: expectedValFrom("metadata.uid")},
+				corev1.EnvVar{Name: appworkload.EnvCFInstanceIndex, ValueFrom: expectedValFrom("metadata.labels['apps.kubernetes.io/pod-index']")},
+				corev1.EnvVar{Name: appworkload.EnvCFInstanceInternalIP, ValueFrom: expectedValFrom("status.podIP")},
+				corev1.EnvVar{Name: appworkload.EnvCFInstanceIP, ValueFrom: expectedValFrom("status.hostIP")},
 				corev1.EnvVar{Name: "bobs", ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{Name: "your"},

@@ -64,6 +64,9 @@ type AppWorkloadStatus struct {
 
 	//+kubebuilder:validation:Optional
 	ActualInstances int32 `json:"actualInstances"`
+
+	//+kubebuilder:validation:Optional
+	InstancesState map[string]InstanceState `json:"instancesState"`
 }
 
 //+kubebuilder:object:root=true

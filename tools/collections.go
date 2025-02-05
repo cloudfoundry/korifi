@@ -43,3 +43,10 @@ func SetMapValue[K comparable, V any](m map[K]V, key K, value V) map[K]V {
 
 	return m
 }
+
+func GetMapValue[K comparable, V any](m map[K]V, key K, defaultValue V) V {
+	if value, found := m[key]; found {
+		return value
+	}
+	return defaultValue
+}

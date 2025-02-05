@@ -794,6 +794,15 @@ spec:
                   - type
                   type: object
                 type: array
+              instancesState:
+                additionalProperties:
+                  enum:
+                  - DOWN
+                  - CRASHED
+                  - STARTING
+                  - RUNNING
+                  type: string
+                type: object
               observedGeneration:
                 description: ObservedGeneration captures the latest generation of
                   the AppWorkload that has been reconciled

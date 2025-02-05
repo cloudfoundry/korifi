@@ -1,9 +1,10 @@
-package controllers
+package appworkload
 
 import (
 	"context"
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -43,8 +44,8 @@ func (c *PDBUpdater) createPDB(ctx context.Context, statefulSet *appsv1.Stateful
 			Name:      statefulSet.Name,
 			Namespace: statefulSet.Namespace,
 			Labels: map[string]string{
-				LabelGUID:    statefulSet.Labels[LabelGUID],
-				LabelVersion: statefulSet.Labels[LabelVersion],
+				controllers.LabelGUID: statefulSet.Labels[controllers.LabelGUID],
+				LabelVersion:          statefulSet.Labels[LabelVersion],
 			},
 		},
 		Spec: policyv1.PodDisruptionBudgetSpec{

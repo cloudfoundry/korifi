@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
 	v1 "k8s.io/api/apps/v1"
 )
 
@@ -115,4 +115,4 @@ func (fake *WorkloadToStatefulsetConverter) recordInvocation(key string, args []
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ controllers.WorkloadToStatefulsetConverter = new(WorkloadToStatefulsetConverter)
+var _ appworkload.WorkloadToStatefulsetConverter = new(WorkloadToStatefulsetConverter)

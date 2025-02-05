@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
 	v1 "k8s.io/api/apps/v1"
 )
 
@@ -112,4 +112,4 @@ func (fake *PDB) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ controllers.PDB = new(PDB)
+var _ appworkload.PDB = new(PDB)
