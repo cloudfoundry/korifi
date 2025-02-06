@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
 	"code.cloudfoundry.org/korifi/model/services"
@@ -742,6 +743,22 @@ var _ = Describe("CFServiceBinding", func() {
 					err := adminClient.List(ctx, sbList, client.InNamespace(testNamespace))
 					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(sbList.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
+
+			It("does not create a servicebindingio secret", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					g.Expect(binding.Status.Binding.Name).To(BeEmpty())
+
+					secrets := &corev1.SecretList{}
+					g.Expect(adminClient.List(ctx, secrets, client.InNamespace(binding.Namespace))).To(Succeed())
+
+					g.Expect(secrets.Items).NotTo(ContainElement(
+						MatchFields(IgnoreExtras, Fields{
+							"Type": HavePrefix(credentials.ServiceBindingSecretTypePrefix),
+						}),
+					))
 				}).Should(Succeed())
 			})
 		})
