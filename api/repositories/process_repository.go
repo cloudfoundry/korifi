@@ -306,7 +306,7 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 		AppGUID:          cfProcess.Spec.AppRef.Name,
 		Type:             cfProcess.Spec.ProcessType,
 		Command:          cmd,
-		DesiredInstances: *cfProcess.Spec.DesiredInstances,
+		DesiredInstances: tools.ZeroIfNil(cfProcess.Spec.DesiredInstances),
 		MemoryMB:         cfProcess.Spec.MemoryMB,
 		DiskQuotaMB:      cfProcess.Spec.DiskQuotaMB,
 		HealthCheck: HealthCheck{
