@@ -12,7 +12,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -339,40 +338,6 @@ func createBuild(ctx context.Context, k8sClient client.Client, namespace, buildG
 		k8sClient.Create(ctx, record),
 	).To(Succeed())
 	return record
-}
-
-func createProcessCR(ctx context.Context, k8sClient client.Client, processGUID, spaceGUID, appGUID string) *korifiv1alpha1.CFProcess {
-	toReturn := &korifiv1alpha1.CFProcess{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      processGUID,
-			Namespace: spaceGUID,
-			Labels: map[string]string{
-				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
-				korifiv1alpha1.SpaceGUIDKey:      spaceGUID,
-			},
-		},
-		Spec: korifiv1alpha1.CFProcessSpec{
-			AppRef: corev1.LocalObjectReference{
-				Name: appGUID,
-			},
-			ProcessType: "web",
-			Command:     "",
-			HealthCheck: korifiv1alpha1.HealthCheck{
-				Type: "process",
-				Data: korifiv1alpha1.HealthCheckData{
-					InvocationTimeoutSeconds: 0,
-					TimeoutSeconds:           0,
-				},
-			},
-			DesiredInstances: tools.PtrTo[int32](1),
-			MemoryMB:         500,
-			DiskQuotaMB:      512,
-		},
-	}
-	Expect(
-		k8sClient.Create(ctx, toReturn),
-	).To(Succeed())
-	return toReturn
 }
 
 func createDropletCR(ctx context.Context, k8sClient client.Client, dropletGUID, appGUID, spaceGUID string) *korifiv1alpha1.CFBuild {
