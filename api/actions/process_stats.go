@@ -28,33 +28,33 @@ const (
 
 //counterfeiter:generate -o fake -fake-name MetricsRepository . MetricsRepository
 
-type (
-	MetricsRepository interface {
-		GetMetrics(ctx context.Context, authInfo authorization.Info, namespace string, podSelector client.MatchingLabels) ([]repositories.PodMetrics, error)
-	}
+type MetricsRepository interface {
+	GetMetrics(ctx context.Context, authInfo authorization.Info, namespace string, podSelector client.MatchingLabels) ([]repositories.PodMetrics, error)
+}
 
-	Usage struct {
-		Timestamp *time.Time
-		CPU       *float64
-		Mem       *int64
-		Disk      *int64
-	}
+type Usage struct {
+	Timestamp *time.Time
+	CPU       *float64
+	Mem       *int64
+	Disk      *int64
+}
 
-	PodStatsRecord struct {
-		Type      string
-		Index     int
-		State     string `default:"DOWN"`
-		Usage     Usage
-		MemQuota  *int64
-		DiskQuota *int64
-	}
+type PodStatsRecord struct {
+	Type string
+	// TODO: remove, this is the "instance_id" tag from the gauge envelope
+	Index int
+	// TODO: remove, this is the instance state from the process record
+	State     string `default:"DOWN"`
+	Usage     Usage
+	MemQuota  *int64
+	DiskQuota *int64
+}
 
-	ProcessStats struct {
-		processRepo shared.CFProcessRepository
-		appRepo     shared.CFAppRepository
-		metricsRepo MetricsRepository
-	}
-)
+type ProcessStats struct {
+	processRepo shared.CFProcessRepository
+	appRepo     shared.CFAppRepository
+	metricsRepo MetricsRepository
+}
 
 func NewProcessStats(processRepo shared.CFProcessRepository, appRepo shared.CFAppRepository, metricsRepo MetricsRepository) *ProcessStats {
 	return &ProcessStats{

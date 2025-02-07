@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 )
 
+// TODO: move
 type isLogCacheEnvelope interface {
 	isLogCacheEnvelope()
 }
@@ -63,6 +64,8 @@ type GaugeInt int64
 func (i GaugeInt) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.FormatInt(int64(i), 10)), nil
 }
+
+// TODO: move (end)
 
 type Log struct {
 	Payload []byte  `json:"payload"`

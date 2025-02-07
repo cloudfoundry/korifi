@@ -69,6 +69,12 @@ var _ = Describe("ProcessRepo", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, cfProcess)).To(Succeed())
+
+		Expect(k8s.Patch(ctx, k8sClient, cfProcess, func() {
+			cfProcess.Status.InstancesState = map[string]korifiv1alpha1.InstanceState{
+				"1": korifiv1alpha1.InstanceStateDown,
+			}
+		})).To(Succeed())
 	})
 
 	Describe("GetProcess", func() {
@@ -110,6 +116,9 @@ var _ = Describe("ProcessRepo", func() {
 				Expect(processRecord.HealthCheck.Data.InvocationTimeoutSeconds).To(BeEquivalentTo(5))
 				Expect(processRecord.HealthCheck.Data.TimeoutSeconds).To(BeEquivalentTo(6))
 				Expect(processRecord.HealthCheck.Data.HTTPEndpoint).To(Equal("/healthz"))
+				Expect(processRecord.InstancesState).To(Equal(map[string]korifiv1alpha1.InstanceState{
+					"1": korifiv1alpha1.InstanceStateDown,
+				}))
 
 				Expect(processRecord.Relationships()).To(Equal(map[string]string{
 					"app": appGUID,

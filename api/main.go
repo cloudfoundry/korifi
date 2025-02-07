@@ -288,7 +288,7 @@ func main() {
 
 	apiHandlers := []routing.Routable{
 		handlers.NewRootV3(*serverURL),
-		handlers.NewRoot(*serverURL, cfg.Experimental.UAA),
+		handlers.NewRoot(*serverURL, cfg.Experimental.UAA, *serverURL),
 		handlers.NewInfoV3(
 			*serverURL,
 			cfg.InfoConfig,
@@ -345,6 +345,7 @@ func main() {
 			processStats,
 			requestValidator,
 			podRepo,
+			*serverURL,
 		),
 		handlers.NewDomain(
 			*serverURL,

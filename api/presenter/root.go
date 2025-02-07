@@ -22,7 +22,7 @@ type RootResponse struct {
 
 const V3APIVersion = "3.117.0+cf-k8s"
 
-func ForRoot(baseURL url.URL, uaaConfig config.UAA) RootResponse {
+func ForRoot(baseURL url.URL, uaaConfig config.UAA, logCacheURL url.URL) RootResponse {
 	rootResponse := RootResponse{
 		Links: map[string]*APILink{
 			"self": {
@@ -53,7 +53,7 @@ func ForRoot(baseURL url.URL, uaaConfig config.UAA) RootResponse {
 			"logging": nil,
 			"log_cache": {
 				Link: Link{
-					HRef: buildURL(baseURL).build(),
+					HRef: buildURL(logCacheURL).build(),
 				},
 			},
 			"log_stream": nil,

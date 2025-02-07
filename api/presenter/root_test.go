@@ -13,13 +13,16 @@ import (
 
 var _ = Describe("Root endpoints", func() {
 	var (
-		baseURL *url.URL
-		output  []byte
+		baseURL     *url.URL
+		logCacheURL *url.URL
+		output      []byte
 	)
 
 	BeforeEach(func() {
 		var err error
 		baseURL, err = url.Parse("https://api.example.org")
+		Expect(err).NotTo(HaveOccurred())
+		logCacheURL, err = url.Parse("https://api.example.logcache.org")
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -31,7 +34,7 @@ var _ = Describe("Root endpoints", func() {
 		})
 
 		JustBeforeEach(func() {
-			response := presenter.ForRoot(*baseURL, uaaConfig)
+			response := presenter.ForRoot(*baseURL, uaaConfig, *logCacheURL)
 			var err error
 			output, err = json.Marshal(response)
 			Expect(err).NotTo(HaveOccurred())
@@ -51,7 +54,7 @@ var _ = Describe("Root endpoints", func() {
 					},
 					"credhub": null,
 					"log_cache": {
-							"href": "https://api.example.org",
+							"href": "https://api.example.logcache.org",
 							"meta": {
 									"version": ""
 							}
@@ -101,7 +104,7 @@ var _ = Describe("Root endpoints", func() {
 					},
 					"credhub": null,
 					"log_cache": {
-							"href": "https://api.example.org",
+							"href": "https://api.example.logcache.org",
 							"meta": {
 									"version": ""
 							}

@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"net/http"
+	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/handlers"
@@ -13,12 +14,17 @@ import (
 
 var _ = Describe("Root", func() {
 	var (
-		apiHandler *handlers.Root
-		req        *http.Request
+		apiHandler  *handlers.Root
+		logCacheURL *url.URL
+		req         *http.Request
 	)
 
 	BeforeEach(func() {
-		apiHandler = handlers.NewRoot(*serverURL, config.UAA{})
+		var err error
+		logCacheURL, err = url.Parse("https://my.logcache.org")
+		Expect(err).NotTo(HaveOccurred())
+
+		apiHandler = handlers.NewRoot(*serverURL, config.UAA{}, *logCacheURL)
 	})
 
 	JustBeforeEach(func() {
@@ -41,15 +47,19 @@ var _ = Describe("Root", func() {
 				MatchJSONPath("$.cf_on_k8s", true),
 				MatchJSONPath("$.links.self.href", "https://api.example.org"),
 				MatchJSONPath("$.links.cloud_controller_v3.href", "https://api.example.org/v3"),
+				MatchJSONPath("$.links.log_cache.href", "https://my.logcache.org"),
 			)))
 		})
 
 		When("UAA support is enabled", func() {
 			BeforeEach(func() {
-				apiHandler = handlers.NewRoot(*serverURL, config.UAA{
-					Enabled: true,
-					URL:     "https://my.uaa",
-				})
+				apiHandler = handlers.NewRoot(
+					*serverURL,
+					config.UAA{
+						Enabled: true,
+						URL:     "https://my.uaa",
+					},
+					*logCacheURL)
 			})
 
 			It("returns the uaa config", func() {
