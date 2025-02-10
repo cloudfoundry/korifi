@@ -31,6 +31,7 @@ func main() {
 	http.HandleFunc("GET /v2/service_instances/{id}/last_operation", getLastOperationHandler)
 
 	http.HandleFunc("PUT /v2/service_instances/{instance_id}/service_bindings/{binding_id}", bindHandler)
+	http.HandleFunc("GET /v2/service_instances/{instance_id}/service_bindings/{binding_id}", getBindingHandler)
 	http.HandleFunc("DELETE /v2/service_instances/{instance_id}/service_bindings/{binding_id}", unbindHandler)
 	http.HandleFunc("GET /v2/service_instances/{instance_id}/service_bindings/{binding_id}/last_operation", getLastOperationHandler)
 
@@ -105,6 +106,21 @@ func deprovisionServiceInstanceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	asyncOperation(w, fmt.Sprintf("deprovision-%s", r.PathValue("id")), "{}")
+}
+
+func getBindingHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
+	if status, err := checkCredentials(w, r); err != nil {
+		respond(w, status, fmt.Sprintf("Credentials check failed: %v", err))
+		return
+	}
+
+	respond(w, http.StatusOK, `{
+		"parameters": {
+			"billing-account": "abcde12345"
+		}
+	}`)
 }
 
 func bindHandler(w http.ResponseWriter, r *http.Request) {
