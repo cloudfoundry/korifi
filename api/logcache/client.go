@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -16,39 +17,11 @@ import (
 //counterfeiter:generate -o fake -fake-name HttpHandler net/http.Handler
 
 type LogCacheGaugeResponse struct {
-	Envelopes GaugeEnvelopes `json:"envelopes"`
+	Envelopes EnvelopeBatch `json:"envelopes"`
 }
 
-type GaugeEnvelopes struct {
-	Batch []GaugeEnvelope `json:"batch"`
-}
-
-type GaugeEnvelope struct {
-	Timestamp string            `json:"timestamp"`
-	Tags      map[string]string `json:"tags,omitempty"`
-	Gauge     Gauge             `json:"gauge"`
-}
-
-type Gauge struct {
-	Metrics GaugeMetrics `json:"metrics"`
-}
-
-type GaugeMetrics struct {
-	CPU         *GaugeFloatValue `json:"cpu"`
-	Memory      *GaugeIntValue   `json:"memory"`
-	Disk        *GaugeIntValue   `json:"disk"`
-	MemoryQuota *GaugeIntValue   `json:"memory_quota"`
-	DiskQuota   *GaugeIntValue   `json:"disk_quota"`
-}
-
-type GaugeIntValue struct {
-	Unit  string `json:"unit"`
-	Value int    `json:"value"`
-}
-
-type GaugeFloatValue struct {
-	Unit  string  `json:"unit"`
-	Value float64 `json:"value"`
+type EnvelopeBatch struct {
+	Batch []loggregator_v2.Envelope `json:"batch"`
 }
 
 type Client interface {
@@ -96,20 +69,20 @@ func (c *LogCacheClient) GetStats(ctx context.Context, appGUID string) (LogCache
 	return stats, nil
 }
 
-func envelopeKey(envelope GaugeEnvelope) string {
+func envelopeKey(envelope *loggregator_v2.Envelope) string {
 	return fmt.Sprintf("%s#%s", envelope.Tags["process_type"], envelope.Tags["instance_id"])
 }
 
-func putIfAbsent(m map[string][]*GaugeEnvelope, key string, envelope *GaugeEnvelope) *GaugeEnvelope {
+func putIfAbsent(m map[string][]*loggregator_v2.Envelope, key string, envelope *loggregator_v2.Envelope) *loggregator_v2.Envelope {
 	envelopes, found := m[key]
 	if !found {
-		m[key] = []*GaugeEnvelope{envelope}
+		m[key] = []*loggregator_v2.Envelope{envelope}
 		return envelope
 	}
 
-	var foundEnvelope *GaugeEnvelope
+	var foundEnvelope *loggregator_v2.Envelope
 	for _, e := range envelopes {
-		if envelopeKey(*e) == envelopeKey(*envelope) {
+		if envelopeKey(e) == envelopeKey(envelope) {
 			foundEnvelope = e
 			break
 		}
@@ -126,20 +99,20 @@ func ifNil[T any, PT *T](v PT, ret PT) PT {
 }
 
 func nozmalize(rawResponse LogCacheGaugeResponse) LogCacheGaugeResponse {
-	envelopesByProcessInstance := map[string][]*GaugeEnvelope{}
+	envelopesByProcessInstance := map[string][]*loggregator_v2.Envelope{}
 
 	for _, rawEnvelope := range rawResponse.Envelopes.Batch {
-		processInstanceEnvelope := putIfAbsent(envelopesByProcessInstance, envelopeKey(rawEnvelope), tools.PtrTo(rawEnvelope))
-		processInstanceEnvelope.Gauge.Metrics.CPU = ifNil(processInstanceEnvelope.Gauge.Metrics.CPU, rawEnvelope.Gauge.Metrics.CPU)
-		processInstanceEnvelope.Gauge.Metrics.Memory = ifNil(processInstanceEnvelope.Gauge.Metrics.Memory, rawEnvelope.Gauge.Metrics.Memory)
-		processInstanceEnvelope.Gauge.Metrics.MemoryQuota = ifNil(processInstanceEnvelope.Gauge.Metrics.MemoryQuota, rawEnvelope.Gauge.Metrics.MemoryQuota)
-		processInstanceEnvelope.Gauge.Metrics.Disk = ifNil(processInstanceEnvelope.Gauge.Metrics.Disk, rawEnvelope.Gauge.Metrics.Disk)
-		processInstanceEnvelope.Gauge.Metrics.DiskQuota = ifNil(processInstanceEnvelope.Gauge.Metrics.DiskQuota, rawEnvelope.Gauge.Metrics.DiskQuota)
+		processInstanceEnvelope := putIfAbsent(envelopesByProcessInstance, envelopeKey(&rawEnvelope), tools.PtrTo(rawEnvelope))
+		processInstanceEnvelope.GetGauge().Metrics["cpu"] = ifNil(processInstanceEnvelope.GetGauge().Metrics["cpu"], rawEnvelope.GetGauge().Metrics["cpu"])
+		processInstanceEnvelope.GetGauge().Metrics["memory"] = ifNil(processInstanceEnvelope.GetGauge().Metrics["cpu"], rawEnvelope.GetGauge().Metrics["memory"])
+		processInstanceEnvelope.GetGauge().Metrics["disk"] = ifNil(processInstanceEnvelope.GetGauge().Metrics["cpu"], rawEnvelope.GetGauge().Metrics["disk"])
+		processInstanceEnvelope.GetGauge().Metrics["memory_quota"] = ifNil(processInstanceEnvelope.GetGauge().Metrics["cpu"], rawEnvelope.GetGauge().Metrics["memory"])
+		processInstanceEnvelope.GetGauge().Metrics["disk_quota"] = ifNil(processInstanceEnvelope.GetGauge().Metrics["cpu"], rawEnvelope.GetGauge().Metrics["disk_quota"])
 	}
 
 	result := LogCacheGaugeResponse{
-		Envelopes: GaugeEnvelopes{
-			Batch: []GaugeEnvelope{},
+		Envelopes: EnvelopeBatch{
+			Batch: []loggregator_v2.Envelope{},
 		},
 	}
 

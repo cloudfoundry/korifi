@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"strconv"
 
+	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"code.cloudfoundry.org/korifi/api/logcache"
 	"code.cloudfoundry.org/korifi/api/logcache/fake"
-	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -30,7 +30,7 @@ var _ = Describe("Logcache Client", func() {
 			"envelopes": map[string]any{
 				"batch": []map[string]any{
 					{
-						"timestamp": "2000",
+						"timestamp": 2000,
 						"tags": map[string]string{
 							"instance_id":  "0",
 							"source_id":    "app-guid",
@@ -105,37 +105,39 @@ var _ = Describe("Logcache Client", func() {
 		Expect(statsErr).NotTo(HaveOccurred())
 
 		Expect(statsResponse).To(Equal(logcache.LogCacheGaugeResponse{
-			Envelopes: logcache.GaugeEnvelopes{
-				Batch: []logcache.GaugeEnvelope{
+			Envelopes: logcache.EnvelopeBatch{
+				Batch: []loggregator_v2.Envelope{
 					{
-						Timestamp: "2000",
+						Timestamp: 2000,
 						Tags: map[string]string{
 							"instance_id":  "0",
 							"source_id":    "app-guid",
 							"process_type": "web",
 						},
-						Gauge: logcache.Gauge{
-							Metrics: logcache.GaugeMetrics{
-								CPU: tools.PtrTo(logcache.GaugeFloatValue{
-									Unit:  "percentage",
-									Value: 1.23,
-								}),
-								Memory: tools.PtrTo(logcache.GaugeIntValue{
-									Unit:  "bytes",
-									Value: 7776,
-								}),
-								MemoryQuota: tools.PtrTo(logcache.GaugeIntValue{
-									Unit:  "bytes",
-									Value: 7777,
-								}),
-								Disk: tools.PtrTo(logcache.GaugeIntValue{
-									Unit:  "bytes",
-									Value: 6665,
-								}),
-								DiskQuota: tools.PtrTo(logcache.GaugeIntValue{
-									Unit:  "bytes",
-									Value: 6666,
-								}),
+						Message: &loggregator_v2.Envelope_Gauge{
+							Gauge: &loggregator_v2.Gauge{
+								Metrics: map[string]*loggregator_v2.GaugeValue{
+									"cpu": {
+										Unit:  "percentage",
+										Value: 1.23,
+									},
+									"memory": {
+										Unit:  "bytes",
+										Value: 7776,
+									},
+									"memory_quota": {
+										Unit:  "bytes",
+										Value: 7777,
+									},
+									"disk": {
+										Unit:  "bytes",
+										Value: 6665,
+									},
+									"disk_quota": {
+										Unit:  "bytes",
+										Value: 6666,
+									},
+								},
 							},
 						},
 					},
@@ -174,7 +176,7 @@ var _ = Describe("Logcache Client", func() {
 				"envelopes": map[string]any{
 					"batch": []map[string]any{
 						{
-							"timestamp": "3000",
+							"timestamp": 3000,
 							"tags": map[string]string{
 								"instance_id":  "0",
 								"source_id":    "app-guid",
@@ -190,7 +192,7 @@ var _ = Describe("Logcache Client", func() {
 							},
 						},
 						{
-							"timestamp": "2000",
+							"timestamp": 2000,
 							"tags": map[string]string{
 								"instance_id":  "0",
 								"source_id":    "app-guid",
@@ -214,21 +216,23 @@ var _ = Describe("Logcache Client", func() {
 			Expect(statsErr).NotTo(HaveOccurred())
 
 			Expect(statsResponse).To(Equal(logcache.LogCacheGaugeResponse{
-				Envelopes: logcache.GaugeEnvelopes{
-					Batch: []logcache.GaugeEnvelope{
+				Envelopes: logcache.EnvelopeBatch{
+					Batch: []loggregator_v2.Envelope{
 						{
-							Timestamp: "3000",
+							Timestamp: 3000,
 							Tags: map[string]string{
 								"instance_id":  "0",
 								"source_id":    "app-guid",
 								"process_type": "web",
 							},
-							Gauge: logcache.Gauge{
-								Metrics: logcache.GaugeMetrics{
-									CPU: tools.PtrTo(logcache.GaugeFloatValue{
-										Unit:  "percentage",
-										Value: 4.56,
-									}),
+							Message: &loggregator_v2.Envelope_Gauge{
+								Gauge: &loggregator_v2.Gauge{
+									Metrics: map[string]*loggregator_v2.GaugeValue{
+										"cpu": {
+											Unit:  "percentage",
+											Value: 4.56,
+										},
+									},
 								},
 							},
 						},
@@ -244,7 +248,7 @@ var _ = Describe("Logcache Client", func() {
 				"envelopes": map[string]any{
 					"batch": []map[string]any{
 						{
-							"timestamp": "2000",
+							"timestamp": 2000,
 							"tags": map[string]string{
 								"instance_id":  "0",
 								"source_id":    "app-guid",
@@ -260,7 +264,7 @@ var _ = Describe("Logcache Client", func() {
 							},
 						},
 						{
-							"timestamp": "2000",
+							"timestamp": 2000,
 							"tags": map[string]string{
 								"instance_id":  "0",
 								"source_id":    "app-guid",
@@ -276,7 +280,7 @@ var _ = Describe("Logcache Client", func() {
 							},
 						},
 						{
-							"timestamp": "2000",
+							"timestamp": 2000,
 							"tags": map[string]string{
 								"instance_id":  "1",
 								"source_id":    "app-guid",
@@ -292,7 +296,7 @@ var _ = Describe("Logcache Client", func() {
 							},
 						},
 						{
-							"timestamp": "2000",
+							"timestamp": 2000,
 							"tags": map[string]string{
 								"instance_id":  "0",
 								"source_id":    "app-guid",
@@ -325,16 +329,16 @@ var _ = Describe("Logcache Client", func() {
 							),
 							"Gauge": MatchAllFields(Fields{
 								"Metrics": MatchFields(IgnoreExtras, Fields{
-									"CPU": PointTo(Equal(logcache.GaugeFloatValue{
+									"CPU": PointTo(Equal(PointTo(Equal(loggregator_v2.GaugeValue{
 										Unit:  "percentage",
 										Value: 1.23,
-									})),
+									})))),
 									"Memory":      BeNil(),
 									"MemoryQuota": BeNil(),
-									"Disk": PointTo(Equal(logcache.GaugeIntValue{
+									"Disk": PointTo(Equal(PointTo(Equal(loggregator_v2.GaugeValue{
 										Unit:  "bytes",
 										Value: 6665,
-									})),
+									})))),
 									"DiskQuota": BeNil(),
 								}),
 							}),
@@ -350,10 +354,10 @@ var _ = Describe("Logcache Client", func() {
 									"CPU":         BeNil(),
 									"Memory":      BeNil(),
 									"MemoryQuota": BeNil(),
-									"Disk": PointTo(Equal(logcache.GaugeIntValue{
+									"Disk": PointTo(Equal(PointTo(Equal(loggregator_v2.GaugeValue{
 										Unit:  "bytes",
 										Value: 1111,
-									})),
+									})))),
 									"DiskQuota": BeNil(),
 								}),
 							}),
@@ -369,10 +373,10 @@ var _ = Describe("Logcache Client", func() {
 									"CPU":         BeNil(),
 									"Memory":      BeNil(),
 									"MemoryQuota": BeNil(),
-									"Disk": PointTo(Equal(logcache.GaugeIntValue{
+									"Disk": PointTo(Equal(PointTo(Equal(loggregator_v2.GaugeValue{
 										Unit:  "bytes",
 										Value: 2222,
-									})),
+									})))),
 									"DiskQuota": BeNil(),
 								}),
 							}),
