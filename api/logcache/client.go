@@ -92,23 +92,29 @@ func (c *LogCacheClient) GetStats(ctx context.Context, appGUID string) (LogCache
 		return LogCacheGaugeResponse{}, fmt.Errorf("logcache response body is invalid: %w", err)
 	}
 
-	stats = normalizeStats(stats)
-
+	stats = nozmalize(stats)
 	return stats, nil
 }
 
 func envelopeKey(envelope GaugeEnvelope) string {
-	return fmt.Sprintf("%s#%s#%s", envelope.Tags["process_type"], envelope.Tags["instance_id"], envelope.Timestamp)
+	return fmt.Sprintf("%s#%s", envelope.Tags["process_type"], envelope.Tags["instance_id"])
 }
 
-func putIfAbsent(m map[string]*GaugeEnvelope, key string, envelope *GaugeEnvelope) *GaugeEnvelope {
-	e, ok := m[key]
-	if ok {
-		return e
+func putIfAbsent(m map[string][]*GaugeEnvelope, key string, envelope *GaugeEnvelope) *GaugeEnvelope {
+	envelopes, found := m[key]
+	if !found {
+		m[key] = []*GaugeEnvelope{envelope}
+		return envelope
 	}
 
-	m[key] = envelope
-	return envelope
+	var foundEnvelope *GaugeEnvelope
+	for _, e := range envelopes {
+		if envelopeKey(*e) == envelopeKey(*envelope) {
+			foundEnvelope = e
+			break
+		}
+	}
+	return foundEnvelope
 }
 
 func ifNil[T any, PT *T](v PT, ret PT) PT {
@@ -119,16 +125,16 @@ func ifNil[T any, PT *T](v PT, ret PT) PT {
 	return v
 }
 
-func normalizeStats(rawResponse LogCacheGaugeResponse) LogCacheGaugeResponse {
-	normalizedEnvelopes := map[string]*GaugeEnvelope{}
+func nozmalize(rawResponse LogCacheGaugeResponse) LogCacheGaugeResponse {
+	envelopesByProcessInstance := map[string][]*GaugeEnvelope{}
 
-	for _, e := range rawResponse.Envelopes.Batch {
-		envelope := putIfAbsent(normalizedEnvelopes, envelopeKey(e), tools.PtrTo(e))
-		envelope.Gauge.Metrics.CPU = ifNil(envelope.Gauge.Metrics.CPU, e.Gauge.Metrics.CPU)
-		envelope.Gauge.Metrics.Memory = ifNil(envelope.Gauge.Metrics.Memory, e.Gauge.Metrics.Memory)
-		envelope.Gauge.Metrics.MemoryQuota = ifNil(envelope.Gauge.Metrics.MemoryQuota, e.Gauge.Metrics.MemoryQuota)
-		envelope.Gauge.Metrics.Disk = ifNil(envelope.Gauge.Metrics.Disk, e.Gauge.Metrics.Disk)
-		envelope.Gauge.Metrics.DiskQuota = ifNil(envelope.Gauge.Metrics.DiskQuota, e.Gauge.Metrics.DiskQuota)
+	for _, rawEnvelope := range rawResponse.Envelopes.Batch {
+		processInstanceEnvelope := putIfAbsent(envelopesByProcessInstance, envelopeKey(rawEnvelope), tools.PtrTo(rawEnvelope))
+		processInstanceEnvelope.Gauge.Metrics.CPU = ifNil(processInstanceEnvelope.Gauge.Metrics.CPU, rawEnvelope.Gauge.Metrics.CPU)
+		processInstanceEnvelope.Gauge.Metrics.Memory = ifNil(processInstanceEnvelope.Gauge.Metrics.Memory, rawEnvelope.Gauge.Metrics.Memory)
+		processInstanceEnvelope.Gauge.Metrics.MemoryQuota = ifNil(processInstanceEnvelope.Gauge.Metrics.MemoryQuota, rawEnvelope.Gauge.Metrics.MemoryQuota)
+		processInstanceEnvelope.Gauge.Metrics.Disk = ifNil(processInstanceEnvelope.Gauge.Metrics.Disk, rawEnvelope.Gauge.Metrics.Disk)
+		processInstanceEnvelope.Gauge.Metrics.DiskQuota = ifNil(processInstanceEnvelope.Gauge.Metrics.DiskQuota, rawEnvelope.Gauge.Metrics.DiskQuota)
 	}
 
 	result := LogCacheGaugeResponse{
@@ -137,8 +143,8 @@ func normalizeStats(rawResponse LogCacheGaugeResponse) LogCacheGaugeResponse {
 		},
 	}
 
-	for _, envelope := range normalizedEnvelopes {
-		result.Envelopes.Batch = append(result.Envelopes.Batch, *envelope)
+	for _, envelope := range envelopesByProcessInstance {
+		result.Envelopes.Batch = append(result.Envelopes.Batch, *envelope[0])
 	}
 
 	return result

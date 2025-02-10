@@ -174,22 +174,6 @@ var _ = Describe("Logcache Client", func() {
 				"envelopes": map[string]any{
 					"batch": []map[string]any{
 						{
-							"timestamp": "2000",
-							"tags": map[string]string{
-								"instance_id":  "0",
-								"source_id":    "app-guid",
-								"process_type": "web",
-							},
-							"gauge": map[string]any{
-								"metrics": map[string]any{
-									"cpu": map[string]any{
-										"unit":  "percentage",
-										"value": 1.23,
-									},
-								},
-							},
-						},
-						{
 							"timestamp": "3000",
 							"tags": map[string]string{
 								"instance_id":  "0",
@@ -205,12 +189,28 @@ var _ = Describe("Logcache Client", func() {
 								},
 							},
 						},
+						{
+							"timestamp": "2000",
+							"tags": map[string]string{
+								"instance_id":  "0",
+								"source_id":    "app-guid",
+								"process_type": "web",
+							},
+							"gauge": map[string]any{
+								"metrics": map[string]any{
+									"cpu": map[string]any{
+										"unit":  "percentage",
+										"value": 1.23,
+									},
+								},
+							},
+						},
 					},
 				},
 			}
 		})
 
-		FIt("returns latest metric", func() {
+		It("returns latest metric", func() {
 			Expect(statsErr).NotTo(HaveOccurred())
 
 			Expect(statsResponse).To(Equal(logcache.LogCacheGaugeResponse{
