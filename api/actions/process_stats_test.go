@@ -111,7 +111,8 @@ var _ = Describe("ProcessStats", func() {
 			Expect(responseRecords).To(HaveLen(2))
 
 			Expect(responseRecords[0].Index).To(Equal(0))
-			Expect(responseRecords[0].Type).To(Equal("web"))
+			Expect(responseRecords[0].ProcessType).To(Equal("web"))
+			Expect(responseRecords[0].ProcessGUID).To(Equal("the-process-guid"))
 			Expect(responseRecords[0].State).To(Equal("RUNNING"))
 
 			Expect(responseRecords[0].Usage.Timestamp).To(PointTo(Equal(time.UnixMilli(1000).UTC())))
@@ -123,7 +124,8 @@ var _ = Describe("ProcessStats", func() {
 			Expect(responseRecords[0].DiskQuota).To(Equal(tools.PtrTo(int64(2048 * 1024 * 1024))))
 
 			Expect(responseRecords[1].Index).To(Equal(1))
-			Expect(responseRecords[1].Type).To(Equal("web"))
+			Expect(responseRecords[1].ProcessType).To(Equal("web"))
+			Expect(responseRecords[1].ProcessGUID).To(Equal("the-process-guid"))
 			Expect(responseRecords[1].State).To(Equal("RUNNING"))
 
 			Expect(responseRecords[1].Usage.Timestamp).To(PointTo(Equal(time.UnixMilli(2000).UTC())))
@@ -148,11 +150,11 @@ var _ = Describe("ProcessStats", func() {
 			It("returns a 'down' stat for that instance", func() {
 				Expect(responseErr).NotTo(HaveOccurred())
 				Expect(responseRecords).To(HaveLen(2))
-				Expect(responseRecords[0]).To(Equal(PodStatsRecord{
-					Type:  "web",
-					Index: 0,
-					State: "DOWN",
-				}))
+				Expect(responseRecords).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+					"ProcessType": Equal("web"),
+					"Index":       Equal(0),
+					"State":       Equal("DOWN"),
+				})))
 			})
 		})
 
@@ -184,11 +186,11 @@ var _ = Describe("ProcessStats", func() {
 			})
 
 			It("returns a single 'down' stat", func() {
-				Expect(responseRecords).To(ConsistOf(PodStatsRecord{
-					Type:  "web",
-					Index: 0,
-					State: "DOWN",
-				}))
+				Expect(responseRecords).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"ProcessType": Equal("web"),
+					"Index":       Equal(0),
+					"State":       Equal("DOWN"),
+				})))
 			})
 		})
 
@@ -360,8 +362,8 @@ var _ = Describe("ProcessStats", func() {
 			Expect(processGUID).To(Equal("process-2-guid"))
 
 			Expect(responseRecords).To(HaveLen(2))
-			Expect(responseRecords[0].Type).To(Equal("web"))
-			Expect(responseRecords[1].Type).To(Equal("worker"))
+			Expect(responseRecords[0].ProcessType).To(Equal("web"))
+			Expect(responseRecords[1].ProcessType).To(Equal("worker"))
 		})
 
 		When("get process fails", func() {

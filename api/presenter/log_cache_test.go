@@ -84,8 +84,9 @@ var _ = Describe("ForStats", func() {
 		}
 
 		stats = []actions.PodStatsRecord{{
-			Type:  "web",
-			Index: 1,
+			ProcessType: "web",
+			ProcessGUID: "process-guid",
+			Index:       1,
 			Usage: actions.Usage{
 				Timestamp: tools.PtrTo(time.UnixMilli(1000).UTC()),
 				CPU:       tools.PtrTo(1e-05),
@@ -115,6 +116,7 @@ var _ = Describe("ForStats", func() {
 				  "app_name": "my-app",
 				  "instance_id": "1",
 				  "process_type": "web",
+				  "process_id": "process-guid",
 				  "source_id": "app-guid",
 				  "space_id": "space-guid"
 				},

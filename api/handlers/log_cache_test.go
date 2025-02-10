@@ -206,7 +206,7 @@ var _ = Describe("LogCache", func() {
 			BeforeEach(func() {
 				payload.EnvelopeTypes = []string{"GAUGE"}
 				processStats.FetchAppProcessesStatsReturns([]actions.PodStatsRecord{{
-					Type: "web",
+					ProcessType: "web",
 				}}, nil)
 			})
 
