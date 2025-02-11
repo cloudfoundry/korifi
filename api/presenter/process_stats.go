@@ -54,7 +54,7 @@ func statRecordToResource(record actions.PodStatsRecord) ProcessStatsResource {
 	}
 
 	return ProcessStatsResource{
-		Type:          record.Type,
+		Type:          record.ProcessType,
 		Index:         record.Index,
 		State:         record.State,
 		InstancePorts: processInstancePorts,

@@ -23,9 +23,9 @@ var _ = Describe("Process Stats", func() {
 		Expect(err).NotTo(HaveOccurred())
 		records = []actions.PodStatsRecord{
 			{
-				Type:  "web",
-				Index: 0,
-				State: "RUNNING",
+				ProcessType: "web",
+				Index:       0,
+				State:       "RUNNING",
 				Usage: actions.Usage{
 					Timestamp: tools.PtrTo(time.UnixMilli(1000).UTC()),
 					CPU:       tools.PtrTo(500.0),
@@ -36,9 +36,9 @@ var _ = Describe("Process Stats", func() {
 				DiskQuota: tools.PtrTo(int64(2048)),
 			},
 			{
-				Type:  "web",
-				Index: 1,
-				State: "RUNNING",
+				ProcessType: "web",
+				Index:       1,
+				State:       "RUNNING",
 				Usage: actions.Usage{
 					Timestamp: tools.PtrTo(time.UnixMilli(2000).UTC()),
 					CPU:       tools.PtrTo(501.0),
