@@ -945,14 +945,14 @@ var _ = Describe("App", func() {
 			processRepo.ListProcessesReturns([]repositories.ProcessRecord{{}}, nil)
 			processStats.FetchStatsReturns([]actions.PodStatsRecord{
 				{
-					Type:     "web",
-					Index:    0,
-					MemQuota: tools.PtrTo(int64(1024)),
+					ProcessType: "web",
+					Index:       0,
+					MemQuota:    tools.PtrTo(int64(1024)),
 				},
 				{
-					Type:     "web",
-					Index:    1,
-					MemQuota: tools.PtrTo(int64(512)),
+					ProcessType: "web",
+					Index:       1,
+					MemQuota:    tools.PtrTo(int64(512)),
 				},
 			}, nil)
 
