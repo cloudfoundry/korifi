@@ -45,7 +45,7 @@ require (
 	k8s.io/pod-security-admission v0.32.1
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
 	sigs.k8s.io/controller-runtime v0.19.4
-	sigs.k8s.io/controller-tools v0.17.1
+	sigs.k8s.io/controller-tools v0.17.2
 	sigs.k8s.io/gateway-api v1.2.1
 )
 
@@ -176,7 +176,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/vbatts/tar-split v0.11.6 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0
@@ -193,7 +193,7 @@ require (
 	google.golang.org/protobuf v1.36.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/apiextensions-apiserver v0.32.0 // indirect
+	k8s.io/apiextensions-apiserver v0.32.1 // indirect
 	k8s.io/component-base v0.32.1 // indirect
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
