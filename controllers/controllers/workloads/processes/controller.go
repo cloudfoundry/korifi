@@ -250,12 +250,50 @@ func (r *Reconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifi
 		return err
 	}
 
+	services, err := r.buildServices(ctx, cfApp.Namespace, cfApp.Name)
+	if err != nil {
+		return fmt.Errorf("failed to build references to bound services: %w", err)
+	}
+	desiredAppWorkload.Spec.Services = services
+
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, actualAppWorkload, appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload))
 	if err != nil {
 		log.Info("error calling CreateOrPatch on AppWorkload", "reason", err)
 		return err
 	}
 	return nil
+}
+
+func (r *Reconciler) buildServices(ctx context.Context, namespace, appGUID string) ([]corev1.ObjectReference, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("prepareBuildServices")
+
+	serviceBindingsList := &korifiv1alpha1.CFServiceBindingList{}
+	err := r.k8sClient.List(ctx, serviceBindingsList,
+		client.InNamespace(namespace),
+		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
+	)
+	if err != nil {
+		log.Info("error listing CFServiceBindings", "reason", err)
+		return nil, err
+	}
+
+	var buildServices []corev1.ObjectReference
+	for _, serviceBinding := range serviceBindingsList.Items {
+		if serviceBinding.Status.Binding.Name == "" {
+			log.Info("binding secret name is empty")
+			return nil, fmt.Errorf("binding secret not availble for binding %q'", serviceBinding.Name)
+		}
+
+		objRef := corev1.ObjectReference{
+			Kind:       "Secret",
+			Name:       serviceBinding.Status.Binding.Name,
+			APIVersion: "v1",
+		}
+
+		buildServices = append(buildServices, objRef)
+	}
+
+	return buildServices, nil
 }
 
 func (r *Reconciler) cleanUpAppWorkloads(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess) error {
@@ -291,10 +329,17 @@ func needsToDeleteAppWorkload(
 
 func appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload *korifiv1alpha1.AppWorkload) controllerutil.MutateFn {
 	return func() error {
+		// If the Spec.Version is not empty, then this means that the app workload is being updated.
+		// We must not alter the services here as this will cause the workload to restart to pick them up
+		if actualAppWorkload.Spec.Version != "" {
+			desiredAppWorkload.Spec.Services = actualAppWorkload.Spec.Services
+		}
+
 		actualAppWorkload.Labels = desiredAppWorkload.Labels
 		actualAppWorkload.Annotations = desiredAppWorkload.Annotations
 		actualAppWorkload.OwnerReferences = desiredAppWorkload.OwnerReferences
 		actualAppWorkload.Spec = desiredAppWorkload.Spec
+
 		return nil
 	}
 }

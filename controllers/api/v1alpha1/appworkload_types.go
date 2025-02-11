@@ -52,6 +52,8 @@ type AppWorkloadSpec struct {
 
 	// +kubebuilder:validation:Optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	Services []corev1.ObjectReference `json:"services,omitempty"`
 }
 
 // AppWorkloadStatus defines the observed state of AppWorkload

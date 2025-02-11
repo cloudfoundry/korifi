@@ -94,6 +94,11 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 
 	envs = append(envs, fieldEnvs...)
 
+	envs = append(envs, corev1.EnvVar{
+		Name:  "SERVICE_BINDING_ROOT",
+		Value: "/bindings",
+	})
+
 	// Sort env vars to guarantee idempotency
 	sort.SliceStable(envs, func(i, j int) bool {
 		return envs[i].Name < envs[j].Name
@@ -121,6 +126,13 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 			Resources:     appWorkload.Spec.Resources,
 			StartupProbe:  appWorkload.Spec.StartupProbe,
 			LivenessProbe: appWorkload.Spec.LivenessProbe,
+			VolumeMounts: slices.Collect(it.Map(slices.Values(appWorkload.Spec.Services), func(s corev1.ObjectReference) corev1.VolumeMount {
+				return corev1.VolumeMount{
+					Name:      s.Name,
+					ReadOnly:  true,
+					MountPath: "/bindings/" + s.Name,
+				}
+			})),
 		},
 	}
 
@@ -148,6 +160,17 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 						},
 					},
 					ServiceAccountName: ServiceAccountName,
+					Volumes: slices.Collect(it.Map(slices.Values(appWorkload.Spec.Services), func(s corev1.ObjectReference) corev1.Volume {
+						return corev1.Volume{
+							Name: s.Name,
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  s.Name,
+									DefaultMode: tools.PtrTo[int32](0o644),
+								},
+							},
+						}
+					})),
 				},
 			},
 		},

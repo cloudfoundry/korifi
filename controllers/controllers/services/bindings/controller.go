@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
-	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -74,7 +73,6 @@ func NewReconciler(
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceBinding{}).
-		Owns(&servicebindingv1beta1.ServiceBinding{}).
 		Watches(
 			&korifiv1alpha1.CFServiceInstance{},
 			handler.EnqueueRequestsFromMapFunc(r.serviceInstanceToServiceBindings),

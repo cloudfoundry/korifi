@@ -14,9 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/sbio"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
-	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,7 +58,7 @@ func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfService
 			WithRequeueAfter(time.Second)
 	}
 
-	bindingSecret, err := r.reconcileCredentials(ctx, cfServiceInstance, cfServiceBinding)
+	_, err = r.reconcileCredentials(ctx, cfServiceInstance, cfServiceBinding)
 	if err != nil {
 		if k8serrors.IsInvalid(err) {
 			err = r.k8sClient.Delete(ctx, &corev1.Secret{
@@ -74,16 +72,6 @@ func (r *UPSIBindingReconciler) ReconcileResource(ctx context.Context, cfService
 
 		log.Error(err, "failed to reconcile credentials secret")
 		return ctrl.Result{}, err
-	}
-
-	sbServiceBinding, err := r.reconcileSBServiceBinding(ctx, cfServiceBinding, bindingSecret)
-	if err != nil {
-		log.Info("error creating/updating servicebinding.io servicebinding", "reason", err)
-		return ctrl.Result{}, err
-	}
-
-	if !sbio.IsSbServiceBindingReady(sbServiceBinding) {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceBindingNotReady")
 	}
 
 	return ctrl.Result{}, nil
@@ -129,26 +117,4 @@ func (r *UPSIBindingReconciler) reconcileCredentials(ctx context.Context, cfServ
 	cfServiceBinding.Status.Binding.Name = bindingSecret.Name
 
 	return bindingSecret, nil
-}
-
-func (r *UPSIBindingReconciler) reconcileSBServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, bindingSecret *corev1.Secret) (*servicebindingv1beta1.ServiceBinding, error) {
-	sbServiceBinding := sbio.ToSBServiceBinding(cfServiceBinding, korifiv1alpha1.UserProvidedType)
-
-	_, err := controllerutil.CreateOrPatch(ctx, r.k8sClient, sbServiceBinding, func() error {
-		secretType, hasType := bindingSecret.Data["type"]
-		if hasType && len(secretType) > 0 {
-			sbServiceBinding.Spec.Type = string(secretType)
-		}
-
-		secretProvider, hasProvider := bindingSecret.Data["provider"]
-		if hasProvider {
-			sbServiceBinding.Spec.Provider = string(secretProvider)
-		}
-		return controllerutil.SetControllerReference(cfServiceBinding, sbServiceBinding, r.scheme)
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return sbServiceBinding, nil
 }

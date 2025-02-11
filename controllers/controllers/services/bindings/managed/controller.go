@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/sbio"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -14,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
-	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,15 +91,15 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 		return ctrl.Result{}, nil
 	}
 
-	sbServiceBinding, err := r.reconcileSBServiceBinding(ctx, cfServiceBinding)
+	err = r.reconcileSBServiceBinding(ctx, cfServiceBinding)
 	if err != nil {
 		log.Info("error creating/updating servicebinding.io servicebinding", "reason", err)
 		return ctrl.Result{}, err
 	}
 
-	if !sbio.IsSbServiceBindingReady(sbServiceBinding) {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceBindingNotReady")
-	}
+	// if !sbio.IsSbServiceBindingReady(sbServiceBinding) {
+	// 	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceBindingNotReady")
+	// }
 
 	return ctrl.Result{}, nil
 }
@@ -250,7 +248,7 @@ func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
 	return ctrl.Result{}, nil
 }
 
-func (r *ManagedBindingsReconciler) reconcileSBServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (*servicebindingv1beta1.ServiceBinding, error) {
+func (r *ManagedBindingsReconciler) reconcileSBServiceBinding(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) error {
 	log := logr.FromContextOrDiscard(ctx)
 
 	credentialsSecret := &corev1.Secret{
@@ -260,7 +258,7 @@ func (r *ManagedBindingsReconciler) reconcileSBServiceBinding(ctx context.Contex
 		},
 	}
 	if err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret); err != nil {
-		return nil, err
+		return err
 	}
 
 	bindingSecret := &corev1.Secret{
@@ -282,21 +280,21 @@ func (r *ManagedBindingsReconciler) reconcileSBServiceBinding(ctx context.Contex
 	})
 	if err != nil {
 		log.Error(err, "failed to create binding secret")
-		return nil, err
+		return err
 	}
 
 	cfServiceBinding.Status.Binding.Name = bindingSecret.Name
 
-	sbServiceBinding := sbio.ToSBServiceBinding(cfServiceBinding, korifiv1alpha1.ManagedType)
+	// sbServiceBinding := sbio.ToSBServiceBinding(cfServiceBinding, korifiv1alpha1.ManagedType)
 
-	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, sbServiceBinding, func() error {
-		return controllerutil.SetControllerReference(cfServiceBinding, sbServiceBinding, r.scheme)
-	})
-	if err != nil {
-		return nil, err
-	}
+	// _, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, sbServiceBinding, func() error {
+	// 	return controllerutil.SetControllerReference(cfServiceBinding, sbServiceBinding, r.scheme)
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return sbServiceBinding, nil
+	return nil
 }
 
 func (r *ManagedBindingsReconciler) pollLastOperation(

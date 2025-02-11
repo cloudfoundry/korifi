@@ -34,7 +34,6 @@ require (
 	github.com/onsi/gomega v1.36.2
 	github.com/pivotal/kpack v0.16.1
 	github.com/satori/go.uuid v1.2.0
-	github.com/servicebinding/runtime v1.0.0
 	golang.org/x/text v0.22.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -55,6 +54,7 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
+	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.24.0 // indirect
@@ -91,7 +91,6 @@ require (
 	golang.org/x/term v0.28.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
-	reconciler.io/runtime v0.20.0 // indirect
 )
 
 require (
