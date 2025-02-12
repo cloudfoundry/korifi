@@ -105,7 +105,7 @@ bin/staticcheck:
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 
 bin/golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.4
 
 bin/cf:
 	mkdir -p $(GOBIN)
