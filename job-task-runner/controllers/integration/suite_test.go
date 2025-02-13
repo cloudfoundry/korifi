@@ -92,8 +92,8 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	stopClient()
 	stopManager()
+	stopClient()
 	Expect(testEnv.Stop()).To(Succeed())
 })
 
