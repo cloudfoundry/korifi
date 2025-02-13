@@ -1,6 +1,7 @@
 package bindings_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -963,15 +964,17 @@ var _ = Describe("CFServiceBinding", func() {
 
 			When("last operation has succeeded", func() {
 				BeforeEach(func() {
-					brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
-						State: "succeeded",
-					}, nil)
+					brokerClient.GetServiceBindingLastOperationStub = func(context.Context, osbapi.GetBindingLastOperationRequest) (osbapi.LastOperationResponse, error) {
+						brokerClient.BindReturns(osbapi.BindResponse{
+							Credentials: map[string]any{
+								"foo": "bar",
+							},
+						}, nil)
 
-					brokerClient.BindReturnsOnCall(3, osbapi.BindResponse{
-						Credentials: map[string]any{
-							"foo": "bar",
-						},
-					}, nil)
+						return osbapi.LastOperationResponse{
+							State: "succeeded",
+						}, nil
+					}
 				})
 
 				It("sets the ready condition to true", func() {
