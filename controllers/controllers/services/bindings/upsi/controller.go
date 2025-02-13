@@ -93,6 +93,8 @@ func (r *UPSIBindingReconciler) reconcileCredentials(ctx context.Context, cfServ
 
 	bindingSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
+			// TODO: (nice to have) use cfServiceBinding.Status.Binding.Name as secret name, or if not set, uuid.NewString()
+			// Name: ifZero(cfServiceBinding.Status.Binding.Name, uuid.NewString())
 			Name:      cfServiceBinding.Name,
 			Namespace: cfServiceBinding.Namespace,
 		},

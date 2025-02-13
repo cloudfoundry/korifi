@@ -237,10 +237,43 @@ func (r *Reconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifi
 	}
 
 	actualAppWorkload := &korifiv1alpha1.AppWorkload{
+		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cfProcess.Namespace,
-			Name:      getDesiredAppWorkloadName(cfApp, cfProcess),
+			Name:                       getDesiredAppWorkloadName(cfApp, cfProcess),
+			GenerateName:               "",
+			Namespace:                  cfProcess.Namespace,
+			SelfLink:                   "",
+			UID:                        "",
+			ResourceVersion:            "",
+			Generation:                 0,
+			CreationTimestamp:          metav1.Time{},
+			DeletionTimestamp:          &metav1.Time{},
+			DeletionGracePeriodSeconds: new(int64),
+			Labels:                     map[string]string{},
+			Annotations:                map[string]string{},
+			OwnerReferences:            []metav1.OwnerReference{},
+			Finalizers:                 []string{},
+			ManagedFields:              []metav1.ManagedFieldsEntry{},
 		},
+		Spec: korifiv1alpha1.AppWorkloadSpec{
+			GUID:             "",
+			Version:          "",
+			AppGUID:          "",
+			ProcessType:      "",
+			Image:            "",
+			ImagePullSecrets: []corev1.LocalObjectReference{},
+			Command:          []string{},
+			Env:              envVars,
+			StartupProbe:     &corev1.Probe{},
+			LivenessProbe:    &corev1.Probe{},
+			ReadinessProbe:   &corev1.Probe{},
+			Ports:            appPorts,
+			Instances:        0,
+			RunnerName:       "",
+			Resources:        corev1.ResourceRequirements{},
+			Services:         []corev1.ObjectReference{},
+		},
+		Status: korifiv1alpha1.AppWorkloadStatus{},
 	}
 
 	var desiredAppWorkload *korifiv1alpha1.AppWorkload
@@ -255,6 +288,15 @@ func (r *Reconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifi
 		return fmt.Errorf("failed to build references to bound services: %w", err)
 	}
 	desiredAppWorkload.Spec.Services = services
+
+	// I. Refactoring
+	// 1. generate the app workload literal with all its labels, annotations, spec, etc...
+	// 2. Try create; if already exists, Get and Patch
+	// 3. Green tests
+	//
+	// II. Add services
+	// 1. Same
+	// 2. Same, but before patching make sure we re-set the old services state
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, actualAppWorkload, appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload))
 	if err != nil {

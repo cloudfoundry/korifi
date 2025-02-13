@@ -253,6 +253,7 @@ func (r *ManagedBindingsReconciler) reconcileSBServiceBinding(ctx context.Contex
 
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
+			// TODO: (nice to have) get the name of the credentials secret from cfServiceBinding.Status.Credentials
 			Name:      cfServiceBinding.Name,
 			Namespace: cfServiceBinding.Namespace,
 		},
@@ -263,6 +264,8 @@ func (r *ManagedBindingsReconciler) reconcileSBServiceBinding(ctx context.Contex
 
 	bindingSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
+			// TODO: (nice to have) use cfServiceBinding.Status.Binding.Name as secret name, or if not set, uuid.NewString()
+			// Name: ifZero(cfServiceBinding.Status.Binding.Name, uuid.NewString())
 			Name:      cfServiceBinding.Name + "-sbio",
 			Namespace: cfServiceBinding.Namespace,
 		},
