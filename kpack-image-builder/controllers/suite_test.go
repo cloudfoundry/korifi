@@ -182,6 +182,6 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterEach(func() {
-	stopClientCache()
 	stopManager()
+	stopClientCache()
 })

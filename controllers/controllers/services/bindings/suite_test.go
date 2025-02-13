@@ -120,6 +120,6 @@ var _ = JustBeforeEach(func() {
 })
 
 var _ = AfterEach(func() {
-	stopClientCache()
 	stopManager()
+	stopClientCache()
 })

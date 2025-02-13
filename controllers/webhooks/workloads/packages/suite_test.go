@@ -95,7 +95,7 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterSuite(func() {
-	stopClientCache()
 	stopManager()
+	stopClientCache()
 	Expect(testEnv.Stop()).To(Succeed())
 })

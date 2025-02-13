@@ -86,7 +86,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	stopClientCache()
 	stopManager()
+	stopClientCache()
 	Expect(testEnv.Stop()).To(Succeed())
 })
