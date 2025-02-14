@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -615,6 +616,67 @@ var _ = Describe("OSBAPI Client", func() {
 
 				It("returns an unrecoverable error", func() {
 					Expect(bindErr).To(BeAssignableToTypeOf(osbapi.UnrecoverableError{}))
+				})
+			})
+		})
+
+		Describe("GetServiceBinding", func() {
+			var (
+				bindingResp osbapi.BindingResponse
+				getBindErr  error
+			)
+			BeforeEach(func() {
+				brokerServer.WithResponse(
+					"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
+					map[string]any{
+						"parameters": map[string]string{
+							"billing-account": "abcde12345",
+						},
+					},
+					http.StatusOK,
+				)
+			})
+			JustBeforeEach(func() {
+				bindingResp, getBindErr = brokerClient.GetServiceBinding(ctx, osbapi.BindPayload{
+					InstanceID: "my-service-instance",
+					BindingID:  "my-binding-id",
+					BindRequest: osbapi.BindRequest{
+						ServiceId: "my-service-offering-id",
+						PlanID:    "my-plan-id",
+					},
+				})
+			})
+
+			It("gets the service binding", func() {
+				Expect(getBindErr).NotTo(HaveOccurred())
+
+				requests := brokerServer.ServedRequests()
+				Expect(requests).To(HaveLen(1))
+				Expect(requests[0].Method).To(Equal(http.MethodGet))
+				Expect(requests[0].URL.Path).To(Equal("/v2/service_instances/my-service-instance/service_bindings/my-binding-id"))
+				Expect(requests[0].URL.Query()).To(BeEquivalentTo(map[string][]string{
+					"service_id": {"my-service-offering-id"},
+					"plan_id":    {"my-plan-id"},
+				}))
+
+				Expect(bindingResp).To(Equal(osbapi.BindingResponse{
+					Parameters: map[string]any{
+						"billing-account": "abcde12345",
+					},
+				}))
+			})
+
+			When("the service binding does not exist", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse(
+						"/v2/service_instances/{instance_id}/service_bindings/{binding_id}",
+						nil,
+						http.StatusNotFound,
+					)
+				})
+
+				It("returns an error", func() {
+					Expect(getBindErr).To(MatchError(ContainSubstring(fmt.Sprintf("The server responded with status: %d", http.StatusNotFound))))
 				})
 			})
 		})
