@@ -2,6 +2,7 @@ package k8s_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -175,6 +176,86 @@ var _ = Describe("Kubernetes Patch", func() {
 		It("patches the object via the k8s client", func() {
 			Expect(patchErr).NotTo(HaveOccurred())
 			Expect(patchedPod.Spec.Containers[0].Image).To(Equal("alpine"))
+		})
+
+		When("patching the object fails", func() {
+			var cancel context.CancelFunc
+
+			BeforeEach(func() {
+				ctx, cancel = context.WithTimeout(ctx, -1*time.Second)
+			})
+
+			AfterEach(func() {
+				cancel()
+			})
+
+			It("returns the error", func() {
+				Expect(patchErr).To(MatchError(ContainSubstring("context deadline exceeded")))
+			})
+		})
+
+		It("does not patch the status", func() {
+			Expect(patchedPod.Status.Message).To(Equal("hello"))
+		})
+	})
+
+	Describe("TryPatchResource", func() {
+		var (
+			pod        *corev1.Pod
+			patchedPod *corev1.Pod
+			modifyErr  error
+			patchErr   error
+		)
+		BeforeEach(func() {
+			modifyErr = nil
+
+			pod = &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: testNamespace.Name,
+					Name:      uuid.NewString(),
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:    "foo",
+						Image:   "busybox",
+						Command: []string{"echo", "hi"},
+					}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+
+			createdPod := pod.DeepCopy()
+			pod.Status = corev1.PodStatus{
+				Message: "hello",
+			}
+			Expect(k8sClient.Status().Patch(ctx, pod, client.MergeFrom(createdPod))).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			patchErr = k8s.TryPatchResource(ctx, k8sClient, pod, func() error {
+				pod.Spec.Containers[0].Image = "alpine"
+				pod.Status.Message = "bye"
+				return modifyErr
+			})
+
+			patchedPod = &corev1.Pod{}
+			err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(pod), patchedPod)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("patches the object via the k8s client", func() {
+			Expect(patchErr).NotTo(HaveOccurred())
+			Expect(patchedPod.Spec.Containers[0].Image).To(Equal("alpine"))
+		})
+
+		When("the modify func returns an error", func() {
+			BeforeEach(func() {
+				modifyErr = errors.New("modify-err")
+			})
+
+			It("returns the error", func() {
+				Expect(patchErr).To(MatchError(ContainSubstring("modify-err")))
+			})
 		})
 
 		When("patching the object fails", func() {

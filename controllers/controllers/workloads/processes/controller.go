@@ -29,6 +29,8 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -236,25 +238,34 @@ func (r *Reconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifi
 		return err
 	}
 
-	actualAppWorkload := &korifiv1alpha1.AppWorkload{
+	appWorkload := &korifiv1alpha1.AppWorkload{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cfProcess.Namespace,
 			Name:      getDesiredAppWorkloadName(cfApp, cfProcess),
+			Namespace: cfProcess.Namespace,
 		},
 	}
 
-	var desiredAppWorkload *korifiv1alpha1.AppWorkload
-	desiredAppWorkload, err = r.generateAppWorkload(actualAppWorkload, cfApp, cfProcess, cfBuild, appPorts, envVars)
-	if err != nil {
-		log.Info("error when initializing AppWorkload", "reason", err)
+	if err = r.applyToAppWorkload(appWorkload, cfApp, cfProcess, cfBuild, appPorts, envVars); err != nil {
+		return err
+	}
+	if err = r.k8sClient.Create(ctx, appWorkload); err == nil {
+		return nil
+	}
+
+	if !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
 
-	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, actualAppWorkload, appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload))
-	if err != nil {
-		log.Info("error calling CreateOrPatch on AppWorkload", "reason", err)
+	if err = r.k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload); err != nil {
 		return err
 	}
+
+	if err = k8s.TryPatchResource(ctx, r.k8sClient, appWorkload, func() error {
+		return r.applyToAppWorkload(appWorkload, cfApp, cfProcess, cfBuild, appPorts, envVars)
+	}); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -289,63 +300,48 @@ func needsToDeleteAppWorkload(
 		appWorkload.Name != getDesiredAppWorkloadName(cfApp, cfProcess)
 }
 
-func appWorkloadMutateFunction(actualAppWorkload, desiredAppWorkload *korifiv1alpha1.AppWorkload) controllerutil.MutateFn {
-	return func() error {
-		actualAppWorkload.Labels = desiredAppWorkload.Labels
-		actualAppWorkload.Annotations = desiredAppWorkload.Annotations
-		actualAppWorkload.OwnerReferences = desiredAppWorkload.OwnerReferences
-		actualAppWorkload.Spec = desiredAppWorkload.Spec
-		return nil
-	}
-}
+func (r *Reconciler) applyToAppWorkload(appWorkload *korifiv1alpha1.AppWorkload, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfBuild *korifiv1alpha1.CFBuild, appPorts []int32, envVars []corev1.EnvVar) error {
+	appWorkload.Labels = make(map[string]string)
+	appWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
+	appWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] = getRevision(cfApp)
+	appWorkload.Labels[korifiv1alpha1.CFProcessGUIDLabelKey] = cfProcess.Name
+	appWorkload.Labels[korifiv1alpha1.CFProcessTypeLabelKey] = cfProcess.Spec.ProcessType
 
-func (r *Reconciler) generateAppWorkload(actualAppWorkload *korifiv1alpha1.AppWorkload, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess, cfBuild *korifiv1alpha1.CFBuild, appPorts []int32, envVars []corev1.EnvVar) (*korifiv1alpha1.AppWorkload, error) {
-	var desiredAppWorkload korifiv1alpha1.AppWorkload
-	actualAppWorkload.DeepCopyInto(&desiredAppWorkload)
+	appWorkload.Annotations = make(map[string]string)
+	appWorkload.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = getLastStopRevision(cfApp)
 
-	desiredAppWorkload.Labels = make(map[string]string)
-	desiredAppWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
-	desiredAppWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] = getRevision(cfApp)
-	desiredAppWorkload.Labels[korifiv1alpha1.CFProcessGUIDLabelKey] = cfProcess.Name
-	desiredAppWorkload.Labels[korifiv1alpha1.CFProcessTypeLabelKey] = cfProcess.Spec.ProcessType
-
-	desiredAppWorkload.Annotations = make(map[string]string)
-	desiredAppWorkload.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = getLastStopRevision(cfApp)
-
-	desiredAppWorkload.Spec.GUID = cfProcess.Name
-	desiredAppWorkload.Spec.Version = getRevision(cfApp)
-	desiredAppWorkload.Spec.Resources.Requests = corev1.ResourceList{
+	appWorkload.Spec.GUID = cfProcess.Name
+	appWorkload.Spec.Version = getRevision(cfApp)
+	appWorkload.Spec.Resources.Requests = corev1.ResourceList{
 		corev1.ResourceCPU:              calculateCPURequest(cfProcess.Spec.MemoryMB),
 		corev1.ResourceEphemeralStorage: mebibyteQuantity(cfProcess.Spec.DiskQuotaMB),
 		corev1.ResourceMemory:           mebibyteQuantity(cfProcess.Spec.MemoryMB),
 	}
-	desiredAppWorkload.Spec.Resources.Limits = corev1.ResourceList{
+	appWorkload.Spec.Resources.Limits = corev1.ResourceList{
 		corev1.ResourceEphemeralStorage: mebibyteQuantity(cfProcess.Spec.DiskQuotaMB),
 		corev1.ResourceMemory:           mebibyteQuantity(cfProcess.Spec.MemoryMB),
 	}
-	desiredAppWorkload.Spec.ProcessType = cfProcess.Spec.ProcessType
-	desiredAppWorkload.Spec.Command = commandForProcess(cfProcess, cfApp)
-	desiredAppWorkload.Spec.AppGUID = cfApp.Name
-	desiredAppWorkload.Spec.Image = cfBuild.Status.Droplet.Registry.Image
-	desiredAppWorkload.Spec.ImagePullSecrets = cfBuild.Status.Droplet.Registry.ImagePullSecrets
+	appWorkload.Spec.ProcessType = cfProcess.Spec.ProcessType
+	appWorkload.Spec.Command = commandForProcess(cfProcess, cfApp)
+	appWorkload.Spec.AppGUID = cfApp.Name
+	appWorkload.Spec.Image = cfBuild.Status.Droplet.Registry.Image
+	appWorkload.Spec.ImagePullSecrets = cfBuild.Status.Droplet.Registry.ImagePullSecrets
 
-	desiredAppWorkload.Spec.Ports = appPorts
-	if cfProcess.Spec.DesiredInstances != nil {
-		desiredAppWorkload.Spec.Instances = int32(*cfProcess.Spec.DesiredInstances)
-	}
+	appWorkload.Spec.Ports = appPorts
+	appWorkload.Spec.Instances = tools.ZeroIfNil(cfProcess.Spec.DesiredInstances)
 
-	desiredAppWorkload.Spec.Env = envVars
+	appWorkload.Spec.Env = envVars
 
-	desiredAppWorkload.Spec.StartupProbe = startupProbe(cfProcess, appPorts)
-	desiredAppWorkload.Spec.LivenessProbe = livenessProbe(cfProcess, appPorts)
-	desiredAppWorkload.Spec.RunnerName = r.controllerConfig.RunnerName
+	appWorkload.Spec.StartupProbe = startupProbe(cfProcess, appPorts)
+	appWorkload.Spec.LivenessProbe = livenessProbe(cfProcess, appPorts)
+	appWorkload.Spec.RunnerName = r.controllerConfig.RunnerName
 
-	err := controllerutil.SetControllerReference(cfProcess, &desiredAppWorkload, r.scheme)
+	err := controllerutil.SetControllerReference(cfProcess, appWorkload, r.scheme)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &desiredAppWorkload, err
+	return err
 }
 
 func calculateCPURequest(memoryMiB int64) resource.Quantity {
