@@ -91,9 +91,25 @@ func PatchResource[T any, PT ObjectWithDeepCopy[T]](
 	obj PT,
 	modify func(),
 ) error {
+	return TryPatchResource(ctx, k8sClient, obj, func() error {
+		modify()
+		return nil
+	})
+}
+
+// TryPatchResource has the same behaviour as PatchResource, but it
+// allows the modify func to return an error, which is then propagated.
+func TryPatchResource[T any, PT ObjectWithDeepCopy[T]](
+	ctx context.Context,
+	k8sClient client.Client,
+	obj PT,
+	modify func() error,
+) error {
 	originalObj := PT(obj.DeepCopy())
 
-	modify()
+	if err := modify(); err != nil {
+		return err
+	}
 
 	return k8sClient.Patch(ctx, obj, client.MergeFrom(originalObj))
 }
