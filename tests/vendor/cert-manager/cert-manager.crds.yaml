@@ -28,7 +28,7 @@ metadata:
     app.kubernetes.io/name: 'cert-manager'
     app.kubernetes.io/instance: 'cert-manager'
     # Generated labels
-    app.kubernetes.io/version: "v1.17.0"
+    app.kubernetes.io/version: "v1.17.1"
 spec:
   group: cert-manager.io
   names:
@@ -349,7 +349,7 @@ metadata:
     app.kubernetes.io/name: 'cert-manager'
     app.kubernetes.io/instance: 'cert-manager'
     # Generated labels
-    app.kubernetes.io/version: "v1.17.0"
+    app.kubernetes.io/version: "v1.17.1"
 spec:
   group: cert-manager.io
   names:
@@ -1132,7 +1132,7 @@ metadata:
     app.kubernetes.io/name: 'cert-manager'
     app.kubernetes.io/instance: 'cert-manager'
     # Generated labels
-    app.kubernetes.io/version: "v1.17.0"
+    app.kubernetes.io/version: "v1.17.1"
 spec:
   group: acme.cert-manager.io
   names:
@@ -4342,7 +4342,7 @@ metadata:
     app.kubernetes.io/name: 'cert-manager'
     app.kubernetes.io/instance: 'cert-manager'
     # Generated labels
-    app.kubernetes.io/version: "v1.17.0"
+    app.kubernetes.io/version: "v1.17.1"
 spec:
   group: cert-manager.io
   names:
@@ -8073,7 +8073,7 @@ metadata:
     app.kubernetes.io/instance: 'cert-manager'
     app.kubernetes.io/component: "crds"
     # Generated labels
-    app.kubernetes.io/version: "v1.17.0"
+    app.kubernetes.io/version: "v1.17.1"
 spec:
   group: cert-manager.io
   names:
@@ -11803,7 +11803,7 @@ metadata:
     app.kubernetes.io/instance: 'cert-manager'
     app.kubernetes.io/component: "crds"
     # Generated labels
-    app.kubernetes.io/version: "v1.17.0"
+    app.kubernetes.io/version: "v1.17.1"
 spec:
   group: acme.cert-manager.io
   names:
