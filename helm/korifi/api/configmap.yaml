@@ -59,6 +59,10 @@ data:
       uaa:
         enabled: {{ .Values.experimental.uaa.enabled }}
         url: {{ .Values.experimental.uaa.url }}
+      externalLogCache:
+        enabled: {{ .Values.experimental.externalLogCache.enabled }}
+        url: {{ .Values.experimental.externalLogCache.url }}
+        trustInsecureLogCache: {{ .Values.experimental.externalLogCache.trustInsecureLogCache }}
   role_mappings_config.yaml: |
     roleMappings:
       admin:

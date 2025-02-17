@@ -624,6 +624,23 @@
             }
           },
           "type": "object"
+        },
+        "externalLogCache": {
+          "properties": {
+            "enabled": {
+              "description": "Enable external LogCache",
+              "type": "boolean"
+            },
+            "url": {
+              "description": "The url of the exernal LogCache server",
+              "type": "string"
+            },
+            "trustInsecureLogCache": {
+              "description": "Disable external log cache certificate validation. Not recommended to be set to 'true' in production environments",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
         }
       },
       "description": "Experimental features. No guarantees are provided and breaking/backwards incompatible changes should be expected. These features are not recommended for use in production environments.",

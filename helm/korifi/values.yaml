@@ -151,3 +151,7 @@ experimental:
   uaa:
     enabled: false
     url: ""
+  externalLogCache:
+    enabled: false
+    url: ""
+    trustInsecureLogCache: false

@@ -77,6 +77,10 @@ Here are all the values that can be set for the chart:
 - `defaultAppDomainName` (_String_): Base domain name for application URLs.
 - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
 - `experimental`: Experimental features. No guarantees are provided and breaking/backwards incompatible changes should be expected. These features are not recommended for use in production environments.
+  - `externalLogCache`:
+    - `enabled` (_Boolean_): Enable external LogCache
+    - `trustInsecureLogCache` (_Boolean_): Disable external log cache certificate validation. Not recommended to be set to 'true' in production environments
+    - `url` (_String_): The url of the exernal LogCache server
   - `managedServices`:
     - `enabled` (_Boolean_): Enable managed services support
     - `trustInsecureBrokers` (_Boolean_): Disable service broker certificate validation. Not recommended to be set to 'true' in production environments
