@@ -14,19 +14,21 @@ const (
 )
 
 type Root struct {
-	baseURL   url.URL
-	uaaConfig config.UAA
+	baseURL     url.URL
+	uaaConfig   config.UAA
+	logCacheURL url.URL
 }
 
-func NewRoot(baseURL url.URL, uaaConfig config.UAA) *Root {
+func NewRoot(baseURL url.URL, uaaConfig config.UAA, logCacheURL url.URL) *Root {
 	return &Root{
-		baseURL:   baseURL,
-		uaaConfig: uaaConfig,
+		baseURL:     baseURL,
+		uaaConfig:   uaaConfig,
+		logCacheURL: logCacheURL,
 	}
 }
 
 func (h *Root) get(r *http.Request) (*routing.Response, error) {
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForRoot(h.baseURL, h.uaaConfig)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForRoot(h.baseURL, h.uaaConfig, h.logCacheURL)), nil
 }
 
 func (h *Root) UnauthenticatedRoutes() []routing.Route {

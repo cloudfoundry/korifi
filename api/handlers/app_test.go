@@ -7,12 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/actions"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/handlers/stats"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -30,17 +31,18 @@ const (
 
 var _ = Describe("App", func() {
 	var (
-		appRepo          *fake.CFAppRepository
-		dropletRepo      *fake.CFDropletRepository
-		processRepo      *fake.CFProcessRepository
-		processStats     *fake.ProcessStats
-		routeRepo        *fake.CFRouteRepository
-		domainRepo       *fake.CFDomainRepository
-		spaceRepo        *fake.CFSpaceRepository
-		packageRepo      *fake.CFPackageRepository
-		podRepo          *fake.PodRepository
-		requestValidator *fake.RequestValidator
-		req              *http.Request
+		appRepo                 *fake.CFAppRepository
+		dropletRepo             *fake.CFDropletRepository
+		processRepo             *fake.CFProcessRepository
+		routeRepo               *fake.CFRouteRepository
+		domainRepo              *fake.CFDomainRepository
+		spaceRepo               *fake.CFSpaceRepository
+		packageRepo             *fake.CFPackageRepository
+		podRepo                 *fake.PodRepository
+		requestValidator        *fake.RequestValidator
+		gaugesCollector         *fake.GaugesCollector
+		instancesStateCollector *fake.InstancesStateCollector
+		req                     *http.Request
 
 		appRecord repositories.AppRecord
 	)
@@ -49,26 +51,28 @@ var _ = Describe("App", func() {
 		appRepo = new(fake.CFAppRepository)
 		dropletRepo = new(fake.CFDropletRepository)
 		processRepo = new(fake.CFProcessRepository)
-		processStats = new(fake.ProcessStats)
 		routeRepo = new(fake.CFRouteRepository)
 		domainRepo = new(fake.CFDomainRepository)
 		spaceRepo = new(fake.CFSpaceRepository)
 		packageRepo = new(fake.CFPackageRepository)
 		requestValidator = new(fake.RequestValidator)
 		podRepo = new(fake.PodRepository)
+		gaugesCollector = new(fake.GaugesCollector)
+		instancesStateCollector = new(fake.InstancesStateCollector)
 
 		apiHandler := NewApp(
 			*serverURL,
 			appRepo,
 			dropletRepo,
 			processRepo,
-			processStats,
 			routeRepo,
 			domainRepo,
 			spaceRepo,
 			packageRepo,
 			requestValidator,
 			podRepo,
+			gaugesCollector,
+			instancesStateCollector,
 		)
 
 		appRecord = repositories.AppRecord{
@@ -942,17 +946,28 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps/:guid/processes/{type}/stats", func() {
 		BeforeEach(func() {
-			processRepo.ListProcessesReturns([]repositories.ProcessRecord{{}}, nil)
-			processStats.FetchStatsReturns([]actions.PodStatsRecord{
+			processRepo.ListProcessesReturns([]repositories.ProcessRecord{{
+				GUID: "process-guid",
+			}}, nil)
+
+			gaugesCollector.CollectProcessGaugesReturns([]stats.ProcessGauges{{
+				Index:    0,
+				MemQuota: tools.PtrTo(int64(1024)),
+			}, {
+				Index:    1,
+				MemQuota: tools.PtrTo(int64(512)),
+			}}, nil)
+
+			instancesStateCollector.CollectProcessInstancesStatesReturns([]stats.ProcessInstanceState{
 				{
-					ProcessType: "web",
-					Index:       0,
-					MemQuota:    tools.PtrTo(int64(1024)),
+					ID:    0,
+					Type:  "web",
+					State: korifiv1alpha1.InstanceStateRunning,
 				},
 				{
-					ProcessType: "web",
-					Index:       1,
-					MemQuota:    tools.PtrTo(int64(512)),
+					ID:    1,
+					Type:  "web",
+					State: korifiv1alpha1.InstanceStateDown,
 				},
 			}, nil)
 
@@ -960,9 +975,14 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the process stats", func() {
-			Expect(processStats.FetchStatsCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := processStats.FetchStatsArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(gaugesCollector.CollectProcessGaugesCallCount()).To(Equal(1))
+			_, actualAppGUID, actualProcessGUID := gaugesCollector.CollectProcessGaugesArgsForCall(0)
+			Expect(actualAppGUID).To(Equal(appGUID))
+			Expect(actualProcessGUID).To(Equal("process-guid"))
+
+			Expect(instancesStateCollector.CollectProcessInstancesStatesCallCount()).To(Equal(1))
+			_, actualProcessGUID = instancesStateCollector.CollectProcessInstancesStatesArgsForCall(0)
+			Expect(actualProcessGUID).To(Equal("process-guid"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -971,8 +991,10 @@ var _ = Describe("App", func() {
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].type", "web"),
 				MatchJSONPath("$.resources[0].index", BeEquivalentTo(0)),
+				MatchJSONPath("$.resources[0].state", Equal("RUNNING")),
 				MatchJSONPath("$.resources[1].type", "web"),
 				MatchJSONPath("$.resources[1].mem_quota", BeEquivalentTo(512)),
+				MatchJSONPath("$.resources[1].state", Equal("DOWN")),
 			)))
 		})
 
@@ -996,9 +1018,19 @@ var _ = Describe("App", func() {
 			})
 		})
 
-		When("fetching the process stats errors", func() {
+		When("collecting instance state fails", func() {
 			BeforeEach(func() {
-				processStats.FetchStatsReturns(nil, errors.New("boom"))
+				instancesStateCollector.CollectProcessInstancesStatesReturns(nil, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("collecting gauges fails", func() {
+			BeforeEach(func() {
+				gaugesCollector.CollectProcessGaugesReturns(nil, errors.New("boom"))
 			})
 
 			It("returns an error", func() {

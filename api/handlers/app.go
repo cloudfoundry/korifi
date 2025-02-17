@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -66,17 +67,18 @@ type PodRepository interface {
 }
 
 type App struct {
-	serverURL        url.URL
-	appRepo          CFAppRepository
-	dropletRepo      CFDropletRepository
-	processRepo      CFProcessRepository
-	processStats     ProcessStats
-	routeRepo        CFRouteRepository
-	domainRepo       CFDomainRepository
-	spaceRepo        CFSpaceRepository
-	packageRepo      CFPackageRepository
-	requestValidator RequestValidator
-	podRepo          PodRepository
+	serverURL               url.URL
+	appRepo                 CFAppRepository
+	dropletRepo             CFDropletRepository
+	processRepo             CFProcessRepository
+	routeRepo               CFRouteRepository
+	domainRepo              CFDomainRepository
+	spaceRepo               CFSpaceRepository
+	packageRepo             CFPackageRepository
+	requestValidator        RequestValidator
+	podRepo                 PodRepository
+	gaugesCollector         GaugesCollector
+	instancesStateCollector InstancesStateCollector
 }
 
 func NewApp(
@@ -84,26 +86,28 @@ func NewApp(
 	appRepo CFAppRepository,
 	dropletRepo CFDropletRepository,
 	processRepo CFProcessRepository,
-	processStatsFetcher ProcessStats,
 	routeRepo CFRouteRepository,
 	domainRepo CFDomainRepository,
 	spaceRepo CFSpaceRepository,
 	packageRepo CFPackageRepository,
 	requestValidator RequestValidator,
 	podRepo PodRepository,
+	gaugesCollector GaugesCollector,
+	instancesStateCollector InstancesStateCollector,
 ) *App {
 	return &App{
-		serverURL:        serverURL,
-		appRepo:          appRepo,
-		dropletRepo:      dropletRepo,
-		processRepo:      processRepo,
-		processStats:     processStatsFetcher,
-		routeRepo:        routeRepo,
-		domainRepo:       domainRepo,
-		spaceRepo:        spaceRepo,
-		packageRepo:      packageRepo,
-		requestValidator: requestValidator,
-		podRepo:          podRepo,
+		serverURL:               serverURL,
+		appRepo:                 appRepo,
+		dropletRepo:             dropletRepo,
+		processRepo:             processRepo,
+		routeRepo:               routeRepo,
+		domainRepo:              domainRepo,
+		spaceRepo:               spaceRepo,
+		packageRepo:             packageRepo,
+		requestValidator:        requestValidator,
+		podRepo:                 podRepo,
+		gaugesCollector:         gaugesCollector,
+		instancesStateCollector: instancesStateCollector,
 	}
 }
 
@@ -586,14 +590,15 @@ func (h *App) getSingleProcess(ctx context.Context, authInfo authorization.Info,
 }
 
 func (h *App) getProcessStats(r *http.Request) (*routing.Response, error) {
-	authInfo, _ := authorization.InfoFromContext(r.Context())
-	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-process-stats")
 	appGUID := routing.URLParam(r, "guid")
 	processType := routing.URLParam(r, "type")
 
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-process-stats").WithValues("appGUID", appGUID, "processType", processType)
+
 	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to fetch app from Kubernetes")
 	}
 
 	process, err := h.getSingleProcess(r.Context(), authInfo, repositories.ListProcessesMessage{
@@ -602,17 +607,20 @@ func (h *App) getProcessStats(r *http.Request) (*routing.Response, error) {
 		SpaceGUID:    app.SpaceGUID,
 	})
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to get process", "AppGUID", appGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get process")
 	}
 
-	processGUID := process.GUID
-
-	records, err := h.processStats.FetchStats(r.Context(), authInfo, processGUID)
+	gauges, err := h.gaugesCollector.CollectProcessGauges(r.Context(), appGUID, process.GUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get process stats from Kubernetes", "ProcessGUID", processGUID)
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get process gauges from log cache", "processGUID", process.GUID)
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcessStats(records)), nil
+	instancesState, err := h.instancesStateCollector.CollectProcessInstancesStates(r.Context(), process.GUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get process instances state", "processGUID", process.GUID)
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcessStats(gauges, instancesState, time.Now())), nil
 }
 
 func (h *App) getPackages(r *http.Request) (*routing.Response, error) {

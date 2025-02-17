@@ -32,7 +32,10 @@ var _ = Describe("InfoParser", func() {
 
 		It("extracts the token from the header", func() {
 			Expect(err).NotTo(HaveOccurred())
-			Expect(info).To(Equal(authorization.Info{Token: "token"}))
+			Expect(info).To(Equal(authorization.Info{
+				Token:         "token",
+				RawAuthHeader: authHeader,
+			}))
 		})
 
 		When("the scheme is lowercase", func() {
@@ -42,7 +45,10 @@ var _ = Describe("InfoParser", func() {
 
 			It("extracts the token from the header", func() {
 				Expect(err).NotTo(HaveOccurred())
-				Expect(info).To(Equal(authorization.Info{Token: "token"}))
+				Expect(info).To(Equal(authorization.Info{
+					Token:         "token",
+					RawAuthHeader: authHeader,
+				}))
 			})
 		})
 	})
@@ -54,7 +60,10 @@ var _ = Describe("InfoParser", func() {
 
 		It("extracts the cert and key data", func() {
 			Expect(err).NotTo(HaveOccurred())
-			Expect(info).To(Equal(authorization.Info{CertData: []byte("foo")}))
+			Expect(info).To(Equal(authorization.Info{
+				CertData:      []byte("foo"),
+				RawAuthHeader: authHeader,
+			}))
 		})
 
 		When("the scheme is lowercase", func() {
@@ -64,7 +73,10 @@ var _ = Describe("InfoParser", func() {
 
 			It("extracts the cert and key data", func() {
 				Expect(err).NotTo(HaveOccurred())
-				Expect(info).To(Equal(authorization.Info{CertData: []byte("foo")}))
+				Expect(info).To(Equal(authorization.Info{
+					CertData:      []byte("foo"),
+					RawAuthHeader: authHeader,
+				}))
 			})
 		})
 
