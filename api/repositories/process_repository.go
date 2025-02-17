@@ -47,6 +47,7 @@ type ProcessRecord struct {
 	Annotations      map[string]string
 	CreatedAt        time.Time
 	UpdatedAt        *time.Time
+	InstancesState   map[string]korifiv1alpha1.InstanceState
 }
 
 func (r ProcessRecord) Relationships() map[string]string {
@@ -317,9 +318,10 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 				TimeoutSeconds:           cfProcess.Spec.HealthCheck.Data.TimeoutSeconds,
 			},
 		},
-		Labels:      cfProcess.Labels,
-		Annotations: cfProcess.Annotations,
-		CreatedAt:   cfProcess.CreationTimestamp.Time,
-		UpdatedAt:   getLastUpdatedTime(&cfProcess),
+		Labels:         cfProcess.Labels,
+		Annotations:    cfProcess.Annotations,
+		CreatedAt:      cfProcess.CreationTimestamp.Time,
+		UpdatedAt:      getLastUpdatedTime(&cfProcess),
+		InstancesState: cfProcess.Status.InstancesState,
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/handlers"
+	"code.cloudfoundry.org/korifi/api/handlers/stats"
 	"code.cloudfoundry.org/korifi/api/middleware"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
@@ -286,9 +287,19 @@ func main() {
 		servicePlanRepo,
 	)
 
+	gaugesCollector := stats.NewGaugesCollector(
+		fmt.Sprintf("https://localhost:%d", cfg.InternalPort),
+		&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402
+			},
+		},
+	)
+	instancesStateCollector := stats.NewProcessInstanceStateCollector(processRepo)
+
 	apiHandlers := []routing.Routable{
 		handlers.NewRootV3(*serverURL),
-		handlers.NewRoot(*serverURL, cfg.Experimental.UAA),
+		handlers.NewRoot(*serverURL, cfg.Experimental.UAA, *serverURL),
 		handlers.NewInfoV3(
 			*serverURL,
 			cfg.InfoConfig,
@@ -299,13 +310,14 @@ func main() {
 			appRepo,
 			dropletRepo,
 			processRepo,
-			processStats,
 			routeRepo,
 			domainRepo,
 			spaceRepo,
 			packageRepo,
 			requestValidator,
 			podRepo,
+			gaugesCollector,
+			instancesStateCollector,
 		),
 		handlers.NewRoute(
 			*serverURL,
@@ -342,9 +354,10 @@ func main() {
 		handlers.NewProcess(
 			*serverURL,
 			processRepo,
-			processStats,
 			requestValidator,
 			podRepo,
+			gaugesCollector,
+			instancesStateCollector,
 		),
 		handlers.NewDomain(
 			*serverURL,

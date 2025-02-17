@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/actions"
+	"code.cloudfoundry.org/korifi/api/handlers/stats"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -14,45 +15,44 @@ import (
 
 var _ = Describe("Process Stats", func() {
 	var (
-		output  []byte
-		records []actions.PodStatsRecord
+		output         []byte
+		gauges         []stats.ProcessGauges
+		instancesState []stats.ProcessInstanceState
 	)
 
 	BeforeEach(func() {
-		var err error
-		Expect(err).NotTo(HaveOccurred())
-		records = []actions.PodStatsRecord{
+		gauges = []stats.ProcessGauges{{
+			Index:     0,
+			CPU:       tools.PtrTo(500.0),
+			Mem:       tools.PtrTo(int64(512)),
+			Disk:      tools.PtrTo(int64(256)),
+			MemQuota:  tools.PtrTo(int64(1024)),
+			DiskQuota: tools.PtrTo(int64(2048)),
+		}, {
+			Index:     1,
+			CPU:       tools.PtrTo(501.0),
+			Mem:       tools.PtrTo(int64(513)),
+			Disk:      tools.PtrTo(int64(257)),
+			MemQuota:  tools.PtrTo(int64(1025)),
+			DiskQuota: tools.PtrTo(int64(2049)),
+		}}
+
+		instancesState = []stats.ProcessInstanceState{
 			{
-				ProcessType: "web",
-				Index:       0,
-				State:       "RUNNING",
-				Usage: actions.Usage{
-					Timestamp: tools.PtrTo(time.UnixMilli(1000).UTC()),
-					CPU:       tools.PtrTo(500.0),
-					Mem:       tools.PtrTo(int64(512)),
-					Disk:      tools.PtrTo(int64(256)),
-				},
-				MemQuota:  tools.PtrTo(int64(1024)),
-				DiskQuota: tools.PtrTo(int64(2048)),
+				ID:    0,
+				Type:  "web",
+				State: korifiv1alpha1.InstanceStateRunning,
 			},
 			{
-				ProcessType: "web",
-				Index:       1,
-				State:       "RUNNING",
-				Usage: actions.Usage{
-					Timestamp: tools.PtrTo(time.UnixMilli(2000).UTC()),
-					CPU:       tools.PtrTo(501.0),
-					Mem:       tools.PtrTo(int64(513)),
-					Disk:      tools.PtrTo(int64(257)),
-				},
-				MemQuota:  tools.PtrTo(int64(1024)),
-				DiskQuota: tools.PtrTo(int64(2048)),
+				ID:    1,
+				Type:  "web",
+				State: korifiv1alpha1.InstanceStateDown,
 			},
 		}
 	})
 
 	JustBeforeEach(func() {
-		response := presenter.ForProcessStats(records)
+		response := presenter.ForProcessStats(gauges, instancesState, time.UnixMilli(2000).UTC())
 		var err error
 		output, err = json.Marshal(response)
 		Expect(err).NotTo(HaveOccurred())
@@ -65,16 +65,10 @@ var _ = Describe("Process Stats", func() {
 					"type": "web",
 					"index": 0,
 					"state": "RUNNING",
-					"host": null,
-					"uptime": null,
 					"mem_quota": 1024,
 					"disk_quota": 2048,
-					"fds_quota": null,
-					"isolation_segment": null,
-					"details": null,
-					"instance_ports": [],
 					"usage": {
-						"time": "1970-01-01T00:00:01Z",
+						"time": "1970-01-01T00:00:02Z",
 						"cpu": 500,
 						"mem": 512,
 						"disk": 256
@@ -83,15 +77,9 @@ var _ = Describe("Process Stats", func() {
 				{
 					"type": "web",
 					"index": 1,
-					"state": "RUNNING",
-					"host": null,
-					"uptime": null,
-					"mem_quota": 1024,
-					"disk_quota": 2048,
-					"fds_quota": null,
-					"isolation_segment": null,
-					"details": null,
-					"instance_ports": [],
+					"state": "DOWN",
+					"mem_quota": 1025,
+					"disk_quota": 2049,
 					"usage": {
 						"time": "1970-01-01T00:00:02Z",
 						"cpu": 501,
@@ -103,14 +91,73 @@ var _ = Describe("Process Stats", func() {
 		}`))
 	})
 
-	When("process is down", func() {
+	When("there are gauges for instance that is not available", func() {
 		BeforeEach(func() {
-			records[0].State = "DOWN"
-			records[1].State = "DOWN"
+			instancesState = []stats.ProcessInstanceState{
+				{
+					ID:    1,
+					Type:  "web",
+					State: korifiv1alpha1.InstanceStateDown,
+				},
+			}
 		})
 
-		It("omits nil instance ports", func() {
-			Expect(output).ToNot(ContainSubstring("instance_ports"))
+		It("filters gauges for not available instances", func() {
+			Expect(output).To(MatchJSON(`{
+				"resources": [
+					{
+						"type": "web",
+						"index": 1,
+						"state": "DOWN",
+						"mem_quota": 1025,
+						"disk_quota": 2049,
+						"usage": {
+							"time": "1970-01-01T00:00:02Z",
+							"cpu": 501,
+							"mem": 513,
+							"disk": 257
+						}
+					}
+				]
+			}`))
+		})
+	})
+
+	When("there are no gauges for an instance", func() {
+		BeforeEach(func() {
+			gauges = []stats.ProcessGauges{{
+				Index:     1,
+				CPU:       tools.PtrTo(501.0),
+				Mem:       tools.PtrTo(int64(513)),
+				Disk:      tools.PtrTo(int64(257)),
+				MemQuota:  tools.PtrTo(int64(1025)),
+				DiskQuota: tools.PtrTo(int64(2049)),
+			}}
+		})
+
+		It("returns zero values for instances without gauges", func() {
+			Expect(output).To(MatchJSON(`{
+				"resources": [
+					{
+						"type": "web",
+						"index": 0,
+						"state": "RUNNING"
+					},
+					{
+						"type": "web",
+						"index": 1,
+						"state": "DOWN",
+						"mem_quota": 1025,
+						"disk_quota": 2049,
+						"usage": {
+							"time": "1970-01-01T00:00:02Z",
+							"cpu": 501,
+							"mem": 513,
+							"disk": 257
+						}
+					}
+				]
+			}`))
 		})
 	})
 })

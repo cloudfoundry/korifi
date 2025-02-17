@@ -1,7 +1,11 @@
 package presenter
 
 import (
-	"code.cloudfoundry.org/korifi/api/actions"
+	"slices"
+	"time"
+
+	"code.cloudfoundry.org/korifi/api/handlers/stats"
+	"code.cloudfoundry.org/korifi/tools"
 )
 
 type ProcessStatsResponse struct {
@@ -9,18 +13,12 @@ type ProcessStatsResponse struct {
 }
 
 type ProcessStatsResource struct {
-	Type             string                 `json:"type"`
-	Index            int                    `json:"index"`
-	State            string                 `json:"state"`
-	Usage            ProcessUsage           `json:"usage"`
-	Host             *string                `json:"host"`
-	InstancePorts    *[]ProcessInstancePort `json:"instance_ports,omitempty"`
-	Uptime           *int                   `json:"uptime"`
-	MemQuota         *int64                 `json:"mem_quota"`
-	DiskQuota        *int64                 `json:"disk_quota"`
-	FDSQuota         *int                   `json:"fds_quota"`
-	IsolationSegment *string                `json:"isolation_segment"`
-	Details          *ProcessDetails        `json:"details"`
+	Type      string        `json:"type"`
+	Index     int           `json:"index"`
+	State     string        `json:"state"`
+	Usage     *ProcessUsage `json:"usage,omitempty"`
+	MemQuota  *int64        `json:"mem_quota,omitempty"`
+	DiskQuota *int64        `json:"disk_quota,omitempty"`
 }
 
 type ProcessUsage struct {
@@ -30,41 +28,37 @@ type ProcessUsage struct {
 	Disk *int64   `json:"disk,omitempty"`
 }
 
-type ProcessInstancePort struct {
-	External             int `json:"external"`
-	Internal             int `json:"internal"`
-	ExternalTLSProxyPort int `json:"external_tls_proxy_port"`
-	InternalTLSProxyPort int `json:"internal_tls_proxy_port"`
-}
+func ForProcessStats(gauges []stats.ProcessGauges, instancesState []stats.ProcessInstanceState, now time.Time) ProcessStatsResponse {
+	gaugesMap := map[int]stats.ProcessGauges{}
+	for _, gauge := range gauges {
+		gaugesMap[gauge.Index] = gauge
+	}
 
-type ProcessDetails struct{}
-
-func ForProcessStats(records []actions.PodStatsRecord) ProcessStatsResponse {
 	resources := []ProcessStatsResource{}
-	for _, record := range records {
-		resources = append(resources, statRecordToResource(record))
+	for _, instanceState := range instancesState {
+		statsResource := ProcessStatsResource{
+			Type:  instanceState.Type,
+			Index: instanceState.ID,
+			State: string(instanceState.State),
+		}
+
+		if gauge, hasGauge := gaugesMap[instanceState.ID]; hasGauge {
+			statsResource.Usage = tools.PtrTo(ProcessUsage{
+				Time: formatTimestamp(tools.PtrTo(now)),
+				CPU:  gauge.CPU,
+				Mem:  gauge.Mem,
+				Disk: gauge.Disk,
+			})
+			statsResource.MemQuota = gauge.MemQuota
+			statsResource.DiskQuota = gauge.DiskQuota
+		}
+
+		resources = append(resources, statsResource)
 	}
+
+	slices.SortFunc(resources, func(r1, r2 ProcessStatsResource) int {
+		return r1.Index - r2.Index
+	})
+
 	return ProcessStatsResponse{resources}
-}
-
-func statRecordToResource(record actions.PodStatsRecord) ProcessStatsResource {
-	var processInstancePorts *[]ProcessInstancePort
-	if record.State != "DOWN" {
-		processInstancePorts = &[]ProcessInstancePort{}
-	}
-
-	return ProcessStatsResource{
-		Type:          record.ProcessType,
-		Index:         record.Index,
-		State:         record.State,
-		InstancePorts: processInstancePorts,
-		Usage: ProcessUsage{
-			Time: formatTimestamp(record.Usage.Timestamp),
-			CPU:  record.Usage.CPU,
-			Mem:  record.Usage.Mem,
-			Disk: record.Usage.Disk,
-		},
-		MemQuota:  record.MemQuota,
-		DiskQuota: record.DiskQuota,
-	}
 }

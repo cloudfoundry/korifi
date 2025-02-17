@@ -7,8 +7,9 @@ import (
 )
 
 type Info struct {
-	Token    string
-	CertData []byte
+	Token         string
+	CertData      []byte
+	RawAuthHeader string
 }
 
 type key int

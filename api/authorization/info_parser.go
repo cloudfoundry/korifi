@@ -27,13 +27,13 @@ func (p *InfoParser) Parse(authorizationHeader string) (Info, error) {
 	scheme, data := values[0], values[1]
 	switch strings.ToLower(scheme) {
 	case BearerScheme:
-		return Info{Token: data}, nil
+		return Info{Token: data, RawAuthHeader: authorizationHeader}, nil
 	case CertScheme:
 		certBytes, err := base64.StdEncoding.DecodeString(data)
 		if err != nil {
 			return Info{}, apierrors.NewInvalidAuthError(err)
 		}
-		return Info{CertData: certBytes}, nil
+		return Info{CertData: certBytes, RawAuthHeader: authorizationHeader}, nil
 	default:
 		return Info{}, apierrors.NewInvalidAuthError(errors.New("unsupported authorization scheme"))
 	}

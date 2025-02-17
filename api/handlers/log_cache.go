@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -20,6 +21,12 @@ const (
 	LogCacheReadPath = "/api/v1/read/{source-id}"
 	logCacheVersion  = "2.11.4+cf-k8s"
 )
+
+//counterfeiter:generate -o fake -fake-name ProcessStats . ProcessStats
+type ProcessStats interface {
+	FetchStats(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
+	FetchAppProcessesStats(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
+}
 
 //counterfeiter:generate -o fake -fake-name LogRepository . LogRepository
 type LogRepository interface {

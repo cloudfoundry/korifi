@@ -6,10 +6,11 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
-	"code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/handlers/stats"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -37,33 +38,40 @@ type CFProcessRepository interface {
 	ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage repositories.ScaleProcessMessage) (repositories.ProcessRecord, error)
 }
 
-//counterfeiter:generate -o fake -fake-name ProcessStats . ProcessStats
-type ProcessStats interface {
-	FetchStats(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
-	FetchAppProcessesStats(context.Context, authorization.Info, string) ([]actions.PodStatsRecord, error)
+//counterfeiter:generate -o fake -fake-name GaugesCollector . GaugesCollector
+type GaugesCollector interface {
+	CollectProcessGauges(ctx context.Context, appGUID, processGUID string) ([]stats.ProcessGauges, error)
+}
+
+//counterfeiter:generate -o fake -fake-name InstancesStateCollector . InstancesStateCollector
+type InstancesStateCollector interface {
+	CollectProcessInstancesStates(ctx context.Context, processGUID string) ([]stats.ProcessInstanceState, error)
 }
 
 type Process struct {
-	serverURL        url.URL
-	processRepo      CFProcessRepository
-	processStats     ProcessStats
-	requestValidator RequestValidator
-	podRepo          PodRepository
+	serverURL               url.URL
+	processRepo             CFProcessRepository
+	requestValidator        RequestValidator
+	podRepo                 PodRepository
+	gaugesCollector         GaugesCollector
+	instancesStateCollector InstancesStateCollector
 }
 
 func NewProcess(
 	serverURL url.URL,
 	processRepo CFProcessRepository,
-	processStatsFetcher ProcessStats,
 	requestValidator RequestValidator,
 	podRepo PodRepository,
+	gaugesCollector GaugesCollector,
+	instancesStateCollector InstancesStateCollector,
 ) *Process {
 	return &Process{
-		serverURL:        serverURL,
-		processRepo:      processRepo,
-		processStats:     processStatsFetcher,
-		requestValidator: requestValidator,
-		podRepo:          podRepo,
+		serverURL:               serverURL,
+		processRepo:             processRepo,
+		requestValidator:        requestValidator,
+		podRepo:                 podRepo,
+		gaugesCollector:         gaugesCollector,
+		instancesStateCollector: instancesStateCollector,
 	}
 }
 
@@ -183,17 +191,26 @@ func (h *Process) scale(r *http.Request) (*routing.Response, error) {
 }
 
 func (h *Process) getStats(r *http.Request) (*routing.Response, error) {
-	authInfo, _ := authorization.InfoFromContext(r.Context())
-	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.process.get-stats")
-
 	processGUID := routing.URLParam(r, "guid")
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.process.get-stats").WithValues("processGUID", processGUID)
 
-	records, err := h.processStats.FetchStats(r.Context(), authInfo, processGUID)
+	process, err := h.processRepo.GetProcess(r.Context(), authInfo, processGUID)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to get process stats from Kubernetes", "ProcessGUID", processGUID)
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get process from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcessStats(records)), nil
+	gauges, err := h.gaugesCollector.CollectProcessGauges(r.Context(), process.AppGUID, process.GUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get process gauges from log cache")
+	}
+
+	instancesState, err := h.instancesStateCollector.CollectProcessInstancesStates(r.Context(), processGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get process instances state")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcessStats(gauges, instancesState, time.Now())), nil
 }
 
 func (h *Process) list(r *http.Request) (*routing.Response, error) { //nolint:dupl

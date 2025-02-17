@@ -5,12 +5,13 @@ import (
 	"net/http"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/api/actions"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/handlers/stats"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -20,24 +21,27 @@ import (
 
 var _ = Describe("Process", func() {
 	var (
-		processRepo      *fake.CFProcessRepository
-		processStats     *fake.ProcessStats
-		requestValidator *fake.RequestValidator
-		podRepo          *fake.PodRepository
+		processRepo             *fake.CFProcessRepository
+		requestValidator        *fake.RequestValidator
+		podRepo                 *fake.PodRepository
+		gaugesCollector         *fake.GaugesCollector
+		instancesStateCollector *fake.InstancesStateCollector
 	)
 
 	BeforeEach(func() {
 		processRepo = new(fake.CFProcessRepository)
-		processStats = new(fake.ProcessStats)
 		requestValidator = new(fake.RequestValidator)
 		podRepo = new(fake.PodRepository)
+		gaugesCollector = new(fake.GaugesCollector)
+		instancesStateCollector = new(fake.InstancesStateCollector)
 
 		apiHandler := NewProcess(
 			*serverURL,
 			processRepo,
-			processStats,
 			requestValidator,
 			podRepo,
+			gaugesCollector,
+			instancesStateCollector,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
 	})
@@ -236,16 +240,29 @@ var _ = Describe("Process", func() {
 
 	Describe("the GET /v3/processes/<guid>/stats endpoint", func() {
 		BeforeEach(func() {
-			processStats.FetchStatsReturns([]actions.PodStatsRecord{
+			processRepo.GetProcessReturns(repositories.ProcessRecord{
+				GUID:    "process-guid",
+				AppGUID: "app-guid",
+			}, nil)
+
+			gaugesCollector.CollectProcessGaugesReturns([]stats.ProcessGauges{{
+				Index:    0,
+				MemQuota: tools.PtrTo(int64(1024)),
+			}, {
+				Index:    1,
+				MemQuota: tools.PtrTo(int64(512)),
+			}}, nil)
+
+			instancesStateCollector.CollectProcessInstancesStatesReturns([]stats.ProcessInstanceState{
 				{
-					ProcessType: "web",
-					Index:       0,
-					MemQuota:    tools.PtrTo(int64(1024)),
+					ID:    0,
+					Type:  "web",
+					State: korifiv1alpha1.InstanceStateRunning,
 				},
 				{
-					ProcessType: "web",
-					Index:       1,
-					MemQuota:    tools.PtrTo(int64(512)),
+					ID:    1,
+					Type:  "web",
+					State: korifiv1alpha1.InstanceStateDown,
 				},
 			}, nil)
 		})
@@ -257,9 +274,19 @@ var _ = Describe("Process", func() {
 		})
 
 		It("returns the process stats", func() {
-			Expect(processStats.FetchStatsCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := processStats.FetchStatsArgsForCall(0)
+			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualProcessGUID := processRepo.GetProcessArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualProcessGUID).To(Equal("process-guid"))
+
+			Expect(gaugesCollector.CollectProcessGaugesCallCount()).To(Equal(1))
+			_, actualAppGUID, actualProcessGUID := gaugesCollector.CollectProcessGaugesArgsForCall(0)
+			Expect(actualAppGUID).To(Equal("app-guid"))
+			Expect(actualProcessGUID).To(Equal("process-guid"))
+
+			Expect(instancesStateCollector.CollectProcessInstancesStatesCallCount()).To(Equal(1))
+			_, actualProcessGUID = instancesStateCollector.CollectProcessInstancesStatesArgsForCall(0)
+			Expect(actualProcessGUID).To(Equal("process-guid"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -268,24 +295,48 @@ var _ = Describe("Process", func() {
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].type", "web"),
 				MatchJSONPath("$.resources[0].index", BeEquivalentTo(0)),
+				MatchJSONPath("$.resources[0].mem_quota", BeEquivalentTo(1024)),
+				MatchJSONPath("$.resources[0].state", Equal("RUNNING")),
 				MatchJSONPath("$.resources[1].type", "web"),
+				MatchJSONPath("$.resources[1].index", BeEquivalentTo(1)),
 				MatchJSONPath("$.resources[1].mem_quota", BeEquivalentTo(512)),
+				MatchJSONPath("$.resources[1].state", Equal("DOWN")),
 			)))
 		})
 
-		When("fetching stats fails with an unauthorized error", func() {
+		When("getting the process fails with forbidden error", func() {
 			BeforeEach(func() {
-				processStats.FetchStatsReturns(nil, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, apierrors.NewForbiddenError(nil, repositories.ProcessResourceType))
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError("App")
+				expectNotFoundError("Process")
 			})
 		})
 
-		When("fetching the process stats errors", func() {
+		When("getting the process fails", func() {
 			BeforeEach(func() {
-				processStats.FetchStatsReturns(nil, errors.New("boom"))
+				processRepo.GetProcessReturns(repositories.ProcessRecord{}, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("collecting instance state fails", func() {
+			BeforeEach(func() {
+				instancesStateCollector.CollectProcessInstancesStatesReturns(nil, errors.New("boom"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("collecting gauges fails", func() {
+			BeforeEach(func() {
+				gaugesCollector.CollectProcessGaugesReturns(nil, errors.New("boom"))
 			})
 
 			It("returns an error", func() {
