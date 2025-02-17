@@ -50,6 +50,11 @@ var _ = Describe("Config", func() {
 				"managedServices": map[string]any{
 					"enabled": true,
 				},
+				"externalLogCache": map[string]any{
+					"enabled":               true,
+					"url":                   "https://my-logcache.com",
+					"trustInsecureLogCache": true,
+				},
 			},
 		}
 	})
@@ -94,6 +99,11 @@ var _ = Describe("Config", func() {
 		}))
 		Expect(cfg.ContainerRegistryType).To(BeEmpty())
 		Expect(cfg.Experimental.ManagedServices.Enabled).To(BeTrue())
+		Expect(cfg.Experimental.ExternalLogCache).To(Equal(config.ExtenalLogCache{
+			Enabled:               true,
+			URL:                   "https://my-logcache.com",
+			TrustInsecureLogCache: true,
+		}))
 	})
 
 	When("the FQDN is not specified", func() {

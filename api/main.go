@@ -287,6 +287,7 @@ func main() {
 		servicePlanRepo,
 	)
 
+	instancesStateCollector := stats.NewProcessInstanceStateCollector(processRepo)
 	gaugesCollector := stats.NewGaugesCollector(
 		fmt.Sprintf("https://localhost:%d", cfg.InternalPort),
 		&http.Client{
@@ -295,11 +296,26 @@ func main() {
 			},
 		},
 	)
-	instancesStateCollector := stats.NewProcessInstanceStateCollector(processRepo)
+
+	logCacheURL := serverURL
+	if cfg.Experimental.ExternalLogCache.Enabled {
+		logCacheURL, err = url.Parse(cfg.Experimental.ExternalLogCache.URL)
+		if err != nil {
+			panic(fmt.Sprintf("could not parse external logcache URL: %v", err))
+		}
+		gaugesCollector = stats.NewGaugesCollector(
+			cfg.Experimental.ExternalLogCache.URL,
+			&http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.Experimental.ExternalLogCache.TrustInsecureLogCache}, // #nosec G402
+				},
+			},
+		)
+	}
 
 	apiHandlers := []routing.Routable{
 		handlers.NewRootV3(*serverURL),
-		handlers.NewRoot(*serverURL, cfg.Experimental.UAA, *serverURL),
+		handlers.NewRoot(*serverURL, cfg.Experimental.UAA, *logCacheURL),
 		handlers.NewInfoV3(
 			*serverURL,
 			cfg.InfoConfig,
@@ -396,13 +412,6 @@ func main() {
 			},
 			500*time.Millisecond,
 		),
-		handlers.NewLogCache(
-			requestValidator,
-			appRepo,
-			buildRepo,
-			logRepo,
-			processStats,
-		),
 		handlers.NewOrg(
 			*serverURL,
 			orgRepo,
@@ -476,6 +485,17 @@ func main() {
 			relationshipsRepo,
 		),
 	}
+
+	if !cfg.Experimental.ExternalLogCache.Enabled {
+		apiHandlers = append(apiHandlers, handlers.NewLogCache(
+			requestValidator,
+			appRepo,
+			buildRepo,
+			logRepo,
+			processStats,
+		))
+	}
+
 	for _, handler := range apiHandlers {
 		routerBuilder.LoadRoutes(handler)
 	}

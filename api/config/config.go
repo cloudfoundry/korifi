@@ -52,8 +52,9 @@ type (
 	}
 
 	Experimental struct {
-		ManagedServices ManagedServices `yaml:"managedServices"`
-		UAA             UAA             `yaml:"uaa"`
+		ManagedServices  ManagedServices `yaml:"managedServices"`
+		UAA              UAA             `yaml:"uaa"`
+		ExternalLogCache ExtenalLogCache `yaml:"externalLogCache"`
 	}
 
 	ManagedServices struct {
@@ -63,6 +64,12 @@ type (
 	UAA struct {
 		Enabled bool   `yaml:"enabled"`
 		URL     string `yaml:"url"`
+	}
+
+	ExtenalLogCache struct {
+		Enabled               bool   `yaml:"enabled"`
+		URL                   string `yaml:"url"`
+		TrustInsecureLogCache bool   `yaml:"trustInsecureLogCache"`
 	}
 
 	RoleLevel string
