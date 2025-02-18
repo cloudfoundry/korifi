@@ -202,7 +202,7 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 		log.Info("error when collecting instances state", "reason", err)
 		return ctrl.Result{}, err
 	}
-	appWorkload.Status.InstancesState = instancesState
+	appWorkload.Status.InstancesStatus = instancesState
 
 	return ctrl.Result{}, nil
 }

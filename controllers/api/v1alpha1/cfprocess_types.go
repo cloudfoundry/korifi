@@ -92,7 +92,7 @@ type CFProcessStatus struct {
 	ActualInstances int32 `json:"actualInstances"`
 
 	//+kubebuilder:validation:Optional
-	InstancesState map[string]InstanceState `json:"instancesState"`
+	InstancesStatus map[string]InstanceStatus `json:"instancesStatus"`
 }
 
 //+kubebuilder:object:root=true

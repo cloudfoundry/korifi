@@ -794,14 +794,25 @@ spec:
                   - type
                   type: object
                 type: array
-              instancesState:
+              instancesStatus:
                 additionalProperties:
-                  enum:
-                  - DOWN
-                  - CRASHED
-                  - STARTING
-                  - RUNNING
-                  type: string
+                  properties:
+                    state:
+                      description: The state of the instance
+                      enum:
+                      - DOWN
+                      - CRASHED
+                      - STARTING
+                      - RUNNING
+                      type: string
+                    timestamp:
+                      description: The time the instance got into this status; nil
+                        if unknown
+                      format: date-time
+                      type: string
+                  required:
+                  - state
+                  type: object
                 type: object
               observedGeneration:
                 description: ObservedGeneration captures the latest generation of

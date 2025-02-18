@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,9 +40,10 @@ var _ = Describe("Process Stats", func() {
 
 		instancesState = []stats.ProcessInstanceState{
 			{
-				ID:    0,
-				Type:  "web",
-				State: korifiv1alpha1.InstanceStateRunning,
+				ID:        0,
+				Type:      "web",
+				State:     korifiv1alpha1.InstanceStateRunning,
+				Timestamp: tools.PtrTo(metav1.NewTime(time.UnixMilli(2000).UTC())),
 			},
 			{
 				ID:    1,
@@ -52,7 +54,7 @@ var _ = Describe("Process Stats", func() {
 	})
 
 	JustBeforeEach(func() {
-		response := presenter.ForProcessStats(gauges, instancesState, time.UnixMilli(2000).UTC())
+		response := presenter.ForProcessStats(gauges, instancesState, time.UnixMilli(10000).UTC())
 		var err error
 		output, err = json.Marshal(response)
 		Expect(err).NotTo(HaveOccurred())
@@ -67,8 +69,9 @@ var _ = Describe("Process Stats", func() {
 					"state": "RUNNING",
 					"mem_quota": 1024,
 					"disk_quota": 2048,
+					"uptime": 8,
 					"usage": {
-						"time": "1970-01-01T00:00:02Z",
+						"time": "1970-01-01T00:00:10Z",
 						"cpu": 500,
 						"mem": 512,
 						"disk": 256
@@ -81,7 +84,7 @@ var _ = Describe("Process Stats", func() {
 					"mem_quota": 1025,
 					"disk_quota": 2049,
 					"usage": {
-						"time": "1970-01-01T00:00:02Z",
+						"time": "1970-01-01T00:00:10Z",
 						"cpu": 501,
 						"mem": 513,
 						"disk": 257
@@ -112,7 +115,7 @@ var _ = Describe("Process Stats", func() {
 						"mem_quota": 1025,
 						"disk_quota": 2049,
 						"usage": {
-							"time": "1970-01-01T00:00:02Z",
+							"time": "1970-01-01T00:00:10Z",
 							"cpu": 501,
 							"mem": 513,
 							"disk": 257
@@ -141,7 +144,8 @@ var _ = Describe("Process Stats", func() {
 					{
 						"type": "web",
 						"index": 0,
-						"state": "RUNNING"
+						"state": "RUNNING",
+						"uptime": 8
 					},
 					{
 						"type": "web",
@@ -150,7 +154,7 @@ var _ = Describe("Process Stats", func() {
 						"mem_quota": 1025,
 						"disk_quota": 2049,
 						"usage": {
-							"time": "1970-01-01T00:00:02Z",
+							"time": "1970-01-01T00:00:10Z",
 							"cpu": 501,
 							"mem": 513,
 							"disk": 257

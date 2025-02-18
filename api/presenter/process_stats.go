@@ -4,6 +4,8 @@ import (
 	"slices"
 	"time"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+
 	"code.cloudfoundry.org/korifi/api/handlers/stats"
 	"code.cloudfoundry.org/korifi/tools"
 )
@@ -19,6 +21,7 @@ type ProcessStatsResource struct {
 	Usage     *ProcessUsage `json:"usage,omitempty"`
 	MemQuota  *int64        `json:"mem_quota,omitempty"`
 	DiskQuota *int64        `json:"disk_quota,omitempty"`
+	Uptime    *int64        `json:"uptime,omitempty"`
 }
 
 type ProcessUsage struct {
@@ -37,9 +40,10 @@ func ForProcessStats(gauges []stats.ProcessGauges, instancesState []stats.Proces
 	resources := []ProcessStatsResource{}
 	for _, instanceState := range instancesState {
 		statsResource := ProcessStatsResource{
-			Type:  instanceState.Type,
-			Index: instanceState.ID,
-			State: string(instanceState.State),
+			Type:   instanceState.Type,
+			Index:  instanceState.ID,
+			State:  string(instanceState.State),
+			Uptime: computeUptime(now, instanceState),
 		}
 
 		if gauge, hasGauge := gaugesMap[instanceState.ID]; hasGauge {
@@ -61,4 +65,16 @@ func ForProcessStats(gauges []stats.ProcessGauges, instancesState []stats.Proces
 	})
 
 	return ProcessStatsResponse{resources}
+}
+
+func computeUptime(now time.Time, instanceState stats.ProcessInstanceState) *int64 {
+	if instanceState.State != korifiv1alpha1.InstanceStateRunning {
+		return nil
+	}
+
+	if instanceState.Timestamp == nil {
+		return nil
+	}
+
+	return tools.PtrTo(int64(now.Sub(instanceState.Timestamp.Time).Seconds()))
 }

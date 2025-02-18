@@ -2,6 +2,7 @@ package stats_test
 
 import (
 	"errors"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -10,6 +11,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/stats/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("State", func() {
@@ -24,9 +27,14 @@ var _ = Describe("State", func() {
 		processRepo = new(fake.CFProcessRepository)
 		processRepo.GetProcessReturns(repositories.ProcessRecord{
 			Type: "web",
-			InstancesState: map[string]korifiv1alpha1.InstanceState{
-				"1": korifiv1alpha1.InstanceStateCrashed,
-				"2": korifiv1alpha1.InstanceStateRunning,
+			InstancesStatus: map[string]korifiv1alpha1.InstanceStatus{
+				"1": {
+					State: korifiv1alpha1.InstanceStateCrashed,
+				},
+				"2": {
+					State:     korifiv1alpha1.InstanceStateRunning,
+					Timestamp: tools.PtrTo(metav1.NewTime(time.UnixMilli(2000).UTC())),
+				},
 			},
 		}, nil)
 
@@ -65,9 +73,10 @@ var _ = Describe("State", func() {
 				State: korifiv1alpha1.InstanceStateCrashed,
 			},
 			stats.ProcessInstanceState{
-				ID:    2,
-				Type:  "web",
-				State: korifiv1alpha1.InstanceStateRunning,
+				ID:        2,
+				Type:      "web",
+				State:     korifiv1alpha1.InstanceStateRunning,
+				Timestamp: tools.PtrTo(metav1.NewTime(time.UnixMilli(2000).UTC())),
 			},
 		))
 	})
@@ -76,8 +85,10 @@ var _ = Describe("State", func() {
 		BeforeEach(func() {
 			processRepo.GetProcessReturns(repositories.ProcessRecord{
 				Type: "web",
-				InstancesState: map[string]korifiv1alpha1.InstanceState{
-					"one": korifiv1alpha1.InstanceStateCrashed,
+				InstancesStatus: map[string]korifiv1alpha1.InstanceStatus{
+					"one": {
+						State: korifiv1alpha1.InstanceStateCrashed,
+					},
 				},
 			}, nil)
 		})
