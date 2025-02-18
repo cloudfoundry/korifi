@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"maps"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
@@ -9,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -16,7 +18,7 @@ import (
 var _ = Describe("AppWorkload State", func() {
 	var (
 		stateCollector  *state.AppWorkloadStateCollector
-		workloadState   map[string]korifiv1alpha1.InstanceState
+		workloadState   map[string]korifiv1alpha1.InstanceStatus
 		appWorkloadGUID string
 		pod             *corev1.Pod
 	)
@@ -51,8 +53,10 @@ var _ = Describe("AppWorkload State", func() {
 	})
 
 	It("reports state DOWN", func() {
-		Expect(workloadState).To(Equal(map[string]korifiv1alpha1.InstanceState{
-			"4": korifiv1alpha1.InstanceStateDown,
+		Expect(workloadState).To(Equal(map[string]korifiv1alpha1.InstanceStatus{
+			"4": {
+				State: korifiv1alpha1.InstanceStateDown,
+			},
 		}))
 	})
 
@@ -61,17 +65,24 @@ var _ = Describe("AppWorkload State", func() {
 			Expect(k8s.Patch(ctx, k8sClient, pod, func() {
 				pod.Status = corev1.PodStatus{
 					Conditions: []corev1.PodCondition{{
-						Type:   corev1.PodReady,
-						Status: corev1.ConditionTrue,
+						Type:               corev1.PodReady,
+						Status:             corev1.ConditionTrue,
+						LastTransitionTime: metav1.NewTime(time.UnixMilli(2000).UTC()),
 					}},
 				}
 			})).To(Succeed())
 		})
 
 		It("reports state RUNNING", func() {
-			Expect(workloadState).To(Equal(map[string]korifiv1alpha1.InstanceState{
-				"4": korifiv1alpha1.InstanceStateRunning,
-			}))
+			Expect(workloadState).To(SatisfyAll(
+				HaveLen(1),
+				HaveKeyWithValue("4", MatchAllFields(Fields{
+					"State": BeEquivalentTo(korifiv1alpha1.InstanceStateRunning),
+					"Timestamp": PointTo(MatchAllFields(Fields{
+						"Time": BeTemporally("==", time.UnixMilli(2000).UTC()),
+					})),
+				})),
+			))
 		})
 	})
 
@@ -88,8 +99,10 @@ var _ = Describe("AppWorkload State", func() {
 		})
 
 		It("reports state STARTING", func() {
-			Expect(workloadState).To(Equal(map[string]korifiv1alpha1.InstanceState{
-				"4": korifiv1alpha1.InstanceStateStarting,
+			Expect(workloadState).To(Equal(map[string]korifiv1alpha1.InstanceStatus{
+				"4": {
+					State: korifiv1alpha1.InstanceStateStarting,
+				},
 			}))
 		})
 
@@ -107,8 +120,10 @@ var _ = Describe("AppWorkload State", func() {
 			})
 
 			It("reports state CRASHED", func() {
-				Expect(workloadState).To(Equal(map[string]korifiv1alpha1.InstanceState{
-					"4": korifiv1alpha1.InstanceStateCrashed,
+				Expect(workloadState).To(Equal(map[string]korifiv1alpha1.InstanceStatus{
+					"4": {
+						State: korifiv1alpha1.InstanceStateCrashed,
+					},
 				}))
 			})
 		})

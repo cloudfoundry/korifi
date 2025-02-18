@@ -357,8 +357,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			JustBeforeEach(func() {
 				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(k8s.Patch(ctx, adminClient, &appWorkload, func() {
-						appWorkload.Status.InstancesState = map[string]korifiv1alpha1.InstanceState{
-							"3": korifiv1alpha1.InstanceStateDown,
+						appWorkload.Status.InstancesStatus = map[string]korifiv1alpha1.InstanceStatus{
+							"3": {
+								State: korifiv1alpha1.InstanceStateDown,
+							},
 						}
 					})).To(Succeed())
 				})
@@ -367,8 +369,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			It("updates the process instance state", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfProcess), cfProcess)).To(Succeed())
-					g.Expect(cfProcess.Status.InstancesState).To(Equal(map[string]korifiv1alpha1.InstanceState{
-						"3": korifiv1alpha1.InstanceStateDown,
+					g.Expect(cfProcess.Status.InstancesStatus).To(Equal(map[string]korifiv1alpha1.InstanceStatus{
+						"3": {
+							State: korifiv1alpha1.InstanceStateDown,
+						},
 					}))
 				}).Should(Succeed())
 			})

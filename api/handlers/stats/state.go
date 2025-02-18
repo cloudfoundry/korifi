@@ -8,12 +8,14 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ProcessInstanceState struct {
-	ID    int
-	Type  string
-	State korifiv1alpha1.InstanceState
+	ID        int
+	Type      string
+	State     korifiv1alpha1.InstanceState
+	Timestamp *metav1.Time
 }
 
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
@@ -40,16 +42,17 @@ func (c *ProcessInstancesStateCollector) CollectProcessInstancesStates(ctx conte
 	}
 
 	states := []ProcessInstanceState{}
-	for instanceId, instanceState := range process.InstancesState {
+	for instanceId, instanceStatus := range process.InstancesStatus {
 		instanceIdInt, err := strconv.Atoi(instanceId)
 		if err != nil {
 			return nil, fmt.Errorf("parsing instance id %q failed: %w", instanceId, err)
 		}
 
 		states = append(states, ProcessInstanceState{
-			ID:    instanceIdInt,
-			Type:  process.Type,
-			State: instanceState,
+			ID:        instanceIdInt,
+			Type:      process.Type,
+			State:     instanceStatus.State,
+			Timestamp: instanceStatus.Timestamp,
 		})
 
 	}

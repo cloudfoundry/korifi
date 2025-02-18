@@ -6,7 +6,9 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/tools"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -20,7 +22,7 @@ func NewAppWorkloadStateCollector(client client.Client) *AppWorkloadStateCollect
 	}
 }
 
-func (c *AppWorkloadStateCollector) CollectState(ctx context.Context, appWorkloadGUID string) (map[string]korifiv1alpha1.InstanceState, error) {
+func (c *AppWorkloadStateCollector) CollectState(ctx context.Context, appWorkloadGUID string) (map[string]korifiv1alpha1.InstanceStatus, error) {
 	workloadPods := &corev1.PodList{}
 	err := c.client.List(ctx, workloadPods,
 		client.MatchingLabels{
@@ -31,7 +33,7 @@ func (c *AppWorkloadStateCollector) CollectState(ctx context.Context, appWorkloa
 		return nil, fmt.Errorf("failed to list pods for workload %q: %w", appWorkloadGUID, err)
 	}
 
-	result := map[string]korifiv1alpha1.InstanceState{}
+	result := map[string]korifiv1alpha1.InstanceStatus{}
 
 	for _, pod := range workloadPods.Items {
 		result[pod.Labels["apps.kubernetes.io/pod-index"]] = getPodState(pod)
@@ -45,21 +47,30 @@ func (c *AppWorkloadStateCollector) CollectState(ctx context.Context, appWorkloa
 // CRASHED => any(pod.ContainerStatuses.State isA Terminated)
 // RUNNING => pod.conditions.Ready
 // STARTING => default
-func getPodState(pod corev1.Pod) korifiv1alpha1.InstanceState {
+func getPodState(pod corev1.Pod) korifiv1alpha1.InstanceStatus {
 	// return running when all containers are ready
 	if podConditionStatus(pod, corev1.PodReady) {
-		return korifiv1alpha1.InstanceStateRunning
+		return korifiv1alpha1.InstanceStatus{
+			State:     korifiv1alpha1.InstanceStateRunning,
+			Timestamp: getPodStartTime(pod),
+		}
 	}
 
 	if !podConditionStatus(pod, corev1.PodScheduled) {
-		return korifiv1alpha1.InstanceStateDown
+		return korifiv1alpha1.InstanceStatus{
+			State: korifiv1alpha1.InstanceStateDown,
+		}
 	}
 
 	if podHasCrashedContainer(pod) {
-		return korifiv1alpha1.InstanceStateCrashed
+		return korifiv1alpha1.InstanceStatus{
+			State: korifiv1alpha1.InstanceStateCrashed,
+		}
 	}
 
-	return korifiv1alpha1.InstanceStateStarting
+	return korifiv1alpha1.InstanceStatus{
+		State: korifiv1alpha1.InstanceStateStarting,
+	}
 }
 
 func podHasCrashedContainer(pod corev1.Pod) bool {
@@ -80,4 +91,14 @@ func podConditionStatus(pod corev1.Pod, conditionType corev1.PodConditionType) b
 	}
 
 	return false
+}
+
+func getPodStartTime(pod corev1.Pod) *metav1.Time {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodReady {
+			return tools.PtrTo(cond.LastTransitionTime)
+		}
+	}
+
+	return nil
 }

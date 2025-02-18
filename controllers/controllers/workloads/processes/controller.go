@@ -166,7 +166,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfProcess *korifiv1a
 	}
 
 	cfProcess.Status.ActualInstances = getActualInstances(appWorkloads)
-	cfProcess.Status.InstancesState = getCurrentInstancesState(getDesiredAppWorkloadName(cfApp, cfProcess), appWorkloads)
+	cfProcess.Status.InstancesStatus = getCurrentInstancesStatus(getDesiredAppWorkloadName(cfApp, cfProcess), appWorkloads)
 
 	return ctrl.Result{}, nil
 }
@@ -187,10 +187,10 @@ func getActualInstances(appWorkloads []korifiv1alpha1.AppWorkload) int32 {
 	return actualInstances
 }
 
-func getCurrentInstancesState(desiredAppWorkloadName string, appWorkloads []korifiv1alpha1.AppWorkload) map[string]korifiv1alpha1.InstanceState {
+func getCurrentInstancesStatus(desiredAppWorkloadName string, appWorkloads []korifiv1alpha1.AppWorkload) map[string]korifiv1alpha1.InstanceStatus {
 	for _, workload := range appWorkloads {
 		if workload.Name == desiredAppWorkloadName {
-			return workload.Status.InstancesState
+			return workload.Status.InstancesStatus
 		}
 	}
 

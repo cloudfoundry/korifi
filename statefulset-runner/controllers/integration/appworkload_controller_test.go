@@ -1,6 +1,8 @@
 package integration_test
 
 import (
+	"time"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -9,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
+	. "github.com/onsi/gomega/gstruct"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -130,7 +132,9 @@ var _ = Describe("AppWorkloadsController", func() {
 				It("updates workload instances state", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
-						g.Expect(appWorkload.Status.InstancesState).To(HaveKeyWithValue("4", korifiv1alpha1.InstanceStateDown))
+						g.Expect(appWorkload.Status.InstancesStatus).To(HaveKeyWithValue("4", korifiv1alpha1.InstanceStatus{
+							State: korifiv1alpha1.InstanceStateDown,
+						}))
 					}).Should(Succeed())
 				})
 
@@ -138,14 +142,17 @@ var _ = Describe("AppWorkloadsController", func() {
 					JustBeforeEach(func() {
 						Eventually(func(g Gomega) {
 							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
-							g.Expect(appWorkload.Status.InstancesState).To(HaveKeyWithValue("4", korifiv1alpha1.InstanceStateDown))
+							g.Expect(appWorkload.Status.InstancesStatus).To(HaveKeyWithValue("4", korifiv1alpha1.InstanceStatus{
+								State: korifiv1alpha1.InstanceStateDown,
+							}))
 						}).Should(Succeed())
 
 						Expect(k8s.Patch(ctx, k8sClient, pod, func() {
 							pod.Status = corev1.PodStatus{
 								Conditions: []corev1.PodCondition{{
-									Type:   corev1.PodReady,
-									Status: corev1.ConditionTrue,
+									Type:               corev1.PodReady,
+									Status:             corev1.ConditionTrue,
+									LastTransitionTime: metav1.NewTime(time.UnixMilli(2000).UTC()),
 								}},
 							}
 						})).To(Succeed())
@@ -154,7 +161,12 @@ var _ = Describe("AppWorkloadsController", func() {
 					It("updates workload instances state", func() {
 						Eventually(func(g Gomega) {
 							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
-							g.Expect(appWorkload.Status.InstancesState).To(HaveKeyWithValue("4", korifiv1alpha1.InstanceStateRunning))
+							g.Expect(appWorkload.Status.InstancesStatus).To(HaveKeyWithValue("4", MatchAllFields(Fields{
+								"State": BeEquivalentTo(korifiv1alpha1.InstanceStateRunning),
+								"Timestamp": PointTo(MatchAllFields(Fields{
+									"Time": BeTemporally("==", time.UnixMilli(2000).UTC()),
+								})),
+							})))
 						}).Should(Succeed())
 					})
 				})
@@ -207,7 +219,7 @@ var _ = Describe("AppWorkloadsController", func() {
 		It("updates the StatefulSet", func() {
 			Eventually(func(g Gomega) {
 				statefulSet := getStatefulsetForAppWorkload(g)
-				g.Expect(statefulSet.Spec.Replicas).To(gstruct.PointTo(BeNumerically("==", 2)))
+				g.Expect(statefulSet.Spec.Replicas).To(PointTo(BeNumerically("==", 2)))
 				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("10Mi"))
 				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1024m"))
 				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())

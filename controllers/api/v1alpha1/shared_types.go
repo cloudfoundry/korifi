@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -83,3 +84,12 @@ type RequiredLocalObjectReference struct {
 
 // +kubebuilder:validation:Enum=DOWN;CRASHED;STARTING;RUNNING
 type InstanceState string
+
+type InstanceStatus struct {
+	// The state of the instance
+	State InstanceState `json:"state"`
+
+	// The time the instance got into this status; nil if unknown
+	// +kubebuilder:validation:Optional
+	Timestamp *metav1.Time `json:"timestamp"`
+}
