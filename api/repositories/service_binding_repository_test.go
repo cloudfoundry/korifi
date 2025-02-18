@@ -1090,7 +1090,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		)
 
 		BeforeEach(func() {
-			serviceBindingGUID = prefixedGUID("binding")
+			serviceBindingGUID = uuid.NewString()
 			searchGUID = serviceBindingGUID
 
 			serviceBinding := &korifiv1alpha1.CFServiceBinding{
@@ -1234,6 +1234,104 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				It("returns a not found error", func() {
 					Expect(updateErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+		})
+	})
+
+	Describe("GetServiceBindingDetails", func() {
+		var (
+			serviceBindingGUID   string
+			getErr               error
+			serviceBindingRecord repositories.ServiceBindingDetailsRecord
+			credentialsSecret    *corev1.Secret
+		)
+
+		BeforeEach(func() {
+			serviceBindingGUID = uuid.NewString()
+
+			sbDisplayName := "test-service-binding"
+			serviceBinding := &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceBindingGUID,
+					Namespace: space.Name,
+					Labels:    map[string]string{"servicebinding.io/provisioned-service": "true"},
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					DisplayName: &sbDisplayName,
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+					Type: "app",
+				},
+			}
+
+			Expect(
+				k8sClient.Create(ctx, serviceBinding),
+			).To(Succeed())
+
+			Expect(
+				k8s.Patch(ctx, k8sClient, serviceBinding, func() {
+					serviceBinding.Status.Credentials.Name = serviceBindingGUID
+					serviceBinding.Status.ObservedGeneration = serviceBinding.Generation
+					serviceBinding.Status.Conditions = append(serviceBinding.Status.Conditions, metav1.Condition{
+						Type:               korifiv1alpha1.StatusConditionReady,
+						Status:             metav1.ConditionStatus("True"),
+						Reason:             "reason",
+						LastTransitionTime: metav1.Time{Time: time.Now()},
+					})
+				}),
+			).To(Succeed())
+
+			credentials := map[string]any{
+				"foo": "val1",
+				"bar": "val2",
+			}
+
+			creds, err := tools.ToCredentialsSecretData(credentials)
+			Expect(err).ToNot(HaveOccurred())
+
+			credentialsSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceBinding.Status.Credentials.Name,
+					Namespace: space.Name,
+				},
+				Data: creds,
+			}
+			Expect(
+				k8sClient.Create(ctx, credentialsSecret),
+			).To(Succeed())
+
+		})
+
+		JustBeforeEach(func() {
+			serviceBindingRecord, getErr = repo.GetServiceBindingDetails(ctx, authInfo, serviceBindingGUID)
+		})
+
+		It("returns a forbidden error as no user bindings are in place", func() {
+			Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("returns details", func() {
+				Expect(getErr).ToNot(HaveOccurred())
+				Expect(serviceBindingRecord.Credentials).To(SatisfyAll(
+					HaveKeyWithValue("bar", "val2"),
+					HaveKeyWithValue("foo", "val1"),
+				))
+			})
+
+			When("binding does not exist", func() {
+				BeforeEach(func() {
+					serviceBindingGUID = "i-dont-exist"
+				})
+
+				It("returns an error", func() {
+					Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
 			})
 		})

@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -565,6 +567,54 @@ var _ = Describe("ServiceBinding", func() {
 
 			It("returns 404 NotFound", func() {
 				expectNotFoundError("CFServiceBinding")
+			})
+		})
+	})
+
+	Describe("GET /v3/service_credential_bindings/{guid}/details", func() {
+		var serviceBindingGUID string = uuid.NewString()
+
+		BeforeEach(func() {
+			serviceBindingRepo.GetServiceBindingDetailsReturns(repositories.ServiceBindingDetailsRecord{
+				Credentials: map[string]any{
+					"connection": "mydb://user@password:example.com",
+				},
+			}, nil)
+
+			requestMethod = http.MethodGet
+			requestPath = fmt.Sprintf("/v3/service_credential_bindings/%s/details", serviceBindingGUID)
+			requestBody = ""
+		})
+
+		It("returns the service binding details", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.credentials.connection", "mydb://user@password:example.com"),
+			)))
+			Expect(serviceBindingRepo.GetServiceBindingDetailsCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualGUID := serviceBindingRepo.GetServiceBindingDetailsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualGUID).To(Equal(serviceBindingGUID))
+		})
+
+		When("the service binding repo returns an error", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.GetServiceBindingDetailsReturns(repositories.ServiceBindingDetailsRecord{}, errors.New("get-service-binding-details-error"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("getting the service binding is forbidden", func() {
+			BeforeEach(func() {
+				serviceBindingRepo.GetServiceBindingDetailsReturns(repositories.ServiceBindingDetailsRecord{}, apierrors.NewForbiddenError(nil, repositories.ServiceBindingResourceType))
+			})
+
+			It("returns 404 NotFound", func() {
+				expectNotFoundError(repositories.ServiceBindingResourceType)
 			})
 		})
 	})

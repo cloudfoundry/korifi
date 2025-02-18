@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -75,6 +76,9 @@ func (r ServiceBindingRecord) Relationships() map[string]string {
 	}
 }
 
+type ServiceBindingDetailsRecord struct {
+	Credentials map[string]any
+}
 type ServiceBindingLastOperation struct {
 	Type        string
 	State       string
@@ -253,23 +257,65 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 }
 
 func (r *ServiceBindingRepo) GetServiceBinding(ctx context.Context, authInfo authorization.Info, guid string) (ServiceBindingRecord, error) {
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, guid, ServiceBindingResourceType)
+	binding, err := r.getServiceBinding(ctx, authInfo, guid)
 	if err != nil {
-		return ServiceBindingRecord{}, err
+		return ServiceBindingRecord{}, fmt.Errorf("get-service-binding failed: %w", err)
+	}
+
+	return serviceBindingToRecord(binding), nil
+}
+
+func (r *ServiceBindingRepo) GetServiceBindingDetails(ctx context.Context, authInfo authorization.Info, guid string) (ServiceBindingDetailsRecord, error) {
+	binding, err := r.getServiceBinding(ctx, authInfo, guid)
+	if err != nil {
+		return ServiceBindingDetailsRecord{}, fmt.Errorf("get-service-binding-details failed: %w", err)
+	}
+	if ok := isBindingReady(binding); !ok {
+		return ServiceBindingDetailsRecord{}, errors.New("get-service-binding-details failed due to binding not ready yet")
 	}
 
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return ServiceBindingRecord{}, fmt.Errorf("get-service-binding failed to create user client: %w", err)
+		return ServiceBindingDetailsRecord{}, fmt.Errorf("get-service-binding-details failed to create user client: %w", err)
 	}
 
-	serviceBinding := &korifiv1alpha1.CFServiceBinding{}
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: guid}, serviceBinding)
+	credentialsSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: binding.Namespace,
+			Name:      binding.Status.Credentials.Name,
+		},
+	}
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
 	if err != nil {
-		return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
+		return ServiceBindingDetailsRecord{}, fmt.Errorf("failed to get credentials: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))
 	}
 
-	return serviceBindingToRecord(*serviceBinding), nil
+	credentials, err := tools.FromCredentialsSecretData(credentialsSecret.Data)
+	if err != nil {
+		return ServiceBindingDetailsRecord{}, fmt.Errorf("failed to parse credentials secret data: %w", err)
+	}
+
+	return ServiceBindingDetailsRecord{Credentials: credentials}, nil
+}
+
+func (r *ServiceBindingRepo) getServiceBinding(ctx context.Context, authInfo authorization.Info, bindingGUID string) (korifiv1alpha1.CFServiceBinding, error) {
+	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, bindingGUID, ServiceBindingResourceType)
+	if err != nil {
+		return korifiv1alpha1.CFServiceBinding{}, fmt.Errorf("failed to retrieve namespace: %w", err)
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return korifiv1alpha1.CFServiceBinding{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	serviceBinding := korifiv1alpha1.CFServiceBinding{}
+	err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: bindingGUID}, &serviceBinding)
+	if err != nil {
+		return korifiv1alpha1.CFServiceBinding{}, fmt.Errorf("failed to get service binding: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))
+	}
+
+	return serviceBinding, nil
 }
 
 func serviceBindingToRecord(binding korifiv1alpha1.CFServiceBinding) ServiceBindingRecord {

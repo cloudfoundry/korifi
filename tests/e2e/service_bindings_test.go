@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -165,6 +166,33 @@ var _ = Describe("Service Bindings", func() {
 			Expect(result.Resources).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(bindingGUID)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherBindingGUID)}),
+			))
+		})
+	})
+
+	Describe("GET /v3/service_credential_bindings/{guid}/details", func() {
+		var result credentialsResponse
+
+		BeforeEach(func() {
+			credentials := map[string]string{
+				"foo": "val1",
+				"bar": "val2",
+			}
+			upsiGUID = createServiceInstance(spaceGUID, uuid.NewString(), credentials)
+			bindingGUID = createUPSIServiceBinding(appGUID, upsiGUID, "")
+			result = credentialsResponse{}
+		})
+
+		JustBeforeEach(func() {
+			httpResp, httpError = adminClient.R().SetResult(&result).Get("/v3/service_credential_bindings/" + bindingGUID + "/details")
+		})
+
+		It("succeeds", func() {
+			Expect(httpError).NotTo(HaveOccurred())
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Credentials).To(SatisfyAll(
+				HaveKeyWithValue("foo", "val1"),
+				HaveKeyWithValue("bar", "val2"),
 			))
 		})
 	})
