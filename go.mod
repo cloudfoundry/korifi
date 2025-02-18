@@ -7,7 +7,7 @@ toolchain go1.23.5
 require (
 	code.cloudfoundry.org/bytefmt v0.29.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.0.3
-	code.cloudfoundry.org/go-loggregator/v10 v10.0.0
+	code.cloudfoundry.org/go-loggregator/v10 v10.0.1
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
 	github.com/BooleanCat/go-functional/v2 v2.5.0
 	github.com/Masterminds/semver v1.5.0
