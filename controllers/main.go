@@ -67,7 +67,6 @@ import (
 	"code.cloudfoundry.org/korifi/version"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
-	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -97,7 +96,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(gatewayv1beta1.Install(scheme))
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(servicebindingv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
-	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,11 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-)
-
-const (
-	ServiceBindingGUIDLabel        = "korifi.cloudfoundry.org/service-binding-guid"
-	ServiceBindingSecretTypePrefix = "servicebinding.io/"
 )
 
 type DelegateReconciler interface {
@@ -74,7 +68,6 @@ func NewReconciler(
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFServiceBinding{}).
-		Owns(&servicebindingv1beta1.ServiceBinding{}).
 		Watches(
 			&korifiv1alpha1.CFServiceInstance{},
 			handler.EnqueueRequestsFromMapFunc(r.serviceInstanceToServiceBindings),
@@ -108,7 +101,6 @@ func (r *Reconciler) serviceInstanceToServiceBindings(ctx context.Context, o cli
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfservicebindings/finalizers,verbs=update
-//+kubebuilder:rbac:groups=servicebinding.io,resources=servicebindings,verbs=get;list;create;update;patch;watch
 
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)

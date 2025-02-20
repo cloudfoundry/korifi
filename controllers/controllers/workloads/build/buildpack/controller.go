@@ -19,13 +19,14 @@ package buildpack
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
-	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/build"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -230,14 +231,17 @@ func (r *buildpackBuildReconciler) createBuildWorkload(ctx context.Context, cfBu
 			},
 			BuilderName: r.controllerConfig.BuilderName,
 			Buildpacks:  cfBuild.Spec.Lifecycle.Data.Buildpacks,
+			Services: slices.Collect(it.Map(slices.Values(cfApp.Status.ServiceBindings),
+				func(binding korifiv1alpha1.ServiceBinding) corev1.ObjectReference {
+					return corev1.ObjectReference{
+						Kind:       "Secret",
+						Name:       binding.Secret,
+						APIVersion: "v1",
+					}
+				},
+			)),
 		},
 	}
-
-	buildServices, err := r.prepareBuildServices(ctx, namespace, cfApp.Name)
-	if err != nil {
-		return err
-	}
-	desiredWorkload.Spec.Services = buildServices
 
 	imageEnvironment, err := r.envBuilder.Build(ctx, cfApp)
 	if err != nil {
@@ -258,38 +262,6 @@ func (r *buildpackBuildReconciler) createBuildWorkload(ctx context.Context, cfBu
 	}
 
 	return nil
-}
-
-func (r *buildpackBuildReconciler) prepareBuildServices(ctx context.Context, namespace, appGUID string) ([]corev1.ObjectReference, error) {
-	log := logr.FromContextOrDiscard(ctx).WithName("prepareBuildServices")
-
-	serviceBindingsList := &korifiv1alpha1.CFServiceBindingList{}
-	err := r.k8sClient.List(ctx, serviceBindingsList,
-		client.InNamespace(namespace),
-		client.MatchingFields{shared.IndexServiceBindingAppGUID: appGUID},
-	)
-	if err != nil {
-		log.Info("error listing CFServiceBindings", "reason", err)
-		return nil, err
-	}
-
-	var buildServices []corev1.ObjectReference
-	for _, serviceBinding := range serviceBindingsList.Items {
-		if serviceBinding.Status.Binding.Name == "" {
-			log.Info("binding secret name is empty")
-			return nil, fmt.Errorf("binding secret not availble for binding %q'", serviceBinding.Name)
-		}
-
-		objRef := corev1.ObjectReference{
-			Kind:       "Secret",
-			Name:       serviceBinding.Status.Binding.Name,
-			APIVersion: "v1",
-		}
-
-		buildServices = append(buildServices, objRef)
-	}
-
-	return buildServices, nil
 }
 
 func (r *buildpackBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, desiredWorkload korifiv1alpha1.BuildWorkload) error {

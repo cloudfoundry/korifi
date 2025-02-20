@@ -65,7 +65,7 @@ func (b *VCAPServicesEnvValueBuilder) BuildEnvValue(ctx context.Context, cfApp *
 }
 
 func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, serviceBinding korifiv1alpha1.CFServiceBinding) (ServiceDetails, string, error) {
-	if serviceBinding.Status.Credentials.Name == "" {
+	if serviceBinding.Status.EnvSecretRef.Name == "" {
 		return ServiceDetails{}, "", fmt.Errorf("credentials secret name not set for service binding %q", serviceBinding.Name)
 	}
 
@@ -80,7 +80,7 @@ func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, service
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: serviceBinding.Namespace,
-			Name:      serviceBinding.Status.Credentials.Name,
+			Name:      serviceBinding.Status.EnvSecretRef.Name,
 		},
 	}
 	err = k8sClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)

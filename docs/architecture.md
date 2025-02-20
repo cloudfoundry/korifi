@@ -34,7 +34,6 @@ As mentioned earlier, we aim to be loosely coupled with our dependencies and int
 * **metrics-server**: We use [metrics-server](https://github.com/kubernetes-sigs/metrics-server) to expose app container metrics to developers.
 * **kpack**: We use [kpack](https://github.com/pivotal/kpack) and [Cloud Native Buildpacks](https://buildpacks.io/) to stage apps via the `kpack-image-builder` controller. This dependency sits behind our `BuildWorkload` abstraction and the `kpack-image-builder` controller could be replaced with alternative staging implementations.
 * **Contour**: We use [Contour](https://projectcontour.io/) as our default ingress controller. Contour is a CNCF project that serves as a control plane for [Envoy Proxy](https://www.envoyproxy.io/) that provides a robust, lightweight ingress routing solution. Our `CFRoute` resources are reconciled into Gateway API `HTTPRoute` and K8s `Service` resources to implement app ingress routing. However, Contour could be substituted by any Gateway API implementation.
-* **Service Bindings for Kubernetes**: Korifi supports the [Service Bindings for Kubernetes](https://servicebinding.io/) `ServiceBinding` resource. A `ServiceBinding` reconciler (such as [service-binding-controller](https://github.com/servicebinding/service-binding-controller)) is required for those resources to be reconciled correctly and volume mounted on to app workloads.
 
 ---
 
@@ -95,11 +94,12 @@ We integrate with the [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/)
 By leveraging the Gateway API, we abstract Korifi away from concrete networking implementations. Users can deploy whatever networkers they want as long as they are a Gateway API [implementation](https://gateway-api.sigs.k8s.io/implementations/).
 
 ### Service Management
-![Korifi Services Diagram](images/korifi_services.jpg)
+![Korifi Services Diagram](images/korifi-services.drawio.png)
 
-We currently support the CF APIs for managing and binding [user-provided service instances](https://docs.cloudfoundry.org/devguide/services/user-provided.html) (UPSIs) by providing two custom resources: the `CFServiceInstance` and `CFServiceBinding`. These CRs primarily exist to back the CF APIs and store additional state that isn't relevant in downstream service resources. They implement the [ProvisionedService "duck type"](https://servicebinding.io/spec/core/1.0.0/#provisioned-service) from the [Service Bindings for Kubernetes spec](https://servicebinding.io/) which allow them to interoperate directly with other projects surrounding the Kubernetes Service Bindings ecosystem (kpack, ServiceBinding reconcilers, etc.).
+We currently support the CF APIs for managing and binding [service instances](https://docs.cloudfoundry.org/devguide/services-index.html) by providing two custom resources: the `CFServiceInstance` and `CFServiceBinding`. These CRs primarily exist to back the CF APIs and store additional state that isn't relevant in downstream service resources. When applications are bound to a service instance, its credentials are projected into the workload containers as specified by the [servicebinding.io workload projection](https://servicebinding.io/spec/core/1.1.0/#workload-projection). This enables apps that are pushed with Korifi to interoperate with binding-aware Cloud Native Buildpacks as well as updated app frameworks like [Spring Cloud Bindings](https://github.com/spring-cloud/spring-cloud-bindings) and [Kpack](https://github.com/buildpacks-community/kpack).
 
-UPSIs enable devs to provide their own service credentials (can be sourced from anywhere) and have them projected onto workloads in the same way that CF would project credentials from managed services. For Korifi we aim to provide compatibility for existing Cloud Foundry applications by aggregating these UPSI credentials and providing them to workloads through the [`VCAP_SERVICES` environment variable](https://docs.cloudfoundry.org/devguide/deploy-apps/environment-variable.html#VCAP-SERVICES). Additionally, we integrate with the reference Service Bindings reconciler via the "Service Bindings for Kubernetes" [`ServiceBinding` resource](https://servicebinding.io/spec/core/1.0.0/#service-binding) to volume mount these credentials onto workload `Pods`. This enables apps that are pushed with Korifi to interoperate with binding-aware Cloud Native Buildpacks as well as updated app frameworks like [Spring Cloud Bindings](https://github.com/spring-cloud/spring-cloud-bindings).
+Additionally, we aim to provide compatibility for existing Cloud Foundry applications by aggregating service instance credentials and providing them to workloads through the [`VCAP_SERVICES` environment variable](https://docs.cloudfoundry.org/devguide/deploy-apps/environment-variable.html#VCAP-SERVICES).
+
 
 ### Logging and Metrics
 ![Korifi Logs and Metrics Diagram](images/korifi_logs_metrics.jpg)
@@ -143,8 +143,8 @@ We typically use ADRs to record context about decisions that were already made o
 | Task                           | CFTask, TaskWorkload (eventually Kubernetes Job and Pod)                                                   |
 | Route                          | CFRoute, Gateway API HTTPRoute, K8s Service                                                                    |
 | Domain                         | CFDomain                                                                                                   |
-| Service Instance               | CFServiceInstance ([ProvisionedService](https://github.com/servicebinding/spec#provisioned-service))       |
-| Service Binding                | CFServiceBinding + [ServiceBinding for Kubernetes](https://github.com/servicebinding/spec#service-binding) |
+| Service Instance               | CFServiceInstance                                                                                          |
+| Service Binding                | CFServiceBinding                                                                                           |
 | Service credentials            | Kubernetes Secret                                                                                          |
 | Diego Desired LRP              | AppWorkload + StatefulSet                                                                                  |
 | Diego Actual LRP               | Kubernetes Pod                                                                                             |

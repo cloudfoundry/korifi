@@ -52,6 +52,10 @@ type AppWorkloadSpec struct {
 
 	// +kubebuilder:validation:Optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// Reference to service credentials secrets to be projected onto the app workload
+	// They are in the [servicebinding.io](https://servicebinding.io/spec/core/1.1.0/) format
+	Services []ServiceBinding `json:"services,omitempty"`
 }
 
 // AppWorkloadStatus defines the observed state of AppWorkload

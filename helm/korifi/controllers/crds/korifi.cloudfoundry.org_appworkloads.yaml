@@ -568,6 +568,24 @@ spec:
                 description: The name of the runner that should reconcile this AppWorkload
                   resource and execute running its instances
                 type: string
+              services:
+                description: |-
+                  Reference to service credentials secrets to be projected onto the app workload
+                  They are in the [servicebinding.io](https://servicebinding.io/spec/core/1.1.0/) format
+                items:
+                  properties:
+                    name:
+                      description: The name of binding. Used as binding name when
+                        projecting the secret onto the workload
+                      type: string
+                    secret:
+                      description: Name of the binding secret
+                      type: string
+                  required:
+                  - name
+                  - secret
+                  type: object
+                type: array
               startupProbe:
                 description: |-
                   Probe describes a health check to be performed against a container to determine whether it is

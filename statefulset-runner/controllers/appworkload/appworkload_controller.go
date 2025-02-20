@@ -46,6 +46,7 @@ const (
 	EnvCFInstanceGUID       = "CF_INSTANCE_GUID"
 	EnvCFInstanceInternalIP = "CF_INSTANCE_INTERNAL_IP"
 	EnvCFInstanceIndex      = "CF_INSTANCE_INDEX"
+	EnvServiceBindingRoot   = "SERVICE_BINDING_ROOT"
 
 	// StatefulSet Keys
 	AnnotationVersion     = "korifi.cloudfoundry.org/version"
@@ -164,7 +165,6 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 	}
 
 	statefulSet, err := r.workloadsToStSet.Convert(appWorkload)
-	// Not clear what errors this would produce, but we may use it later
 	if err != nil {
 		log.Info("error when converting AppWorkload", "reason", err)
 		return ctrl.Result{}, err

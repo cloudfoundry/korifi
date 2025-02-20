@@ -282,7 +282,7 @@ func (r *ServiceBindingRepo) GetServiceBindingDetails(ctx context.Context, authI
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: binding.Namespace,
-			Name:      binding.Status.Credentials.Name,
+			Name:      binding.Status.EnvSecretRef.Name,
 		},
 	}
 	err = userClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
