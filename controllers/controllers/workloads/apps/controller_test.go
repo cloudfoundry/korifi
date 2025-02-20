@@ -389,7 +389,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			Expect(adminClient.Create(ctx, binding)).To(Succeed())
 
 			Expect(k8s.Patch(ctx, adminClient, binding, func() {
-				binding.Status.Credentials.Name = secret.Name
+				binding.Status.EnvSecretRef.Name = secret.Name
 			})).To(Succeed())
 		})
 
@@ -423,6 +423,34 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 						HasStatus(Equal(metav1.ConditionTrue)),
 					)))
 				}).Should(Succeed())
+			})
+
+			It("sets the app service bindings in the status", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					g.Expect(cfApp.Status.ServiceBindings).To(ConsistOf(korifiv1alpha1.ServiceBinding{
+						Name:   binding.Status.MountSecretRef.Name,
+						Secret: binding.Status.MountSecretRef.Name,
+					}))
+				}).Should(Succeed())
+			})
+
+			When("the binding has a display name", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, adminClient, binding, func() {
+						binding.Spec.DisplayName = tools.PtrTo("custom-binding-name")
+					})).To(Succeed())
+				})
+
+				It("uses the display name as binding name", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+						g.Expect(cfApp.Status.ServiceBindings).To(ConsistOf(korifiv1alpha1.ServiceBinding{
+							Name:   "custom-binding-name",
+							Secret: binding.Status.MountSecretRef.Name,
+						}))
+					}).Should(Succeed())
+				})
 			})
 		})
 	})

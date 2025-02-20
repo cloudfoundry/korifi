@@ -10,6 +10,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -329,18 +330,21 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		It("is included in the stateful set env vars", func() {
 			Expect(statefulSet.Spec.Template.Spec.Containers).To(HaveLen(1))
 			container := statefulSet.Spec.Template.Spec.Containers[0]
-			Expect(container.Env).To(ContainElements(
-				corev1.EnvVar{Name: appworkload.EnvPodName, ValueFrom: expectedValFrom("metadata.name")},
-				corev1.EnvVar{Name: appworkload.EnvCFInstanceGUID, ValueFrom: expectedValFrom("metadata.uid")},
-				corev1.EnvVar{Name: appworkload.EnvCFInstanceIndex, ValueFrom: expectedValFrom("metadata.labels['apps.kubernetes.io/pod-index']")},
-				corev1.EnvVar{Name: appworkload.EnvCFInstanceInternalIP, ValueFrom: expectedValFrom("status.podIP")},
-				corev1.EnvVar{Name: appworkload.EnvCFInstanceIP, ValueFrom: expectedValFrom("status.hostIP")},
-				corev1.EnvVar{Name: "bobs", ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: "your"},
-						Key:                  "uncle",
-					},
-				}},
+			Expect(container.Env).To(SatisfyAll(
+				ContainElements(
+					corev1.EnvVar{Name: appworkload.EnvPodName, ValueFrom: expectedValFrom("metadata.name")},
+					corev1.EnvVar{Name: appworkload.EnvCFInstanceGUID, ValueFrom: expectedValFrom("metadata.uid")},
+					corev1.EnvVar{Name: appworkload.EnvCFInstanceIndex, ValueFrom: expectedValFrom("metadata.labels['apps.kubernetes.io/pod-index']")},
+					corev1.EnvVar{Name: appworkload.EnvCFInstanceInternalIP, ValueFrom: expectedValFrom("status.podIP")},
+					corev1.EnvVar{Name: appworkload.EnvCFInstanceIP, ValueFrom: expectedValFrom("status.hostIP")},
+					corev1.EnvVar{Name: "bobs", ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "your"},
+							Key:                  "uncle",
+						},
+					}},
+				),
+				Not(ContainElement(MatchFields(IgnoreExtras, Fields{"Name": Equal(appworkload.EnvServiceBindingRoot)}))),
 			))
 		})
 	})
@@ -353,6 +357,7 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 				{Name: "a-first", Value: "first"},
 			}
 		})
+
 		It("produces a statefulset with sorted env vars", func() {
 			Expect(statefulSet.Spec.Template.Spec.Containers[0].Env).To(Equal([]corev1.EnvVar{
 				{Name: "CF_INSTANCE_GUID", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.uid"}}},
@@ -364,6 +369,45 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 				{Name: "b-second", Value: "second"},
 				{Name: "c-third", Value: "third"},
 			}))
+		})
+	})
+
+	When("the app workload has services", func() {
+		BeforeEach(func() {
+			appWorkload.Spec.Services = []korifiv1alpha1.ServiceBinding{{
+				Secret: "service-secret",
+				Name:   "binding-name",
+			}}
+		})
+
+		It("sets the service binding env var", func() {
+			Expect(statefulSet.Spec.Template.Spec.Containers[0].Env).To(ContainElements([]corev1.EnvVar{
+				{Name: "SERVICE_BINDING_ROOT", Value: "/bindings"},
+			}))
+		})
+
+		It("sets the services volumes", func() {
+			Expect(statefulSet.Spec.Template.Spec.Volumes).To(ConsistOf(
+				corev1.Volume{
+					Name: "binding-name",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName:  "service-secret",
+							DefaultMode: tools.PtrTo(int32(0o644)),
+						},
+					},
+				},
+			))
+		})
+
+		It("set the services volume mounts", func() {
+			Expect(statefulSet.Spec.Template.Spec.Containers[0].VolumeMounts).To(ConsistOf(
+				corev1.VolumeMount{
+					Name:      "binding-name",
+					ReadOnly:  true,
+					MountPath: "/bindings/binding-name",
+				},
+			))
 		})
 	})
 

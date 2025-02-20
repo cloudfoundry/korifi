@@ -253,7 +253,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(ok).To(BeTrue())
 
 				Expect(k8s.Patch(ctx, k8sClient, cfServiceBinding, func() {
-					cfServiceBinding.Status.Binding.Name = "service-secret-name"
+					cfServiceBinding.Status.MountSecretRef.Name = "service-secret-name"
 					meta.SetStatusCondition(&cfServiceBinding.Status.Conditions, metav1.Condition{
 						Type:    korifiv1alpha1.StatusConditionReady,
 						Status:  metav1.ConditionTrue,
@@ -1272,7 +1272,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			Expect(
 				k8s.Patch(ctx, k8sClient, serviceBinding, func() {
-					serviceBinding.Status.Credentials.Name = serviceBindingGUID
+					serviceBinding.Status.EnvSecretRef.Name = serviceBindingGUID
 					serviceBinding.Status.ObservedGeneration = serviceBinding.Generation
 					serviceBinding.Status.Conditions = append(serviceBinding.Status.Conditions, metav1.Condition{
 						Type:               korifiv1alpha1.StatusConditionReady,
@@ -1293,7 +1293,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			credentialsSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceBinding.Status.Credentials.Name,
+					Name:      serviceBinding.Status.EnvSecretRef.Name,
 					Namespace: space.Name,
 				},
 				Data: creds,
@@ -1301,7 +1301,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 			Expect(
 				k8sClient.Create(ctx, credentialsSecret),
 			).To(Succeed())
-
 		})
 
 		JustBeforeEach(func() {

@@ -214,25 +214,10 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 
 	When("the referenced app has a ServiceBinding", func() {
 		BeforeEach(func() {
-			serviceBinding := &korifiv1alpha1.CFServiceBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service-binding-guid",
-					Namespace: testNamespace,
-					Labels: map[string]string{
-						korifiv1alpha1.CFAppGUIDLabelKey: cfApp.Name,
-					},
-				},
-				Spec: korifiv1alpha1.CFServiceBindingSpec{
-					AppRef: corev1.LocalObjectReference{
-						Name: cfApp.Name,
-					},
-					Type: korifiv1alpha1.CFServiceBindingTypeApp,
-				},
-			}
-			Expect(adminClient.Create(ctx, serviceBinding)).To(Succeed())
-
-			Expect(k8s.Patch(ctx, adminClient, serviceBinding, func() {
-				serviceBinding.Status.Binding.Name = "service-secret"
+			Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
+				cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+					Secret: "service-secret",
+				}}
 			})).To(Succeed())
 		})
 
@@ -240,9 +225,9 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 			eventuallyBuildWorkloadShould(func(workload *korifiv1alpha1.BuildWorkload, g Gomega) {
 				g.Expect(workload.Spec.Services).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
-						"Name":       Equal("service-secret"),
-						"Kind":       Equal("Secret"),
 						"APIVersion": Equal("v1"),
+						"Kind":       Equal("Secret"),
+						"Name":       Equal("service-secret"),
 					}),
 				))
 			})

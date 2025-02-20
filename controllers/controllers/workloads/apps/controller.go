@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -11,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -120,14 +122,16 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 		cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey]
 	}
 
-	bindingsReady, err := r.serviceBindingsReady(ctx, cfApp)
+	bindings, err := r.getServiceBindings(ctx, cfApp)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if !bindingsReady {
+	if !bindingsReady(bindings) {
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingNotReady")
 	}
+
+	cfApp.Status.ServiceBindings = bindingObjectRefs(bindings)
 
 	secretName := cfApp.Name + "-vcap-application"
 	err = r.reconcileVCAPSecret(ctx, cfApp, secretName, r.vcapApplicationEnvBuilder)
@@ -166,22 +170,36 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) serviceBindingsReady(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (bool, error) {
+func (r *Reconciler) getServiceBindings(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]korifiv1alpha1.CFServiceBinding, error) {
 	bindings := &korifiv1alpha1.CFServiceBindingList{}
 	if err := r.k8sClient.List(ctx, bindings,
 		client.InNamespace(cfApp.Namespace),
 		client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name},
 	); err != nil {
-		return false, err
+		return nil, err
 	}
 
-	for _, binding := range bindings.Items {
-		if !meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
-			return false, nil
+	return bindings.Items, nil
+}
+
+func bindingsReady(bindings []korifiv1alpha1.CFServiceBinding) bool {
+	return it.All(it.Map(slices.Values(bindings), func(binding korifiv1alpha1.CFServiceBinding) bool {
+		return meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.StatusConditionReady)
+	}))
+}
+
+func bindingObjectRefs(bindings []korifiv1alpha1.CFServiceBinding) []korifiv1alpha1.ServiceBinding {
+	return slices.Collect(it.Map(slices.Values(bindings), func(binding korifiv1alpha1.CFServiceBinding) korifiv1alpha1.ServiceBinding {
+		bindingName := binding.Status.MountSecretRef.Name
+		if binding.Spec.DisplayName != nil {
+			bindingName = *binding.Spec.DisplayName
 		}
-	}
 
-	return true, nil
+		return korifiv1alpha1.ServiceBinding{
+			Name:   bindingName,
+			Secret: binding.Status.MountSecretRef.Name,
+		}
+	}))
 }
 
 func getActualState(processes []*korifiv1alpha1.CFProcess) korifiv1alpha1.AppState {

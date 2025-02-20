@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -20,7 +19,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	servicebindingv1beta1 "github.com/servicebinding/runtime/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -155,182 +153,52 @@ var _ = Describe("CFServiceBinding", func() {
 			}).Should(Succeed())
 		})
 
-		It("sets the binding status credentials name to the instance credentials secret", func() {
+		It("sets the env sercret to the instance credentials secret", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-				g.Expect(binding.Status.Credentials.Name).To(Equal(instanceCredentialsSecret.Name))
+				g.Expect(binding.Status.EnvSecretRef.Name).To(Equal(instanceCredentialsSecret.Name))
 			}).Should(Succeed())
 		})
 
-		It("creates the binding secret", func() {
+		It("creates the mount secret", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-				g.Expect(binding.Status.Binding.Name).To(Equal(binding.Name))
+				g.Expect(binding.Status.MountSecretRef.Name).To(Equal(binding.Name))
 
-				bindingSecret := &corev1.Secret{
+				mountSecret := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: binding.Namespace,
-						Name:      binding.Status.Binding.Name,
+						Name:      binding.Status.MountSecretRef.Name,
 					},
 				}
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(bindingSecret), bindingSecret)).To(Succeed())
-				g.Expect(bindingSecret.Type).To(BeEquivalentTo("servicebinding.io/user-provided"))
-				g.Expect(bindingSecret.Data).To(MatchAllKeys(Keys{
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(mountSecret), mountSecret)).To(Succeed())
+				g.Expect(mountSecret.Type).To(BeEquivalentTo("servicebinding.io/user-provided"))
+				g.Expect(mountSecret.Data).To(MatchAllKeys(Keys{
 					"type": BeEquivalentTo("user-provided"),
 					"obj":  BeEquivalentTo(`{"foo":"bar"}`),
 				}))
 			}).Should(Succeed())
 		})
 
-		It("sets the binding Ready status condition to false", func() {
+		It("sets the binding Ready status condition to true", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-					HasStatus(Equal(metav1.ConditionFalse)),
-					HasReason(Equal("ServiceBindingNotReady")),
+					HasStatus(Equal(metav1.ConditionTrue)),
+					HasReason(Equal("Ready")),
 				)))
 			}).Should(Succeed())
 		})
 
-		It("creates a servicebinding.io ServiceBinding", func() {
+		It("sets the mount secret ref in the binding status", func() {
 			Eventually(func(g Gomega) {
-				sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: testNamespace,
-						Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
-					},
-				}
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-
-				g.Expect(sbServiceBinding.Spec.Name).To(Equal(binding.Name))
-				g.Expect(sbServiceBinding.Spec.Type).To(Equal("user-provided"))
-				g.Expect(sbServiceBinding.Spec.Provider).To(BeEmpty())
-
-				g.Expect(sbServiceBinding.Labels).To(SatisfyAll(
-					HaveKeyWithValue(korifiv1alpha1.ServiceBindingGUIDLabel, binding.Name),
-					HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID),
-					HaveKeyWithValue(korifiv1alpha1.ServiceBindingTypeLabel, "app"),
-				))
-
-				g.Expect(sbServiceBinding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Kind": Equal("CFServiceBinding"),
-					"Name": Equal(binding.Name),
-				})))
-
-				g.Expect(sbServiceBinding.Spec.Workload).To(MatchFields(IgnoreExtras, Fields{
-					"APIVersion": Equal("apps/v1"),
-					"Kind":       Equal("StatefulSet"),
-					"Selector": PointTo(Equal(metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							korifiv1alpha1.CFAppGUIDLabelKey: cfAppGUID,
-						},
-					})),
-				}))
-
-				g.Expect(sbServiceBinding.Spec.Service).To(MatchFields(IgnoreExtras, Fields{
-					"APIVersion": Equal("korifi.cloudfoundry.org/v1alpha1"),
-					"Kind":       Equal("CFServiceBinding"),
-					"Name":       Equal(binding.Name),
-				}))
+				g.Expect(binding.Status.MountSecretRef.Name).To(Equal(binding.Name))
 			}).Should(Succeed())
 		})
 
-		It("sets the binding status binding name to the binding secret name", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-				g.Expect(binding.Status.Binding.Name).To(Equal(binding.Name))
-			}).Should(Succeed())
-		})
-
-		When("the CFServiceBinding has a displayName set", func() {
-			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, adminClient, binding, func() {
-					binding.Spec.DisplayName = tools.PtrTo("a-custom-binding-name")
-				})).To(Succeed())
-			})
-
-			It("sets the displayName as the name on the servicebinding.io ServiceBinding", func() {
-				Eventually(func(g Gomega) {
-					sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: testNamespace,
-							Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
-						},
-					}
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
-					g.Expect(sbServiceBinding.Spec.Name).To(Equal("a-custom-binding-name"))
-				}).Should(Succeed())
-			})
-		})
-
-		When("the servicebinding.io binding is ready", func() {
-			var sbBinding *servicebindingv1beta1.ServiceBinding
-
-			BeforeEach(func() {
-				sbBinding = &servicebindingv1beta1.ServiceBinding{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: testNamespace,
-						Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
-					},
-				}
-				Expect(adminClient.Create(ctx, sbBinding)).To(Succeed())
-
-				Expect(k8s.Patch(ctx, adminClient, sbBinding, func() {
-					meta.SetStatusCondition(&sbBinding.Status.Conditions, metav1.Condition{
-						Type:    "Ready",
-						Status:  metav1.ConditionTrue,
-						Reason:  "whatever",
-						Message: "",
-					})
-
-					// Patching the object increments its generation. In order to
-					// ensure that the observed generation matches the generation,
-					// we set the observed generation to `generation + 1`
-					sbBinding.Status.ObservedGeneration = sbBinding.Generation + 1
-				})).To(Succeed())
-			})
-
-			It("sets the binding Ready status condition to true", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-						HasStatus(Equal(metav1.ConditionTrue)),
-					)))
-				}).Should(Succeed())
-			})
-
-			When("the servicebinding.io binding ready status is outdated", func() {
-				BeforeEach(func() {
-					Expect(k8s.Patch(ctx, adminClient, sbBinding, func() {
-						sbBinding.Status.ObservedGeneration = sbBinding.Generation - 1
-					})).To(Succeed())
-				})
-
-				It("sets the binding Ready status condition to false", func() {
-					Eventually(func(g Gomega) {
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-						g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-							HasStatus(Equal(metav1.ConditionFalse)),
-							HasReason(Equal("ServiceBindingNotReady")),
-						)))
-					}).Should(Succeed())
-					Consistently(func(g Gomega) {
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-						g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-							HasStatus(Equal(metav1.ConditionFalse)),
-							HasReason(Equal("ServiceBindingNotReady")),
-						)))
-					}).Should(Succeed())
-				})
-			})
-		})
-
-		When("the credentials secret has its 'type' attribute set", func() {
+		When("the instance cretentials secret has a 'type' attribute", func() {
 			BeforeEach(func() {
 				credentialsBytes, err := json.Marshal(map[string]any{
 					"type": "my-type",
@@ -354,38 +222,25 @@ var _ = Describe("CFServiceBinding", func() {
 				})).To(Succeed())
 			})
 
-			It("sets the specified type as servicebinding.io secret type", func() {
+			It("sets the mount secret type accordingly", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					bindingSecret := &corev1.Secret{
+					mountSecret := &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: binding.Namespace,
-							Name:      binding.Status.Binding.Name,
+							Name:      binding.Status.MountSecretRef.Name,
 						},
 					}
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(bindingSecret), bindingSecret)).To(Succeed())
-					g.Expect(bindingSecret.Type).To(BeEquivalentTo("servicebinding.io/my-type"))
-					g.Expect(bindingSecret.Data).To(MatchAllKeys(Keys{
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(mountSecret), mountSecret)).To(Succeed())
+					g.Expect(mountSecret.Type).To(BeEquivalentTo("servicebinding.io/my-type"))
+					g.Expect(mountSecret.Data).To(MatchAllKeys(Keys{
 						"type": BeEquivalentTo("my-type"),
 					}))
 				}).Should(Succeed())
 			})
-
-			It("sets the provided type into the servicebinding.io object", func() {
-				Eventually(func(g Gomega) {
-					sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: testNamespace,
-							Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
-						},
-					}
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
-					g.Expect(sbServiceBinding.Spec.Type).To(Equal("my-type"))
-				}).Should(Succeed())
-			})
 		})
 
-		When("the credentials secret has its 'provider' attribute set", func() {
+		When("the env secret has its 'provider' attribute set", func() {
 			BeforeEach(func() {
 				credentialsBytes, err := json.Marshal(map[string]any{
 					"provider": "my-provider",
@@ -409,32 +264,19 @@ var _ = Describe("CFServiceBinding", func() {
 				})).To(Succeed())
 			})
 
-			It("sets the specified provider in the binding secret", func() {
+			It("sets the specified provider in the mount secret", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					bindingSecret := &corev1.Secret{
+					mountSecret := &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: binding.Namespace,
-							Name:      binding.Status.Binding.Name,
+							Name:      binding.Status.MountSecretRef.Name,
 						},
 					}
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(bindingSecret), bindingSecret)).To(Succeed())
-					g.Expect(bindingSecret.Data).To(MatchKeys(IgnoreExtras, Keys{
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(mountSecret), mountSecret)).To(Succeed())
+					g.Expect(mountSecret.Data).To(MatchKeys(IgnoreExtras, Keys{
 						"provider": BeEquivalentTo("my-provider"),
 					}))
-				}).Should(Succeed())
-			})
-
-			It("sets the provided provider into the servicebinding.io object", func() {
-				Eventually(func(g Gomega) {
-					sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: testNamespace,
-							Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
-						},
-					}
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
-					g.Expect(sbServiceBinding.Spec.Provider).To(Equal("my-provider"))
 				}).Should(Succeed())
 			})
 		})
@@ -455,7 +297,7 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 		})
 
-		When("the credentials secret is not available", func() {
+		When("the service instance credentials secret is not available", func() {
 			BeforeEach(func() {
 				Expect(k8s.Patch(ctx, adminClient, instance, func() {
 					instance.Status.Credentials.Name = ""
@@ -693,41 +535,48 @@ var _ = Describe("CFServiceBinding", func() {
 			}).Should(Succeed())
 		})
 
-		It("creates the credentials secret", func() {
+		It("creates the env secret", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-				g.Expect(binding.Status.Credentials.Name).To(Equal(binding.Name))
+				g.Expect(binding.Status.EnvSecretRef.Name).To(Equal(binding.Name))
 
-				credentialsSecret := &corev1.Secret{
+				envSecret := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: binding.Namespace,
-						Name:      binding.Status.Credentials.Name,
+						Name:      binding.Status.EnvSecretRef.Name,
 					},
 				}
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
-				g.Expect(credentialsSecret.Type).To(BeEquivalentTo("Opaque"))
-				g.Expect(credentialsSecret.Data).To(MatchKeys(IgnoreExtras, Keys{
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(envSecret), envSecret)).To(Succeed())
+				g.Expect(envSecret.Type).To(BeEquivalentTo("Opaque"))
+				g.Expect(envSecret.Data).To(MatchKeys(IgnoreExtras, Keys{
 					tools.CredentialsSecretKey: BeEquivalentTo(`{"foo":"bar"}`),
 				}))
-				g.Expect(credentialsSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+				g.Expect(envSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
 					"Name": Equal(binding.Name),
 				})))
 			}).Should(Succeed())
 		})
 
-		It("creates a servicebinding.io ServiceBinding", func() {
+		It("creates the mount secret", func() {
 			Eventually(func(g Gomega) {
-				sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.Status.MountSecretRef.Name).NotTo(BeEmpty())
+
+				mountSecret := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
-						Namespace: testNamespace,
-						Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
+						Namespace: binding.Namespace,
+						Name:      binding.Status.MountSecretRef.Name,
 					},
 				}
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(mountSecret), mountSecret)).To(Succeed())
+				g.Expect(mountSecret.Type).To(BeEquivalentTo("servicebinding.io/managed"))
+				g.Expect(mountSecret.Data).To(MatchKeys(IgnoreExtras, Keys{
+					"foo": BeEquivalentTo("bar"),
+				}))
 
-				g.Expect(sbServiceBinding.Spec.Name).To(Equal(binding.Status.Binding.Name))
-				g.Expect(sbServiceBinding.Spec.Type).To(Equal("managed"))
+				g.Expect(mountSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"Name": Equal(binding.Name),
+				})))
 			}).Should(Succeed())
 		})
 
@@ -738,19 +587,10 @@ var _ = Describe("CFServiceBinding", func() {
 				})).To(Succeed())
 			})
 
-			It("does not create servicebinding.io", func() {
-				Consistently(func(g Gomega) {
-					sbList := &servicebindingv1beta1.ServiceBindingList{}
-					err := adminClient.List(ctx, sbList, client.InNamespace(testNamespace))
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(sbList.Items).To(BeEmpty())
-				}).Should(Succeed())
-			})
-
-			It("does not create a servicebindingio secret", func() {
+			It("does not create a mount secret", func() {
 				Consistently(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					g.Expect(binding.Status.Binding.Name).To(BeEmpty())
+					g.Expect(binding.Status.MountSecretRef.Name).To(BeEmpty())
 
 					secrets := &corev1.SecretList{}
 					g.Expect(adminClient.List(ctx, secrets, client.InNamespace(binding.Namespace))).To(Succeed())
@@ -774,76 +614,28 @@ var _ = Describe("CFServiceBinding", func() {
 				}, nil)
 			})
 
-			It("sets the servicebinding.io type to managed (ignoring the type credentials key)", func() {
+			It("creates the mount secret with type managed", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
+					g.Expect(binding.Status.MountSecretRef.Name).NotTo(BeEmpty())
+
+					mountSecret := &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Namespace: testNamespace,
-							Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
+							Namespace: binding.Namespace,
+							Name:      binding.Status.MountSecretRef.Name,
 						},
 					}
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
-
-					g.Expect(sbServiceBinding.Spec.Type).To(Equal("managed"))
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(mountSecret), mountSecret)).To(Succeed())
+					g.Expect(mountSecret.Type).To(BeEquivalentTo("servicebinding.io/managed"))
 				}).Should(Succeed())
 			})
-		})
-
-		When("the credentials contain provider key", func() {
-			BeforeEach(func() {
-				brokerClient.BindReturns(osbapi.BindResponse{
-					Credentials: map[string]any{
-						"foo":      "bar",
-						"provider": "please-ignore-me",
-					},
-				}, nil)
-			})
-
-			It("does not set the servicebinding.io provider type (ignoring the provider credentials key)", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-					sbServiceBinding := &servicebindingv1beta1.ServiceBinding{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: testNamespace,
-							Name:      fmt.Sprintf("cf-binding-%s", binding.Name),
-						},
-					}
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(sbServiceBinding), sbServiceBinding)).To(Succeed())
-
-					g.Expect(sbServiceBinding.Spec.Provider).To(BeEmpty())
-				}).Should(Succeed())
-			})
-		})
-
-		It("creates the servicebinding.io secret", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-				g.Expect(binding.Status.Binding.Name).NotTo(BeEmpty())
-
-				bindingSecret := &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: binding.Namespace,
-						Name:      binding.Status.Binding.Name,
-					},
-				}
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(bindingSecret), bindingSecret)).To(Succeed())
-				g.Expect(bindingSecret.Type).To(BeEquivalentTo("servicebinding.io/managed"))
-				g.Expect(bindingSecret.Data).To(MatchKeys(IgnoreExtras, Keys{
-					"foo": BeEquivalentTo("bar"),
-				}))
-
-				g.Expect(bindingSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name": Equal(binding.Name),
-				})))
-			}).Should(Succeed())
 		})
 
 		When("the binding credentials have been reconciled", func() {
 			BeforeEach(func() {
 				Expect(k8s.Patch(ctx, adminClient, binding, func() {
-					binding.Status.Credentials.Name = uuid.NewString()
-					binding.Status.Binding.Name = uuid.NewString()
+					binding.Status.EnvSecretRef.Name = uuid.NewString()
+					binding.Status.MountSecretRef.Name = uuid.NewString()
 				})).To(Succeed())
 			})
 
@@ -988,48 +780,33 @@ var _ = Describe("CFServiceBinding", func() {
 					}).Should(Succeed())
 				})
 
-				It("creates the credentials secret", func() {
+				It("creates the env secret", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-						g.Expect(binding.Status.Credentials.Name).To(Equal(binding.Name))
+						g.Expect(binding.Status.EnvSecretRef.Name).To(Equal(binding.Name))
 
 						credentialsSecret := &corev1.Secret{
 							ObjectMeta: metav1.ObjectMeta{
 								Namespace: binding.Namespace,
-								Name:      binding.Status.Credentials.Name,
+								Name:      binding.Status.EnvSecretRef.Name,
 							},
 						}
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)).To(Succeed())
-						g.Expect(credentialsSecret.Type).To(BeEquivalentTo("Opaque"))
-						g.Expect(credentialsSecret.Data).To(MatchKeys(IgnoreExtras, Keys{
-							tools.CredentialsSecretKey: BeEquivalentTo(`{"foo":"bar"}`),
-						}))
-						g.Expect(credentialsSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(binding.Name),
-						})))
 					}).Should(Succeed())
 				})
 
-				It("creates the servicebinding.io secret", func() {
+				It("creates the mount secret", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-						g.Expect(binding.Status.Binding.Name).NotTo(BeEmpty())
+						g.Expect(binding.Status.MountSecretRef.Name).NotTo(BeEmpty())
 
-						bindingSecret := &corev1.Secret{
+						mountSecret := &corev1.Secret{
 							ObjectMeta: metav1.ObjectMeta{
 								Namespace: binding.Namespace,
-								Name:      binding.Status.Binding.Name,
+								Name:      binding.Status.MountSecretRef.Name,
 							},
 						}
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(bindingSecret), bindingSecret)).To(Succeed())
-						g.Expect(bindingSecret.Type).To(BeEquivalentTo("servicebinding.io/managed"))
-						g.Expect(bindingSecret.Data).To(MatchKeys(IgnoreExtras, Keys{
-							"foo": BeEquivalentTo("bar"),
-						}))
-
-						g.Expect(bindingSecret.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(binding.Name),
-						})))
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(mountSecret), mountSecret)).To(Succeed())
 					}).Should(Succeed())
 				})
 			})

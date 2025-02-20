@@ -83,7 +83,7 @@ var _ = Describe("Builder", func() {
 		helpers.EnsureCreate(controllersClient, serviceBinding)
 		helpers.EnsurePatch(controllersClient, serviceBinding, func(sb *korifiv1alpha1.CFServiceBinding) {
 			sb.Status = korifiv1alpha1.CFServiceBindingStatus{
-				Credentials: corev1.LocalObjectReference{
+				EnvSecretRef: corev1.LocalObjectReference{
 					Name: credentialsSecret.Name,
 				},
 			}
@@ -125,7 +125,7 @@ var _ = Describe("Builder", func() {
 		helpers.EnsureCreate(controllersClient, serviceBinding2)
 		helpers.EnsurePatch(controllersClient, serviceBinding2, func(sb *korifiv1alpha1.CFServiceBinding) {
 			sb.Status = korifiv1alpha1.CFServiceBindingStatus{
-				Credentials: corev1.LocalObjectReference{
+				EnvSecretRef: corev1.LocalObjectReference{
 					Name: credentialsSecret.Name,
 				},
 			}

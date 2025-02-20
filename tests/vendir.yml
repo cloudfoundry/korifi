@@ -8,12 +8,6 @@ directories:
       slug: pivotal/kpack
       latest: true
       disableAutoChecksumValidation: true
-  - path: service-binding
-    githubRelease:
-      slug: servicebinding/runtime
-      latest: true
-      disableAutoChecksumValidation: true
-      assetNames: ["servicebinding*.yaml"]
   - path: metrics-server-local
     githubRelease:
       slug: kubernetes-sigs/metrics-server

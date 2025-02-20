@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -43,7 +43,7 @@ type CFAppSpec struct {
 	EnvSecretName string `json:"envSecretName,omitempty"`
 
 	// A reference to the CFBuild currently assigned to the app. The CFBuild must be in the same namespace.
-	CurrentDropletRef v1.LocalObjectReference `json:"currentDropletRef,omitempty"`
+	CurrentDropletRef corev1.LocalObjectReference `json:"currentDropletRef,omitempty"`
 }
 
 // AppState defines the desired state of CFApp.
@@ -71,6 +71,11 @@ type CFAppStatus struct {
 
 	//+kubebuilder:validation:Optional
 	ActualState AppState `json:"actualState"`
+
+	// Reference to service credentials secrets to be projected onto the app workload
+	// They are in the [servicebinding.io](https://servicebinding.io/spec/core/1.1.0/) format
+	//+kubebuilder:validation:Optional
+	ServiceBindings []ServiceBinding `json:"serviceBindings,omitempty"`
 }
 
 //+kubebuilder:object:root=true

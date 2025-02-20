@@ -93,3 +93,11 @@ type InstanceStatus struct {
 	// +kubebuilder:validation:Optional
 	Timestamp *metav1.Time `json:"timestamp"`
 }
+
+type ServiceBinding struct {
+	// The name of binding. Used as binding name when projecting the secret onto the workload
+	Name string `json:"name"`
+
+	// Name of the binding secret
+	Secret string `json:"secret"`
+}

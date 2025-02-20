@@ -422,8 +422,6 @@ github.com/sclevine/spec v1.4.0 h1:z/Q9idDcay5m5irkZ28M7PtQM4aOISzOpj4bUPkDee8=
 github.com/sclevine/spec v1.4.0/go.mod h1:LvpgJaFyvQzRvc1kaDs0bulYwzC70PbiYjC4QnFHkOM=
 github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 h1:n661drycOFuPLCN3Uc8sB6B/s6Z4t2xvBgU1htSHuq8=
 github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3/go.mod h1:A0bzQcvG0E7Rwjx0REVgAGH58e96+X0MeOfepqsbeW4=
-github.com/servicebinding/runtime v1.0.0 h1:WWK7JQGOLna/hdLLLxyvhVEaH+hCz3t2qPo0oeBM4Fc=
-github.com/servicebinding/runtime v1.0.0/go.mod h1:Qmx9J615q7NoPaTwISkr+6zTkMLbf10t4Es6GLO6l4g=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
@@ -671,8 +669,6 @@ k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738/go.mod h1:OLgZIPagt7ERELqWJFomSt
 knative.dev/pkg v0.0.0-20230821102121-81e4ee140363 h1:TI2hMwTM5Bl+yaWu1gN5bXAHSvc+FtH9cqm3NzmDBtY=
 knative.dev/pkg v0.0.0-20230821102121-81e4ee140363/go.mod h1:dA3TdhFTRm4KmmpvfknpGV43SbGNFkLHySjC8/+NczM=
 launchpad.net/gocheck v0.0.0-20140225173054-000000000087/go.mod h1:hj7XX3B/0A+80Vse0e+BUHsHMTEhd0O4cpUHr/e/BUM=
-reconciler.io/runtime v0.20.0 h1:b2RQTYRrnEDTZQHH6h57SIR373vzKPRyfTKtRyO2cpw=
-reconciler.io/runtime v0.20.0/go.mod h1:rDD6qZcijjw+7JIkfOOnLM9uMOH+Robq24fbihD5ZRc=
 sigs.k8s.io/controller-runtime v0.19.4 h1:SUmheabttt0nx8uJtoII4oIP27BVVvAKFvdvGFwV/Qo=
 sigs.k8s.io/controller-runtime v0.19.4/go.mod h1:iRmWllt8IlaLjvTTDLhRBXIEtkCK6hwVBJJsYS9Ajf4=
 sigs.k8s.io/controller-tools v0.17.2 h1:jNFOKps8WnaRKZU2R+4vRCHnXyJanVmXBWqkuUPFyFg=

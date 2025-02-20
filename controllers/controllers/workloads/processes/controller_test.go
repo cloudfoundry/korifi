@@ -378,6 +378,50 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 		})
 
+		When("the app has service bindings", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
+					cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+						Secret: "binding-secret",
+						Name:   "binding-name",
+					}}
+				})).To(Succeed())
+			})
+
+			It("the app workload services are set", func() {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+					g.Expect(appWorkload.Spec.Services).To(ConsistOf(korifiv1alpha1.ServiceBinding{
+						Secret: "binding-secret",
+						Name:   "binding-name",
+					}))
+				})
+			})
+		})
+
+		When("the app bindings change after the workload has been created", func() {
+			JustBeforeEach(func() {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+					g.Expect(appWorkload.Spec.Services).To(BeEmpty())
+				})
+
+				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
+					cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+						Secret: "binding-secret",
+					}}
+				})).To(Succeed())
+			})
+
+			It("does not update app workload bindings", func() {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+					g.Consistently(func(g Gomega) {
+						withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+							g.Expect(appWorkload.Spec.Services).To(BeEmpty())
+						})
+					}).Should(Succeed())
+				})
+			})
+		})
+
 		When("The process command field isn't set", func() {
 			BeforeEach(func() {
 				cfProcess.Spec.Command = ""

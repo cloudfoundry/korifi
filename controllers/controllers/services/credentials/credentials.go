@@ -27,25 +27,27 @@ func GetBindingSecretType(credentialsSecret *corev1.Secret) (corev1.SecretType, 
 	return corev1.SecretType(ServiceBindingSecretTypePrefix + korifiv1alpha1.UserProvidedType), nil
 }
 
-func GetServiceBindingIOSecretData(credentialsSecret *corev1.Secret) (map[string][]byte, error) {
-	credentials := map[string]any{}
-	err := GetCredentials(credentialsSecret, &credentials)
-	if err != nil {
-		return nil, err
-	}
+func GetServiceBindingIOSecretData(credentials map[string]any) (map[string][]byte, error) {
 	secretData := map[string][]byte{}
 	for k, v := range credentials {
+		var err error
 		secretData[k], err = toBytes(v)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert value of key %q to bytes: %w", k, err)
 		}
 	}
 
-	return secretData, err
+	return secretData, nil
 }
 
 func GetUserProvidedServiceBindingIOSecretData(credentialsSecret *corev1.Secret) (map[string][]byte, error) {
-	secretData, err := GetServiceBindingIOSecretData(credentialsSecret)
+	credentials := map[string]any{}
+	err := GetCredentials(credentialsSecret, &credentials)
+	if err != nil {
+		return nil, err
+	}
+
+	secretData, err := GetServiceBindingIOSecretData(credentials)
 	if err != nil {
 		return nil, err
 	}

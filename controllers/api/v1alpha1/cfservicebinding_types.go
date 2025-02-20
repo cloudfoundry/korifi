@@ -61,19 +61,20 @@ type CFServiceBindingSpec struct {
 // CFServiceBindingStatus defines the observed state of CFServiceBinding
 type CFServiceBindingStatus struct {
 	// A reference to the Secret containing the binding Credentials in
-	// servicebinding.io format. In order to conform to that spec the resource
-	// should have a "duck type" field called `binding`. From more info see the
-	// servicebinding.io [spec](https://servicebinding.io/spec/core/1.0.0-rc3/#Duck%20Type)
+	// [servicebinding.io](https://servicebinding.io/spec/core/1.1.0/) format.
+	// The credentials in this secrets are going to be mounted to the app
+	// container filesystem
 	// +optional
-	Binding v1.LocalObjectReference `json:"binding"`
+	MountSecretRef v1.LocalObjectReference `json:"mountSecretRef"`
 
-	// A reference to the Secret containing the binding Credentials object. For
-	// bindings to user-provided services this refers to the credentials secret
-	// from the service instance. For managed services the secret contains the
-	// credentials object returned by the broker when binding to a service
-	// instance
+	// A reference to the Secret containing the binding credentials in json
+	// format. This secret is going to become a part of the VCAP_SERVCIES env var
+	// on the application container. For bindings to user-provided services
+	// this refers to the credentials secret from the service instance. For
+	// managed services the secret contains the credentials object returned by
+	// the broker when binding to a service instance
 	// +optional
-	Credentials v1.LocalObjectReference `json:"credentials"`
+	EnvSecretRef v1.LocalObjectReference `json:"envSecretRef"`
 
 	//+kubebuilder:validation:Optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`

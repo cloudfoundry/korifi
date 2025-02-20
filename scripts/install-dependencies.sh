@@ -80,14 +80,6 @@ spec:
   controllerName: projectcontour.io/gateway-controller
 EOF
 
-echo "************************************"
-echo " Installing Service Binding Runtime"
-echo "************************************"
-
-kubectl apply -f "$VENDOR_DIR/service-binding/servicebinding-runtime-v"*".yaml"
-kubectl -n servicebinding-system rollout status deployment/servicebinding-controller-manager --watch=true
-kubectl apply -f "$VENDOR_DIR/service-binding/servicebinding-workloadresourcemappings-v"*".yaml"
-
 if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
   if [[ "${INSECURE_TLS_METRICS_SERVER:-}" == "true" ]]; then
     echo "************************************************"
