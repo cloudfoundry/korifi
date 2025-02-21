@@ -66,7 +66,7 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
-              plan_guid:
+              planGuid:
                 type: string
               secretName:
                 description: Name of a secret containing the service credentials.
@@ -92,7 +92,7 @@ spec:
                 type: string
             required:
             - displayName
-            - plan_guid
+            - planGuid
             - secretName
             - type
             type: object
@@ -176,7 +176,7 @@ spec:
                   ObservedGeneration captures the latest version of the spec.secretName that has been reconciled
                   This will ensure that interested contollers are notified on instance credentials change
                 type: string
-              last_operation:
+              lastOperation:
                 properties:
                   description:
                     type: string
@@ -197,7 +197,7 @@ spec:
                 - state
                 - type
                 type: object
-              maintenance_info:
+              maintenanceInfo:
                 description: The service instance maintenance info. Only makes seense
                   for managed service instances
                 properties:
@@ -211,7 +211,7 @@ spec:
                   the CFServiceInstance that has been reconciled
                 format: int64
                 type: integer
-              upgrade_available:
+              upgradeAvailable:
                 description: True if there is an upgrade available for for the service
                   instance (i.e. the plan has a new version). Only makes seense for
                   managed service instances

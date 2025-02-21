@@ -54,7 +54,7 @@ type CFServiceInstanceSpec struct {
 	// Tags are used by apps to identify service instances
 	Tags []string `json:"tags,omitempty"`
 
-	PlanGUID string `json:"plan_guid"`
+	PlanGUID string `json:"planGuid"`
 
 	Parameters corev1.LocalObjectReference `json:"parameters,omitempty"`
 }
@@ -82,15 +82,15 @@ type CFServiceInstanceStatus struct {
 	CredentialsObservedVersion string `json:"credentialsObservedVersion,omitempty"`
 
 	//+kubebuilder:validation:Optional
-	LastOperation services.LastOperation `json:"last_operation"`
+	LastOperation services.LastOperation `json:"lastOperation"`
 
 	// The service instance maintenance info. Only makes seense for managed service instances
 	//+kubebuilder:validation:Optional
-	MaintenanceInfo services.MaintenanceInfo `json:"maintenance_info"`
+	MaintenanceInfo services.MaintenanceInfo `json:"maintenanceInfo"`
 
 	// True if there is an upgrade available for for the service instance (i.e. the plan has a new version). Only makes seense for managed service instances
 	//+kubebuilder:validation:Optional
-	UpgradeAvailable bool `json:"upgrade_available"`
+	UpgradeAvailable bool `json:"upgradeAvailable"`
 }
 
 //+kubebuilder:object:root=true
