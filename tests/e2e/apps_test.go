@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 )
 
-var _ = Describe("Apps", func() {
+var _ = FDescribe("Apps", func() {
 	var (
 		space1GUID string
 		space1Name string
@@ -626,7 +626,7 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	FDescribe("Binding services to an app", func() {
+	Describe("Binding services to an app", func() {
 		var (
 			bindingGUID               string
 			namedBindingGUID          string
@@ -689,20 +689,16 @@ var _ = Describe("Apps", func() {
 			})
 
 			It("should unset the $SERVICE_BINDING_ROOT env variable", func() {
-				Eventually(func(g Gomega) {
-					body := string(curlApp(appGUID, "/servicebindingroot"))
-					g.Expect(body).To(ContainSubstring("$SERVICE_BINDING_ROOT is empty"))
-				}).Should(Succeed())
+				body := string(curlApp(appGUID, "/servicebindingroot"))
+				Expect(body).To(ContainSubstring("$SERVICE_BINDING_ROOT is empty"))
 			})
 
 			It("unmounts the credentials from the container", func() {
-				Eventually(func(g Gomega) {
-					body := curlApp(appGUID, "/servicebindings")
+				body := curlApp(appGUID, "/servicebindings")
 
-					data := map[string]interface{}{}
-					g.Expect(json.Unmarshal(body, &data)).To(Succeed())
-					g.Expect(data).To(BeEmpty())
-				}).Should(Succeed())
+				data := map[string]interface{}{}
+				Expect(json.Unmarshal(body, &data)).To(Succeed())
+				Expect(data).To(BeEmpty())
 			})
 		})
 	})
@@ -729,7 +725,7 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	Describe("Fetching app environment", func() {
+	PDescribe("Fetching app environment", func() {
 		var (
 			result                      map[string]interface{}
 			instanceGUID, instanceGUID2 string

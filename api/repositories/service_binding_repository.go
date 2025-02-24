@@ -235,7 +235,29 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 			return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
 		}
 
-		_, err = r.appConditionAwaiter.AwaitCondition(ctx, userClient, cfApp, korifiv1alpha1.StatusConditionReady)
+		_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
+			if _, readyConditionErr := r.appConditionAwaiter.AwaitCondition(ctx, userClient, a, korifiv1alpha1.StatusConditionReady); err != nil {
+				return readyConditionErr
+			}
+
+			specBindingGUIDs := slices.Collect(it.Map(slices.Values(a.Spec.ServiceBindingRefs), func(r korifiv1alpha1.ServiceBindingRef) string {
+				return r.GUID
+			}))
+
+			if !slices.Contains(specBindingGUIDs, cfServiceBinding.Name) {
+				return fmt.Errorf("binding %q has not been added to the spec", cfServiceBinding.Name)
+			}
+
+			bindingGUIDs := slices.Collect(it.Map(slices.Values(a.Status.ActualServiceBindingRefs), func(r korifiv1alpha1.ActualServiceBindingRef) string {
+				return r.GUID
+			}))
+
+			if !slices.Contains(bindingGUIDs, cfServiceBinding.Name) {
+				return fmt.Errorf("desired binding %q has not been added to the status", cfServiceBinding.Name)
+			}
+
+			return nil
+		})
 		if err != nil {
 			return ServiceBindingRecord{}, err
 		}
@@ -307,7 +329,29 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 	if err != nil {
 		return apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
-	_, err = r.appConditionAwaiter.AwaitCondition(ctx, userClient, cfApp, korifiv1alpha1.StatusConditionReady)
+	_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
+		if _, readyConditionErr := r.appConditionAwaiter.AwaitCondition(ctx, userClient, a, korifiv1alpha1.StatusConditionReady); err != nil {
+			return readyConditionErr
+		}
+
+		specBindingGUIDs := slices.Collect(it.Map(slices.Values(a.Spec.ServiceBindingRefs), func(r korifiv1alpha1.ServiceBindingRef) string {
+			return r.GUID
+		}))
+
+		if slices.Contains(specBindingGUIDs, guid) {
+			return fmt.Errorf("binding %q has not been removed form spec", guid)
+		}
+
+		actualBindingGUIDs := slices.Collect(it.Map(slices.Values(a.Status.ActualServiceBindingRefs), func(r korifiv1alpha1.ActualServiceBindingRef) string {
+			return r.GUID
+		}))
+
+		if slices.Contains(actualBindingGUIDs, guid) {
+			return fmt.Errorf("binding %q has not been removed form status", guid)
+		}
+
+		return nil
+	})
 	if err != nil {
 		return err
 	}
