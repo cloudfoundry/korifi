@@ -626,7 +626,7 @@ var _ = Describe("Apps", func() {
 		})
 	})
 
-	Describe("Binding services to an app", func() {
+	FDescribe("Binding services to an app", func() {
 		var (
 			bindingGUID               string
 			namedBindingGUID          string

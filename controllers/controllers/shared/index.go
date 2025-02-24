@@ -115,6 +115,11 @@ func serviceBindingAppGUIDIndexFn(rawObj client.Object) []string {
 	return []string{serviceBinding.Spec.AppRef.Name}
 }
 
+func serviceBindingGUIDIndexFn(rawObj client.Object) []string {
+	serviceBinding := rawObj.(*korifiv1alpha1.CFServiceBinding)
+	return []string{serviceBinding.Name}
+}
+
 func serviceBindingServiceInstanceGUIDIndexFn(rawObj client.Object) []string {
 	serviceBinding := rawObj.(*korifiv1alpha1.CFServiceBinding)
 	return []string{serviceBinding.Spec.Service.Name}

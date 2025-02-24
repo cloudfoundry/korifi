@@ -39,17 +39,20 @@ type ServiceBindingRepo struct {
 	userClientFactory       authorization.UserClientFactory
 	namespaceRetriever      NamespaceRetriever
 	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding]
+	appConditionAwaiter     Awaiter[*korifiv1alpha1.CFApp]
 }
 
 func NewServiceBindingRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory authorization.UserClientFactory,
 	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding],
+	appConditionAwaiter Awaiter[*korifiv1alpha1.CFApp],
 ) *ServiceBindingRepo {
 	return &ServiceBindingRepo{
 		userClientFactory:       userClientFactory,
 		namespaceRetriever:      namespaceRetriever,
 		bindingConditionAwaiter: bindingConditionAwaiter,
+		appConditionAwaiter:     appConditionAwaiter,
 	}
 }
 
@@ -209,6 +212,36 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 		}
 	}
 
+	// TODO: think about deduplicating the binding type check
+	if message.Type == korifiv1alpha1.CFServiceBindingTypeApp {
+		cfApp := new(korifiv1alpha1.CFApp)
+		err = userClient.Get(ctx, types.NamespacedName{Name: message.AppGUID, Namespace: message.SpaceGUID}, cfApp)
+		if err != nil {
+			return ServiceBindingRecord{},
+				apierrors.AsUnprocessableEntity(
+					apierrors.FromK8sError(err, ServiceBindingResourceType),
+					"Unable to use app. Ensure that the app exists and you have access to it.",
+					apierrors.ForbiddenError{},
+					apierrors.NotFoundError{},
+				)
+		}
+
+		err = k8s.PatchResource(ctx, userClient, cfApp, func() {
+			cfApp.Spec.ServiceBindingRefs = append(cfApp.Spec.ServiceBindingRefs, korifiv1alpha1.ServiceBindingRef{
+				GUID: cfServiceBinding.Name,
+			})
+		})
+		if err != nil {
+			return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
+		}
+
+		_, err = r.appConditionAwaiter.AwaitCondition(ctx, userClient, cfApp, korifiv1alpha1.StatusConditionReady)
+		if err != nil {
+			return ServiceBindingRecord{}, err
+		}
+
+	}
+
 	return serviceBindingToRecord(*cfServiceBinding), nil
 }
 
@@ -253,6 +286,32 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 	if err != nil {
 		return apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
+
+	cfApp := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: binding.Namespace,
+			Name:      binding.Spec.AppRef.Name,
+		},
+	}
+
+	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)
+	if err != nil {
+		return apierrors.FromK8sError(err, ServiceBindingResourceType)
+	}
+
+	err = k8s.PatchResource(ctx, userClient, cfApp, func() {
+		cfApp.Spec.ServiceBindingRefs = slices.Collect(it.Exclude(slices.Values(cfApp.Spec.ServiceBindingRefs), func(r korifiv1alpha1.ServiceBindingRef) bool {
+			return r.GUID == binding.Name
+		}))
+	})
+	if err != nil {
+		return apierrors.FromK8sError(err, ServiceBindingResourceType)
+	}
+	_, err = r.appConditionAwaiter.AwaitCondition(ctx, userClient, cfApp, korifiv1alpha1.StatusConditionReady)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

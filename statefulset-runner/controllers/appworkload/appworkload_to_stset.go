@@ -97,7 +97,7 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 
 	envs = append(envs, fieldEnvs...)
 
-	if len(appWorkload.Spec.Services) != 0 {
+	if len(appWorkload.Spec.ServiceBindingRefs) != 0 {
 		envs = append(envs, corev1.EnvVar{
 			Name:  EnvServiceBindingRoot,
 			Value: bindingRootPath,
@@ -130,11 +130,15 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 			Resources:     appWorkload.Spec.Resources,
 			StartupProbe:  appWorkload.Spec.StartupProbe,
 			LivenessProbe: appWorkload.Spec.LivenessProbe,
-			VolumeMounts: slices.Collect(it.Map(slices.Values(appWorkload.Spec.Services), func(s korifiv1alpha1.ServiceBinding) corev1.VolumeMount {
+			VolumeMounts: slices.Collect(it.Map(slices.Values(appWorkload.Spec.ServiceBindingRefs), func(s korifiv1alpha1.ActualServiceBindingRef) corev1.VolumeMount {
+				mountPath := s.GUID
+				if s.DisplayName != nil {
+					mountPath = *s.DisplayName
+				}
 				return corev1.VolumeMount{
-					Name:      s.Name,
+					Name:      s.GUID,
 					ReadOnly:  true,
-					MountPath: filepath.Join(bindingRootPath, s.Name),
+					MountPath: filepath.Join(bindingRootPath, mountPath),
 				}
 			})),
 		},
@@ -164,12 +168,12 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 						},
 					},
 					ServiceAccountName: ServiceAccountName,
-					Volumes: slices.Collect(it.Map(slices.Values(appWorkload.Spec.Services), func(s korifiv1alpha1.ServiceBinding) corev1.Volume {
+					Volumes: slices.Collect(it.Map(slices.Values(appWorkload.Spec.ServiceBindingRefs), func(s korifiv1alpha1.ActualServiceBindingRef) corev1.Volume {
 						return corev1.Volume{
-							Name: s.Name,
+							Name: s.GUID,
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName:  s.Secret,
+									SecretName:  s.MountSecretRef,
 									DefaultMode: tools.PtrTo[int32](0o644),
 								},
 							},

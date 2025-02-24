@@ -44,6 +44,9 @@ type CFAppSpec struct {
 
 	// A reference to the CFBuild currently assigned to the app. The CFBuild must be in the same namespace.
 	CurrentDropletRef corev1.LocalObjectReference `json:"currentDropletRef,omitempty"`
+
+	//+kubebuilder:validation:Optional
+	ServiceBindingRefs []ServiceBindingRef `json:"serviceBindingRefs,omitempty"`
 }
 
 // AppState defines the desired state of CFApp.
@@ -72,10 +75,21 @@ type CFAppStatus struct {
 	//+kubebuilder:validation:Optional
 	ActualState AppState `json:"actualState"`
 
-	// Reference to service credentials secrets to be projected onto the app workload
-	// They are in the [servicebinding.io](https://servicebinding.io/spec/core/1.1.0/) format
 	//+kubebuilder:validation:Optional
-	ServiceBindings []ServiceBinding `json:"serviceBindings,omitempty"`
+	ActualServiceBindingRefs []ActualServiceBindingRef `json:"actualServiceBindingRefs,omitempty"`
+}
+
+type ServiceBindingRef struct {
+	GUID string `json:"guid"`
+}
+
+type ActualServiceBindingRef struct {
+	GUID        string `json:"guid"`
+	ServiceGUID string `json:"serviceGuid"`
+	//+kubebuilder:validation:Optional
+	DisplayName    *string `json:"displayName"`
+	MountSecretRef string  `json:"mountSecretRef"`
+	EnvSecretRef   string  `json:"envSecretRef"`
 }
 
 //+kubebuilder:object:root=true

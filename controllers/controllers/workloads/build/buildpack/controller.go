@@ -231,11 +231,11 @@ func (r *buildpackBuildReconciler) createBuildWorkload(ctx context.Context, cfBu
 			},
 			BuilderName: r.controllerConfig.BuilderName,
 			Buildpacks:  cfBuild.Spec.Lifecycle.Data.Buildpacks,
-			Services: slices.Collect(it.Map(slices.Values(cfApp.Status.ServiceBindings),
-				func(binding korifiv1alpha1.ServiceBinding) corev1.ObjectReference {
+			Services: slices.Collect(it.Map(slices.Values(cfApp.Status.ActualServiceBindingRefs),
+				func(binding korifiv1alpha1.ActualServiceBindingRef) corev1.ObjectReference {
 					return corev1.ObjectReference{
 						Kind:       "Secret",
-						Name:       binding.Secret,
+						Name:       binding.MountSecretRef,
 						APIVersion: "v1",
 					}
 				},
@@ -262,6 +262,31 @@ func (r *buildpackBuildReconciler) createBuildWorkload(ctx context.Context, cfBu
 	}
 
 	return nil
+}
+
+func (r *buildpackBuildReconciler) getServiceBindings(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]*korifiv1alpha1.CFServiceBinding, error) {
+	result := []*korifiv1alpha1.CFServiceBinding{}
+
+	// TODO: think about how to get all the bindings in a single list
+	for _, bindingRef := range cfApp.Spec.ServiceBindingRefs {
+		binding := &korifiv1alpha1.CFServiceBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cfApp.Namespace,
+				Name:      bindingRef.GUID,
+			},
+		}
+		err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+		if err != nil {
+			return nil, err
+		}
+
+		if !meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
+			return nil, fmt.Errorf("binding %q not ready", binding.Name)
+		}
+		result = append(result, binding)
+	}
+
+	return result, nil
 }
 
 func (r *buildpackBuildReconciler) createBuildWorkloadIfNotExists(ctx context.Context, desiredWorkload korifiv1alpha1.BuildWorkload) error {

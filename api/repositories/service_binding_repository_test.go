@@ -54,7 +54,9 @@ var _ = Describe("ServiceBindingRepo", func() {
 			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
 			}),
-			conditionAwaiter)
+			conditionAwaiter,
+			// TODO: fix
+			nil)
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))

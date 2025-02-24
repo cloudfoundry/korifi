@@ -246,7 +246,7 @@ func (r *Reconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifi
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, appWorkload, func() error {
 		if appWorkload.CreationTimestamp.IsZero() {
-			appWorkload.Spec.Services = cfApp.Status.ServiceBindings
+			appWorkload.Spec.ServiceBindingRefs = cfApp.Status.ActualServiceBindingRefs
 		}
 
 		appWorkload.Labels = make(map[string]string)
