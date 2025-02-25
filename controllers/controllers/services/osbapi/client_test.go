@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -76,9 +75,7 @@ var _ = Describe("OSBAPI Client", func() {
 					ID:          "123456",
 					Name:        "test-service",
 					Description: "test service description",
-					BrokerCatalogFeatures: services.BrokerCatalogFeatures{
-						Bindable: true,
-					},
+					Bindable:    true,
 				}},
 			}))
 		})

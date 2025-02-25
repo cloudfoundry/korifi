@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -58,9 +57,7 @@ var _ = Describe("ServicePlan", func() {
 			}}, nil)
 
 			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-				ServiceOffering: services.ServiceOffering{
-					Name: "service-offering-name",
-				},
+				Name: "service-offering-name",
 				CFResource: model.CFResource{
 					GUID: "service-offering-guid",
 				},
@@ -134,9 +131,7 @@ var _ = Describe("ServicePlan", func() {
 				}}, nil)
 
 				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-					ServiceOffering: services.ServiceOffering{
-						Name: "service-offering-name",
-					},
+					Name: "service-offering-name",
 					CFResource: model.CFResource{
 						GUID: "service-offering-guid",
 					},

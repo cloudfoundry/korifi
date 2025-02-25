@@ -133,9 +133,7 @@ var _ = Describe("ServiceInstance", func() {
 		Describe("fields", func() {
 			BeforeEach(func() {
 				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-					ServiceOffering: services.ServiceOffering{
-						Name: "service-offering-name",
-					},
+					Name: "service-offering-name",
 					CFResource: model.CFResource{
 						GUID: "service-offering-guid",
 					},
@@ -564,9 +562,7 @@ var _ = Describe("ServiceInstance", func() {
 		Describe("fields", func() {
 			BeforeEach(func() {
 				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-					ServiceOffering: services.ServiceOffering{
-						Name: "service-offering-name",
-					},
+					Name: "service-offering-name",
 					CFResource: model.CFResource{
 						GUID: "service-offering-guid",
 					},

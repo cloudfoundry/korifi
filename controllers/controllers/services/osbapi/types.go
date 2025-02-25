@@ -15,14 +15,18 @@ type Catalog struct {
 }
 
 type Service struct {
-	services.BrokerCatalogFeatures `json:",inline"`
-	ID                             string         `json:"id"`
-	Name                           string         `json:"name"`
-	Description                    string         `json:"description"`
-	Tags                           []string       `json:"tags"`
-	Requires                       []string       `json:"requires"`
-	Metadata                       map[string]any `json:"metadata"`
-	DashboardClient                struct {
+	ID                   string         `json:"id"`
+	Name                 string         `json:"name"`
+	Description          string         `json:"description"`
+	Tags                 []string       `json:"tags"`
+	Requires             []string       `json:"requires"`
+	Metadata             map[string]any `json:"metadata"`
+	PlanUpdateable       bool           `json:"plan_updateable"`
+	Bindable             bool           `json:"bindable"`
+	InstancesRetrievable bool           `json:"instances_retrievable"`
+	BindingsRetrievable  bool           `json:"bindings_retrievable"`
+	AllowContextUpdates  bool           `json:"allow_context_updates"`
+	DashboardClient      struct {
 		Id          string `json:"id"`
 		Secret      string `json:"secret"`
 		RedirectUri string `json:"redirect_url"`

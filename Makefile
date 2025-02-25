@@ -27,20 +27,12 @@ export PATH := $(shell pwd)/bin:$(PATH)
 CONTROLLERS=controllers job-task-runner kpack-image-builder statefulset-runner
 COMPONENTS=api $(CONTROLLERS)
 
-manifests: bin/controller-gen
-	controller-gen \
-		paths="./model/..." \
-		crd \
-		output:crd:artifacts:config=helm/korifi/controllers/crds
+manifests:
 	@for comp in $(COMPONENTS); do make -C $$comp manifests; done
 
-generate: bin/controller-gen
-	controller-gen object:headerFile="controllers/hack/boilerplate.go.txt" paths="./model/..."
+generate:
 	@for comp in $(CONTROLLERS); do make -C $$comp generate; done
 	go run ./scripts/helmdoc/main.go > README.helm.md
-
-bin/controller-gen: bin
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen
 
 generate-fakes:
 	go generate ./...

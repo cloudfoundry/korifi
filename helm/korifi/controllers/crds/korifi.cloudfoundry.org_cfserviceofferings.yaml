@@ -88,7 +88,7 @@ spec:
                 type: string
               name:
                 type: string
-              required:
+              requires:
                 items:
                   type: string
                 type: array

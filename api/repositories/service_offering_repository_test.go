@@ -108,24 +108,22 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			Expect(getErr).NotTo(HaveOccurred())
 			Expect(desiredOffering).To(
 				MatchFields(IgnoreExtras, Fields{
-					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("my-offering"),
-						"Description":      Equal("my offering description"),
-						"Tags":             ConsistOf("t1"),
-						"Requires":         ConsistOf("r1"),
-						"DocumentationURL": PointTo(Equal("https://my.offering.com")),
-						"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
-							"ID": Equal("offering-catalog-guid"),
-							"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-								"Raw": MatchJSON(`{"offering-md": "offering-md-value"}`),
-							})),
-							"Features": MatchFields(IgnoreExtras, Fields{
-								"PlanUpdateable":       BeTrue(),
-								"Bindable":             BeTrue(),
-								"InstancesRetrievable": BeTrue(),
-								"BindingsRetrievable":  BeTrue(),
-								"AllowContextUpdates":  BeTrue(),
-							}),
+					"Name":             Equal("my-offering"),
+					"Description":      Equal("my offering description"),
+					"Tags":             ConsistOf("t1"),
+					"Requires":         ConsistOf("r1"),
+					"DocumentationURL": PointTo(Equal("https://my.offering.com")),
+					"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
+						"ID": Equal("offering-catalog-guid"),
+						"Metadata": MatchAllKeys(Keys{
+							"offering-md": Equal("offering-md-value"),
+						}),
+						"Features": MatchFields(IgnoreExtras, Fields{
+							"PlanUpdateable":       BeTrue(),
+							"Bindable":             BeTrue(),
+							"InstancesRetrievable": BeTrue(),
+							"BindingsRetrievable":  BeTrue(),
+							"AllowContextUpdates":  BeTrue(),
 						}),
 					}),
 					"CFResource": MatchFields(IgnoreExtras, Fields{
@@ -237,24 +235,22 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			Expect(listErr).NotTo(HaveOccurred())
 			Expect(listedOfferings).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
-					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("my-offering"),
-						"Description":      Equal("my offering description"),
-						"Tags":             ConsistOf("t1"),
-						"Requires":         ConsistOf("r1"),
-						"DocumentationURL": PointTo(Equal("https://my.offering.com")),
-						"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
-							"ID": Equal("offering-catalog-guid"),
-							"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-								"Raw": MatchJSON(`{"offering-md": "offering-md-value"}`),
-							})),
-							"Features": MatchFields(IgnoreExtras, Fields{
-								"PlanUpdateable":       BeTrue(),
-								"Bindable":             BeTrue(),
-								"InstancesRetrievable": BeTrue(),
-								"BindingsRetrievable":  BeTrue(),
-								"AllowContextUpdates":  BeTrue(),
-							}),
+					"Name":             Equal("my-offering"),
+					"Description":      Equal("my offering description"),
+					"Tags":             ConsistOf("t1"),
+					"Requires":         ConsistOf("r1"),
+					"DocumentationURL": PointTo(Equal("https://my.offering.com")),
+					"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
+						"ID": Equal("offering-catalog-guid"),
+						"Metadata": MatchAllKeys(Keys{
+							"offering-md": Equal("offering-md-value"),
+						}),
+						"Features": MatchFields(IgnoreExtras, Fields{
+							"PlanUpdateable":       BeTrue(),
+							"Bindable":             BeTrue(),
+							"InstancesRetrievable": BeTrue(),
+							"BindingsRetrievable":  BeTrue(),
+							"AllowContextUpdates":  BeTrue(),
 						}),
 					}),
 					"CFResource": MatchFields(IgnoreExtras, Fields{
@@ -284,9 +280,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			It("returns the matching offerings", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
-						"Name": Equal("my-offering"),
-					}),
+					"Name": Equal("my-offering"),
 				})))
 			})
 		})

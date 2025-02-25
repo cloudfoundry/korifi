@@ -1301,7 +1301,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 			Expect(
 				k8sClient.Create(ctx, credentialsSecret),
 			).To(Succeed())
-
 		})
 
 		JustBeforeEach(func() {

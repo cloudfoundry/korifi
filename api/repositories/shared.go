@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"time"
@@ -87,4 +88,17 @@ func authorizedOrgNamespaces(ctx context.Context, authInfo authorization.Info, n
 	}
 
 	return itx.From(maps.Keys(nsList)), nil
+}
+
+func asMap(obj *runtime.RawExtension) (map[string]any, error) {
+	if obj == nil {
+		return nil, nil
+	}
+
+	var m map[string]any
+	if err := json.Unmarshal(obj.Raw, &m); err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }

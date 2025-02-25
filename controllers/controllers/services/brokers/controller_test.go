@@ -36,18 +36,16 @@ var _ = Describe("CFServiceBroker", func() {
 		brokerClientFactory.CreateClientReturns(brokerClient, nil)
 		brokerClient.GetCatalogReturns(osbapi.Catalog{
 			Services: []osbapi.Service{{
-				ID:          "service-id",
-				Name:        "service-name",
-				Description: "service description",
-				BrokerCatalogFeatures: services.BrokerCatalogFeatures{
-					Bindable:             true,
-					InstancesRetrievable: true,
-					BindingsRetrievable:  true,
-					PlanUpdateable:       true,
-					AllowContextUpdates:  true,
-				},
-				Tags:     []string{"t1"},
-				Requires: []string{"r1"},
+				ID:                   "service-id",
+				Name:                 "service-name",
+				Description:          "service description",
+				Bindable:             true,
+				InstancesRetrievable: true,
+				BindingsRetrievable:  true,
+				PlanUpdateable:       true,
+				AllowContextUpdates:  true,
+				Tags:                 []string{"t1"},
+				Requires:             []string{"r1"},
 				Metadata: map[string]any{
 					"foo":              "bar",
 					"documentationUrl": "https://doc.url",

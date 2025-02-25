@@ -10,7 +10,7 @@ type CFServiceOfferingSpec struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Tags        []string `json:"tags,omitempty"`
-	Requires    []string `json:"required,omitempty"`
+	Requires    []string `json:"requires,omitempty"`
 	// +kubebuilder:validation:Optional
 	DocumentationURL *string              `json:"documentationUrl"`
 	BrokerCatalog    ServiceBrokerCatalog `json:"brokerCatalog"`

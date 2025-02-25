@@ -12,7 +12,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -50,7 +49,6 @@ var _ = Describe("ServiceOffering", func() {
 	Describe("GET /v3/service_offering/:guid", func() {
 		BeforeEach(func() {
 			serviceOfferingRepo.GetServiceOfferingReturns(repositories.ServiceOfferingRecord{
-				ServiceOffering: services.ServiceOffering{},
 				CFResource: model.CFResource{
 					GUID: "offering-guid",
 				},
@@ -128,7 +126,6 @@ var _ = Describe("ServiceOffering", func() {
 	Describe("GET /v3/service_offerings", func() {
 		BeforeEach(func() {
 			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-				ServiceOffering: services.ServiceOffering{},
 				CFResource: model.CFResource{
 					GUID: "offering-guid",
 				},
