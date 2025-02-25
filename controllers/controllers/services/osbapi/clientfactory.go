@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -57,41 +56,20 @@ func (f *ClientFactory) CreateClient(ctx context.Context, cfServiceBroker *korif
 		return nil, err
 	}
 
-	creds := brokerCreds{}
+	creds := map[string]string{}
 	err = json.Unmarshal(credentialsSecret.Data[tools.CredentialsSecretKey], &creds)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal broker credentials secret: %w", err)
-	}
-	err = creds.Validate()
-	if err != nil {
-		return nil, fmt.Errorf("invalid broker credentials: %w", err)
 	}
 
 	return NewClient(
 		Broker{
 			URL:      cfServiceBroker.Spec.URL,
-			Username: creds.Username,
-			Password: creds.Password,
+			Username: creds["username"],
+			Password: creds["password"],
 		},
 		&http.Client{Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: f.trustInsecureBrokers}, //#nosec G402
 		}},
 	), nil
-}
-
-type brokerCreds struct {
-	Username string `json:"username"`
-	Password string `json:""`
-}
-
-func (c brokerCreds) Validate() error {
-	if c.Username == "" {
-		return errors.New("key `username` is not set")
-	}
-
-	if c.Password == "" {
-		return errors.New("key `password` is not set")
-	}
-
-	return nil
 }

@@ -112,34 +112,6 @@ var _ = Describe("ClientFactory", func() {
 		It("returns an error", func() {
 			Expect(createClientErr).To(MatchError(ContainSubstring("failed to unmarshal broker credentials secret")))
 		})
-
-		When("username is not set", func() {
-			BeforeEach(func() {
-				helpers.EnsurePatch(k8sClient, credentialsSecret, func(s *corev1.Secret) {
-					s.Data = map[string][]byte{
-						tools.CredentialsSecretKey: []byte(`{"password": "my-password"}`),
-					}
-				})
-			})
-
-			It("returns an error", func() {
-				Expect(createClientErr).To(MatchError(ContainSubstring("invalid broker credentials")))
-			})
-		})
-
-		When("password is not set", func() {
-			BeforeEach(func() {
-				helpers.EnsurePatch(k8sClient, credentialsSecret, func(s *corev1.Secret) {
-					s.Data = map[string][]byte{
-						tools.CredentialsSecretKey: []byte(`{"username": "my-user"}`),
-					}
-				})
-			})
-
-			It("returns an error", func() {
-				Expect(createClientErr).To(MatchError(ContainSubstring("invalid broker credentials")))
-			})
-		})
 	})
 
 	When("the client does not trust insecure brokers", func() {
