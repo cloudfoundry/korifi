@@ -2,13 +2,11 @@ package handlers_test
 
 import (
 	"errors"
-	"log"
 	"net/http"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
-	apimodelservices "code.cloudfoundry.org/korifi/api/model/services"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -80,12 +78,10 @@ var _ = Describe("ServiceOffering", func() {
 			)))
 		})
 
-		When("params to inlude fields[service_broker]", func() {
+		When("params to include fields[service_broker]", func() {
 			BeforeEach(func() {
 				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-					ServiceBroker: apimodelservices.ServiceBroker{
-						Name: "broker-name",
-					},
+					Name: "broker-name",
 					CFResource: model.CFResource{
 						GUID: "broker-guid",
 					},
@@ -100,7 +96,6 @@ var _ = Describe("ServiceOffering", func() {
 			})
 
 			It("includes service offering in the response", func() {
-				log.Printf("body %+v", rr.Body)
 				Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
 					MatchJSONPath("$.included.service_brokers[0].name", "broker-name"),
@@ -182,9 +177,7 @@ var _ = Describe("ServiceOffering", func() {
 		Describe("include broker fields", func() {
 			BeforeEach(func() {
 				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-					ServiceBroker: apimodelservices.ServiceBroker{
-						Name: "broker-name",
-					},
+					Name: "broker-name",
 					CFResource: model.CFResource{
 						GUID: "broker-guid",
 					},

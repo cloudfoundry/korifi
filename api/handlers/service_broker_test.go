@@ -8,7 +8,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
-	"code.cloudfoundry.org/korifi/api/model/services"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
@@ -48,9 +47,7 @@ var _ = Describe("ServiceBroker", func() {
 
 		BeforeEach(func() {
 			payload = payloads.ServiceBrokerCreate{
-				ServiceBroker: services.ServiceBroker{
-					Name: "my-broker",
-				},
+				Name:           "my-broker",
 				Authentication: &payloads.BrokerAuthentication{},
 			}
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
@@ -73,7 +70,7 @@ var _ = Describe("ServiceBroker", func() {
 			Expect(serviceBrokerRepo.CreateServiceBrokerCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualCreateMsg := serviceBrokerRepo.CreateServiceBrokerArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualCreateMsg.ServiceBroker.Name).To(Equal("my-broker"))
+			Expect(actualCreateMsg.Name).To(Equal("my-broker"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/service_broker.create~service-broker-guid"))

@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/model/services"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
@@ -26,10 +25,8 @@ var _ = Describe("Service Broker", func() {
 		baseURL, err = url.Parse("https://api.example.org")
 		Expect(err).NotTo(HaveOccurred())
 		record = repositories.ServiceBrokerRecord{
-			ServiceBroker: services.ServiceBroker{
-				Name: "my-broker",
-				URL:  "https://my.broker",
-			},
+			Name: "my-broker",
+			URL:  "https://my.broker",
 			CFResource: model.CFResource{
 				GUID:      "resource-guid",
 				CreatedAt: time.UnixMilli(1000).UTC(),

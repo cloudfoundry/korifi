@@ -3,7 +3,6 @@ package payloads_test
 import (
 	"net/http"
 
-	"code.cloudfoundry.org/korifi/api/model/services"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/model"
@@ -31,16 +30,12 @@ var _ = Describe("ServiceBrokerCreate", func() {
 					"annotation": "annotation-value",
 				},
 			},
-			ServiceBroker: services.ServiceBroker{
-				Name: "my-broker",
-				URL:  "https://my.broker.com",
-			},
+			Name: "my-broker",
+			URL:  "https://my.broker.com",
 			Authentication: &payloads.BrokerAuthentication{
-				Credentials: services.BrokerCredentials{
-					Username: "broker-user",
-					Password: "broker-password",
-				},
-				Type: "basic",
+				Username: "broker-user",
+				Password: "broker-password",
+				Type:     "basic",
 			},
 		}
 	})
@@ -102,11 +97,9 @@ var _ = Describe("ServiceBrokerCreate", func() {
 					Labels:      map[string]string{"label": "label-value"},
 					Annotations: map[string]string{"annotation": "annotation-value"},
 				},
-				ServiceBroker: services.ServiceBroker{
-					Name: "my-broker",
-					URL:  "https://my.broker.com",
-				},
-				BrokerCredentials: services.BrokerCredentials{
+				Name: "my-broker",
+				URL:  "https://my.broker.com",
+				Credentials: repositories.BrokerCredentials{
 					Username: "broker-user",
 					Password: "broker-password",
 				},
@@ -220,16 +213,14 @@ var _ = Describe("ServiceBrokerUpdate", func() {
 		When("the message has cretentials", func() {
 			BeforeEach(func() {
 				updatePayload.Authentication = &payloads.BrokerAuthentication{
-					Credentials: services.BrokerCredentials{
-						Username: "user",
-						Password: "pass",
-					},
-					Type: "basic",
+					Username: "user",
+					Password: "pass",
+					Type:     "basic",
 				}
 			})
 
 			It("converts to repo message with credentials", func() {
-				Expect(updatePayload.ToMessage("broker-guid").Credentials).To(Equal(&services.BrokerCredentials{
+				Expect(updatePayload.ToMessage("broker-guid").Credentials).To(Equal(&repositories.BrokerCredentials{
 					Username: "user",
 					Password: "pass",
 				}))

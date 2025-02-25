@@ -3,7 +3,6 @@ package payloads
 import (
 	"net/url"
 
-	"code.cloudfoundry.org/korifi/api/model/services"
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -12,18 +11,22 @@ import (
 )
 
 type BrokerAuthentication struct {
-	Credentials services.BrokerCredentials `json:"credentials"`
-	Type        string                     `json:"type"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Type     string `json:"type"`
 }
 
 func (a BrokerAuthentication) Validate() error {
 	return jellidation.ValidateStruct(&a,
 		jellidation.Field(&a.Type, validation.OneOf("basic")),
+		jellidation.Field(&a.Username, jellidation.Required),
+		jellidation.Field(&a.Password, jellidation.Required),
 	)
 }
 
 type ServiceBrokerCreate struct {
-	services.ServiceBroker
+	Name string `json:"name"`
+	URL  string `json:"url"`
 	model.Metadata
 	Authentication *BrokerAuthentication `json:"authentication"`
 }
@@ -38,9 +41,13 @@ func (c ServiceBrokerCreate) Validate() error {
 
 func (c ServiceBrokerCreate) ToMessage() repositories.CreateServiceBrokerMessage {
 	return repositories.CreateServiceBrokerMessage{
-		ServiceBroker:     c.ServiceBroker,
-		Metadata:          c.Metadata,
-		BrokerCredentials: c.Authentication.Credentials,
+		Name:     c.Name,
+		URL:      c.URL,
+		Metadata: c.Metadata,
+		Credentials: repositories.BrokerCredentials{
+			Username: c.Authentication.Username,
+			Password: c.Authentication.Password,
+		},
 	}
 }
 
@@ -91,9 +98,9 @@ func (b *ServiceBrokerUpdate) ToMessage(brokerGUID string) repositories.UpdateSe
 	}
 
 	if b.Authentication != nil {
-		message.Credentials = &services.BrokerCredentials{
-			Username: b.Authentication.Credentials.Username,
-			Password: b.Authentication.Credentials.Password,
+		message.Credentials = &repositories.BrokerCredentials{
+			Username: b.Authentication.Username,
+			Password: b.Authentication.Password,
 		}
 	}
 

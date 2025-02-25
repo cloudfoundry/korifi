@@ -8,7 +8,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
-	apimodelservices "code.cloudfoundry.org/korifi/api/model/services"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -154,9 +153,7 @@ var _ = Describe("ServiceInstance", func() {
 				}}, nil)
 
 				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-					ServiceBroker: apimodelservices.ServiceBroker{
-						Name: "service-broker-name",
-					},
+					Name: "service-broker-name",
 					CFResource: model.CFResource{
 						GUID: "service-broker-guid",
 					},
@@ -587,9 +584,7 @@ var _ = Describe("ServiceInstance", func() {
 				}}, nil)
 
 				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-					ServiceBroker: apimodelservices.ServiceBroker{
-						Name: "service-broker-name",
-					},
+					Name: "service-broker-name",
 					CFResource: model.CFResource{
 						GUID: "service-broker-guid",
 					},

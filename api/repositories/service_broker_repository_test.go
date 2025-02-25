@@ -4,7 +4,6 @@ import (
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/model/services"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
@@ -46,11 +45,9 @@ var _ = Describe("ServiceBrokerRepo", func() {
 						"annotation": "annotation-value",
 					},
 				},
-				ServiceBroker: services.ServiceBroker{
-					Name: "my-broker",
-					URL:  "https://my.broker.com",
-				},
-				BrokerCredentials: services.BrokerCredentials{
+				Name: "my-broker",
+				URL:  "https://my.broker.com",
+				Credentials: repositories.BrokerCredentials{
 					Username: "broker-user",
 					Password: "broker-password",
 				},
@@ -81,20 +78,22 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 			It("returns a ServiceBrokerRecord", func() {
 				Expect(createErr).NotTo(HaveOccurred())
-				Expect(brokerRecord.ServiceBroker).To(Equal(services.ServiceBroker{
-					Name: "my-broker",
-					URL:  "https://my.broker.com",
+				Expect(brokerRecord).To(MatchFields(IgnoreExtras, Fields{
+					"Name": Equal("my-broker"),
+					"URL":  Equal("https://my.broker.com"),
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"CreatedAt": Not(BeZero()),
+						"GUID":      BeValidUUID(),
+						"Metadata": MatchAllFields(Fields{
+							"Labels": Equal(map[string]string{
+								"label": "label-value",
+							}),
+							"Annotations": Equal(map[string]string{
+								"annotation": "annotation-value",
+							}),
+						}),
+					}),
 				}))
-				Expect(brokerRecord.Metadata).To(Equal(model.Metadata{
-					Labels: map[string]string{
-						"label": "label-value",
-					},
-					Annotations: map[string]string{
-						"annotation": "annotation-value",
-					},
-				}))
-				Expect(brokerRecord.GUID).To(BeValidUUID())
-				Expect(brokerRecord.CFResource.CreatedAt).NotTo(BeZero())
 			})
 
 			It("creates a CFServiceBroker resource in Kubernetes", func() {
@@ -283,10 +282,8 @@ var _ = Describe("ServiceBrokerRepo", func() {
 		It("returns a list of brokers", func() {
 			Expect(brokers).To(ConsistOf(
 				MatchAllFields(Fields{
-					"ServiceBroker": MatchAllFields(Fields{
-						"Name": Equal("first-broker"),
-						"URL":  Equal("https://first.broker"),
-					}),
+					"Name": Equal("first-broker"),
+					"URL":  Equal("https://first.broker"),
 					"CFResource": MatchFields(IgnoreExtras, Fields{
 						"GUID":      Equal("broker-1"),
 						"CreatedAt": Not(BeZero()),
@@ -297,10 +294,8 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					}),
 				}),
 				MatchAllFields(Fields{
-					"ServiceBroker": MatchAllFields(Fields{
-						"Name": Equal("second-broker"),
-						"URL":  Equal("https://second.broker"),
-					}),
+					"Name": Equal("second-broker"),
+					"URL":  Equal("https://second.broker"),
 					"CFResource": MatchFields(IgnoreExtras, Fields{
 						"GUID":      Equal("broker-2"),
 						"CreatedAt": Not(BeZero()),
@@ -321,9 +316,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 			It("only returns the matching brokers", func() {
 				Expect(brokers).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
-						"ServiceBroker": MatchFields(IgnoreExtras, Fields{
-							"Name": Equal("second-broker"),
-						}),
+						"Name": Equal("second-broker"),
 					}),
 				))
 			})
@@ -400,10 +393,8 @@ var _ = Describe("ServiceBrokerRepo", func() {
 			It("returns the broker", func() {
 				Expect(getErr).NotTo(HaveOccurred())
 				Expect(serviceBroker).To(MatchAllFields(Fields{
-					"ServiceBroker": MatchAllFields(Fields{
-						"Name": Equal("first-broker"),
-						"URL":  Equal("https://first.broker"),
-					}),
+					"Name": Equal("first-broker"),
+					"URL":  Equal("https://first.broker"),
 					"CFResource": MatchFields(IgnoreExtras, Fields{
 						"GUID":      Equal("broker-1"),
 						"CreatedAt": Not(BeZero()),
@@ -460,7 +451,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 				GUID: cfServiceBroker.Name,
 				Name: tools.PtrTo("your-broker"),
 				URL:  tools.PtrTo("https://your.broker"),
-				Credentials: &services.BrokerCredentials{
+				Credentials: &repositories.BrokerCredentials{
 					Username: "another-user",
 					Password: "another-pass",
 				},
@@ -490,13 +481,16 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 			It("returns an updated ServiceBrokerRecord", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
-				Expect(brokerRecord.ServiceBroker).To(Equal(services.ServiceBroker{
-					Name: "your-broker",
-					URL:  "https://your.broker",
+				Expect(brokerRecord).To(MatchFields(IgnoreExtras, Fields{
+					"Name": Equal("your-broker"),
+					"URL":  Equal("https://your.broker"),
+					"CFResource": MatchFields(IgnoreExtras, Fields{
+						"Metadata": MatchAllFields(Fields{
+							"Labels":      HaveKeyWithValue("foo", "bar"),
+							"Annotations": HaveKeyWithValue("baz", "qux"),
+						}),
+					}),
 				}))
-
-				Expect(brokerRecord.Metadata.Labels).To(HaveKeyWithValue("foo", "bar"))
-				Expect(brokerRecord.Metadata.Annotations).To(HaveKeyWithValue("baz", "qux"))
 			})
 
 			It("updates the CFServiceBroker resource in Kubernetes", func() {

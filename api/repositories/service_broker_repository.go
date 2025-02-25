@@ -8,7 +8,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/model/services"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tools"
@@ -25,10 +24,16 @@ import (
 
 const ServiceBrokerResourceType = "Service Broker"
 
+type BrokerCredentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 type CreateServiceBrokerMessage struct {
-	services.ServiceBroker
-	services.BrokerCredentials
-	Metadata model.Metadata
+	Name        string
+	URL         string
+	Credentials BrokerCredentials
+	Metadata    model.Metadata
 }
 
 type ListServiceBrokerMessage struct {
@@ -45,7 +50,7 @@ type UpdateServiceBrokerMessage struct {
 	GUID          string
 	Name          *string
 	URL           *string
-	Credentials   *services.BrokerCredentials
+	Credentials   *BrokerCredentials
 	MetadataPatch MetadataPatch
 }
 
@@ -67,7 +72,8 @@ type ServiceBrokerRepo struct {
 }
 
 type ServiceBrokerRecord struct {
-	services.ServiceBroker
+	Name string `json:"name"`
+	URL  string `json:"url"`
 	model.CFResource
 }
 
@@ -92,8 +98,8 @@ func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo au
 	}
 
 	credsSecretData, err := tools.ToCredentialsSecretData(map[string]string{
-		"username": message.Username,
-		"password": message.Password,
+		"username": message.Credentials.Username,
+		"password": message.Credentials.Password,
 	})
 	if err != nil {
 		return ServiceBrokerRecord{}, fmt.Errorf("failed to create credentials secret data: %w", err)
@@ -140,10 +146,8 @@ func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo au
 
 func toServiceBrokerRecord(cfServiceBroker korifiv1alpha1.CFServiceBroker) ServiceBrokerRecord {
 	return ServiceBrokerRecord{
-		ServiceBroker: services.ServiceBroker{
-			Name: cfServiceBroker.Spec.Name,
-			URL:  cfServiceBroker.Spec.URL,
-		},
+		Name: cfServiceBroker.Spec.Name,
+		URL:  cfServiceBroker.Spec.URL,
 		CFResource: model.CFResource{
 			GUID:      cfServiceBroker.Name,
 			CreatedAt: cfServiceBroker.CreationTimestamp.Time,
