@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -53,6 +54,18 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 	envs := appWorkload.Spec.Env
 
 	fieldEnvs := []corev1.EnvVar{
+		{
+			Name:  "APP_WORKLOAD_GUID",
+			Value: appWorkload.Name,
+		},
+		{
+			Name:  "APP_WORKLOAD_GENERATION",
+			Value: strconv.FormatInt(int64(appWorkload.Generation), 10),
+		},
+		{
+			Name:  "APP_WORKLOAD_SERVICES",
+			Value: fmt.Sprintf("%#v", appWorkload.Spec.Services),
+		},
 		{
 			Name: EnvPodName,
 			ValueFrom: &corev1.EnvVarSource{

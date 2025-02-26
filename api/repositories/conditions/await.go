@@ -56,6 +56,7 @@ func (a *Awaiter[T, TT, L, PL]) AwaitState(ctx context.Context, k8sClient client
 			continue
 		}
 
+		// TODO: does it make sense to check for generation == observed generation here and error if not without calling `checkState`?
 		checkStateErr = checkState(obj)
 		if checkStateErr == nil {
 			return obj, nil

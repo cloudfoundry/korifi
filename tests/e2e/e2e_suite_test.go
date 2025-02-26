@@ -26,11 +26,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -52,6 +54,8 @@ var (
 	defaultAppBitsFile      string
 	multiProcessAppBitsFile string
 	serviceBrokerURL        string
+
+	theAppGUID string
 )
 
 type resource struct {
@@ -304,26 +308,133 @@ type planVisibilityResource struct {
 
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(fail_handler.New("E2E Tests",
+		// fail_handler.Hook{
+		// 	Matcher: fail_handler.Always,
+		// 	Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
+		// 		fail_handler.PrintKorifiLogs(config, correlationId, failure.StartTime)
+		// 	},
+		// },
+		// fail_handler.Hook{
+		// 	Matcher: ContainSubstring("Droplet not found"),
+		// 	Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
+		// 		printDropletNotFoundDebugInfo(config, failure.Message)
+		// 	},
+		// },
+		// fail_handler.Hook{
+		// 	Matcher: ContainSubstring("404"),
+		// 	Hook: func(config *rest.Config, _ fail_handler.TestFailure) {
+		// 		printAllRoleBindings(config)
+		// 	},
+		// },
 		fail_handler.Hook{
 			Matcher: fail_handler.Always,
-			Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
-				fail_handler.PrintKorifiLogs(config, correlationId, failure.StartTime)
-			},
-		},
-		fail_handler.Hook{
-			Matcher: ContainSubstring("Droplet not found"),
-			Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
-				printDropletNotFoundDebugInfo(config, failure.Message)
-			},
-		},
-		fail_handler.Hook{
-			Matcher: ContainSubstring("404"),
 			Hook: func(config *rest.Config, _ fail_handler.TestFailure) {
-				printAllRoleBindings(config)
+				printBindingDebugInfo(config)
 			},
 		},
 	).Fail)
 	RunSpecs(t, "E2E Suite")
+}
+
+func printBindingDebugInfo(config *rest.Config) {
+	if theAppGUID == "" {
+		fmt.Fprintln(GinkgoWriter, "I do not know what the app guid is!")
+		return
+	}
+	k8sClient, err := client.New(config, client.Options{Scheme: scheme.Scheme})
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to create k8s client: %v\n", err)
+		return
+	}
+
+	fmt.Fprintln(GinkgoWriter, "============= Binding debug info ============")
+	defer func() {
+		fmt.Fprintln(GinkgoWriter, "============= End of Binding debug info ============")
+	}()
+
+	ctx := context.Background()
+
+	cfApps := &korifiv1alpha1.CFAppList{}
+	err = k8sClient.List(ctx, cfApps)
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to list cfapps: %v\n", err)
+		return
+	}
+
+	var theCfApp *korifiv1alpha1.CFApp
+	for _, app := range cfApps.Items {
+		if app.Name == theAppGUID {
+			theCfApp = &app
+		}
+	}
+
+	if theCfApp == nil {
+		fmt.Fprintf(GinkgoWriter, "I could not find CFApp with name %v", theAppGUID)
+		return
+	}
+
+	fmt.Fprintf(GinkgoWriter, "============= CFApp %q ============\n", client.ObjectKeyFromObject(theCfApp))
+	printObject(k8sClient, theCfApp)
+
+	cfProcesses := &korifiv1alpha1.CFProcessList{}
+	err = k8sClient.List(ctx, cfProcesses, client.MatchingLabels{
+		"korifi.cloudfoundry.org/app-guid": theCfApp.Name,
+	})
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to list cfprocess: %v\n", err)
+		return
+	}
+
+	fmt.Fprintln(GinkgoWriter, "============= CFProcess ============")
+	for _, process := range cfProcesses.Items {
+		fmt.Fprintf(GinkgoWriter, "============= CFProcess %q ============\n", client.ObjectKeyFromObject(&process))
+		printObject(k8sClient, &process)
+	}
+
+	appWorkloads := &korifiv1alpha1.AppWorkloadList{}
+	err = k8sClient.List(ctx, appWorkloads, client.MatchingLabels{
+		"korifi.cloudfoundry.org/app-guid": theCfApp.Name,
+	})
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to list appworkloads: %v\n", err)
+		return
+	}
+
+	fmt.Fprintln(GinkgoWriter, "============= AppWorkload ============")
+	for _, appWorkload := range appWorkloads.Items {
+		fmt.Fprintf(GinkgoWriter, "============= AppWorkload %q ============\n", client.ObjectKeyFromObject(&appWorkload))
+		printObject(k8sClient, &appWorkload)
+	}
+
+	statefulsets := &appsv1.StatefulSetList{}
+	err = k8sClient.List(ctx, statefulsets, client.MatchingLabels{
+		"korifi.cloudfoundry.org/app-guid": theCfApp.Name,
+	})
+	if err != nil {
+		fmt.Fprintf(GinkgoWriter, "failed to list statefulsets: %v\n", err)
+		return
+	}
+
+	fmt.Fprintln(GinkgoWriter, "============= StatefulSet ============")
+	for _, statefulset := range statefulsets.Items {
+		fmt.Fprintf(GinkgoWriter, "============= StatefulSet %q ============\n", client.ObjectKeyFromObject(&statefulset))
+		printObject(k8sClient, &statefulset)
+	}
+}
+
+func printObject(k8sClient client.Client, obj client.Object) error {
+	if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(obj), obj); err != nil {
+		return fmt.Errorf("failed to get object %q: %v\n", client.ObjectKeyFromObject(obj), err)
+	}
+
+	fmt.Fprintf(GinkgoWriter, "\n\n========== %T %s/%s (skipping managed fields) ==========\n", obj, obj.GetNamespace(), obj.GetName())
+	obj.SetManagedFields([]metav1.ManagedFieldsEntry{})
+	objBytes, err := yaml.Marshal(obj)
+	if err != nil {
+		return fmt.Errorf("failed marshalling object %v: %v\n", obj, err)
+	}
+	fmt.Fprintln(GinkgoWriter, string(objBytes))
+	return nil
 }
 
 type sharedSetupData struct {
@@ -385,6 +496,11 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	brokerOrgGUID = sharedSetup.BrokerOrgGUID
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = appsv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = SynchronizedAfterSuite(func() {
@@ -395,6 +511,7 @@ var _ = SynchronizedAfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
+	theAppGUID = ""
 	correlationId = uuid.NewString()
 })
 

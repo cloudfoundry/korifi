@@ -639,6 +639,7 @@ var _ = Describe("Apps", func() {
 
 		BeforeEach(func() {
 			appGUID, _ = pushTestApp(space1GUID, defaultAppBitsFile)
+			theAppGUID = appGUID
 			credentials := map[string]string{
 				"foo": "bar",
 				"baz": "qux",

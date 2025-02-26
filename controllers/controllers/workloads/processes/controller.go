@@ -245,10 +245,6 @@ func (r *Reconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifi
 	}
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, appWorkload, func() error {
-		if appWorkload.CreationTimestamp.IsZero() {
-			appWorkload.Spec.Services = cfApp.Status.ServiceBindings
-		}
-
 		appWorkload.Labels = make(map[string]string)
 		appWorkload.Labels[korifiv1alpha1.CFAppGUIDLabelKey] = cfApp.Name
 		appWorkload.Labels[korifiv1alpha1.CFAppRevisionKey] = getRevision(cfApp)
@@ -257,6 +253,10 @@ func (r *Reconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifi
 
 		appWorkload.Annotations = make(map[string]string)
 		appWorkload.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = getLastStopRevision(cfApp)
+
+		if appWorkload.CreationTimestamp.IsZero() {
+			appWorkload.Spec.Services = cfProcess.Spec.ServiceBindings
+		}
 
 		appWorkload.Spec.GUID = cfProcess.Name
 		appWorkload.Spec.Version = getRevision(cfApp)

@@ -39,10 +39,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 			korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
-			*korifiv1alpha1.CFApp,
-			korifiv1alpha1.CFApp,
-			korifiv1alpha1.CFAppList,
-			*korifiv1alpha1.CFAppList,
 		]
 		appConditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
@@ -65,13 +61,14 @@ var _ = Describe("ServiceBindingRepo", func() {
 			korifiv1alpha1.CFApp,
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
-		]
+		]{}
 		repo = repositories.NewServiceBindingRepo(
 			namespaceRetriever,
 			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
 			}),
-			conditionAwaiter, appConditionAwaiter)
+			conditionAwaiter,
+			appConditionAwaiter)
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
@@ -282,7 +279,12 @@ var _ = Describe("ServiceBindingRepo", func() {
 				return cfServiceBinding, nil
 			}
 
-			bindingName = nil
+			appConditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFApp, error) {
+				cfApp, ok := object.(*korifiv1alpha1.CFApp)
+				Expect(ok).To(BeTrue())
+
+				return cfApp, nil
+			}
 		})
 
 		JustBeforeEach(func() {
@@ -353,6 +355,14 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(obj.GetName()).To(Equal(cfServiceBinding.Name))
 				Expect(obj.GetNamespace()).To(Equal(space.Name))
 				Expect(conditionType).To(Equal(korifiv1alpha1.StatusConditionReady))
+			})
+
+			It("awaits cf app status bindings", func() {
+				cfServiceBinding := new(korifiv1alpha1.CFServiceBinding)
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: space.Name, Name: serviceBindingRecord.GUID}, cfServiceBinding)).To(Succeed())
+
+				Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+				obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
 			})
 
 			When("the vcap services secret available condition is never met", func() {
