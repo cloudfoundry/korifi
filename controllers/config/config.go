@@ -49,11 +49,10 @@ type Networking struct {
 }
 
 const (
-	defaultTaskTTL                      = 30 * 24 * time.Hour
-	defaultTimeout                int32 = 60
-	defaultJobTTL                       = 24 * time.Hour
-	defaultBuildCacheMB                 = 2048
-	defaultDisableRouteController       = false
+	defaultTaskTTL            = 30 * 24 * time.Hour
+	defaultTimeout      int32 = 60
+	defaultJobTTL             = 24 * time.Hour
+	defaultBuildCacheMB       = 2048
 )
 
 func LoadFromPath(path string) (*ControllerConfig, error) {
