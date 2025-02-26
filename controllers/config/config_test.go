@@ -114,7 +114,7 @@ var _ = Describe("LoadFromPath", func() {
 		})
 
 		It("uses the default", func() {
-			Expect(retConfig.DisableRouteController).To(Equal(false))
+			Expect(retConfig.DisableRouteController).To(BeFalse())
 		})
 	})
 
