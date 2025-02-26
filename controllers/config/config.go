@@ -28,6 +28,7 @@ type ControllerConfig struct {
 
 	ExperimentalManagedServicesEnabled bool `yaml:"experimentalManagedServicesEnabled"`
 	TrustInsecureServiceBrokers        bool `yaml:"trustInsecureServiceBrokers"`
+	DisableRouteController             bool `yaml:"disableRouteController"`
 }
 
 type CFProcessDefaults struct {
@@ -48,10 +49,11 @@ type Networking struct {
 }
 
 const (
-	defaultTaskTTL            = 30 * 24 * time.Hour
-	defaultTimeout      int32 = 60
-	defaultJobTTL             = 24 * time.Hour
-	defaultBuildCacheMB       = 2048
+	defaultTaskTTL                      = 30 * 24 * time.Hour
+	defaultTimeout                int32 = 60
+	defaultJobTTL                       = 24 * time.Hour
+	defaultBuildCacheMB                 = 2048
+	defaultDisableRouteController       = false
 )
 
 func LoadFromPath(path string) (*ControllerConfig, error) {

@@ -53,6 +53,7 @@ var _ = Describe("LoadFromPath", func() {
 			},
 			ExperimentalManagedServicesEnabled: true,
 			TrustInsecureServiceBrokers:        true,
+			DisableRouteController:             false,
 		}
 	})
 
@@ -96,6 +97,7 @@ var _ = Describe("LoadFromPath", func() {
 			},
 			ExperimentalManagedServicesEnabled: true,
 			TrustInsecureServiceBrokers:        true,
+			DisableRouteController:             false,
 		}))
 	})
 
