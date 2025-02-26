@@ -53,7 +53,6 @@ var _ = Describe("LoadFromPath", func() {
 			},
 			ExperimentalManagedServicesEnabled: true,
 			TrustInsecureServiceBrokers:        true,
-			DisableRouteController:             false,
 		}
 	})
 
@@ -97,7 +96,6 @@ var _ = Describe("LoadFromPath", func() {
 			},
 			ExperimentalManagedServicesEnabled: true,
 			TrustInsecureServiceBrokers:        true,
-			DisableRouteController:             false,
 		}))
 	})
 
@@ -108,6 +106,15 @@ var _ = Describe("LoadFromPath", func() {
 
 		It("uses the default", func() {
 			Expect(retConfig.CFProcessDefaults.Timeout).To(gstruct.PointTo(BeEquivalentTo(60)))
+		})
+	})
+
+	When("the disable route controller is not set", func() {
+		BeforeEach(func() {
+		})
+
+		It("uses the default", func() {
+			Expect(retConfig.DisableRouteController).To(Equal(false))
 		})
 	})
 
