@@ -207,6 +207,7 @@ func main() {
 		namespaceRetriever,
 		userClientFactory,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBindingList](conditionTimeout),
+		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
 	)
 	stackRepo := repositories.NewStackRepository(cfg.BuilderName,
 		userClientFactoryUnfiltered,

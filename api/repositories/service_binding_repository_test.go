@@ -39,6 +39,16 @@ var _ = Describe("ServiceBindingRepo", func() {
 			korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
+			*korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFAppList,
+			*korifiv1alpha1.CFAppList,
+		]
+		appConditionAwaiter *fakeawaiter.FakeAwaiter[
+			*korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFAppList,
+			*korifiv1alpha1.CFAppList,
 		]
 	)
 
@@ -49,12 +59,19 @@ var _ = Describe("ServiceBindingRepo", func() {
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
 		]{}
+
+		appConditionAwaiter = &fakeawaiter.FakeAwaiter[
+			*korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFAppList,
+			*korifiv1alpha1.CFAppList,
+		]
 		repo = repositories.NewServiceBindingRepo(
 			namespaceRetriever,
 			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
 			}),
-			conditionAwaiter)
+			conditionAwaiter, appConditionAwaiter)
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
