@@ -82,6 +82,7 @@ Here are all the values that can be set for the chart:
     - `trustInsecureLogCache` (_Boolean_): Disable external log cache certificate validation. Not recommended to be set to 'true' in production environments
     - `url` (_String_): The url of the exernal LogCache server
   - `managedServices`:
+    - `disableRouteController` (_Boolean_): Disable route controller. Default value is 'false'.
     - `enabled` (_Boolean_): Enable managed services support
     - `trustInsecureBrokers` (_Boolean_): Disable service broker certificate validation. Not recommended to be set to 'true' in production environments
   - `uaa`:
