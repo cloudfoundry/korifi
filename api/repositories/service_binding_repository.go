@@ -35,21 +35,28 @@ const (
 	ServiceBindingResourceType            = "Service Binding"
 )
 
+type ParametersClient interface {
+	GetServiceBindingParameters(ctx context.Context, serviceBinding *korifiv1alpha1.CFServiceBinding) (map[string]any, error)
+}
+
 type ServiceBindingRepo struct {
 	userClientFactory       authorization.UserClientFactory
 	namespaceRetriever      NamespaceRetriever
 	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding]
+	paramsClient            ParametersClient
 }
 
 func NewServiceBindingRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory authorization.UserClientFactory,
 	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding],
+	paramsClient ParametersClient,
 ) *ServiceBindingRepo {
 	return &ServiceBindingRepo{
 		userClientFactory:       userClientFactory,
 		namespaceRetriever:      namespaceRetriever,
 		bindingConditionAwaiter: bindingConditionAwaiter,
+		paramsClient:            paramsClient,
 	}
 }
 
@@ -466,4 +473,18 @@ func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo a
 
 	filteredServiceBindings := itx.FromSlice(serviceBindingList.Items).Filter(message.matches)
 	return slices.Collect(it.Map(filteredServiceBindings, serviceBindingToRecord)), nil
+}
+
+func (r *ServiceBindingRepo) GetServiceBindingParameters(ctx context.Context, authInfo authorization.Info, guid string) (map[string]any, error) {
+	serviceBinding, err := r.getServiceBinding(ctx, authInfo, guid)
+	if err != nil {
+		return map[string]any{}, fmt.Errorf("get-service-binding failed: %w", err)
+	}
+
+	params, err := r.paramsClient.GetServiceBindingParameters(ctx, &serviceBinding)
+	if err != nil {
+		return map[string]any{}, err
+	}
+
+	return params, nil
 }
