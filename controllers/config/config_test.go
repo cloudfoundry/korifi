@@ -109,6 +109,15 @@ var _ = Describe("LoadFromPath", func() {
 		})
 	})
 
+	When("the disable route controller is not set", func() {
+		BeforeEach(func() {
+		})
+
+		It("uses the default", func() {
+			Expect(retConfig.DisableRouteController).To(BeFalse())
+		})
+	})
+
 	When("log level is not set", func() {
 		BeforeEach(func() {
 			cfg.LogLevel = 0

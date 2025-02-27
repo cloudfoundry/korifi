@@ -28,6 +28,7 @@ type ControllerConfig struct {
 
 	ExperimentalManagedServicesEnabled bool `yaml:"experimentalManagedServicesEnabled"`
 	TrustInsecureServiceBrokers        bool `yaml:"trustInsecureServiceBrokers"`
+	DisableRouteController             bool `yaml:"disableRouteController"`
 }
 
 type CFProcessDefaults struct {
