@@ -599,6 +599,15 @@
     },
     "experimental": {
       "properties": {
+        "routing": {
+          "properties": {
+            "disableRouteController": {
+              "description": "Disable route controller. Default value is 'false'.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "managedServices": {
           "properties": {
             "enabled": {
@@ -607,10 +616,6 @@
             },
             "trustInsecureBrokers": {
               "description": "Disable service broker certificate validation. Not recommended to be set to 'true' in production environments",
-              "type": "boolean"
-            },
-            "disableRouteController": {
-              "description": "Disable route controller. Default value is 'false'.",
               "type": "boolean"
             }
           },
