@@ -195,7 +195,7 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 		return ctrl.Result{}, err
 	}
 
-	appWorkload.Status.ActualInstances = createdStSet.Status.Replicas
+	appWorkload.Status.ActualInstances = createdStSet.Status.ReadyReplicas
 
 	instancesState, err := r.stateCollector.CollectState(ctx, appWorkload.Spec.GUID)
 	if err != nil {
