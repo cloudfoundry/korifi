@@ -303,6 +303,11 @@ type planVisibilityResource struct {
 	Organizations []services.VisibilityOrganization `json:"organizations"`
 }
 
+type buildpackResource struct {
+	resource `json:",inline"`
+	Stack    string `json:"stack"`
+}
+
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(fail_handler.New("E2E Tests",
 		fail_handler.Hook{

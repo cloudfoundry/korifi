@@ -12,7 +12,7 @@ import (
 var _ = Describe("Buildpacks", func() {
 	Describe("list", func() {
 		var (
-			result resourceList[responseResource]
+			result resourceList[buildpackResource]
 			resp   *resty.Response
 		)
 
@@ -27,7 +27,9 @@ var _ = Describe("Buildpacks", func() {
 		It("returns a list of buildpacks", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ContainElements(
-				MatchFields(IgnoreExtras, Fields{"Name": ContainSubstring("java")}),
+				MatchFields(IgnoreExtras, Fields{
+					"Stack": Not(BeEmpty()),
+				}),
 			))
 		})
 	})
