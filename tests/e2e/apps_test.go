@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 
@@ -540,23 +539,20 @@ var _ = Describe("Apps", func() {
 		})
 
 		It("Runs with gettable /env.json endpoint", func() {
-			body := curlApp(appGUID, "/env.json")
-
-			env := map[string]string{}
-			Expect(json.Unmarshal(body, &env)).To(Succeed())
-			Expect(env).To(HaveKeyWithValue("VCAP_SERVICES", BeAValidJSONObject()))
-			Expect(env).To(HaveKeyWithValue("VCAP_APPLICATION", BeAValidJSONObject()))
+			Expect(curlAppJSON(appGUID, "/env.json")).To(MatchKeys(IgnoreExtras, Keys{
+				"VCAP_SERVICES":    BeAValidJSONObject(),
+				"VCAP_APPLICATION": BeAValidJSONObject(),
+			}))
 		})
 
 		When("the app is re-pushed with different code", func() {
 			BeforeEach(func() {
-				body := curlApp(appGUID, "")
-				Expect(body).To(ContainSubstring("Hi, I'm Dorifi!"))
+				Expect(curlApp(appGUID)).To(ContainSubstring("Hi, I'm Dorifi!"))
 				Expect(pushTestAppWithName(space1GUID, multiProcessAppBitsFile, appName)).To(Equal(appGUID))
 			})
 
 			It("returns a different endpoint result", func() {
-				Eventually(func() []byte { return curlApp(appGUID, "") }).Should(ContainSubstring("Hi, I'm Dorifi (web)!"))
+				Expect(curlApp(appGUID)).To(ContainSubstring("Hi, I'm Dorifi (web)!"))
 			})
 		})
 
@@ -633,7 +629,6 @@ var _ = Describe("Apps", func() {
 			serviceInstanceGUID       string
 			secondServiceInstanceGUID string
 			bindingName               string
-			result                    map[string]interface{}
 			httpError                 error
 		)
 
@@ -654,28 +649,26 @@ var _ = Describe("Apps", func() {
 			bindingName = "custom-named-binding"
 			namedBindingGUID = createUPSIServiceBinding(appGUID, secondServiceInstanceGUID, bindingName)
 
-			var httpResp *resty.Response
-			httpResp, httpError = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
-			Expect(httpError).NotTo(HaveOccurred())
-			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+			restartApp(appGUID)
 		})
 
 		It("sets the $SERVICE_BINDING_ROOT env variable", func() {
-			body := string(curlApp(appGUID, "/servicebindingroot"))
-			Expect(body).To(ContainSubstring("/bindings"))
+			Expect(curlApp(appGUID, "/servicebindingroot")).To(ContainSubstring("/bindings"))
 		})
 
 		It("mounts the credentials as files into the container", func() {
-			body := curlApp(appGUID, "/servicebindings")
-
-			data := map[string]interface{}{}
-			Expect(json.Unmarshal(body, &data)).To(Succeed())
-			Expect(data).To(HaveLen(2))
-
-			Expect(data[bindingGUID]).To(HaveKeyWithValue("foo", "bar"), string(body))
-			Expect(data[bindingGUID]).To(HaveKeyWithValue("baz", "qux"), string(body))
-			Expect(data[bindingName]).To(HaveKeyWithValue("hello", "there"), string(body))
-			Expect(data[bindingName]).To(HaveKeyWithValue("secret", "stuff"), string(body))
+			Expect(curlAppJSON(appGUID, "/servicebindings")).To(MatchAllKeys(Keys{
+				bindingGUID: MatchAllKeys(Keys{
+					"type": Equal("user-provided"),
+					"foo":  Equal("bar"),
+					"baz":  Equal("qux"),
+				}),
+				bindingName: MatchAllKeys(Keys{
+					"type":   Equal("user-provided"),
+					"hello":  Equal("there"),
+					"secret": Equal("stuff"),
+				}),
+			}))
 		})
 
 		When("the bindings are deleted and the app is restarted", func() {
@@ -684,25 +677,16 @@ var _ = Describe("Apps", func() {
 				Expect(httpError).NotTo(HaveOccurred())
 				_, httpError = adminClient.R().Delete("/v3/service_credential_bindings/" + namedBindingGUID)
 				Expect(httpError).NotTo(HaveOccurred())
-				_, httpError = adminClient.R().SetResult(&result).Post("/v3/apps/" + appGUID + "/actions/restart")
-				Expect(httpError).NotTo(HaveOccurred())
+
+				restartApp(appGUID)
 			})
 
 			It("should unset the $SERVICE_BINDING_ROOT env variable", func() {
-				Eventually(func(g Gomega) {
-					body := string(curlApp(appGUID, "/servicebindingroot"))
-					g.Expect(body).To(ContainSubstring("$SERVICE_BINDING_ROOT is empty"))
-				}).Should(Succeed())
+				Expect(curlApp(appGUID, "/servicebindingroot")).To(ContainSubstring("$SERVICE_BINDING_ROOT is empty"))
 			})
 
 			It("unmounts the credentials from the container", func() {
-				Eventually(func(g Gomega) {
-					body := curlApp(appGUID, "/servicebindings")
-
-					data := map[string]interface{}{}
-					g.Expect(json.Unmarshal(body, &data)).To(Succeed())
-					g.Expect(data).To(BeEmpty())
-				}).Should(Succeed())
+				Expect(curlAppJSON(appGUID, "/servicebindings")).To(BeEmpty())
 			})
 		})
 	})
