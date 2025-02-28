@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -141,9 +140,7 @@ var _ = Describe("ServiceInstance", func() {
 				}}, nil)
 
 				servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
-					ServicePlan: services.ServicePlan{
-						Name: "service-plan-name",
-					},
+					Name: "service-plan-name",
 					CFResource: model.CFResource{
 						GUID: "service-plan-guid",
 					},
@@ -570,9 +567,7 @@ var _ = Describe("ServiceInstance", func() {
 				}}, nil)
 
 				servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
-					ServicePlan: services.ServicePlan{
-						Name: "service-plan-name",
-					},
+					Name: "service-plan-name",
 					CFResource: model.CFResource{
 						GUID: "service-plan-guid",
 					},

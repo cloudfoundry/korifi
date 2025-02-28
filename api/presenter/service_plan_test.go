@@ -12,7 +12,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ = Describe("Service Plan", func() {
@@ -32,44 +31,42 @@ var _ = Describe("Service Plan", func() {
 
 		BeforeEach(func() {
 			record = repositories.ServicePlanRecord{
-				ServicePlan: services.ServicePlan{
-					Name:        "my-service-plan",
-					Free:        true,
-					Description: "service plan description",
-					BrokerCatalog: services.ServicePlanBrokerCatalog{
-						ID: "broker-catalog-plan-guid",
-						Metadata: &runtime.RawExtension{
-							Raw: []byte(`{"foo":"bar"}`),
-						},
-						Features: services.ServicePlanFeatures{
-							PlanUpdateable: true,
-							Bindable:       true,
-						},
+				Name:        "my-service-plan",
+				Free:        true,
+				Description: "service plan description",
+				BrokerCatalog: repositories.ServicePlanBrokerCatalog{
+					ID: "broker-catalog-plan-guid",
+					Metadata: map[string]any{
+						"foo": "bar",
 					},
-					Schemas: services.ServicePlanSchemas{
-						ServiceInstance: services.ServiceInstanceSchema{
-							Create: services.InputParameterSchema{
-								Parameters: &runtime.RawExtension{
-									Raw: []byte(`{"create-param":"create-value"}`),
-								},
-							},
-							Update: services.InputParameterSchema{
-								Parameters: &runtime.RawExtension{
-									Raw: []byte(`{"update-param":"update-value"}`),
-								},
+					Features: repositories.ServicePlanFeatures{
+						PlanUpdateable: true,
+						Bindable:       true,
+					},
+				},
+				Schemas: repositories.ServicePlanSchemas{
+					ServiceInstance: repositories.ServiceInstanceSchema{
+						Create: repositories.InputParameterSchema{
+							Parameters: map[string]any{
+								"create-param": "create-value",
 							},
 						},
-						ServiceBinding: services.ServiceBindingSchema{
-							Create: services.InputParameterSchema{
-								Parameters: &runtime.RawExtension{
-									Raw: []byte(`{"binding-create-param":"binding-create-value"}`),
-								},
+						Update: repositories.InputParameterSchema{
+							Parameters: map[string]any{
+								"update-param": "update-value",
 							},
 						},
 					},
-					MaintenanceInfo: services.MaintenanceInfo{
-						Version: "1.2.3",
+					ServiceBinding: repositories.ServiceBindingSchema{
+						Create: repositories.InputParameterSchema{
+							Parameters: map[string]any{
+								"binding-create-param": "binding-create-value",
+							},
+						},
 					},
+				},
+				MaintenanceInfo: repositories.MaintenanceInfo{
+					Version: "1.2.3",
 				},
 				CFResource: model.CFResource{
 					GUID:      "resource-guid",

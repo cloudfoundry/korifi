@@ -12,7 +12,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
-	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
@@ -61,28 +60,28 @@ var _ = Describe("CFServiceBroker", func() {
 					Bindable:         true,
 					BindingRotatable: true,
 					PlanUpdateable:   true,
-					Schemas: services.ServicePlanSchemas{
-						ServiceInstance: services.ServiceInstanceSchema{
-							Create: services.InputParameterSchema{
+					Schemas: osbapi.ServicePlanSchemas{
+						ServiceInstance: osbapi.ServiceInstanceSchema{
+							Create: osbapi.InputParameterSchema{
 								Parameters: &runtime.RawExtension{
 									Raw: []byte(`{"create-param":"create-value"}`),
 								},
 							},
-							Update: services.InputParameterSchema{
+							Update: osbapi.InputParameterSchema{
 								Parameters: &runtime.RawExtension{
 									Raw: []byte(`{"update-param":"update-value"}`),
 								},
 							},
 						},
-						ServiceBinding: services.ServiceBindingSchema{
-							Create: services.InputParameterSchema{
+						ServiceBinding: osbapi.ServiceBindingSchema{
+							Create: osbapi.InputParameterSchema{
 								Parameters: &runtime.RawExtension{
 									Raw: []byte(`{"binding-create-param":"binding-create-value"}`),
 								},
 							},
 						},
 					},
-					MaintenanceInfo: services.MaintenanceInfo{
+					MaintenanceInfo: osbapi.MaintenanceInfo{
 						Version: "1.2.3",
 					},
 				}},

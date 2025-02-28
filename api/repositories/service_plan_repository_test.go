@@ -108,39 +108,36 @@ var _ = Describe("ServicePlanRepo", func() {
 
 		It("returns the plan", func() {
 			Expect(plan).To(MatchFields(IgnoreExtras, Fields{
-				"ServicePlan": MatchFields(IgnoreExtras, Fields{
-					"Name":        Equal("my-service-plan"),
-					"Description": Equal("service plan description"),
-					"Free":        BeTrue(),
-					"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
-						"ID": Equal("broker-plan-guid"),
-						"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-							"Raw": MatchJSON(`{"foo": "bar"}`),
-						})),
-
-						"Features": MatchFields(IgnoreExtras, Fields{
-							"PlanUpdateable": BeTrue(),
-							"Bindable":       BeTrue(),
+				"Name":        Equal("my-service-plan"),
+				"Description": Equal("service plan description"),
+				"Free":        BeTrue(),
+				"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
+					"ID": Equal("broker-plan-guid"),
+					"Metadata": MatchAllKeys(Keys{
+						"foo": Equal("bar"),
+					}),
+					"Features": MatchFields(IgnoreExtras, Fields{
+						"PlanUpdateable": BeTrue(),
+						"Bindable":       BeTrue(),
+					}),
+				}),
+				"Schemas": MatchFields(IgnoreExtras, Fields{
+					"ServiceInstance": MatchFields(IgnoreExtras, Fields{
+						"Create": MatchFields(IgnoreExtras, Fields{
+							"Parameters": MatchAllKeys(Keys{
+								"create-param": Equal("create-value"),
+							}),
+						}),
+						"Update": MatchFields(IgnoreExtras, Fields{
+							"Parameters": MatchAllKeys(Keys{
+								"update-param": Equal("update-value"),
+							}),
 						}),
 					}),
-					"Schemas": MatchFields(IgnoreExtras, Fields{
-						"ServiceInstance": MatchFields(IgnoreExtras, Fields{
-							"Create": MatchFields(IgnoreExtras, Fields{
-								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-									"Raw": MatchJSON(`{"create-param":"create-value"}`),
-								})),
-							}),
-							"Update": MatchFields(IgnoreExtras, Fields{
-								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-									"Raw": MatchJSON(`{"update-param":"update-value"}`),
-								})),
-							}),
-						}),
-						"ServiceBinding": MatchFields(IgnoreExtras, Fields{
-							"Create": MatchFields(IgnoreExtras, Fields{
-								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-									"Raw": MatchJSON(`{"binding-create-param": "binding-create-value"}`),
-								})),
+					"ServiceBinding": MatchFields(IgnoreExtras, Fields{
+						"Create": MatchFields(IgnoreExtras, Fields{
+							"Parameters": MatchAllKeys(Keys{
+								"binding-create-param": Equal("binding-create-value"),
 							}),
 						}),
 					}),
@@ -253,9 +250,7 @@ var _ = Describe("ServicePlanRepo", func() {
 			It("returns matching service plans", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"ServicePlan": MatchFields(IgnoreExtras, Fields{
-						"Name": Equal("other-plan"),
-					}),
+					"Name": Equal("other-plan"),
 				})))
 			})
 		})
@@ -268,9 +263,7 @@ var _ = Describe("ServicePlanRepo", func() {
 			It("returns matching service plans", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"ServicePlan": MatchFields(IgnoreExtras, Fields{
-						"Name": Equal("other-plan"),
-					}),
+					"Name": Equal("other-plan"),
 				})))
 			})
 		})

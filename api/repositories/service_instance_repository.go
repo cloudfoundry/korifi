@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -174,7 +173,7 @@ type ServiceInstanceRecord struct {
 	DeletedAt        *time.Time
 	LastOperation    korifiv1alpha1.LastOperation
 	Ready            bool
-	MaintenanceInfo  services.MaintenanceInfo
+	MaintenanceInfo  MaintenanceInfo
 	UpgradeAvailable bool
 }
 
@@ -593,7 +592,7 @@ func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstanc
 		DeletedAt:     golangTime(cfServiceInstance.DeletionTimestamp),
 		LastOperation: cfServiceInstance.Status.LastOperation,
 		Ready:         isInstanceReady(cfServiceInstance),
-		MaintenanceInfo: services.MaintenanceInfo{
+		MaintenanceInfo: MaintenanceInfo{
 			Version: cfServiceInstance.Status.MaintenanceInfo.Version,
 		},
 		UpgradeAvailable: cfServiceInstance.Status.UpgradeAvailable,

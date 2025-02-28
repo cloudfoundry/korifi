@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -1023,7 +1022,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 				It("returns the maintenance info", func() {
 					Expect(getErr).NotTo(HaveOccurred())
-					Expect(record.MaintenanceInfo).To(Equal(services.MaintenanceInfo{
+					Expect(record.MaintenanceInfo).To(Equal(repositories.MaintenanceInfo{
 						Version: "1.2.3",
 					}))
 				})

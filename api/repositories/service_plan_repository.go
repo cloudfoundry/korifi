@@ -23,11 +23,49 @@ const (
 )
 
 type ServicePlanRecord struct {
-	services.ServicePlan
 	model.CFResource
+	Name                string
+	Free                bool
+	Description         string
+	BrokerCatalog       ServicePlanBrokerCatalog
+	Schemas             ServicePlanSchemas
+	MaintenanceInfo     MaintenanceInfo
 	Visibility          PlanVisibility
 	ServiceOfferingGUID string
 	Available           bool
+}
+
+type ServicePlanBrokerCatalog struct {
+	ID       string
+	Metadata map[string]any
+	Features ServicePlanFeatures
+}
+
+type InputParameterSchema struct {
+	Parameters map[string]any
+}
+
+type ServiceInstanceSchema struct {
+	Create InputParameterSchema
+	Update InputParameterSchema
+}
+
+type ServiceBindingSchema struct {
+	Create InputParameterSchema
+}
+
+type ServicePlanSchemas struct {
+	ServiceInstance ServiceInstanceSchema
+	ServiceBinding  ServiceBindingSchema
+}
+
+type ServicePlanFeatures struct {
+	PlanUpdateable bool
+	Bindable       bool
+}
+
+type MaintenanceInfo struct {
+	Version string
 }
 
 func (r ServicePlanRecord) Relationships() map[string]string {
@@ -233,38 +271,51 @@ func (r *ServicePlanRepo) planToRecord(ctx context.Context, authInfo authorizati
 		}
 	}
 
+	metadata, err := asMap(plan.Spec.BrokerCatalog.Metadata)
+	if err != nil {
+		return ServicePlanRecord{}, err
+	}
+
+	instanceCreateParams, err := asMap(plan.Spec.Schemas.ServiceInstance.Create.Parameters)
+	if err != nil {
+		return ServicePlanRecord{}, err
+	}
+
+	instanceUpdateParams, err := asMap(plan.Spec.Schemas.ServiceInstance.Update.Parameters)
+	if err != nil {
+		return ServicePlanRecord{}, err
+	}
+
+	bindingCreateParams, err := asMap(plan.Spec.Schemas.ServiceBinding.Create.Parameters)
+	if err != nil {
+		return ServicePlanRecord{}, err
+	}
+
 	return ServicePlanRecord{
-		ServicePlan: services.ServicePlan{
-			Name:        plan.Spec.Name,
-			Free:        plan.Spec.Free,
-			Description: plan.Spec.Description,
-			BrokerCatalog: services.ServicePlanBrokerCatalog{
-				ID:       plan.Spec.BrokerCatalog.ID,
-				Metadata: plan.Spec.BrokerCatalog.Metadata,
-				Features: services.ServicePlanFeatures{
-					PlanUpdateable: plan.Spec.BrokerCatalog.Features.PlanUpdateable,
-					Bindable:       plan.Spec.BrokerCatalog.Features.Bindable,
+		Name:        plan.Spec.Name,
+		Free:        plan.Spec.Free,
+		Description: plan.Spec.Description,
+		BrokerCatalog: ServicePlanBrokerCatalog{
+			ID:       plan.Spec.BrokerCatalog.ID,
+			Metadata: metadata,
+			Features: ServicePlanFeatures(plan.Spec.BrokerCatalog.Features),
+		},
+		Schemas: ServicePlanSchemas{
+			ServiceInstance: ServiceInstanceSchema{
+				Create: InputParameterSchema{
+					Parameters: instanceCreateParams,
+				},
+				Update: InputParameterSchema{
+					Parameters: instanceUpdateParams,
 				},
 			},
-			Schemas: services.ServicePlanSchemas{
-				ServiceInstance: services.ServiceInstanceSchema{
-					Create: services.InputParameterSchema{
-						Parameters: plan.Spec.Schemas.ServiceInstance.Create.Parameters,
-					},
-					Update: services.InputParameterSchema{
-						Parameters: plan.Spec.Schemas.ServiceInstance.Update.Parameters,
-					},
+			ServiceBinding: ServiceBindingSchema{
+				Create: InputParameterSchema{
+					Parameters: bindingCreateParams,
 				},
-				ServiceBinding: services.ServiceBindingSchema{
-					Create: services.InputParameterSchema{
-						Parameters: plan.Spec.Schemas.ServiceBinding.Create.Parameters,
-					},
-				},
-			},
-			MaintenanceInfo: services.MaintenanceInfo{
-				Version: plan.Spec.MaintenanceInfo.Version,
 			},
 		},
+		MaintenanceInfo: MaintenanceInfo(plan.Spec.MaintenanceInfo),
 		CFResource: model.CFResource{
 			GUID:      plan.Name,
 			CreatedAt: plan.CreationTimestamp.Time,

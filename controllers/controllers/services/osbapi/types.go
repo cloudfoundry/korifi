@@ -1,7 +1,7 @@
 package osbapi
 
 import (
-	"code.cloudfoundry.org/korifi/model/services"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type Broker struct {
@@ -35,16 +35,38 @@ type Service struct {
 }
 
 type Plan struct {
-	ID               string                      `json:"id"`
-	Name             string                      `json:"name"`
-	Description      string                      `json:"description"`
-	Metadata         map[string]any              `json:"metadata"`
-	Free             bool                        `json:"free"`
-	Bindable         bool                        `json:"bindable"`
-	BindingRotatable bool                        `json:"binding_rotatable"`
-	PlanUpdateable   bool                        `json:"plan_updateable"`
-	Schemas          services.ServicePlanSchemas `json:"schemas"`
-	MaintenanceInfo  services.MaintenanceInfo    `json:"maintenance_info"`
+	ID               string             `json:"id"`
+	Name             string             `json:"name"`
+	Description      string             `json:"description"`
+	Metadata         map[string]any     `json:"metadata"`
+	Free             bool               `json:"free"`
+	Bindable         bool               `json:"bindable"`
+	BindingRotatable bool               `json:"binding_rotatable"`
+	PlanUpdateable   bool               `json:"plan_updateable"`
+	Schemas          ServicePlanSchemas `json:"schemas"`
+	MaintenanceInfo  MaintenanceInfo    `json:"maintenance_info"`
+}
+
+type ServicePlanSchemas struct {
+	ServiceInstance ServiceInstanceSchema `json:"service_instance"`
+	ServiceBinding  ServiceBindingSchema  `json:"service_binding"`
+}
+
+type MaintenanceInfo struct {
+	Version string `json:"version"`
+}
+
+type ServiceInstanceSchema struct {
+	Create InputParameterSchema `json:"create"`
+	Update InputParameterSchema `json:"update"`
+}
+
+type ServiceBindingSchema struct {
+	Create InputParameterSchema `json:"create"`
+}
+
+type InputParameterSchema struct {
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 type ProvisionPayload struct {

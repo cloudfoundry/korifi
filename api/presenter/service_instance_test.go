@@ -8,7 +8,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -133,7 +132,7 @@ var _ = Describe("Service Instance", func() {
 	When("the service instance is managed", func() {
 		BeforeEach(func() {
 			record.Type = "managed"
-			record.MaintenanceInfo = services.MaintenanceInfo{
+			record.MaintenanceInfo = repositories.MaintenanceInfo{
 				Version: "1.2.3",
 			}
 			record.UpgradeAvailable = true
