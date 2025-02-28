@@ -43,6 +43,7 @@ type ServiceBindingRepo struct {
 	userClientFactory       authorization.UserClientFactory
 	namespaceRetriever      NamespaceRetriever
 	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding]
+	appConditionAwaiter     Awaiter[*korifiv1alpha1.CFApp]
 	paramsClient            ParametersClient
 }
 
@@ -50,12 +51,14 @@ func NewServiceBindingRepo(
 	namespaceRetriever NamespaceRetriever,
 	userClientFactory authorization.UserClientFactory,
 	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding],
+	appConditionAwaiter Awaiter[*korifiv1alpha1.CFApp],
 	paramsClient ParametersClient,
 ) *ServiceBindingRepo {
 	return &ServiceBindingRepo{
 		userClientFactory:       userClientFactory,
 		namespaceRetriever:      namespaceRetriever,
 		bindingConditionAwaiter: bindingConditionAwaiter,
+		appConditionAwaiter:     appConditionAwaiter,
 		paramsClient:            paramsClient,
 	}
 }
@@ -216,7 +219,42 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 		}
 	}
 
+	if message.Type == korifiv1alpha1.CFServiceBindingTypeApp {
+		cfApp := new(korifiv1alpha1.CFApp)
+		err = userClient.Get(ctx, types.NamespacedName{Name: message.AppGUID, Namespace: message.SpaceGUID}, cfApp)
+		if err != nil {
+			return ServiceBindingRecord{},
+				apierrors.AsUnprocessableEntity(
+					apierrors.FromK8sError(err, ServiceBindingResourceType),
+					"Unable to use app. Ensure that the app exists and you have access to it.",
+					apierrors.ForbiddenError{},
+					apierrors.NotFoundError{},
+				)
+		}
+
+		_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
+			if a.Generation != a.Status.ObservedGeneration {
+				return fmt.Errorf("app status is outdated")
+			}
+
+			if !slices.Contains(actualBindingGUIDs(a), cfServiceBinding.Name) {
+				return fmt.Errorf("binding %q not available in cf app status", cfServiceBinding.Name)
+			}
+
+			return nil
+		})
+		if err != nil {
+			return ServiceBindingRecord{}, err
+		}
+	}
+
 	return serviceBindingToRecord(*cfServiceBinding), nil
+}
+
+func actualBindingGUIDs(cfApp *korifiv1alpha1.CFApp) []string {
+	return slices.Collect(it.Map(slices.Values(cfApp.Status.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) string {
+		return b.GUID
+	}))
 }
 
 func (r *ServiceBindingRepo) createParametersSecret(ctx context.Context, userClient client.Client, cfServiceBinding *korifiv1alpha1.CFServiceBinding, parameters map[string]any) error {
@@ -260,7 +298,25 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 	if err != nil {
 		return apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
-	return nil
+
+	cfApp := new(korifiv1alpha1.CFApp)
+	err = userClient.Get(ctx, types.NamespacedName{Name: binding.Spec.AppRef.Name, Namespace: binding.Namespace}, cfApp)
+	if err != nil {
+		return apierrors.FromK8sError(err, ServiceBindingResourceType)
+	}
+
+	_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
+		if a.Generation != a.Status.ObservedGeneration {
+			return fmt.Errorf("app status is outdated")
+		}
+
+		if slices.Contains(actualBindingGUIDs(a), binding.Name) {
+			return fmt.Errorf("binding %q is still available in cf app status", binding.Name)
+		}
+
+		return nil
+	})
+	return err
 }
 
 func (r *ServiceBindingRepo) GetServiceBinding(ctx context.Context, authInfo authorization.Info, guid string) (ServiceBindingRecord, error) {

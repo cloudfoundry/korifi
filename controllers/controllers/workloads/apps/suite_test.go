@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
@@ -33,6 +34,7 @@ var (
 	stopClientCache context.CancelFunc
 	testEnv         *envtest.Environment
 	adminClient     client.Client
+	k8sManager      manager.Manager
 	testNamespace   string
 )
 
@@ -61,13 +63,15 @@ var _ = BeforeSuite(func() {
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
+})
 
-	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
+var _ = BeforeEach(func() {
+	k8sManager = helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	err = apps.NewReconciler(
+	err := apps.NewReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFApp"),
@@ -76,16 +80,6 @@ var _ = BeforeSuite(func() {
 	).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	stopManager = helpers.StartK8sManager(k8sManager)
-})
-
-var _ = AfterSuite(func() {
-	stopManager()
-	stopClientCache()
-	Expect(testEnv.Stop()).To(Succeed())
-})
-
-var _ = BeforeEach(func() {
 	testNamespace = uuid.NewString()
 	Expect(adminClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -120,4 +114,17 @@ var _ = BeforeEach(func() {
 	Expect(k8s.Patch(ctx, adminClient, cfSpace, func() {
 		cfSpace.Status.GUID = testNamespace
 	})).To(Succeed())
+})
+
+var _ = JustBeforeEach(func() {
+	stopManager = helpers.StartK8sManager(k8sManager)
+})
+
+var _ = AfterEach(func() {
+	stopManager()
+	stopClientCache()
+})
+
+var _ = AfterSuite(func() {
+	Expect(testEnv.Stop()).To(Succeed())
 })
