@@ -116,22 +116,18 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 	}
 
 	if cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] == "" {
-		if cfApp.Annotations == nil {
-			cfApp.Annotations = map[string]string{}
-		}
-		cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey]
+		cfApp.Annotations = tools.SetMapValue(cfApp.Annotations, korifiv1alpha1.CFAppLastStopRevisionKey, cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey])
 	}
 
 	bindings, err := r.getServiceBindings(ctx, cfApp)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	cfApp.Status.ServiceBindings = bindingObjectRefs(bindings)
 
 	if !bindingsReady(bindings) {
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingNotReady")
 	}
-
-	cfApp.Status.ServiceBindings = bindingObjectRefs(bindings)
 
 	secretName := cfApp.Name + "-vcap-application"
 	err = r.reconcileVCAPSecret(ctx, cfApp, secretName, r.vcapApplicationEnvBuilder)
@@ -196,6 +192,7 @@ func bindingObjectRefs(bindings []korifiv1alpha1.CFServiceBinding) []korifiv1alp
 		}
 
 		return korifiv1alpha1.ServiceBinding{
+			GUID:   binding.Name,
 			Name:   bindingName,
 			Secret: binding.Status.MountSecretRef.Name,
 		}
@@ -249,7 +246,7 @@ func (r *Reconciler) reconcileProcesses(ctx context.Context, cfApp *korifiv1alph
 		}
 
 		if existingProcess != nil {
-			err = r.updateCFProcess(ctx, existingProcess, dropletProcess.Command)
+			err = r.updateCFProcess(ctx, existingProcess, dropletProcess.Command, cfApp.Status.ServiceBindings)
 			if err != nil {
 				loopLog.Info("error updating CFProcess", "reason", err)
 				return nil, err
@@ -278,9 +275,10 @@ func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1
 	return append([]korifiv1alpha1.ProcessType{{Type: korifiv1alpha1.ProcessTypeWeb}}, processTypes...)
 }
 
-func (r *Reconciler) updateCFProcess(ctx context.Context, process *korifiv1alpha1.CFProcess, command string) error {
+func (r *Reconciler) updateCFProcess(ctx context.Context, process *korifiv1alpha1.CFProcess, command string, bindings []korifiv1alpha1.ServiceBinding) error {
 	return k8s.Patch(ctx, r.k8sClient, process, func() {
 		process.Spec.DetectedCommand = command
+		process.Spec.ServiceBindings = bindings
 	})
 }
 
@@ -298,6 +296,7 @@ func (r *Reconciler) createCFProcess(ctx context.Context, process korifiv1alpha1
 			AppRef:          corev1.LocalObjectReference{Name: cfApp.Name},
 			ProcessType:     process.Type,
 			DetectedCommand: process.Command,
+			ServiceBindings: cfApp.Status.ServiceBindings,
 		},
 	}
 

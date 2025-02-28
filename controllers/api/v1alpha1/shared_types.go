@@ -95,6 +95,9 @@ type InstanceStatus struct {
 }
 
 type ServiceBinding struct {
+	// the guid of the CFserviceBinding
+	GUID string `json:"guid"`
+
 	// The name of binding. Used as binding name when projecting the secret onto the workload
 	Name string `json:"name"`
 

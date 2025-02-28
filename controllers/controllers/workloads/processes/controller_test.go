@@ -378,10 +378,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 		})
 
-		When("the app has service bindings", func() {
+		When("the process spec has service bindings", func() {
 			BeforeEach(func() {
 				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
-					cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+					cfProcess.Spec.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
 						Secret: "binding-secret",
 						Name:   "binding-name",
 					}}
@@ -398,14 +398,14 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 		})
 
-		When("the app bindings change after the workload has been created", func() {
+		When("the process bindings change after the workload has been created", func() {
 			JustBeforeEach(func() {
 				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.Services).To(BeEmpty())
 				})
 
-				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
-					cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+				Expect(k8s.Patch(ctx, adminClient, cfProcess, func() {
+					cfProcess.Spec.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
 						Secret: "binding-secret",
 					}}
 				})).To(Succeed())

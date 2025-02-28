@@ -574,6 +574,9 @@ spec:
                   They are in the [servicebinding.io](https://servicebinding.io/spec/core/1.1.0/) format
                 items:
                   properties:
+                    guid:
+                      description: the guid of the CFserviceBinding
+                      type: string
                     name:
                       description: The name of binding. Used as binding name when
                         projecting the secret onto the workload
@@ -582,6 +585,7 @@ spec:
                       description: Name of the binding secret
                       type: string
                   required:
+                  - guid
                   - name
                   - secret
                   type: object

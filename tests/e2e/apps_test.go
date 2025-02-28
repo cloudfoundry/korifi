@@ -689,20 +689,16 @@ var _ = Describe("Apps", func() {
 			})
 
 			It("should unset the $SERVICE_BINDING_ROOT env variable", func() {
-				Eventually(func(g Gomega) {
-					body := string(curlApp(appGUID, "/servicebindingroot"))
-					g.Expect(body).To(ContainSubstring("$SERVICE_BINDING_ROOT is empty"))
-				}).Should(Succeed())
+				body := string(curlApp(appGUID, "/servicebindingroot"))
+				Expect(body).To(ContainSubstring("$SERVICE_BINDING_ROOT is empty"))
 			})
 
 			It("unmounts the credentials from the container", func() {
-				Eventually(func(g Gomega) {
-					body := curlApp(appGUID, "/servicebindings")
+				body := curlApp(appGUID, "/servicebindings")
 
-					data := map[string]interface{}{}
-					g.Expect(json.Unmarshal(body, &data)).To(Succeed())
-					g.Expect(data).To(BeEmpty())
-				}).Should(Succeed())
+				data := map[string]interface{}{}
+				Expect(json.Unmarshal(body, &data)).To(Succeed())
+				Expect(data).To(BeEmpty())
 			})
 		})
 	})

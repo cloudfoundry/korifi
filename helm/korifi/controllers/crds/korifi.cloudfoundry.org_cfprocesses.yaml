@@ -121,6 +121,28 @@ spec:
               processType:
                 description: The name of the process within the CFApp (e.g. "web")
                 type: string
+              serviceBindings:
+                description: |-
+                  Reference to service credentials secrets to be projected onto the app workload
+                  They are in the [servicebinding.io](https://servicebinding.io/spec/core/1.1.0/) format
+                items:
+                  properties:
+                    guid:
+                      description: the guid of the CFserviceBinding
+                      type: string
+                    name:
+                      description: The name of binding. Used as binding name when
+                        projecting the secret onto the workload
+                      type: string
+                    secret:
+                      description: Name of the binding secret
+                      type: string
+                  required:
+                  - guid
+                  - name
+                  - secret
+                  type: object
+                type: array
             required:
             - appRef
             - diskQuotaMB

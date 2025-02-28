@@ -162,21 +162,12 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 	When("lastStopAppRev annotation is set", func() {
 		BeforeEach(func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
-				g.Expect(cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("42"))
-			}).Should(Succeed())
-
 			Expect(k8s.PatchResource(ctx, adminClient, cfApp, func() {
 				cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] = "2"
 			})).To(Succeed())
 		})
 
 		It("does not override it", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
-				g.Expect(cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("2"))
-			}).Should(Succeed())
 			Consistently(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 				g.Expect(cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]).To(Equal("2"))
@@ -209,6 +200,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 						"DetectedCommand": BeEmpty(),
 						"Command":         BeEmpty(),
 						"AppRef":          Equal(corev1.LocalObjectReference{Name: cfApp.Name}),
+						"ServiceBindings": BeEmpty(),
 					}),
 					"ObjectMeta": MatchFields(IgnoreExtras, Fields{
 						"OwnerReferences": ConsistOf(MatchFields(IgnoreExtras, Fields{
@@ -277,21 +269,27 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 
 	When("the app desired state does not match the actual state", func() {
 		BeforeEach(func() {
-			Eventually(func(g Gomega) {
-				cfProcessList := &korifiv1alpha1.CFProcessList{}
-				g.Expect(adminClient.List(ctx, cfProcessList, &client.ListOptions{
+			cfProcess := &korifiv1alpha1.CFProcess{
+				ObjectMeta: metav1.ObjectMeta{
 					Namespace: cfApp.Namespace,
-				})).To(Succeed())
-				g.Expect(cfProcessList.Items).To(HaveLen(1))
+					Name:      tools.NamespacedUUID(cfApp.Name, "web"),
+					Labels: map[string]string{
+						korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
+						korifiv1alpha1.CFProcessTypeLabelKey: "web",
+					},
+				},
+				Spec: korifiv1alpha1.CFProcessSpec{
+					ProcessType: "web",
+				},
+			}
+			Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
+			Expect(k8s.Patch(ctx, adminClient, cfProcess, func() {
+				cfProcess.Status.ActualInstances = 1
+			})).To(Succeed())
 
-				process := &cfProcessList.Items[0]
-				g.Expect(k8s.Patch(ctx, adminClient, process, func() {
-					process.Status.ActualInstances = 1
-				})).To(Succeed())
-
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
-				g.Expect(cfApp.Status.ActualState).To(Equal(korifiv1alpha1.StartedState))
-			}).Should(Succeed())
+			Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
+				cfApp.Status.ActualState = korifiv1alpha1.StartedState
+			})).To(Succeed())
 		})
 
 		It("sets the ready condition to false", func() {
@@ -404,6 +402,17 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
+		It("sets the app service bindings in the status", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+				g.Expect(cfApp.Status.ServiceBindings).To(ConsistOf(korifiv1alpha1.ServiceBinding{
+					GUID:   binding.Name,
+					Name:   binding.Status.MountSecretRef.Name,
+					Secret: binding.Status.MountSecretRef.Name,
+				}))
+			}).Should(Succeed())
+		})
+
 		When("the binding becomes ready", func() {
 			BeforeEach(func() {
 				Expect(k8s.Patch(ctx, adminClient, binding, func() {
@@ -425,16 +434,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				}).Should(Succeed())
 			})
 
-			It("sets the app service bindings in the status", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
-					g.Expect(cfApp.Status.ServiceBindings).To(ConsistOf(korifiv1alpha1.ServiceBinding{
-						Name:   binding.Status.MountSecretRef.Name,
-						Secret: binding.Status.MountSecretRef.Name,
-					}))
-				}).Should(Succeed())
-			})
-
 			When("the binding has a display name", func() {
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, adminClient, binding, func() {
@@ -445,11 +444,74 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				It("uses the display name as binding name", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
-						g.Expect(cfApp.Status.ServiceBindings).To(ConsistOf(korifiv1alpha1.ServiceBinding{
-							Name:   "custom-binding-name",
-							Secret: binding.Status.MountSecretRef.Name,
-						}))
+						g.Expect(cfApp.Status.ServiceBindings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+							"Name": Equal("custom-binding-name"),
+						})))
 					}).Should(Succeed())
+				})
+			})
+
+			When("the app has reconciled bindings", func() {
+				BeforeEach(func() {
+					Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
+						cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+							GUID:   binding.Name,
+							Name:   binding.Status.MountSecretRef.Name,
+							Secret: binding.Status.MountSecretRef.Name,
+						}}
+					})).To(Succeed())
+				})
+
+				It("sets the bindings on the process spec", func() {
+					Eventually(func(g Gomega) {
+						cfProcessList := &korifiv1alpha1.CFProcessList{}
+						g.Expect(
+							adminClient.List(ctx, cfProcessList, &client.ListOptions{
+								Namespace: cfApp.Namespace,
+							}),
+						).To(Succeed())
+						g.Expect(cfProcessList.Items).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"Spec": MatchFields(IgnoreExtras, Fields{
+									"ServiceBindings": ConsistOf(korifiv1alpha1.ServiceBinding{
+										GUID:   binding.Name,
+										Name:   binding.Status.MountSecretRef.Name,
+										Secret: binding.Status.MountSecretRef.Name,
+									}),
+								}),
+							}),
+						))
+					}).Should(Succeed())
+				})
+
+				When("app processes already exist", func() {
+					var cfProcess *korifiv1alpha1.CFProcess
+
+					BeforeEach(func() {
+						cfProcess = &korifiv1alpha1.CFProcess{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: cfApp.Namespace,
+								Name:      tools.NamespacedUUID(cfApp.Name, "web"),
+								Labels: map[string]string{
+									korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
+									korifiv1alpha1.CFProcessTypeLabelKey: "web",
+								},
+							},
+							Spec: korifiv1alpha1.CFProcessSpec{
+								ProcessType: "web",
+							},
+						}
+						Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
+					})
+
+					It("updates the process bindings", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfProcess), cfProcess)).To(Succeed())
+							g.Expect(cfProcess.Spec.ServiceBindings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal(binding.Name),
+							})))
+						}).Should(Succeed())
+					})
 				})
 			})
 		})
@@ -515,7 +577,10 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			}
 			Expect(adminClient.Create(ctx, &cfServiceBinding)).To(Succeed())
 
-			Expect(adminClient.Delete(ctx, cfApp)).To(Succeed())
+			Expect(k8sManager.GetClient().Delete(ctx, cfApp)).To(Succeed())
+		})
+
+		It("deletes the app", func() {
 			Eventually(func(g Gomega) {
 				err := adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
