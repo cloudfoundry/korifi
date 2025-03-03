@@ -64,6 +64,7 @@ import (
 	packageswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/packages"
 	spaceswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/spaces"
 	taskswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/tasks"
+	"code.cloudfoundry.org/korifi/route-controller/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/version"

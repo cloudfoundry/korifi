@@ -17,7 +17,6 @@ rules:
   resources:
   - namespaces
   - secrets
-  - services
   verbs:
   - create
   - delete
@@ -79,24 +78,6 @@ rules:
   - patch
   - watch
 - apiGroups:
-  - gateway.networking.k8s.io
-  resources:
-  - httproutes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - gateway.networking.k8s.io
-  resources:
-  - httproutes/status
-  verbs:
-  - get
-- apiGroups:
   - korifi.cloudfoundry.org
   resources:
   - appworkloads
@@ -106,7 +87,6 @@ rules:
   - cforgs
   - cfpackages
   - cfprocesses
-  - cfroutes
   - cfservicebindings
   - cfservicebrokers
   - cfserviceinstances
@@ -133,7 +113,6 @@ rules:
   - cfdomains/finalizers
   - cforgs/finalizers
   - cfprocesses/finalizers
-  - cfroutes/finalizers
   - cfservicebindings/finalizers
   - cfserviceinstances/finalizers
   - cfspaces/finalizers
@@ -157,7 +136,6 @@ rules:
   - cfpackages/finalizers
   - cfpackages/status
   - cfprocesses/status
-  - cfroutes/status
   - cfservicebindings/status
   - cfservicebrokers/status
   - cfserviceinstances/status

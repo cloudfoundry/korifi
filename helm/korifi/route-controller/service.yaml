@@ -1,0 +1,18 @@
+---
+  {{- if .Values.debug }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: korifi-route-controller
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+    - name: debug-30059
+      nodePort: 30059
+      port: 30059
+      protocol: TCP
+      targetPort: 40000
+  selector:
+    app: korifi-route-controller
+  type: NodePort
+  {{- end }}
