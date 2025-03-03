@@ -1,6 +1,7 @@
-package routes_test
+package controllers_test
 
 import (
+	"code.cloudfoundry.org/korifi/route-controller/controllers"
 	"context"
 	"path/filepath"
 	"testing"
@@ -8,7 +9,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
-	"code.cloudfoundry.org/korifi/controllers/controllers/networking/routes"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
@@ -65,7 +65,7 @@ var _ = BeforeSuite(func() {
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	Expect(routes.NewReconciler(
+	Expect(controllers.NewReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
 		ctrl.Log.WithName("controllers").WithName("CFRoute"),
