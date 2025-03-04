@@ -90,7 +90,7 @@ var _ = Describe("AppWorkloadsController", func() {
 			Expect(*pdb.Spec.MinAvailable).To(Equal(intstr.FromString("50%")))
 		})
 
-		When("the statefulset ready replicas is set", func() {
+		When("the statefulset replicas are set", func() {
 			JustBeforeEach(func() {
 				statefulset := tools.PtrTo(getStatefulsetForAppWorkload(Default))
 				Expect(k8s.Patch(ctx, k8sClient, statefulset, func() {
@@ -104,6 +104,23 @@ var _ = Describe("AppWorkloadsController", func() {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
 					g.Expect(appWorkload.Status.ActualInstances).To(BeEquivalentTo(1))
 				}).Should(Succeed())
+			})
+
+			When("the app workload is being deleted gracefully", func() {
+				JustBeforeEach(func() {
+					Expect(k8s.Patch(ctx, k8sClient, appWorkload, func() {
+						appWorkload.Finalizers = []string{"do-not-delete-me"}
+					})).To(Succeed())
+
+					Expect(k8sManager.GetClient().Delete(ctx, appWorkload)).To(Succeed())
+				})
+
+				It("updates workload actual instances based on replicas", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
+						g.Expect(appWorkload.Status.ActualInstances).To(BeEquivalentTo(2))
+					}).Should(Succeed())
+				})
 			})
 
 			When("instance pods are available", func() {
