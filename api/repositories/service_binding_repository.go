@@ -167,8 +167,52 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 		return ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
+	if message.Type == korifiv1alpha1.CFServiceBindingTypeApp {
+		return r.createAppServiceBinding(ctx, userClient, message)
+	}
+
+	return r.createServiceBinding(ctx, userClient, message)
+}
+
+func (r *ServiceBindingRepo) createAppServiceBinding(ctx context.Context, userClient client.WithWatch, message CreateServiceBindingMessage) (ServiceBindingRecord, error) {
+	cfApp := &korifiv1alpha1.CFApp{}
+	err := userClient.Get(ctx, types.NamespacedName{Name: message.AppGUID, Namespace: message.SpaceGUID}, cfApp)
+	if err != nil {
+		return ServiceBindingRecord{},
+			apierrors.AsUnprocessableEntity(
+				apierrors.FromK8sError(err, ServiceBindingResourceType),
+				"Unable to use app. Ensure that the app exists and you have access to it.",
+				apierrors.ForbiddenError{},
+				apierrors.NotFoundError{},
+			)
+	}
+
+	bindingRecord, err := r.createServiceBinding(ctx, userClient, message)
+	if err != nil {
+		return ServiceBindingRecord{}, err
+	}
+
+	_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
+		if a.Generation != a.Status.ObservedGeneration {
+			return fmt.Errorf("app status is outdated")
+		}
+
+		if !slices.Contains(actualBindingGUIDs(a), bindingRecord.GUID) {
+			return fmt.Errorf("binding %q not available in cf app status", bindingRecord.GUID)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return ServiceBindingRecord{}, err
+	}
+
+	return bindingRecord, nil
+}
+
+func (r *ServiceBindingRepo) createServiceBinding(ctx context.Context, userClient client.WithWatch, message CreateServiceBindingMessage) (ServiceBindingRecord, error) {
 	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-	err = userClient.Get(ctx, types.NamespacedName{Name: message.ServiceInstanceGUID, Namespace: message.SpaceGUID}, cfServiceInstance)
+	err := userClient.Get(ctx, types.NamespacedName{Name: message.ServiceInstanceGUID, Namespace: message.SpaceGUID}, cfServiceInstance)
 	if err != nil {
 		return ServiceBindingRecord{},
 			apierrors.AsUnprocessableEntity(
@@ -177,20 +221,6 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 				apierrors.ForbiddenError{},
 				apierrors.NotFoundError{},
 			)
-	}
-
-	if message.Type == korifiv1alpha1.CFServiceBindingTypeApp {
-		cfApp := new(korifiv1alpha1.CFApp)
-		err = userClient.Get(ctx, types.NamespacedName{Name: message.AppGUID, Namespace: message.SpaceGUID}, cfApp)
-		if err != nil {
-			return ServiceBindingRecord{},
-				apierrors.AsUnprocessableEntity(
-					apierrors.FromK8sError(err, ServiceBindingResourceType),
-					"Unable to use app. Ensure that the app exists and you have access to it.",
-					apierrors.ForbiddenError{},
-					apierrors.NotFoundError{},
-				)
-		}
 	}
 
 	cfServiceBinding := message.toCFServiceBinding(cfServiceInstance.Spec.Type)
@@ -214,35 +244,6 @@ func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo 
 
 	if cfServiceInstance.Spec.Type == korifiv1alpha1.UserProvidedType {
 		cfServiceBinding, err = r.bindingConditionAwaiter.AwaitCondition(ctx, userClient, cfServiceBinding, korifiv1alpha1.StatusConditionReady)
-		if err != nil {
-			return ServiceBindingRecord{}, err
-		}
-	}
-
-	if message.Type == korifiv1alpha1.CFServiceBindingTypeApp {
-		cfApp := new(korifiv1alpha1.CFApp)
-		err = userClient.Get(ctx, types.NamespacedName{Name: message.AppGUID, Namespace: message.SpaceGUID}, cfApp)
-		if err != nil {
-			return ServiceBindingRecord{},
-				apierrors.AsUnprocessableEntity(
-					apierrors.FromK8sError(err, ServiceBindingResourceType),
-					"Unable to use app. Ensure that the app exists and you have access to it.",
-					apierrors.ForbiddenError{},
-					apierrors.NotFoundError{},
-				)
-		}
-
-		_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
-			if a.Generation != a.Status.ObservedGeneration {
-				return fmt.Errorf("app status is outdated")
-			}
-
-			if !slices.Contains(actualBindingGUIDs(a), cfServiceBinding.Name) {
-				return fmt.Errorf("binding %q not available in cf app status", cfServiceBinding.Name)
-			}
-
-			return nil
-		})
 		if err != nil {
 			return ServiceBindingRecord{}, err
 		}
