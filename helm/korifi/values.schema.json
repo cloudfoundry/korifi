@@ -650,6 +650,22 @@
             }
           },
           "type": "object"
+        },
+        "api" : {
+          "k8sclient" : {
+            "properties": {
+              "qps" : {
+                "description": "The maximum QPS to the k8s API server, see https://github.com/kubernetes/client-go/blob/ec8a292223d913dc635704c6d57959e1bc00290a/rest/config.go#L117-L122",
+                "type": "number"
+              },
+              "burst" : {
+                "description": "The maximum burst for the QPS to the k8s API server, see https://github.com/kubernetes/client-go/blob/ec8a292223d913dc635704c6d57959e1bc00290a/rest/config.go#L124-L126",
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "type": "object"
         }
       },
       "description": "Experimental features. No guarantees are provided and breaking/backwards incompatible changes should be expected. These features are not recommended for use in production environments.",

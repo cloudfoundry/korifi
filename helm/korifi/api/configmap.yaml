@@ -63,6 +63,9 @@ data:
         enabled: {{ .Values.experimental.externalLogCache.enabled }}
         url: {{ .Values.experimental.externalLogCache.url }}
         trustInsecureLogCache: {{ .Values.experimental.externalLogCache.trustInsecureLogCache }}
+      k8sclient:
+        qps: {{ .Values.experimental.api.k8sclient.qps }}
+        burst: {{ .Values.experimental.api.k8sclient.burst }}
   role_mappings_config.yaml: |
     roleMappings:
       admin:
