@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	"strings"
 
-	"code.cloudfoundry.org/korifi/model/services"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -14,8 +13,9 @@ const (
 )
 
 type CFServiceBrokerSpec struct {
-	services.ServiceBroker `json:",inline"`
-	Credentials            corev1.LocalObjectReference `json:"credentials"`
+	Name        string                      `json:"name"`
+	URL         string                      `json:"url"`
+	Credentials corev1.LocalObjectReference `json:"credentials"`
 }
 
 type CFServiceBrokerStatus struct {

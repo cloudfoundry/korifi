@@ -4,7 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -14,13 +14,13 @@ const (
 )
 
 type SpaceResponse struct {
-	Name          string                             `json:"name"`
-	GUID          string                             `json:"guid"`
-	CreatedAt     string                             `json:"created_at"`
-	UpdatedAt     string                             `json:"updated_at"`
-	Links         SpaceLinks                         `json:"links"`
-	Metadata      Metadata                           `json:"metadata"`
-	Relationships map[string]model.ToOneRelationship `json:"relationships"`
+	Name          string                       `json:"name"`
+	GUID          string                       `json:"guid"`
+	CreatedAt     string                       `json:"created_at"`
+	UpdatedAt     string                       `json:"updated_at"`
+	Links         SpaceLinks                   `json:"links"`
+	Metadata      Metadata                     `json:"metadata"`
+	Relationships map[string]ToOneRelationship `json:"relationships"`
 }
 
 type SpaceLinks struct {
@@ -28,7 +28,7 @@ type SpaceLinks struct {
 	Organization *Link `json:"organization"`
 }
 
-func ForSpace(space repositories.SpaceRecord, apiBaseURL url.URL, includes ...model.IncludedResource) SpaceResponse {
+func ForSpace(space repositories.SpaceRecord, apiBaseURL url.URL, includes ...include.Resource) SpaceResponse {
 	return SpaceResponse{
 		Name:      space.Name,
 		GUID:      space.GUID,

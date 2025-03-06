@@ -25,7 +25,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -205,7 +204,7 @@ func (r *Reconciler) provisionServiceInstance(
 		return osbapi.ProvisionResponse{}, err
 	}
 
-	serviceInstance.Status.LastOperation = services.LastOperation{
+	serviceInstance.Status.LastOperation = korifiv1alpha1.LastOperation{
 		Type:  "create",
 		State: "initial",
 	}
@@ -306,7 +305,7 @@ func (r *Reconciler) deprovisionServiceInstance(
 	assets osbapi.ServiceInstanceAssets,
 	osbapiClient osbapi.BrokerClient,
 ) (osbapi.ProvisionResponse, error) {
-	serviceInstance.Status.LastOperation = services.LastOperation{
+	serviceInstance.Status.LastOperation = korifiv1alpha1.LastOperation{
 		Type:  "delete",
 		State: "initial",
 	}

@@ -4,7 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -13,12 +13,12 @@ const (
 )
 
 type RoleResponse struct {
-	GUID          string                             `json:"guid"`
-	CreatedAt     string                             `json:"created_at"`
-	UpdatedAt     string                             `json:"updated_at"`
-	Type          string                             `json:"type"`
-	Relationships map[string]model.ToOneRelationship `json:"relationships"`
-	Links         RoleLinks                          `json:"links"`
+	GUID          string                       `json:"guid"`
+	CreatedAt     string                       `json:"created_at"`
+	UpdatedAt     string                       `json:"updated_at"`
+	Type          string                       `json:"type"`
+	Relationships map[string]ToOneRelationship `json:"relationships"`
+	Links         RoleLinks                    `json:"links"`
 }
 
 type RoleLinks struct {
@@ -28,7 +28,7 @@ type RoleLinks struct {
 	Organization *Link `json:"organization,omitempty"`
 }
 
-func ForRole(role repositories.RoleRecord, apiBaseURL url.URL, includes ...model.IncludedResource) RoleResponse {
+func ForRole(role repositories.RoleRecord, apiBaseURL url.URL, includes ...include.Resource) RoleResponse {
 	resp := RoleResponse{
 		GUID:          role.GUID,
 		CreatedAt:     tools.ZeroIfNil(formatTimestamp(&role.CreatedAt)),

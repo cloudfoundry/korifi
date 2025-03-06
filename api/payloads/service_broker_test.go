@@ -5,8 +5,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,24 +21,20 @@ var _ = Describe("ServiceBrokerCreate", func() {
 	BeforeEach(func() {
 		serviceBrokerCreate = new(payloads.ServiceBrokerCreate)
 		createPayload = payloads.ServiceBrokerCreate{
-			Metadata: model.Metadata{
-				Labels: map[string]string{
-					"label": "label-value",
-				},
-				Annotations: map[string]string{
-					"annotation": "annotation-value",
-				},
+			Labels: map[string]string{
+				"label": "label-value",
 			},
-			ServiceBroker: services.ServiceBroker{
-				Name: "my-broker",
-				URL:  "https://my.broker.com",
+			Annotations: map[string]string{
+				"annotation": "annotation-value",
 			},
+			Name: "my-broker",
+			URL:  "https://my.broker.com",
 			Authentication: &payloads.BrokerAuthentication{
-				Credentials: services.BrokerCredentials{
+				Type: "basic",
+				Credentials: payloads.BrokerCredentials{
 					Username: "broker-user",
 					Password: "broker-password",
 				},
-				Type: "basic",
 			},
 		}
 	})
@@ -98,15 +92,13 @@ var _ = Describe("ServiceBrokerCreate", func() {
 		It("converts to repo message correctly", func() {
 			msg := serviceBrokerCreate.ToMessage()
 			Expect(msg).To(Equal(repositories.CreateServiceBrokerMessage{
-				Metadata: model.Metadata{
+				Metadata: repositories.Metadata{
 					Labels:      map[string]string{"label": "label-value"},
 					Annotations: map[string]string{"annotation": "annotation-value"},
 				},
-				Broker: services.ServiceBroker{
-					Name: "my-broker",
-					URL:  "https://my.broker.com",
-				},
-				Credentials: services.BrokerCredentials{
+				Name: "my-broker",
+				URL:  "https://my.broker.com",
+				Credentials: repositories.BrokerCredentials{
 					Username: "broker-user",
 					Password: "broker-password",
 				},
@@ -220,16 +212,16 @@ var _ = Describe("ServiceBrokerUpdate", func() {
 		When("the message has cretentials", func() {
 			BeforeEach(func() {
 				updatePayload.Authentication = &payloads.BrokerAuthentication{
-					Credentials: services.BrokerCredentials{
+					Type: "basic",
+					Credentials: payloads.BrokerCredentials{
 						Username: "user",
 						Password: "pass",
 					},
-					Type: "basic",
 				}
 			})
 
 			It("converts to repo message with credentials", func() {
-				Expect(updatePayload.ToMessage("broker-guid").Credentials).To(Equal(&services.BrokerCredentials{
+				Expect(updatePayload.ToMessage("broker-guid").Credentials).To(Equal(&repositories.BrokerCredentials{
 					Username: "user",
 					Password: "pass",
 				}))

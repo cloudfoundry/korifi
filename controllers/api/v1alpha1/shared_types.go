@@ -1,8 +1,11 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -103,4 +106,29 @@ type ServiceBinding struct {
 
 	// Name of the binding secret
 	Secret string `json:"secret"`
+}
+
+func AsMap(obj *runtime.RawExtension) (map[string]any, error) {
+	if obj == nil {
+		return nil, nil
+	}
+
+	var m map[string]any
+	err := json.Unmarshal(obj.Raw, &m)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
+func AsRawExtension(obj map[string]any) (*runtime.RawExtension, error) {
+	rawBytes, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return &runtime.RawExtension{
+		Raw: rawBytes,
+	}, nil
 }

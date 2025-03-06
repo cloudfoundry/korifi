@@ -5,7 +5,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"code.cloudfoundry.org/korifi/tools"
@@ -56,10 +55,8 @@ var _ = Describe("ClientFactory", func() {
 				Name:      uuid.NewString(),
 			},
 			Spec: korifiv1alpha1.CFServiceBrokerSpec{
-				ServiceBroker: services.ServiceBroker{
-					Name: uuid.NewString(),
-					URL:  brokerServer.URL(),
-				},
+				Name: uuid.NewString(),
+				URL:  brokerServer.URL(),
 				Credentials: corev1.LocalObjectReference{
 					Name: credentialsSecret.Name,
 				},
@@ -114,34 +111,6 @@ var _ = Describe("ClientFactory", func() {
 
 		It("returns an error", func() {
 			Expect(createClientErr).To(MatchError(ContainSubstring("failed to unmarshal broker credentials secret")))
-		})
-
-		When("username is not set", func() {
-			BeforeEach(func() {
-				helpers.EnsurePatch(k8sClient, credentialsSecret, func(s *corev1.Secret) {
-					s.Data = map[string][]byte{
-						tools.CredentialsSecretKey: []byte(`{"password": "my-password"}`),
-					}
-				})
-			})
-
-			It("returns an error", func() {
-				Expect(createClientErr).To(MatchError(ContainSubstring("username: cannot be blank")))
-			})
-		})
-
-		When("password is not set", func() {
-			BeforeEach(func() {
-				helpers.EnsurePatch(k8sClient, credentialsSecret, func(s *corev1.Secret) {
-					s.Data = map[string][]byte{
-						tools.CredentialsSecretKey: []byte(`{"username": "my-user"}`),
-					}
-				})
-			})
-
-			It("returns an error", func() {
-				Expect(createClientErr).To(MatchError(ContainSubstring("password: cannot be blank")))
-			})
 		})
 	})
 

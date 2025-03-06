@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,11 +14,11 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/routing"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -37,13 +38,14 @@ func TestHandlers(t *testing.T) {
 	RunSpecs(t, "Handlers Suite")
 }
 
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter)))
-})
-
 var _ = BeforeEach(func() {
+	ctx = context.Background()
+
 	authInfo = authorization.Info{Token: "a-token"}
-	ctx = authorization.NewContext(context.Background(), &authInfo)
+	ctx = authorization.NewContext(ctx, &authInfo)
+
+	ctx = logr.NewContext(ctx, stdr.New(log.New(GinkgoWriter, ">>>", log.LstdFlags)))
+
 	rr = httptest.NewRecorder()
 	routerBuilder = routing.NewRouterBuilder()
 

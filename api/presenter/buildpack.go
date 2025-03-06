@@ -4,7 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -22,7 +22,7 @@ type BuildpackResponse struct {
 	Links     map[string]Link `json:"links"`
 }
 
-func ForBuildpack(buildpackRecord repositories.BuildpackRecord, _ url.URL, includes ...model.IncludedResource) BuildpackResponse {
+func ForBuildpack(buildpackRecord repositories.BuildpackRecord, _ url.URL, includes ...include.Resource) BuildpackResponse {
 	toReturn := BuildpackResponse{
 		GUID:      "",
 		CreatedAt: tools.ZeroIfNil(formatTimestamp(&buildpackRecord.CreatedAt)),

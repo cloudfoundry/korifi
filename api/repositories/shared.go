@@ -16,6 +16,13 @@ import (
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
+type ResourceState int
+
+const (
+	ResourceStateUnknown ResourceState = iota
+	ResourceStateReady
+)
+
 //counterfeiter:generate -o fake -fake-name RepositoryCreator . RepositoryCreator
 type RepositoryCreator interface {
 	CreateRepository(ctx context.Context, name string) error

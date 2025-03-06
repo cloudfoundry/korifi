@@ -12,8 +12,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -51,19 +49,13 @@ var _ = Describe("ServicePlan", func() {
 	Describe("GET /v3/service_plans", func() {
 		BeforeEach(func() {
 			servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
-				CFResource: model.CFResource{
-					GUID: "plan-guid",
-				},
+				GUID:                "plan-guid",
 				ServiceOfferingGUID: "service-offering-guid",
 			}}, nil)
 
 			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-				ServiceOffering: services.ServiceOffering{
-					Name: "service-offering-name",
-				},
-				CFResource: model.CFResource{
-					GUID: "service-offering-guid",
-				},
+				Name: "service-offering-name",
+				GUID: "service-offering-guid",
 			}}, nil)
 		})
 
@@ -127,21 +119,13 @@ var _ = Describe("ServicePlan", func() {
 		When("params to inlude fields[service_offering.service_broker]", func() {
 			BeforeEach(func() {
 				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-					ServiceBroker: services.ServiceBroker{
-						Name: "service-broker-name",
-					},
-					CFResource: model.CFResource{
-						GUID: "service-broker-guid",
-					},
+					Name: "service-broker-name",
+					GUID: "service-broker-guid",
 				}}, nil)
 
 				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-					ServiceOffering: services.ServiceOffering{
-						Name: "service-offering-name",
-					},
-					CFResource: model.CFResource{
-						GUID: "service-offering-guid",
-					},
+					Name:              "service-offering-name",
+					GUID:              "service-offering-guid",
 					ServiceBrokerGUID: "service-broker-guid",
 				}}, nil)
 
@@ -383,9 +367,7 @@ var _ = Describe("ServicePlan", func() {
 	Describe("DELETE /v3/service_plans/:guid", func() {
 		BeforeEach(func() {
 			servicePlanRepo.GetPlanReturns(repositories.ServicePlanRecord{
-				CFResource: model.CFResource{
-					GUID: "plan-guid",
-				},
+				GUID:                "plan-guid",
 				ServiceOfferingGUID: "service-offering-guid",
 			}, nil)
 		})

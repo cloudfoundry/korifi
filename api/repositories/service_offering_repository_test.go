@@ -8,7 +8,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
@@ -61,13 +60,15 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					ServiceBroker: services.ServiceBroker{
-						Name: uuid.NewString(),
-					},
+					Name: uuid.NewString(),
 				},
 			}
 			Expect(k8sClient.Create(ctx, broker)).To(Succeed())
 
+			metadata, err := korifiv1alpha1.AsRawExtension(map[string]any{
+				"offering-md": "offering-md-value",
+			})
+			Expect(err).NotTo(HaveOccurred())
 			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceOffering{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: rootNamespace,
@@ -81,24 +82,20 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceOfferingSpec{
-					ServiceOffering: services.ServiceOffering{
-						Name:             "my-offering",
-						Description:      "my offering description",
-						Tags:             []string{"t1"},
-						Requires:         []string{"r1"},
-						DocumentationURL: tools.PtrTo("https://my.offering.com"),
-						BrokerCatalog: services.ServiceBrokerCatalog{
-							ID: "offering-catalog-guid",
-							Metadata: &runtime.RawExtension{
-								Raw: []byte(`{"offering-md": "offering-md-value"}`),
-							},
-							Features: services.BrokerCatalogFeatures{
-								PlanUpdateable:       true,
-								Bindable:             true,
-								InstancesRetrievable: true,
-								BindingsRetrievable:  true,
-								AllowContextUpdates:  true,
-							},
+					Name:             "my-offering",
+					Description:      "my offering description",
+					Tags:             []string{"t1"},
+					Requires:         []string{"r1"},
+					DocumentationURL: tools.PtrTo("https://my.offering.com"),
+					BrokerCatalog: korifiv1alpha1.ServiceBrokerCatalog{
+						ID:       "offering-catalog-guid",
+						Metadata: metadata,
+						Features: korifiv1alpha1.BrokerCatalogFeatures{
+							PlanUpdateable:       true,
+							Bindable:             true,
+							InstancesRetrievable: true,
+							BindingsRetrievable:  true,
+							AllowContextUpdates:  true,
 						},
 					},
 				},
@@ -113,34 +110,30 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			Expect(getErr).NotTo(HaveOccurred())
 			Expect(desiredOffering).To(
 				MatchFields(IgnoreExtras, Fields{
-					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("my-offering"),
-						"Description":      Equal("my offering description"),
-						"Tags":             ConsistOf("t1"),
-						"Requires":         ConsistOf("r1"),
-						"DocumentationURL": PointTo(Equal("https://my.offering.com")),
-						"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
-							"ID": Equal("offering-catalog-guid"),
-							"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-								"Raw": MatchJSON(`{"offering-md": "offering-md-value"}`),
-							})),
-							"Features": MatchFields(IgnoreExtras, Fields{
-								"PlanUpdateable":       BeTrue(),
-								"Bindable":             BeTrue(),
-								"InstancesRetrievable": BeTrue(),
-								"BindingsRetrievable":  BeTrue(),
-								"AllowContextUpdates":  BeTrue(),
-							}),
+					"Name":             Equal("my-offering"),
+					"Description":      Equal("my offering description"),
+					"Tags":             ConsistOf("t1"),
+					"Requires":         ConsistOf("r1"),
+					"DocumentationURL": PointTo(Equal("https://my.offering.com")),
+					"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
+						"ID": Equal("offering-catalog-guid"),
+						"Metadata": MatchAllKeys(Keys{
+							"offering-md": Equal("offering-md-value"),
+						}),
+						"Features": MatchFields(IgnoreExtras, Fields{
+							"PlanUpdateable":       BeTrue(),
+							"Bindable":             BeTrue(),
+							"InstancesRetrievable": BeTrue(),
+							"BindingsRetrievable":  BeTrue(),
+							"AllowContextUpdates":  BeTrue(),
 						}),
 					}),
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID":      Equal(offeringGUID),
-						"CreatedAt": Not(BeZero()),
-						"UpdatedAt": BeNil(),
-						"Metadata": MatchAllFields(Fields{
-							"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, broker.Name),
-							"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
-						}),
+					"GUID":      Equal(offeringGUID),
+					"CreatedAt": Not(BeZero()),
+					"UpdatedAt": BeNil(),
+					"Metadata": MatchAllFields(Fields{
+						"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, broker.Name),
+						"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
 					}),
 					"ServiceBrokerGUID": Equal(broker.Name),
 				}),
@@ -178,9 +171,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					ServiceBroker: services.ServiceBroker{
-						Name: uuid.NewString(),
-					},
+					Name: uuid.NewString(),
 				},
 			}
 			Expect(k8sClient.Create(ctx, broker)).To(Succeed())
@@ -198,24 +189,22 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceOfferingSpec{
-					ServiceOffering: services.ServiceOffering{
-						Name:             "my-offering",
-						Description:      "my offering description",
-						Tags:             []string{"t1"},
-						Requires:         []string{"r1"},
-						DocumentationURL: tools.PtrTo("https://my.offering.com"),
-						BrokerCatalog: services.ServiceBrokerCatalog{
-							ID: "offering-catalog-guid",
-							Metadata: &runtime.RawExtension{
-								Raw: []byte(`{"offering-md": "offering-md-value"}`),
-							},
-							Features: services.BrokerCatalogFeatures{
-								PlanUpdateable:       true,
-								Bindable:             true,
-								InstancesRetrievable: true,
-								BindingsRetrievable:  true,
-								AllowContextUpdates:  true,
-							},
+					Name:             "my-offering",
+					Description:      "my offering description",
+					Tags:             []string{"t1"},
+					Requires:         []string{"r1"},
+					DocumentationURL: tools.PtrTo("https://my.offering.com"),
+					BrokerCatalog: korifiv1alpha1.ServiceBrokerCatalog{
+						ID: "offering-catalog-guid",
+						Metadata: &runtime.RawExtension{
+							Raw: []byte(`{"offering-md": "offering-md-value"}`),
+						},
+						Features: korifiv1alpha1.BrokerCatalogFeatures{
+							PlanUpdateable:       true,
+							Bindable:             true,
+							InstancesRetrievable: true,
+							BindingsRetrievable:  true,
+							AllowContextUpdates:  true,
 						},
 					},
 				},
@@ -231,9 +220,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceOfferingSpec{
-					ServiceOffering: services.ServiceOffering{
-						Name: "another-offering",
-					},
+					Name: "another-offering",
 				},
 			})).To(Succeed())
 
@@ -248,41 +235,35 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			Expect(listErr).NotTo(HaveOccurred())
 			Expect(listedOfferings).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
-					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("my-offering"),
-						"Description":      Equal("my offering description"),
-						"Tags":             ConsistOf("t1"),
-						"Requires":         ConsistOf("r1"),
-						"DocumentationURL": PointTo(Equal("https://my.offering.com")),
-						"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
-							"ID": Equal("offering-catalog-guid"),
-							"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-								"Raw": MatchJSON(`{"offering-md": "offering-md-value"}`),
-							})),
-							"Features": MatchFields(IgnoreExtras, Fields{
-								"PlanUpdateable":       BeTrue(),
-								"Bindable":             BeTrue(),
-								"InstancesRetrievable": BeTrue(),
-								"BindingsRetrievable":  BeTrue(),
-								"AllowContextUpdates":  BeTrue(),
-							}),
+					"Name":             Equal("my-offering"),
+					"Description":      Equal("my offering description"),
+					"Tags":             ConsistOf("t1"),
+					"Requires":         ConsistOf("r1"),
+					"DocumentationURL": PointTo(Equal("https://my.offering.com")),
+					"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
+						"ID": Equal("offering-catalog-guid"),
+						"Metadata": MatchAllKeys(Keys{
+							"offering-md": Equal("offering-md-value"),
+						}),
+						"Features": MatchFields(IgnoreExtras, Fields{
+							"PlanUpdateable":       BeTrue(),
+							"Bindable":             BeTrue(),
+							"InstancesRetrievable": BeTrue(),
+							"BindingsRetrievable":  BeTrue(),
+							"AllowContextUpdates":  BeTrue(),
 						}),
 					}),
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID":      Equal(offeringGUID),
-						"CreatedAt": Not(BeZero()),
-						"UpdatedAt": BeNil(),
-						"Metadata": MatchAllFields(Fields{
-							"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, broker.Name),
-							"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
-						}),
+					"GUID":      Equal(offeringGUID),
+					"CreatedAt": Not(BeZero()),
+					"UpdatedAt": BeNil(),
+					"Metadata": MatchAllFields(Fields{
+						"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, broker.Name),
+						"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
 					}),
 					"ServiceBrokerGUID": Equal(broker.Name),
 				}),
 				MatchFields(IgnoreExtras, Fields{
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(anotherOfferingGUID),
-					}),
+					"GUID": Equal(anotherOfferingGUID),
 				}),
 			))
 		})
@@ -295,9 +276,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			It("returns the matching offerings", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"ServiceOffering": MatchFields(IgnoreExtras, Fields{
-						"Name": Equal("my-offering"),
-					}),
+					"Name": Equal("my-offering"),
 				})))
 			})
 		})
@@ -323,9 +302,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			It("returns the matching offerings", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(offeringGUID),
-					}),
+					"GUID": Equal(offeringGUID),
 				})))
 			})
 		})
@@ -348,12 +325,10 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFServiceOfferingSpec{
-					ServiceOffering: services.ServiceOffering{
-						Name:        "my-offering",
-						Description: "my offering description",
-						Tags:        []string{"t1"},
-						Requires:    []string{"r1"},
-					},
+					Name:        "my-offering",
+					Description: "my offering description",
+					Tags:        []string{"t1"},
+					Requires:    []string{"r1"},
 				},
 			}
 			Expect(k8sClient.Create(ctx, offering)).To(Succeed())
@@ -367,11 +342,9 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					},
 				},
 				Spec: korifiv1alpha1.CFServicePlanSpec{
-					ServicePlan: services.ServicePlan{
-						Name:        "my-service-plan",
-						Free:        true,
-						Description: "service plan description",
-					},
+					Name:        "my-service-plan",
+					Free:        true,
+					Description: "service plan description",
 					Visibility: korifiv1alpha1.ServicePlanVisibility{
 						Type: korifiv1alpha1.PublicServicePlanVisibilityType,
 					},

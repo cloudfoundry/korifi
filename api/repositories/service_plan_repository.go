@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
@@ -23,11 +22,52 @@ const (
 )
 
 type ServicePlanRecord struct {
-	services.ServicePlan
-	model.CFResource
+	GUID                string
+	CreatedAt           time.Time
+	UpdatedAt           *time.Time
+	Metadata            Metadata
+	Name                string
+	Free                bool
+	Description         string
+	BrokerCatalog       ServicePlanBrokerCatalog
+	Schemas             ServicePlanSchemas
+	MaintenanceInfo     MaintenanceInfo
 	Visibility          PlanVisibility
 	ServiceOfferingGUID string
 	Available           bool
+}
+
+type ServicePlanBrokerCatalog struct {
+	ID       string
+	Metadata map[string]any
+	Features ServicePlanFeatures
+}
+
+type InputParameterSchema struct {
+	Parameters map[string]any
+}
+
+type ServiceInstanceSchema struct {
+	Create InputParameterSchema
+	Update InputParameterSchema
+}
+
+type ServiceBindingSchema struct {
+	Create InputParameterSchema
+}
+
+type ServicePlanSchemas struct {
+	ServiceInstance ServiceInstanceSchema
+	ServiceBinding  ServiceBindingSchema
+}
+
+type ServicePlanFeatures struct {
+	PlanUpdateable bool
+	Bindable       bool
+}
+
+type MaintenanceInfo struct {
+	Version string
 }
 
 func (r ServicePlanRecord) Relationships() map[string]string {
@@ -38,7 +78,12 @@ func (r ServicePlanRecord) Relationships() map[string]string {
 
 type PlanVisibility struct {
 	Type          string
-	Organizations []services.VisibilityOrganization
+	Organizations []VisibilityOrganization
+}
+
+type VisibilityOrganization struct {
+	GUID string
+	Name string
 }
 
 type ServicePlanRepo struct {
@@ -224,7 +269,7 @@ func (r *ServicePlanRepo) patchServicePlan(
 }
 
 func (r *ServicePlanRepo) planToRecord(ctx context.Context, authInfo authorization.Info, plan korifiv1alpha1.CFServicePlan) (ServicePlanRecord, error) {
-	organizations := []services.VisibilityOrganization{}
+	organizations := []VisibilityOrganization{}
 	if plan.Spec.Visibility.Type == korifiv1alpha1.OrganizationServicePlanVisibilityType {
 		var err error
 		organizations, err = r.toVisibilityOrganizations(ctx, authInfo, plan.Spec.Visibility.Organizations)
@@ -233,15 +278,56 @@ func (r *ServicePlanRepo) planToRecord(ctx context.Context, authInfo authorizati
 		}
 	}
 
+	metadata, err := korifiv1alpha1.AsMap(plan.Spec.BrokerCatalog.Metadata)
+	if err != nil {
+		return ServicePlanRecord{}, err
+	}
+
+	instanceCreateParameters, err := korifiv1alpha1.AsMap(plan.Spec.Schemas.ServiceInstance.Create.Parameters)
+	if err != nil {
+		return ServicePlanRecord{}, err
+	}
+
+	instanceUpdateParameters, err := korifiv1alpha1.AsMap(plan.Spec.Schemas.ServiceInstance.Update.Parameters)
+	if err != nil {
+		return ServicePlanRecord{}, err
+	}
+
+	bindingCreateParameters, err := korifiv1alpha1.AsMap(plan.Spec.Schemas.ServiceBinding.Create.Parameters)
+	if err != nil {
+		return ServicePlanRecord{}, err
+	}
+
 	return ServicePlanRecord{
-		ServicePlan: plan.Spec.ServicePlan,
-		CFResource: model.CFResource{
-			GUID:      plan.Name,
-			CreatedAt: plan.CreationTimestamp.Time,
-			Metadata: model.Metadata{
-				Labels:      plan.Labels,
-				Annotations: plan.Annotations,
+		Name:        plan.Spec.Name,
+		Free:        plan.Spec.Free,
+		Description: plan.Spec.Description,
+		BrokerCatalog: ServicePlanBrokerCatalog{
+			ID:       plan.Spec.BrokerCatalog.ID,
+			Metadata: metadata,
+			Features: ServicePlanFeatures(plan.Spec.BrokerCatalog.Features),
+		},
+		Schemas: ServicePlanSchemas{
+			ServiceInstance: ServiceInstanceSchema{
+				Create: InputParameterSchema{
+					Parameters: instanceCreateParameters,
+				},
+				Update: InputParameterSchema{
+					Parameters: instanceUpdateParameters,
+				},
 			},
+			ServiceBinding: ServiceBindingSchema{
+				Create: InputParameterSchema{
+					Parameters: bindingCreateParameters,
+				},
+			},
+		},
+		MaintenanceInfo: MaintenanceInfo(plan.Spec.MaintenanceInfo),
+		GUID:            plan.Name,
+		CreatedAt:       plan.CreationTimestamp.Time,
+		Metadata: Metadata{
+			Labels:      plan.Labels,
+			Annotations: plan.Annotations,
 		},
 		Visibility: PlanVisibility{
 			Type:          plan.Spec.Visibility.Type,
@@ -252,7 +338,7 @@ func (r *ServicePlanRepo) planToRecord(ctx context.Context, authInfo authorizati
 	}, nil
 }
 
-func (r *ServicePlanRepo) toVisibilityOrganizations(ctx context.Context, authInfo authorization.Info, orgGUIDs []string) ([]services.VisibilityOrganization, error) {
+func (r *ServicePlanRepo) toVisibilityOrganizations(ctx context.Context, authInfo authorization.Info, orgGUIDs []string) ([]VisibilityOrganization, error) {
 	orgs, err := r.orgRepo.ListOrgs(ctx, authInfo, ListOrgsMessage{
 		GUIDs: orgGUIDs,
 	})
@@ -260,8 +346,8 @@ func (r *ServicePlanRepo) toVisibilityOrganizations(ctx context.Context, authInf
 		return nil, fmt.Errorf("failed to list orgs for plan visibility: %w", err)
 	}
 
-	return slices.Collect(it.Map(slices.Values(orgs), func(o OrgRecord) services.VisibilityOrganization {
-		return services.VisibilityOrganization{
+	return slices.Collect(it.Map(slices.Values(orgs), func(o OrgRecord) VisibilityOrganization {
+		return VisibilityOrganization{
 			GUID: o.GUID,
 			Name: o.Name,
 		}

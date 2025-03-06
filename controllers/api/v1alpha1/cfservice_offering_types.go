@@ -1,13 +1,34 @@
 package v1alpha1
 
 import (
-	"code.cloudfoundry.org/korifi/model/services"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // CFServiceOfferingSpec defines the desired state of CFServiceOffering
 type CFServiceOfferingSpec struct {
-	services.ServiceOffering `json:",inline"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags,omitempty"`
+	Requires    []string `json:"requires,omitempty"`
+	// +kubebuilder:validation:Optional
+	DocumentationURL *string              `json:"documentationUrl"`
+	BrokerCatalog    ServiceBrokerCatalog `json:"brokerCatalog"`
+}
+
+type ServiceBrokerCatalog struct {
+	ID string `json:"id"`
+	// +kubebuilder:validation:Optional
+	Metadata *runtime.RawExtension `json:"metadata"`
+	Features BrokerCatalogFeatures `json:"features"`
+}
+
+type BrokerCatalogFeatures struct {
+	PlanUpdateable       bool `json:"planUpdateable"`
+	Bindable             bool `json:"bindable"`
+	InstancesRetrievable bool `json:"instancesRetrievable"`
+	BindingsRetrievable  bool `json:"bindingsRetrievable"`
+	AllowContextUpdates  bool `json:"allowContextUpdates"`
 }
 
 //+kubebuilder:object:root=true

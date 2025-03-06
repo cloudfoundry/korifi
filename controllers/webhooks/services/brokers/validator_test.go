@@ -8,7 +8,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services/brokers"
-	"code.cloudfoundry.org/korifi/model/services"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -43,9 +42,7 @@ var _ = Describe("CFServiceBrokerValidatingWebhook", func() {
 				Namespace: defaultNamespace,
 			},
 			Spec: korifiv1alpha1.CFServiceBrokerSpec{
-				ServiceBroker: services.ServiceBroker{
-					Name: uuid.NewString(),
-				},
+				Name: uuid.NewString(),
 			},
 		}
 

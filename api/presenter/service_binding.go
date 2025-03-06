@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
@@ -22,7 +22,7 @@ type ServiceBindingResponse struct {
 	CreatedAt     string                              `json:"created_at"`
 	UpdatedAt     string                              `json:"updated_at"`
 	LastOperation ServiceBindingLastOperationResponse `json:"last_operation"`
-	Relationships map[string]model.ToOneRelationship  `json:"relationships"`
+	Relationships map[string]ToOneRelationship        `json:"relationships"`
 	Links         ServiceBindingLinks                 `json:"links"`
 	Metadata      Metadata                            `json:"metadata"`
 }
@@ -46,7 +46,7 @@ type ServiceBindingDetailsResponse struct {
 	Credentials map[string]any `json:"credentials"`
 }
 
-func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL, includes ...model.IncludedResource) ServiceBindingResponse {
+func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL, includes ...include.Resource) ServiceBindingResponse {
 	return ServiceBindingResponse{
 		GUID:      record.GUID,
 		Type:      record.Type,
@@ -83,8 +83,8 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 }
 
 func ForServiceBindingList(serviceBindingRecords []repositories.ServiceBindingRecord, appRecords []repositories.AppRecord, baseURL, requestURL url.URL) ListResponse[ServiceBindingResponse] {
-	includedApps := slices.Collect(it.Map(itx.FromSlice(appRecords), func(app repositories.AppRecord) model.IncludedResource {
-		return model.IncludedResource{
+	includedApps := slices.Collect(it.Map(itx.FromSlice(appRecords), func(app repositories.AppRecord) include.Resource {
+		return include.Resource{
 			Type:     "apps",
 			Resource: ForApp(app, baseURL),
 		}

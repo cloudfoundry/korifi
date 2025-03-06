@@ -13,8 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -133,32 +131,20 @@ var _ = Describe("ServiceInstance", func() {
 		Describe("fields", func() {
 			BeforeEach(func() {
 				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-					ServiceOffering: services.ServiceOffering{
-						Name: "service-offering-name",
-					},
-					CFResource: model.CFResource{
-						GUID: "service-offering-guid",
-					},
+					Name:              "service-offering-name",
+					GUID:              "service-offering-guid",
 					ServiceBrokerGUID: "service-broker-guid",
 				}}, nil)
 
 				servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
-					ServicePlan: services.ServicePlan{
-						Name: "service-plan-name",
-					},
-					CFResource: model.CFResource{
-						GUID: "service-plan-guid",
-					},
+					Name:                "service-plan-name",
+					GUID:                "service-plan-guid",
 					ServiceOfferingGUID: "service-offering-guid",
 				}}, nil)
 
 				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-					ServiceBroker: services.ServiceBroker{
-						Name: "service-broker-name",
-					},
-					CFResource: model.CFResource{
-						GUID: "service-broker-guid",
-					},
+					Name: "service-broker-name",
+					GUID: "service-broker-guid",
 				}}, nil)
 			})
 
@@ -566,32 +552,20 @@ var _ = Describe("ServiceInstance", func() {
 		Describe("fields", func() {
 			BeforeEach(func() {
 				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-					ServiceOffering: services.ServiceOffering{
-						Name: "service-offering-name",
-					},
-					CFResource: model.CFResource{
-						GUID: "service-offering-guid",
-					},
+					Name:              "service-offering-name",
+					GUID:              "service-offering-guid",
 					ServiceBrokerGUID: "service-broker-guid",
 				}}, nil)
 
 				servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
-					ServicePlan: services.ServicePlan{
-						Name: "service-plan-name",
-					},
-					CFResource: model.CFResource{
-						GUID: "service-plan-guid",
-					},
+					Name:                "service-plan-name",
+					GUID:                "service-plan-guid",
 					ServiceOfferingGUID: "service-offering-guid",
 				}}, nil)
 
 				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-					ServiceBroker: services.ServiceBroker{
-						Name: "service-broker-name",
-					},
-					CFResource: model.CFResource{
-						GUID: "service-broker-guid",
-					},
+					Name: "service-broker-name",
+					GUID: "service-broker-guid",
 				}}, nil)
 			})
 

@@ -7,7 +7,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
-	"code.cloudfoundry.org/korifi/model"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 )
@@ -42,8 +41,8 @@ func (h *IncludeResolver[S, E]) ResolveIncludes(
 	authInfo authorization.Info,
 	resources S,
 	includeResourceRules []params.IncludeResourceRule,
-) ([]model.IncludedResource, error) {
-	includes := []model.IncludedResource{}
+) ([]Resource, error) {
+	includes := []Resource{}
 
 	repoResources := slices.Collect(it.Map(itx.FromSlice(resources), func(e E) relationships.Resource {
 		return e
@@ -71,8 +70,8 @@ func (h *IncludeResolver[S, E]) resolveInclude(
 	authInfo authorization.Info,
 	resources []relationships.Resource,
 	relationshipPath []string,
-) ([]model.IncludedResource, error) {
-	var includedResources []model.IncludedResource
+) ([]Resource, error) {
+	var includedResources []Resource
 
 	for _, relatedResourceType := range relationshipPath {
 		var err error
@@ -81,8 +80,8 @@ func (h *IncludeResolver[S, E]) resolveInclude(
 			return nil, err
 		}
 
-		includedResources = slices.Collect(it.Map(itx.FromSlice(resources), func(r relationships.Resource) model.IncludedResource {
-			return model.IncludedResource{
+		includedResources = slices.Collect(it.Map(itx.FromSlice(resources), func(r relationships.Resource) Resource {
+			return Resource{
 				Type:     plural(relatedResourceType),
 				Resource: h.resourcePresenter.PresentResource(r),
 			}
@@ -92,8 +91,8 @@ func (h *IncludeResolver[S, E]) resolveInclude(
 	return includedResources, nil
 }
 
-func selectFields(includedResources []model.IncludedResource, fields []string) ([]model.IncludedResource, error) {
-	res := []model.IncludedResource{}
+func selectFields(includedResources []Resource, fields []string) ([]Resource, error) {
+	res := []Resource{}
 
 	for _, includedResource := range includedResources {
 		partialResource, err := includedResource.SelectJSONPaths(fields...)

@@ -13,8 +13,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -118,7 +116,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 	Describe("GetState", func() {
 		var (
 			cfServiceBinding *korifiv1alpha1.CFServiceBinding
-			state            model.CFResourceState
+			state            repositories.ResourceState
 			stateErr         error
 		)
 		BeforeEach(func() {
@@ -162,7 +160,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			It("returns unknown state", func() {
 				Expect(stateErr).NotTo(HaveOccurred())
-				Expect(state).To(Equal(model.CFResourceStateUnknown))
+				Expect(state).To(Equal(repositories.ResourceStateUnknown))
 			})
 
 			When("the service binding is ready", func() {
@@ -180,7 +178,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				It("returns ready state", func() {
 					Expect(stateErr).NotTo(HaveOccurred())
-					Expect(state).To(Equal(model.CFResourceStateReady))
+					Expect(state).To(Equal(repositories.ResourceStateReady))
 				})
 
 				When("the ready status is stale ", func() {
@@ -192,7 +190,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 					It("returns unknown state", func() {
 						Expect(stateErr).NotTo(HaveOccurred())
-						Expect(state).To(Equal(model.CFResourceStateUnknown))
+						Expect(state).To(Equal(repositories.ResourceStateUnknown))
 					})
 				})
 			})
@@ -1331,9 +1329,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Name:      serviceBrokerGUID,
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					ServiceBroker: services.ServiceBroker{
-						Name: uuid.NewString(),
-					},
+					Name: uuid.NewString(),
 				},
 			}
 			Expect(k8sClient.Create(ctx, serviceBroker)).To(Succeed())

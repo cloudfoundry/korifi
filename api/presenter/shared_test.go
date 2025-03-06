@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 )
 
 type (
@@ -22,7 +22,7 @@ type (
 	}
 )
 
-func forRecord(r record, u url.URL, includes ...model.IncludedResource) presentedRecord {
+func forRecord(r record, u url.URL, includes ...include.Resource) presentedRecord {
 	return presentedRecord{
 		M: r.N,
 		U: u.String(),
@@ -33,7 +33,7 @@ var _ = Describe("Shared", func() {
 	Describe("ForList", func() {
 		var (
 			records           []record
-			includedResources []model.IncludedResource
+			includedResources []include.Resource
 			baseURL           *url.URL
 			requestURL        *url.URL
 			output            []byte
@@ -48,7 +48,7 @@ var _ = Describe("Shared", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			records = []record{{N: 42}, {N: 43}}
-			includedResources = []model.IncludedResource{}
+			includedResources = []include.Resource{}
 		})
 
 		JustBeforeEach(func() {
@@ -87,7 +87,7 @@ var _ = Describe("Shared", func() {
 
 		When("included resources are provided", func() {
 			BeforeEach(func() {
-				includedResources = []model.IncludedResource{
+				includedResources = []include.Resource{
 					{
 						Type:     "typeA",
 						Resource: map[string]string{"a": "A"},
@@ -176,9 +176,9 @@ var _ = Describe("Shared", func() {
 		It("presents relationships", func() {
 			Expect(presenter.ForRelationships(map[string]string{
 				"foo": "bar",
-			})).To(Equal(map[string]model.ToOneRelationship{
+			})).To(Equal(map[string]presenter.ToOneRelationship{
 				"foo": {
-					Data: model.Relationship{
+					Data: presenter.Relationship{
 						GUID: "bar",
 					},
 				},

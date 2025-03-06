@@ -11,8 +11,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
-	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tools/logger"
 )
 
@@ -44,7 +44,7 @@ type DeletionRepository interface {
 
 //counterfeiter:generate -o fake -fake-name StateRepository . StateRepository
 type StateRepository interface {
-	GetState(context.Context, authorization.Info, string) (model.CFResourceState, error)
+	GetState(context.Context, authorization.Info, string) (repositories.ResourceState, error)
 }
 
 type Job struct {
@@ -187,7 +187,7 @@ func (h *Job) handleStateJob(ctx context.Context, repository StateRepository, jo
 	}
 
 	switch state {
-	case model.CFResourceStateReady:
+	case repositories.ResourceStateReady:
 		return presenter.ForJob(job,
 			[]presenter.JobResponseError{},
 			presenter.StateComplete,

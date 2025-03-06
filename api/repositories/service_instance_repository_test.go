@@ -13,8 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -359,7 +357,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			Expect(k8sClient.Create(ctx, cfServiceInstance)).To(Succeed())
 
 			Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance, func() {
-				cfServiceInstance.Status.LastOperation = services.LastOperation{
+				cfServiceInstance.Status.LastOperation = korifiv1alpha1.LastOperation{
 					Type:        "create",
 					State:       "failed",
 					Description: "failed due to error",
@@ -374,7 +372,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 
 		It("returns  last operation", func() {
-			Expect(serviceInstanceRecord.LastOperation).To(Equal(services.LastOperation{
+			Expect(serviceInstanceRecord.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
 				Type:        "create",
 				State:       "failed",
 				Description: "failed due to error",
@@ -442,7 +440,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	Describe("GetState", func() {
 		var (
 			cfServiceInstance *korifiv1alpha1.CFServiceInstance
-			state             model.CFResourceState
+			state             repositories.ResourceState
 			stateErr          error
 		)
 		BeforeEach(func() {
@@ -474,7 +472,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			It("returns unknown state", func() {
 				Expect(stateErr).NotTo(HaveOccurred())
-				Expect(state).To(Equal(model.CFResourceStateUnknown))
+				Expect(state).To(Equal(repositories.ResourceStateUnknown))
 			})
 
 			When("the service instance is ready", func() {
@@ -492,7 +490,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 				It("returns ready state", func() {
 					Expect(stateErr).NotTo(HaveOccurred())
-					Expect(state).To(Equal(model.CFResourceStateReady))
+					Expect(state).To(Equal(repositories.ResourceStateReady))
 				})
 
 				When("the ready status is stale ", func() {
@@ -504,7 +502,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 					It("returns unknown state", func() {
 						Expect(stateErr).NotTo(HaveOccurred())
-						Expect(state).To(Equal(model.CFResourceStateUnknown))
+						Expect(state).To(Equal(repositories.ResourceStateUnknown))
 					})
 				})
 			})
@@ -1006,7 +1004,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Expect(k8s.Patch(ctx, k8sClient, serviceInstance, func() {
 						serviceInstance.Spec.Type = korifiv1alpha1.ManagedType
 						serviceInstance.Spec.PlanGUID = "plan-guid"
-						serviceInstance.Status.MaintenanceInfo = services.MaintenanceInfo{
+						serviceInstance.Status.MaintenanceInfo = korifiv1alpha1.MaintenanceInfo{
 							Version: "1.2.3",
 						}
 						serviceInstance.Status.UpgradeAvailable = true
@@ -1023,7 +1021,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 				It("returns the maintenance info", func() {
 					Expect(getErr).NotTo(HaveOccurred())
-					Expect(record.MaintenanceInfo).To(Equal(services.MaintenanceInfo{
+					Expect(record.MaintenanceInfo).To(Equal(repositories.MaintenanceInfo{
 						Version: "1.2.3",
 					}))
 				})

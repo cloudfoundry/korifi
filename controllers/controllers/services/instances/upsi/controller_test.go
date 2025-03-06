@@ -5,7 +5,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -127,7 +126,7 @@ var _ = Describe("CFServiceInstance", func() {
 				It("sets the instance last operation failed state", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-						g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+						g.Expect(instance.Status.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
 							Type:  "create",
 							State: "failed",
 						}))
@@ -138,7 +137,7 @@ var _ = Describe("CFServiceInstance", func() {
 			It("sets the instance last operation succeed state", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-					g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+					g.Expect(instance.Status.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
 						Type:  "create",
 						State: "succeeded",
 					}))
@@ -173,7 +172,7 @@ var _ = Describe("CFServiceInstance", func() {
 				It("sets the instance last operation update type", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-						g.Expect(instance.Status.LastOperation).To(Equal(services.LastOperation{
+						g.Expect(instance.Status.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
 							Type:  "update",
 							State: "succeeded",
 						}))
