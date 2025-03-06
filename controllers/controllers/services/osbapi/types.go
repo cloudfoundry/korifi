@@ -1,9 +1,5 @@
 package osbapi
 
-import (
-	"code.cloudfoundry.org/korifi/model/services"
-)
-
 type Broker struct {
 	URL      string
 	Username string
@@ -15,14 +11,18 @@ type Catalog struct {
 }
 
 type Service struct {
-	services.BrokerCatalogFeatures `json:",inline"`
-	ID                             string         `json:"id"`
-	Name                           string         `json:"name"`
-	Description                    string         `json:"description"`
-	Tags                           []string       `json:"tags"`
-	Requires                       []string       `json:"requires"`
-	Metadata                       map[string]any `json:"metadata"`
-	DashboardClient                struct {
+	ID                   string         `json:"id"`
+	Name                 string         `json:"name"`
+	Description          string         `json:"description"`
+	Tags                 []string       `json:"tags"`
+	Requires             []string       `json:"requires"`
+	Metadata             map[string]any `json:"metadata"`
+	PlanUpdateable       bool           `json:"plan_updateable"`
+	Bindable             bool           `json:"bindable"`
+	InstancesRetrievable bool           `json:"instances_retrievable"`
+	BindingsRetrievable  bool           `json:"bindings_retrievable"`
+	AllowContextUpdates  bool           `json:"allow_context_updates"`
+	DashboardClient      struct {
 		Id          string `json:"id"`
 		Secret      string `json:"secret"`
 		RedirectUri string `json:"redirect_url"`
@@ -31,16 +31,38 @@ type Service struct {
 }
 
 type Plan struct {
-	ID               string                      `json:"id"`
-	Name             string                      `json:"name"`
-	Description      string                      `json:"description"`
-	Metadata         map[string]any              `json:"metadata"`
-	Free             bool                        `json:"free"`
-	Bindable         bool                        `json:"bindable"`
-	BindingRotatable bool                        `json:"binding_rotatable"`
-	PlanUpdateable   bool                        `json:"plan_updateable"`
-	Schemas          services.ServicePlanSchemas `json:"schemas"`
-	MaintenanceInfo  services.MaintenanceInfo    `json:"maintenance_info"`
+	ID               string             `json:"id"`
+	Name             string             `json:"name"`
+	Description      string             `json:"description"`
+	Metadata         map[string]any     `json:"metadata"`
+	Free             bool               `json:"free"`
+	Bindable         bool               `json:"bindable"`
+	BindingRotatable bool               `json:"binding_rotatable"`
+	PlanUpdateable   bool               `json:"plan_updateable"`
+	Schemas          ServicePlanSchemas `json:"schemas"`
+	MaintenanceInfo  MaintenanceInfo    `json:"maintenance_info"`
+}
+
+type ServicePlanSchemas struct {
+	ServiceInstance ServiceInstanceSchema `json:"service_instance"`
+	ServiceBinding  ServiceBindingSchema  `json:"service_binding"`
+}
+
+type MaintenanceInfo struct {
+	Version string `json:"version"`
+}
+
+type ServiceInstanceSchema struct {
+	Create InputParameterSchema `json:"create"`
+	Update InputParameterSchema `json:"update"`
+}
+
+type ServiceBindingSchema struct {
+	Create InputParameterSchema `json:"create"`
+}
+
+type InputParameterSchema struct {
+	Parameters map[string]any `json:"parameters,omitempty"`
 }
 
 type ProvisionPayload struct {

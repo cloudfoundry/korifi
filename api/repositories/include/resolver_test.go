@@ -5,11 +5,10 @@ import (
 	"errors"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/handlers/include"
-	"code.cloudfoundry.org/korifi/api/handlers/include/fake"
 	"code.cloudfoundry.org/korifi/api/payloads/params"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
+	"code.cloudfoundry.org/korifi/api/repositories/include/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
-	"code.cloudfoundry.org/korifi/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -41,7 +40,7 @@ var _ = Describe("ResolveIncludes", func() {
 		inputResources []Foo
 		rules          []params.IncludeResourceRule
 		resolveErr     error
-		result         []model.IncludedResource
+		result         []include.Resource
 	)
 
 	BeforeEach(func() {
@@ -50,7 +49,7 @@ var _ = Describe("ResolveIncludes", func() {
 			RelationshipPath: []string{"bar"},
 			Fields:           []string{},
 		}}
-		result = []model.IncludedResource{}
+		result = []include.Resource{}
 
 		relationshipsRepo = new(fake.ResourceRelationshipRepository)
 		resourcePresenter = new(fake.ResourcePresenter)
@@ -101,7 +100,7 @@ var _ = Describe("ResolveIncludes", func() {
 		It("includes the presented object", func() {
 			Expect(resolveErr).NotTo(HaveOccurred())
 			Expect(result).To(ConsistOf(
-				model.IncludedResource{
+				include.Resource{
 					Type: "bars",
 					Resource: map[string]any{
 						"presented_field1": "present1",
@@ -122,7 +121,7 @@ var _ = Describe("ResolveIncludes", func() {
 			It("includes the selected fields of the related object", func() {
 				Expect(resolveErr).NotTo(HaveOccurred())
 				Expect(result).To(ConsistOf(
-					model.IncludedResource{
+					include.Resource{
 						Type: "bars",
 						Resource: map[string]any{
 							"presented_field2": "present2",
@@ -207,14 +206,14 @@ var _ = Describe("ResolveIncludes", func() {
 			It("resolves all rules", func() {
 				Expect(resolveErr).NotTo(HaveOccurred())
 				Expect(result).To(ConsistOf(
-					model.IncludedResource{
+					include.Resource{
 						Type: "foos",
 						Resource: map[string]any{
 							"guid": "presented-foo-guid",
 							"name": "presented-foo-name",
 						},
 					},
-					model.IncludedResource{
+					include.Resource{
 						Type: "bars",
 						Resource: map[string]any{
 							"name": "presented-bar-name",

@@ -6,7 +6,7 @@ import (
 	"path"
 	"time"
 
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 )
@@ -25,10 +25,10 @@ type RelationshipData struct {
 	GUID string `json:"guid,omitempty"`
 }
 
-func ForRelationships(relationships map[string]string) map[string]model.ToOneRelationship {
-	return maps.Collect(it.Map2(maps.All(relationships), func(key, value string) (string, model.ToOneRelationship) {
-		return key, model.ToOneRelationship{
-			Data: model.Relationship{
+func ForRelationships(relationships map[string]string) map[string]ToOneRelationship {
+	return maps.Collect(it.Map2(maps.All(relationships), func(key, value string) (string, ToOneRelationship) {
+		return key, ToOneRelationship{
+			Data: Relationship{
 				GUID: value,
 			},
 		}
@@ -63,10 +63,17 @@ type PaginationData struct {
 type PageRef struct {
 	HREF string `json:"href"`
 }
+type Relationship struct {
+	GUID string `json:"guid"`
+}
 
-type itemPresenter[T, S any] func(T, url.URL, ...model.IncludedResource) S
+type ToOneRelationship struct {
+	Data Relationship `json:"data"`
+}
 
-func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL, includes ...model.IncludedResource) ListResponse[S] {
+type itemPresenter[T, S any] func(T, url.URL, ...include.Resource) S
+
+func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL, includes ...include.Resource) ListResponse[S] {
 	presenters := []S{}
 	for _, resource := range resources {
 		presenters = append(presenters, itemPresenter(resource, baseURL))
@@ -87,7 +94,7 @@ func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL
 	}
 }
 
-func includedResources(includes ...model.IncludedResource) map[string][]any {
+func includedResources(includes ...include.Resource) map[string][]any {
 	resources := map[string][]any{}
 	for _, include := range includes {
 		if resources[include.Type] == nil {

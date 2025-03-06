@@ -6,25 +6,38 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	jellidation "github.com/jellydator/validation"
 )
 
 type BrokerAuthentication struct {
-	Credentials services.BrokerCredentials `json:"credentials"`
-	Type        string                     `json:"type"`
+	Type        string            `json:"type"`
+	Credentials BrokerCredentials `json:"credentials"`
 }
 
 func (a BrokerAuthentication) Validate() error {
 	return jellidation.ValidateStruct(&a,
 		jellidation.Field(&a.Type, validation.OneOf("basic")),
+		jellidation.Field(&a.Credentials, jellidation.Required),
+	)
+}
+
+type BrokerCredentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+func (c BrokerCredentials) Validate() error {
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Username, jellidation.Required),
+		jellidation.Field(&c.Password, jellidation.Required),
 	)
 }
 
 type ServiceBrokerCreate struct {
-	services.ServiceBroker
-	model.Metadata
+	Name           string                `json:"name"`
+	URL            string                `json:"url"`
+	Labels         map[string]string     `json:"labels,omitempty"`
+	Annotations    map[string]string     `json:"annotations,omitempty"`
 	Authentication *BrokerAuthentication `json:"authentication"`
 }
 
@@ -38,9 +51,16 @@ func (c ServiceBrokerCreate) Validate() error {
 
 func (c ServiceBrokerCreate) ToMessage() repositories.CreateServiceBrokerMessage {
 	return repositories.CreateServiceBrokerMessage{
-		Broker:      c.ServiceBroker,
-		Metadata:    c.Metadata,
-		Credentials: c.Authentication.Credentials,
+		Name: c.Name,
+		URL:  c.URL,
+		Metadata: repositories.Metadata{
+			Annotations: c.Annotations,
+			Labels:      c.Labels,
+		},
+		Credentials: repositories.BrokerCredentials{
+			Username: c.Authentication.Credentials.Username,
+			Password: c.Authentication.Credentials.Password,
+		},
 	}
 }
 
@@ -91,7 +111,7 @@ func (b *ServiceBrokerUpdate) ToMessage(brokerGUID string) repositories.UpdateSe
 	}
 
 	if b.Authentication != nil {
-		message.Credentials = &services.BrokerCredentials{
+		message.Credentials = &repositories.BrokerCredentials{
 			Username: b.Authentication.Credentials.Username,
 			Password: b.Authentication.Credentials.Password,
 		}

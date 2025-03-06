@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 	jellidation "github.com/jellydator/validation"
@@ -122,13 +121,18 @@ func parseBool(valueStr string) (*bool, error) {
 }
 
 type ServicePlanVisibility struct {
-	Type          string                            `json:"type"`
-	Organizations []services.VisibilityOrganization `json:"organizations"`
+	Type          string                   `json:"type"`
+	Organizations []VisibilityOrganization `json:"organizations,omitempty"`
+}
+
+type VisibilityOrganization struct {
+	GUID string `json:"guid"`
+	Name string `json:"name"`
 }
 
 func (p ServicePlanVisibility) Validate() error {
 	organizationsRule := jellidation.By(func(value any) error {
-		orgs, ok := value.([]services.VisibilityOrganization)
+		orgs, ok := value.([]VisibilityOrganization)
 		if !ok {
 			return fmt.Errorf("%T is not supported, []services.VisibilityOrganization is expected", value)
 		}
@@ -154,7 +158,7 @@ func (p *ServicePlanVisibility) ToApplyMessage(planGUID string) repositories.App
 	return repositories.ApplyServicePlanVisibilityMessage{
 		PlanGUID: planGUID,
 		Type:     p.Type,
-		Organizations: slices.Collect(it.Map(slices.Values(p.Organizations), func(v services.VisibilityOrganization) string {
+		Organizations: slices.Collect(it.Map(slices.Values(p.Organizations), func(v VisibilityOrganization) string {
 			return v.GUID
 		})),
 	}
@@ -164,7 +168,7 @@ func (p *ServicePlanVisibility) ToUpdateMessage(planGUID string) repositories.Up
 	return repositories.UpdateServicePlanVisibilityMessage{
 		PlanGUID: planGUID,
 		Type:     p.Type,
-		Organizations: slices.Collect(it.Map(slices.Values(p.Organizations), func(v services.VisibilityOrganization) string {
+		Organizations: slices.Collect(it.Map(slices.Values(p.Organizations), func(v VisibilityOrganization) string {
 			return v.GUID
 		})),
 	}

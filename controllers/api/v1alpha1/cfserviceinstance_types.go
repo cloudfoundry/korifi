@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/model/services"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -82,15 +81,25 @@ type CFServiceInstanceStatus struct {
 	CredentialsObservedVersion string `json:"credentialsObservedVersion,omitempty"`
 
 	//+kubebuilder:validation:Optional
-	LastOperation services.LastOperation `json:"lastOperation"`
+	LastOperation LastOperation `json:"lastOperation"`
 
 	// The service instance maintenance info. Only makes seense for managed service instances
 	//+kubebuilder:validation:Optional
-	MaintenanceInfo services.MaintenanceInfo `json:"maintenanceInfo"`
+	MaintenanceInfo MaintenanceInfo `json:"maintenanceInfo"`
 
 	// True if there is an upgrade available for for the service instance (i.e. the plan has a new version). Only makes seense for managed service instances
 	//+kubebuilder:validation:Optional
 	UpgradeAvailable bool `json:"upgradeAvailable"`
+}
+
+type LastOperation struct {
+	// +kubebuilder:validation:Enum=create;update;delete
+	Type string `json:"type"`
+	// +kubebuilder:validation:Enum=initial;in progress;succeeded;failed
+	State string `json:"state"`
+
+	//+kubebuilder:validation:Optional
+	Description string `json:"description"`
 }
 
 //+kubebuilder:object:root=true

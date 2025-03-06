@@ -7,12 +7,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ = Describe("Service Offering", func() {
@@ -27,37 +24,33 @@ var _ = Describe("Service Offering", func() {
 		baseURL, err = url.Parse("https://api.example.org")
 		Expect(err).NotTo(HaveOccurred())
 		record = repositories.ServiceOfferingRecord{
-			ServiceOffering: services.ServiceOffering{
-				Name:             "offering-name",
-				Description:      "offering description",
-				Tags:             []string{"t1"},
-				Requires:         []string{"r1"},
-				DocumentationURL: tools.PtrTo("https://doc.url"),
-				BrokerCatalog: services.ServiceBrokerCatalog{
-					ID: "catalog-id",
-					Metadata: &runtime.RawExtension{
-						Raw: []byte(`{"foo": "bar"}`),
-					},
-					Features: services.BrokerCatalogFeatures{
-						PlanUpdateable:       true,
-						Bindable:             true,
-						InstancesRetrievable: true,
-						BindingsRetrievable:  true,
-						AllowContextUpdates:  true,
-					},
+			Name:             "offering-name",
+			Description:      "offering description",
+			Tags:             []string{"t1"},
+			Requires:         []string{"r1"},
+			DocumentationURL: tools.PtrTo("https://doc.url"),
+			BrokerCatalog: repositories.ServiceBrokerCatalog{
+				ID: "catalog-id",
+				Metadata: map[string]any{
+					"foo": "bar",
+				},
+				Features: repositories.BrokerCatalogFeatures{
+					PlanUpdateable:       true,
+					Bindable:             true,
+					InstancesRetrievable: true,
+					BindingsRetrievable:  true,
+					AllowContextUpdates:  true,
 				},
 			},
-			CFResource: model.CFResource{
-				GUID:      "resource-guid",
-				CreatedAt: time.UnixMilli(1000).UTC(),
-				UpdatedAt: tools.PtrTo(time.UnixMilli(2000).UTC()),
-				Metadata: model.Metadata{
-					Labels: map[string]string{
-						"label": "label-foo",
-					},
-					Annotations: map[string]string{
-						"annotation": "annotation-bar",
-					},
+			GUID:      "resource-guid",
+			CreatedAt: time.UnixMilli(1000).UTC(),
+			UpdatedAt: tools.PtrTo(time.UnixMilli(2000).UTC()),
+			Metadata: repositories.Metadata{
+				Labels: map[string]string{
+					"label": "label-foo",
+				},
+				Annotations: map[string]string{
+					"annotation": "annotation-bar",
 				},
 			},
 			ServiceBrokerGUID: "broker-guid",
@@ -78,7 +71,7 @@ var _ = Describe("Service Offering", func() {
 			"tags": [
 			  "t1"
 			],
-			"required": [
+			"requires": [
 			  "r1"
 			],
 			"documentation_url": "https://doc.url",

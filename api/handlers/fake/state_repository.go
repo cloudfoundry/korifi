@@ -7,11 +7,11 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/handlers"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 type StateRepository struct {
-	GetStateStub        func(context.Context, authorization.Info, string) (model.CFResourceState, error)
+	GetStateStub        func(context.Context, authorization.Info, string) (repositories.ResourceState, error)
 	getStateMutex       sync.RWMutex
 	getStateArgsForCall []struct {
 		arg1 context.Context
@@ -19,18 +19,18 @@ type StateRepository struct {
 		arg3 string
 	}
 	getStateReturns struct {
-		result1 model.CFResourceState
+		result1 repositories.ResourceState
 		result2 error
 	}
 	getStateReturnsOnCall map[int]struct {
-		result1 model.CFResourceState
+		result1 repositories.ResourceState
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *StateRepository) GetState(arg1 context.Context, arg2 authorization.Info, arg3 string) (model.CFResourceState, error) {
+func (fake *StateRepository) GetState(arg1 context.Context, arg2 authorization.Info, arg3 string) (repositories.ResourceState, error) {
 	fake.getStateMutex.Lock()
 	ret, specificReturn := fake.getStateReturnsOnCall[len(fake.getStateArgsForCall)]
 	fake.getStateArgsForCall = append(fake.getStateArgsForCall, struct {
@@ -57,7 +57,7 @@ func (fake *StateRepository) GetStateCallCount() int {
 	return len(fake.getStateArgsForCall)
 }
 
-func (fake *StateRepository) GetStateCalls(stub func(context.Context, authorization.Info, string) (model.CFResourceState, error)) {
+func (fake *StateRepository) GetStateCalls(stub func(context.Context, authorization.Info, string) (repositories.ResourceState, error)) {
 	fake.getStateMutex.Lock()
 	defer fake.getStateMutex.Unlock()
 	fake.GetStateStub = stub
@@ -70,28 +70,28 @@ func (fake *StateRepository) GetStateArgsForCall(i int) (context.Context, author
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *StateRepository) GetStateReturns(result1 model.CFResourceState, result2 error) {
+func (fake *StateRepository) GetStateReturns(result1 repositories.ResourceState, result2 error) {
 	fake.getStateMutex.Lock()
 	defer fake.getStateMutex.Unlock()
 	fake.GetStateStub = nil
 	fake.getStateReturns = struct {
-		result1 model.CFResourceState
+		result1 repositories.ResourceState
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *StateRepository) GetStateReturnsOnCall(i int, result1 model.CFResourceState, result2 error) {
+func (fake *StateRepository) GetStateReturnsOnCall(i int, result1 repositories.ResourceState, result2 error) {
 	fake.getStateMutex.Lock()
 	defer fake.getStateMutex.Unlock()
 	fake.GetStateStub = nil
 	if fake.getStateReturnsOnCall == nil {
 		fake.getStateReturnsOnCall = make(map[int]struct {
-			result1 model.CFResourceState
+			result1 repositories.ResourceState
 			result2 error
 		})
 	}
 	fake.getStateReturnsOnCall[i] = struct {
-		result1 model.CFResourceState
+		result1 repositories.ResourceState
 		result2 error
 	}{result1, result2}
 }

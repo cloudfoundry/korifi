@@ -5,7 +5,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -22,11 +22,11 @@ type RouteResponse struct {
 	URL          string             `json:"url"`
 	Destinations []routeDestination `json:"destinations"`
 
-	CreatedAt     string                             `json:"created_at"`
-	UpdatedAt     string                             `json:"updated_at"`
-	Relationships map[string]model.ToOneRelationship `json:"relationships"`
-	Metadata      Metadata                           `json:"metadata"`
-	Links         routeLinks                         `json:"links"`
+	CreatedAt     string                       `json:"created_at"`
+	UpdatedAt     string                       `json:"updated_at"`
+	Relationships map[string]ToOneRelationship `json:"relationships"`
+	Metadata      Metadata                     `json:"metadata"`
+	Links         routeLinks                   `json:"links"`
 }
 
 type RouteDestinationsResponse struct {
@@ -63,7 +63,7 @@ type routeDestinationsLinks struct {
 	Route Link `json:"route"`
 }
 
-func ForRoute(route repositories.RouteRecord, baseURL url.URL, includes ...model.IncludedResource) RouteResponse {
+func ForRoute(route repositories.RouteRecord, baseURL url.URL, includes ...include.Resource) RouteResponse {
 	destinations := make([]routeDestination, 0, len(route.Destinations))
 	for _, destinationRecord := range route.Destinations {
 		destinations = append(destinations, forDestination(destinationRecord))

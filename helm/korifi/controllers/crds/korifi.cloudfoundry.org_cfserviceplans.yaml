@@ -50,17 +50,17 @@ spec:
             type: object
           spec:
             properties:
-              broker_catalog:
+              brokerCatalog:
                 properties:
                   features:
                     properties:
                       bindable:
                         type: boolean
-                      plan_updateable:
+                      planUpdateable:
                         type: boolean
                     required:
                     - bindable
-                    - plan_updateable
+                    - planUpdateable
                     type: object
                   id:
                     type: string
@@ -74,7 +74,7 @@ spec:
                 type: string
               free:
                 type: boolean
-              maintenance_info:
+              maintenanceInfo:
                 properties:
                   version:
                     type: string
@@ -85,7 +85,7 @@ spec:
                 type: string
               schemas:
                 properties:
-                  service_binding:
+                  serviceBinding:
                     properties:
                       create:
                         properties:
@@ -96,7 +96,7 @@ spec:
                     required:
                     - create
                     type: object
-                  service_instance:
+                  serviceInstance:
                     properties:
                       create:
                         properties:
@@ -115,8 +115,8 @@ spec:
                     - update
                     type: object
                 required:
-                - service_binding
-                - service_instance
+                - serviceBinding
+                - serviceInstance
                 type: object
               visibility:
                 properties:
@@ -134,9 +134,9 @@ spec:
                 - type
                 type: object
             required:
-            - broker_catalog
+            - brokerCatalog
             - free
-            - maintenance_info
+            - maintenanceInfo
             - name
             - schemas
             - visibility

@@ -16,7 +16,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
-	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -487,17 +486,17 @@ func (r *ServiceBindingRepo) UpdateServiceBinding(ctx context.Context, authInfo 
 	return serviceBindingToRecord(*serviceBinding), nil
 }
 
-func (r *ServiceBindingRepo) GetState(ctx context.Context, authInfo authorization.Info, guid string) (model.CFResourceState, error) {
+func (r *ServiceBindingRepo) GetState(ctx context.Context, authInfo authorization.Info, guid string) (ResourceState, error) {
 	bindingRecord, err := r.GetServiceBinding(ctx, authInfo, guid)
 	if err != nil {
-		return model.CFResourceStateUnknown, err
+		return ResourceStateUnknown, err
 	}
 
 	if bindingRecord.Ready {
-		return model.CFResourceStateReady, nil
+		return ResourceStateReady, nil
 	}
 
-	return model.CFResourceStateUnknown, nil
+	return ResourceStateUnknown, nil
 }
 
 func (r *ServiceBindingRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, bindingGUID string) (*time.Time, error) {

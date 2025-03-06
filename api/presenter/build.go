@@ -4,7 +4,6 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -14,20 +13,20 @@ const (
 )
 
 type BuildResponse struct {
-	GUID            string                             `json:"guid"`
-	CreatedAt       string                             `json:"created_at"`
-	UpdatedAt       string                             `json:"updated_at"`
-	CreatedBy       map[string]interface{}             `json:"created_by"`
-	State           string                             `json:"state"`
-	StagingMemoryMB int                                `json:"staging_memory_in_mb"`
-	StagingDiskMB   int                                `json:"staging_disk_in_mb"`
-	Error           *string                            `json:"error"`
-	Lifecycle       Lifecycle                          `json:"lifecycle"`
-	Package         RelationshipData                   `json:"package"`
-	Droplet         *RelationshipData                  `json:"droplet"`
-	Relationships   map[string]model.ToOneRelationship `json:"relationships"`
-	Metadata        Metadata                           `json:"metadata"`
-	Links           map[string]Link                    `json:"links"`
+	GUID            string                       `json:"guid"`
+	CreatedAt       string                       `json:"created_at"`
+	UpdatedAt       string                       `json:"updated_at"`
+	CreatedBy       map[string]interface{}       `json:"created_by"`
+	State           string                       `json:"state"`
+	StagingMemoryMB int                          `json:"staging_memory_in_mb"`
+	StagingDiskMB   int                          `json:"staging_disk_in_mb"`
+	Error           *string                      `json:"error"`
+	Lifecycle       Lifecycle                    `json:"lifecycle"`
+	Package         RelationshipData             `json:"package"`
+	Droplet         *RelationshipData            `json:"droplet"`
+	Relationships   map[string]ToOneRelationship `json:"relationships"`
+	Metadata        Metadata                     `json:"metadata"`
+	Links           map[string]Link              `json:"links"`
 }
 
 func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildResponse {

@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
@@ -300,7 +300,7 @@ type cfErr struct {
 
 type planVisibilityResource struct {
 	Type          string                            `json:"type"`
-	Organizations []services.VisibilityOrganization `json:"organizations"`
+	Organizations []payloads.VisibilityOrganization `json:"organizations"`
 }
 
 type buildpackResource struct {

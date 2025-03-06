@@ -5,7 +5,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -88,7 +87,7 @@ var _ = Describe("ServicePlan", func() {
 			}
 			adminWithOrgs := payloads.ServicePlanVisibility{
 				Type: korifiv1alpha1.AdminServicePlanVisibilityType,
-				Organizations: []services.VisibilityOrganization{{
+				Organizations: []payloads.VisibilityOrganization{{
 					GUID: "foo",
 				}},
 			}
@@ -98,14 +97,14 @@ var _ = Describe("ServicePlan", func() {
 			}
 			publicWithOrgs := payloads.ServicePlanVisibility{
 				Type: korifiv1alpha1.PublicServicePlanVisibilityType,
-				Organizations: []services.VisibilityOrganization{{
+				Organizations: []payloads.VisibilityOrganization{{
 					GUID: "foo",
 				}},
 			}
 
 			org := payloads.ServicePlanVisibility{
 				Type: korifiv1alpha1.OrganizationServicePlanVisibilityType,
-				Organizations: []services.VisibilityOrganization{{
+				Organizations: []payloads.VisibilityOrganization{{
 					GUID: "foo",
 				}},
 			}
@@ -136,7 +135,7 @@ var _ = Describe("ServicePlan", func() {
 			BeforeEach(func() {
 				payload = &payloads.ServicePlanVisibility{
 					Type:          korifiv1alpha1.OrganizationServicePlanVisibilityType,
-					Organizations: []services.VisibilityOrganization{{GUID: "org-guid"}},
+					Organizations: []payloads.VisibilityOrganization{{GUID: "org-guid"}},
 				}
 			})
 

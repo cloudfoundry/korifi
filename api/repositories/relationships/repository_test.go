@@ -6,7 +6,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships/fake"
-	"code.cloudfoundry.org/korifi/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -72,11 +71,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 				"service_offering": "service-offering-guid",
 			})
 
-			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-				CFResource: model.CFResource{
-					GUID: "service-offering-guid",
-				},
-			}}, nil)
+			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{GUID: "service-offering-guid"}}, nil)
 		})
 
 		It("delegates to the service_offering repository", func() {
@@ -90,11 +85,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		It("returns a list of related service offering", func() {
 			Expect(listError).NotTo(HaveOccurred())
 			Expect(result).To(ConsistOf(
-				repositories.ServiceOfferingRecord{
-					CFResource: model.CFResource{
-						GUID: "service-offering-guid",
-					},
-				},
+				repositories.ServiceOfferingRecord{GUID: "service-offering-guid"},
 			))
 		})
 
@@ -117,11 +108,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 				"service_broker": "service-broker-guid",
 			})
 
-			serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-				CFResource: model.CFResource{
-					GUID: "service-broker-guid",
-				},
-			}}, nil)
+			serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{GUID: "service-broker-guid"}}, nil)
 		})
 
 		It("delegates to the service_broker repository", func() {
@@ -135,11 +122,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		It("returns a list of related service broker", func() {
 			Expect(listError).NotTo(HaveOccurred())
 			Expect(result).To(ConsistOf(
-				repositories.ServiceBrokerRecord{
-					CFResource: model.CFResource{
-						GUID: "service-broker-guid",
-					},
-				},
+				repositories.ServiceBrokerRecord{GUID: "service-broker-guid"},
 			))
 		})
 
@@ -162,11 +145,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 				"service_plan": "service-plan-guid",
 			})
 
-			servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
-				CFResource: model.CFResource{
-					GUID: "service-plan-guid",
-				},
-			}}, nil)
+			servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{GUID: "service-plan-guid"}}, nil)
 		})
 
 		It("delegates to the service_plan repository", func() {
@@ -179,13 +158,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 
 		It("returns a list of related service plan", func() {
 			Expect(listError).NotTo(HaveOccurred())
-			Expect(result).To(ConsistOf(
-				repositories.ServicePlanRecord{
-					CFResource: model.CFResource{
-						GUID: "service-plan-guid",
-					},
-				},
-			))
+			Expect(result).To(ConsistOf(repositories.ServicePlanRecord{GUID: "service-plan-guid"}))
 		})
 
 		When("the underlying repo returns an error", func() {

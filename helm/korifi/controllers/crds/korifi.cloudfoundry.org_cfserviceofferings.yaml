@@ -52,26 +52,26 @@ spec:
           spec:
             description: CFServiceOfferingSpec defines the desired state of CFServiceOffering
             properties:
-              broker_catalog:
+              brokerCatalog:
                 properties:
                   features:
                     properties:
-                      allow_context_updates:
+                      allowContextUpdates:
                         type: boolean
                       bindable:
                         type: boolean
-                      bindings_retrievable:
+                      bindingsRetrievable:
                         type: boolean
-                      instances_retrievable:
+                      instancesRetrievable:
                         type: boolean
-                      plan_updateable:
+                      planUpdateable:
                         type: boolean
                     required:
-                    - allow_context_updates
+                    - allowContextUpdates
                     - bindable
-                    - bindings_retrievable
-                    - instances_retrievable
-                    - plan_updateable
+                    - bindingsRetrievable
+                    - instancesRetrievable
+                    - planUpdateable
                     type: object
                   id:
                     type: string
@@ -84,11 +84,11 @@ spec:
                 type: object
               description:
                 type: string
-              documentation_url:
+              documentationUrl:
                 type: string
               name:
                 type: string
-              required:
+              requires:
                 items:
                   type: string
                 type: array
@@ -97,7 +97,7 @@ spec:
                   type: string
                 type: array
             required:
-            - broker_catalog
+            - brokerCatalog
             - description
             - name
             type: object

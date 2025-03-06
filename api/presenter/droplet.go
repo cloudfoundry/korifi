@@ -4,26 +4,26 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
 type DropletResponse struct {
-	GUID              string                             `json:"guid"`
-	CreatedAt         string                             `json:"created_at"`
-	UpdatedAt         string                             `json:"updated_at"`
-	State             string                             `json:"state"`
-	Error             *string                            `json:"error"`
-	Lifecycle         Lifecycle                          `json:"lifecycle"`
-	ExecutionMetadata string                             `json:"execution_metadata"`
-	Checksum          *ChecksumData                      `json:"checksum"`
-	Buildpacks        []BuildpackData                    `json:"buildpacks"`
-	ProcessTypes      map[string]string                  `json:"process_types"`
-	Stack             string                             `json:"stack"`
-	Image             *string                            `json:"image"`
-	Relationships     map[string]model.ToOneRelationship `json:"relationships"`
-	Metadata          Metadata                           `json:"metadata"`
-	Links             map[string]*Link                   `json:"links"`
+	GUID              string                       `json:"guid"`
+	CreatedAt         string                       `json:"created_at"`
+	UpdatedAt         string                       `json:"updated_at"`
+	State             string                       `json:"state"`
+	Error             *string                      `json:"error"`
+	Lifecycle         Lifecycle                    `json:"lifecycle"`
+	ExecutionMetadata string                       `json:"execution_metadata"`
+	Checksum          *ChecksumData                `json:"checksum"`
+	Buildpacks        []BuildpackData              `json:"buildpacks"`
+	ProcessTypes      map[string]string            `json:"process_types"`
+	Stack             string                       `json:"stack"`
+	Image             *string                      `json:"image"`
+	Relationships     map[string]ToOneRelationship `json:"relationships"`
+	Metadata          Metadata                     `json:"metadata"`
+	Links             map[string]*Link             `json:"links"`
 }
 
 type ChecksumData struct {
@@ -38,7 +38,7 @@ type BuildpackData struct {
 	Version       string `json:"version"`
 }
 
-func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL, includes ...model.IncludedResource) DropletResponse {
+func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL, includes ...include.Resource) DropletResponse {
 	toReturn := DropletResponse{
 		GUID:      dropletRecord.GUID,
 		CreatedAt: tools.ZeroIfNil(formatTimestamp(&dropletRecord.CreatedAt)),

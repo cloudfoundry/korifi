@@ -6,8 +6,8 @@ import (
 	"net/url"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/handlers/include"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/api/routing"
 
 	"code.cloudfoundry.org/korifi/api/presenter"

@@ -4,7 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -21,13 +21,13 @@ type DropletGUID struct {
 	Guid string `json:"guid"`
 }
 type DeploymentResponse struct {
-	GUID          string                             `json:"guid"`
-	Status        DeploymentStatus                   `json:"status"`
-	Droplet       DropletGUID                        `json:"droplet"`
-	Relationships map[string]model.ToOneRelationship `json:"relationships"`
-	Links         DeploymentLinks                    `json:"links"`
-	CreatedAt     string                             `json:"created_at"`
-	UpdatedAt     string                             `json:"updated_at"`
+	GUID          string                       `json:"guid"`
+	Status        DeploymentStatus             `json:"status"`
+	Droplet       DropletGUID                  `json:"droplet"`
+	Relationships map[string]ToOneRelationship `json:"relationships"`
+	Links         DeploymentLinks              `json:"links"`
+	CreatedAt     string                       `json:"created_at"`
+	UpdatedAt     string                       `json:"updated_at"`
 }
 
 type DeploymentLinks struct {
@@ -35,7 +35,7 @@ type DeploymentLinks struct {
 	App  Link `json:"app"`
 }
 
-func ForDeployment(responseDeployment repositories.DeploymentRecord, baseURL url.URL, includes ...model.IncludedResource) DeploymentResponse {
+func ForDeployment(responseDeployment repositories.DeploymentRecord, baseURL url.URL, includes ...include.Resource) DeploymentResponse {
 	return DeploymentResponse{
 		GUID: responseDeployment.GUID,
 		Status: DeploymentStatus{

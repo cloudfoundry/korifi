@@ -3,13 +3,11 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"slices"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/v2/it"
@@ -23,9 +21,31 @@ import (
 const ServiceOfferingResourceType = "Service Offering"
 
 type ServiceOfferingRecord struct {
-	services.ServiceOffering
-	model.CFResource
+	Name              string
+	GUID              string
+	CreatedAt         time.Time
+	UpdatedAt         *time.Time
+	Metadata          Metadata
+	Description       string
+	Tags              []string
+	Requires          []string
+	DocumentationURL  *string
+	BrokerCatalog     ServiceBrokerCatalog
 	ServiceBrokerGUID string
+}
+
+type ServiceBrokerCatalog struct {
+	ID       string
+	Metadata map[string]any
+	Features BrokerCatalogFeatures
+}
+
+type BrokerCatalogFeatures struct {
+	PlanUpdateable       bool
+	Bindable             bool
+	InstancesRetrievable bool
+	BindingsRetrievable  bool
+	AllowContextUpdates  bool
 }
 
 func (r ServiceOfferingRecord) Relationships() map[string]string {
@@ -89,7 +109,7 @@ func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo a
 		return ServiceOfferingRecord{}, fmt.Errorf("failed to get service offering: %s %w", guid, apierrors.FromK8sError(err, ServiceOfferingResourceType))
 	}
 
-	return offeringToRecord(*offering), nil
+	return offeringToRecord(*offering)
 }
 
 func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {
@@ -110,7 +130,7 @@ func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo author
 		)
 	}
 
-	return slices.Collect(it.Map(itx.FromSlice(offeringsList.Items).Filter(message.matches), offeringToRecord)), nil
+	return it.TryCollect(it.MapError(itx.FromSlice(offeringsList.Items).Filter(message.matches), offeringToRecord))
 }
 
 func (r *ServiceOfferingRepo) DeleteOffering(ctx context.Context, authInfo authorization.Info, message DeleteServiceOfferingMessage) error {
@@ -143,19 +163,31 @@ func (r *ServiceOfferingRepo) DeleteOffering(ctx context.Context, authInfo autho
 	return nil
 }
 
-func offeringToRecord(offering korifiv1alpha1.CFServiceOffering) ServiceOfferingRecord {
+func offeringToRecord(offering korifiv1alpha1.CFServiceOffering) (ServiceOfferingRecord, error) {
+	metadata, err := korifiv1alpha1.AsMap(offering.Spec.BrokerCatalog.Metadata)
+	if err != nil {
+		return ServiceOfferingRecord{}, err
+	}
+
 	return ServiceOfferingRecord{
-		ServiceOffering: offering.Spec.ServiceOffering,
-		CFResource: model.CFResource{
-			GUID:      offering.Name,
-			CreatedAt: offering.CreationTimestamp.Time,
-			Metadata: model.Metadata{
-				Labels:      offering.Labels,
-				Annotations: offering.Annotations,
-			},
+		Name:             offering.Spec.Name,
+		Description:      offering.Spec.Description,
+		Tags:             offering.Spec.Tags,
+		Requires:         offering.Spec.Requires,
+		DocumentationURL: offering.Spec.DocumentationURL,
+		BrokerCatalog: ServiceBrokerCatalog{
+			ID:       offering.Spec.BrokerCatalog.ID,
+			Metadata: metadata,
+			Features: BrokerCatalogFeatures(offering.Spec.BrokerCatalog.Features),
+		},
+		GUID:      offering.Name,
+		CreatedAt: offering.CreationTimestamp.Time,
+		Metadata: Metadata{
+			Labels:      offering.Labels,
+			Annotations: offering.Annotations,
 		},
 		ServiceBrokerGUID: offering.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel],
-	}
+	}, nil
 }
 
 func (r *ServiceOfferingRepo) purgeRelatedResources(ctx context.Context, authInfo authorization.Info, userClient client.WithWatch, offeringGUID string) error {
