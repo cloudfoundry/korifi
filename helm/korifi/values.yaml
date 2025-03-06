@@ -157,3 +157,7 @@ experimental:
     enabled: false
     url: ""
     trustInsecureLogCache: false
+  api:
+    k8sclient:
+      qps: 0
+      burst: 0

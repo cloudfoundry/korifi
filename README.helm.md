@@ -89,6 +89,9 @@ Here are all the values that can be set for the chart:
   - `uaa`:
     - `enabled` (_Boolean_): Enable UAA support
     - `url` (_String_): The url of a UAA instance
+  - `k8sclient`:
+    - `qps` (_Decimal_) The maximum QPS to the k8s API server, see https://github.com/kubernetes/client-go/blob/ec8a292223d913dc635704c6d57959e1bc00290a/rest/config.go#L117-L122
+    - `burst` (_Integer_) The maximum burst for the QPS to the k8s API server, see https://github.com/kubernetes/client-go/blob/ec8a292223d913dc635704c6d57959e1bc00290a/rest/config.go#L124-L126
 - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
 - `helm`:
   - `hooksImage` (_String_): Image for the helm hooks containing kubectl
