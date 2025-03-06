@@ -69,6 +69,29 @@ api:
     host: ""
     caCert: ""
 
+route-controller:
+  image: cloudfoundry/korifi-route-controller:latest
+
+  replicas: 1
+  nodeSelector: {}
+  tolerations: []
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+  processDefaults:
+    memoryMB: 1024
+    diskQuotaMB: 1024
+  taskTTL: 30d
+
+  namespaceLabels: {}
+  extraVCAPApplicationValues: { }
+  maxRetainedPackagesPerApp: 5
+  maxRetainedBuildsPerApp: 5
+
 controllers:
   image: cloudfoundry/korifi-controllers:latest
   webhookCertSecret: "korifi-controllers-webhook-cert"

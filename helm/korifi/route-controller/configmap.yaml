@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: korifi-route-controller-config
+  namespace: {{ .Releases.Namespace }}
+data:
+  config.yaml: |-
+    builderName: {{ .Values.reconcilers.build }}
+    runnerName: {{ .Values.reconcilers.run }}
+    cfProcessDefaults:
+      memoryMB: {{ .Values.route-controller.processDefaults.memoryMB }}
+      diskQuotaMB: {{ .Values.route-controller.processDefaults.diskQuotaMB }}
+    cfRootNamespace: {{ .Values.rootNamespace }}
+    {{ - if not .Values.eksContainerRegistryRoleARN }}
+    {{ - if .Values.containerRegistrySecrets }}
+    containerRegistrySecretNames:
+    {{ - range .Values.containerRegistrySecrets }}
+    - {{ . | quote }}
+    {{ - end }}
+    {{ - else }}
+    containerRegistrySecretNames:
+    - {{ .Values.containerRegistrySecret | quote }}
+    {{ - end }}
+    {{ - end }}
+    taskTTL: {{ .Values.route-controller.taskTTL }}
+    namespaceLabels:
+    {{ - range $key, $value := .Values.route-controller.namespaceLabels }}
+      {{ $key }}: {{ $value }}
+    {{ - end }}
+    extraVCAPApplicationValues:
+    {{ - $defaultDict := dict "cf_api" (printf "https://%s" .Values.api.apiServer.url) - }}
+    {{ - range $key, $value := merge .Values.route-controller.extraVCAPApplicationValues $defaultDict }}
+      {{ $key }}: {{ $value }}
+    {{ - end }}
+    maxRetainedPackagesPerApp: { { .Values.route-controller.maxRetainedPackagesPerApp } }
+    maxRetainedBuildsPerApp: { { .Values.route-controller.maxRetainedBuildsPerApp } }
+    logLevel: { { .Values.logLevel } }
+    networking:
+      gatewayNamespace: { { .Release.Namespace } }-gateway
+        gatewayName: korifi
+    experimentalManagedServicesEnabled: { { .Values.experimental.managedServices.enabled } }
+    trustInsecureServiceBrokers: { { .Values.experimental.managedServices.trustInsecureBrokers } }
+    disableRouteController: { { .Values.experimental.routing.disableRouteController } }
