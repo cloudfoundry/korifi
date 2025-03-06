@@ -28,7 +28,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/domains"
-	"code.cloudfoundry.org/korifi/controllers/controllers/networking/routes"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	managed_bindings "code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/managed"
 	upsi_bindings "code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/upsi"
@@ -340,7 +339,7 @@ func main() {
 		}
 
 		if !controllerConfig.DisableRouteController {
-			if err = routes.NewReconciler(
+			if err = controllers.NewReconciler(
 				mgr.GetClient(),
 				mgr.GetScheme(),
 				controllersLog,
