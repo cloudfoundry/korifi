@@ -50,6 +50,10 @@
         "type": "string"
       }
     },
+    "disableMigrations": {
+      "description": "Disables automatic migrations of kubernetes artifacts",
+      "type": "boolean"
+    },
     "eksContainerRegistryRoleARN": {
       "description": "Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.",
       "type": "string"
