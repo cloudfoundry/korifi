@@ -65,6 +65,12 @@ var _ = Describe("Org", func() {
 			"links": {
 				"self": {
 					"href": "https://api.example.org/v3/organizations/org-guid"
+				},
+				"domains": {
+					"href": "https://api.example.org/v3/organizations/org-guid/domains"
+				},
+				"default_domain": {
+					"href": "https://api.example.org/v3/organizations/org-guid/domains/default"
 				}
 			}
 		}`))
