@@ -47,6 +47,12 @@ func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL, includes ...include.
 			Self: &Link{
 				HRef: buildURL(apiBaseURL).appendPath(orgsBase, org.GUID).build(),
 			},
+			Domains: &Link{
+				HRef: buildURL(apiBaseURL).appendPath(orgsBase, org.GUID, "domains").build(),
+			},
+			DefaultDomain: &Link{
+				HRef: buildURL(apiBaseURL).appendPath(orgsBase, org.GUID, "domains/default").build(),
+			},
 		},
 	}
 }
