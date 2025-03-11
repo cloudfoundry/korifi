@@ -55,6 +55,7 @@ type (
 		ManagedServices  ManagedServices `yaml:"managedServices"`
 		UAA              UAA             `yaml:"uaa"`
 		ExternalLogCache ExtenalLogCache `yaml:"externalLogCache"`
+		K8SClient        K8SClientConfig `yaml:"k8sClient"`
 	}
 
 	ManagedServices struct {
@@ -70,6 +71,11 @@ type (
 		Enabled               bool   `yaml:"enabled"`
 		URL                   string `yaml:"url"`
 		TrustInsecureLogCache bool   `yaml:"trustInsecureLogCache"`
+	}
+
+	K8SClientConfig struct {
+		QPS   float32 `yaml:"qps"`
+		Burst int     `yaml:"burst"`
 	}
 
 	RoleLevel string
@@ -175,6 +181,9 @@ func (c *APIConfig) GenerateK8sClientConfig(k8sClientConfig *rest.Config) *rest.
 		k8sClientConfig.Host = c.AuthProxyHost
 		k8sClientConfig.CAData = []byte(c.AuthProxyCACert)
 	}
+
+	k8sClientConfig.QPS = c.Experimental.K8SClient.QPS
+	k8sClientConfig.Burst = c.Experimental.K8SClient.Burst
 
 	return k8sClientConfig
 }
