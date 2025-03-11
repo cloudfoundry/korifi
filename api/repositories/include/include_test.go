@@ -1,17 +1,17 @@
-package model_test
+package include_test
 
 import (
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("IncludedResource", func() {
-	var resource model.IncludedResource
+	var resource include.Resource
 
 	BeforeEach(func() {
-		resource = model.IncludedResource{
+		resource = include.Resource{
 			Type: "my-resource-type",
 			Resource: struct {
 				StringField string `json:"string_field"`
@@ -33,7 +33,7 @@ var _ = Describe("IncludedResource", func() {
 
 	Describe("SelectJSONPaths", func() {
 		var (
-			resourceWithFields model.IncludedResource
+			resourceWithFields include.Resource
 			fields             []string
 			err                error
 		)

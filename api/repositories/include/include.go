@@ -1,4 +1,4 @@
-package model
+package include
 
 import (
 	"encoding/json"
@@ -8,24 +8,24 @@ import (
 	"github.com/PaesslerAG/jsonpath"
 )
 
-type IncludedResource struct {
+type Resource struct {
 	Type     string
 	Resource any
 }
 
-func (r IncludedResource) SelectJSONPaths(paths ...string) (IncludedResource, error) {
+func (r Resource) SelectJSONPaths(paths ...string) (Resource, error) {
 	resourceBytes, err := json.Marshal(r.Resource)
 	if err != nil {
-		return IncludedResource{}, fmt.Errorf("failed to marshal resource: %w", err)
+		return Resource{}, fmt.Errorf("failed to marshal resource: %w", err)
 	}
 
 	resourceMap := map[string]any{}
 	if err = json.Unmarshal(resourceBytes, &resourceMap); err != nil {
-		return IncludedResource{}, fmt.Errorf("failed to unmarshal resource: %w", err)
+		return Resource{}, fmt.Errorf("failed to unmarshal resource: %w", err)
 	}
 
 	if len(paths) == 0 {
-		return IncludedResource{
+		return Resource{
 			Type:     r.Type,
 			Resource: resourceMap,
 		}, nil
@@ -35,14 +35,14 @@ func (r IncludedResource) SelectJSONPaths(paths ...string) (IncludedResource, er
 	for _, path := range paths {
 		value, err := jsonpath.Get("$."+path, resourceMap)
 		if err != nil {
-			return IncludedResource{}, fmt.Errorf("failed to select %q from %q: %w", path, resourceMap, err)
+			return Resource{}, fmt.Errorf("failed to select %q from %q: %w", path, resourceMap, err)
 		}
 
 		pathElements := strings.Split(path, ".")
 		includedResource[pathElements[0]] = buildTree(pathElements[1:], value)
 	}
 
-	return IncludedResource{
+	return Resource{
 		Type:     r.Type,
 		Resource: includedResource,
 	}, nil

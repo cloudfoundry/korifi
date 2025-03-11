@@ -4,7 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -17,12 +17,12 @@ type AppResponse struct {
 	GUID  string `json:"guid"`
 	State string `json:"state"`
 
-	CreatedAt     string                             `json:"created_at"`
-	UpdatedAt     string                             `json:"updated_at"`
-	Relationships map[string]model.ToOneRelationship `json:"relationships"`
-	Lifecycle     Lifecycle                          `json:"lifecycle"`
-	Metadata      Metadata                           `json:"metadata"`
-	Links         AppLinks                           `json:"links"`
+	CreatedAt     string                       `json:"created_at"`
+	UpdatedAt     string                       `json:"updated_at"`
+	Relationships map[string]ToOneRelationship `json:"relationships"`
+	Lifecycle     Lifecycle                    `json:"lifecycle"`
+	Metadata      Metadata                     `json:"metadata"`
+	Links         AppLinks                     `json:"links"`
 }
 
 type AppLinks struct {
@@ -41,7 +41,7 @@ type AppLinks struct {
 	Features             Link `json:"features"`
 }
 
-func ForApp(responseApp repositories.AppRecord, baseURL url.URL, includes ...model.IncludedResource) AppResponse {
+func ForApp(responseApp repositories.AppRecord, baseURL url.URL, includes ...include.Resource) AppResponse {
 	return AppResponse{
 		Name:          responseApp.Name,
 		GUID:          responseApp.GUID,

@@ -9,14 +9,12 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/gomega/gstruct"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -41,6 +39,22 @@ var _ = Describe("ServicePlanRepo", func() {
 		repo = repositories.NewServicePlanRepo(userClientFactory, rootNamespace, orgRepo)
 
 		planGUID = uuid.NewString()
+		metadata, err := korifiv1alpha1.AsRawExtension(map[string]any{
+			"foo": "bar",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		instanceCreateParameters, err := korifiv1alpha1.AsRawExtension(map[string]any{
+			"create-param": "create-value",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		instanceUpdateParameters, err := korifiv1alpha1.AsRawExtension(map[string]any{
+			"update-param": "update-value",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		bindingCreateParameters, err := korifiv1alpha1.AsRawExtension(map[string]any{
+			"binding-create-param": "binding-create-value",
+		})
+		Expect(err).NotTo(HaveOccurred())
 		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServicePlan{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: rootNamespace,
@@ -56,39 +70,29 @@ var _ = Describe("ServicePlanRepo", func() {
 				},
 			},
 			Spec: korifiv1alpha1.CFServicePlanSpec{
-				ServicePlan: services.ServicePlan{
-					Name:        "my-service-plan",
-					Free:        true,
-					Description: "service plan description",
-					BrokerCatalog: services.ServicePlanBrokerCatalog{
-						ID: "broker-plan-guid",
-						Metadata: &runtime.RawExtension{
-							Raw: []byte(`{"foo":"bar"}`),
+				Name:        "my-service-plan",
+				Free:        true,
+				Description: "service plan description",
+				BrokerCatalog: korifiv1alpha1.ServicePlanBrokerCatalog{
+					ID:       "broker-plan-guid",
+					Metadata: metadata,
+					Features: korifiv1alpha1.ServicePlanFeatures{
+						PlanUpdateable: true,
+						Bindable:       true,
+					},
+				},
+				Schemas: korifiv1alpha1.ServicePlanSchemas{
+					ServiceInstance: korifiv1alpha1.ServiceInstanceSchema{
+						Create: korifiv1alpha1.InputParameterSchema{
+							Parameters: instanceCreateParameters,
 						},
-						Features: services.ServicePlanFeatures{
-							PlanUpdateable: true,
-							Bindable:       true,
+						Update: korifiv1alpha1.InputParameterSchema{
+							Parameters: instanceUpdateParameters,
 						},
 					},
-					Schemas: services.ServicePlanSchemas{
-						ServiceInstance: services.ServiceInstanceSchema{
-							Create: services.InputParameterSchema{
-								Parameters: &runtime.RawExtension{
-									Raw: []byte(`{"create-param":"create-value"}`),
-								},
-							},
-							Update: services.InputParameterSchema{
-								Parameters: &runtime.RawExtension{
-									Raw: []byte(`{"update-param":"update-value"}`),
-								},
-							},
-						},
-						ServiceBinding: services.ServiceBindingSchema{
-							Create: services.InputParameterSchema{
-								Parameters: &runtime.RawExtension{
-									Raw: []byte(`{"binding-create-param":"binding-create-value"}`),
-								},
-							},
+					ServiceBinding: korifiv1alpha1.ServiceBindingSchema{
+						Create: korifiv1alpha1.InputParameterSchema{
+							Parameters: bindingCreateParameters,
 						},
 					},
 				},
@@ -110,51 +114,46 @@ var _ = Describe("ServicePlanRepo", func() {
 
 		It("returns the plan", func() {
 			Expect(plan).To(MatchFields(IgnoreExtras, Fields{
-				"ServicePlan": MatchFields(IgnoreExtras, Fields{
-					"Name":        Equal("my-service-plan"),
-					"Description": Equal("service plan description"),
-					"Free":        BeTrue(),
-					"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
-						"ID": Equal("broker-plan-guid"),
-						"Metadata": PointTo(MatchFields(IgnoreExtras, Fields{
-							"Raw": MatchJSON(`{"foo": "bar"}`),
-						})),
-
-						"Features": MatchFields(IgnoreExtras, Fields{
-							"PlanUpdateable": BeTrue(),
-							"Bindable":       BeTrue(),
+				"Name":        Equal("my-service-plan"),
+				"Description": Equal("service plan description"),
+				"Free":        BeTrue(),
+				"BrokerCatalog": MatchFields(IgnoreExtras, Fields{
+					"ID": Equal("broker-plan-guid"),
+					"Metadata": MatchAllKeys(Keys{
+						"foo": Equal("bar"),
+					}),
+					"Features": MatchFields(IgnoreExtras, Fields{
+						"PlanUpdateable": BeTrue(),
+						"Bindable":       BeTrue(),
+					}),
+				}),
+				"Schemas": MatchFields(IgnoreExtras, Fields{
+					"ServiceInstance": MatchFields(IgnoreExtras, Fields{
+						"Create": MatchFields(IgnoreExtras, Fields{
+							"Parameters": MatchAllKeys(Keys{
+								"create-param": Equal("create-value"),
+							}),
+						}),
+						"Update": MatchFields(IgnoreExtras, Fields{
+							"Parameters": MatchAllKeys(Keys{
+								"update-param": Equal("update-value"),
+							}),
 						}),
 					}),
-					"Schemas": MatchFields(IgnoreExtras, Fields{
-						"ServiceInstance": MatchFields(IgnoreExtras, Fields{
-							"Create": MatchFields(IgnoreExtras, Fields{
-								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-									"Raw": MatchJSON(`{"create-param":"create-value"}`),
-								})),
-							}),
-							"Update": MatchFields(IgnoreExtras, Fields{
-								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-									"Raw": MatchJSON(`{"update-param":"update-value"}`),
-								})),
-							}),
-						}),
-						"ServiceBinding": MatchFields(IgnoreExtras, Fields{
-							"Create": MatchFields(IgnoreExtras, Fields{
-								"Parameters": PointTo(MatchFields(IgnoreExtras, Fields{
-									"Raw": MatchJSON(`{"binding-create-param": "binding-create-value"}`),
-								})),
+					"ServiceBinding": MatchFields(IgnoreExtras, Fields{
+						"Create": MatchFields(IgnoreExtras, Fields{
+							"Parameters": MatchAllKeys(Keys{
+								"binding-create-param": Equal("binding-create-value"),
 							}),
 						}),
 					}),
 				}),
-				"CFResource": MatchFields(IgnoreExtras, Fields{
-					"GUID":      Equal(planGUID),
-					"CreatedAt": Not(BeZero()),
-					"UpdatedAt": BeNil(),
-					"Metadata": MatchAllFields(Fields{
-						"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingGUIDLabel, "offering-guid"),
-						"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
-					}),
+				"GUID":      Equal(planGUID),
+				"CreatedAt": Not(BeZero()),
+				"UpdatedAt": BeNil(),
+				"Metadata": MatchAllFields(Fields{
+					"Labels":      HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingGUIDLabel, "offering-guid"),
+					"Annotations": HaveKeyWithValue("annotation", "annotation-value"),
 				}),
 				"Visibility": MatchAllFields(Fields{
 					"Type":          Equal(korifiv1alpha1.AdminServicePlanVisibilityType),
@@ -209,9 +208,7 @@ var _ = Describe("ServicePlanRepo", func() {
 					Visibility: korifiv1alpha1.ServicePlanVisibility{
 						Type: korifiv1alpha1.PublicServicePlanVisibilityType,
 					},
-					ServicePlan: services.ServicePlan{
-						Name: "other-plan",
-					},
+					Name: "other-plan",
 				},
 			})).To(Succeed())
 			message = repositories.ListServicePlanMessage{}
@@ -225,13 +222,9 @@ var _ = Describe("ServicePlanRepo", func() {
 			Expect(listErr).NotTo(HaveOccurred())
 			Expect(listedPlans).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(planGUID),
-					}),
+					"GUID": Equal(planGUID),
 				}), MatchFields(IgnoreExtras, Fields{
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(otherPlanGUID),
-					}),
+					"GUID": Equal(otherPlanGUID),
 				}),
 			))
 		})
@@ -257,9 +250,7 @@ var _ = Describe("ServicePlanRepo", func() {
 			It("returns matching service plans", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"ServicePlan": MatchFields(IgnoreExtras, Fields{
-						"Name": Equal("other-plan"),
-					}),
+					"Name": Equal("other-plan"),
 				})))
 			})
 		})
@@ -272,9 +263,7 @@ var _ = Describe("ServicePlanRepo", func() {
 			It("returns matching service plans", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"ServicePlan": MatchFields(IgnoreExtras, Fields{
-						"Name": Equal("other-plan"),
-					}),
+					"Name": Equal("other-plan"),
 				})))
 			})
 		})
@@ -287,9 +276,7 @@ var _ = Describe("ServicePlanRepo", func() {
 			It("returns matching service plans", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(otherPlanGUID),
-					}),
+					"GUID": Equal(otherPlanGUID),
 				})))
 			})
 		})
@@ -302,9 +289,7 @@ var _ = Describe("ServicePlanRepo", func() {
 			It("returns matching service plans", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(otherPlanGUID),
-					}),
+					"GUID": Equal(otherPlanGUID),
 				})))
 			})
 		})
@@ -317,9 +302,7 @@ var _ = Describe("ServicePlanRepo", func() {
 			It("returns matching service plans", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(otherPlanGUID),
-					}),
+					"GUID": Equal(otherPlanGUID),
 				})))
 			})
 		})
@@ -332,9 +315,7 @@ var _ = Describe("ServicePlanRepo", func() {
 			It("returns matching service plans", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(otherPlanGUID),
-					}),
+					"GUID": Equal(otherPlanGUID),
 				})))
 			})
 		})
@@ -383,7 +364,7 @@ var _ = Describe("ServicePlanRepo", func() {
 					Expect(visibilityErr).NotTo(HaveOccurred())
 					Expect(plan.Visibility).To(Equal(repositories.PlanVisibility{
 						Type: korifiv1alpha1.OrganizationServicePlanVisibilityType,
-						Organizations: []services.VisibilityOrganization{{
+						Organizations: []repositories.VisibilityOrganization{{
 							GUID: cfOrg.Name,
 							Name: cfOrg.Spec.DisplayName,
 						}},
@@ -427,11 +408,11 @@ var _ = Describe("ServicePlanRepo", func() {
 					It("returns plan visibility with merged orgs", func() {
 						Expect(visibilityErr).NotTo(HaveOccurred())
 						Expect(plan.Visibility.Organizations).To(ConsistOf(
-							services.VisibilityOrganization{
+							repositories.VisibilityOrganization{
 								GUID: anotherOrg.Name,
 								Name: anotherOrg.Spec.DisplayName,
 							},
-							services.VisibilityOrganization{
+							repositories.VisibilityOrganization{
 								GUID: cfOrg.Name,
 								Name: cfOrg.Spec.DisplayName,
 							},
@@ -518,7 +499,7 @@ var _ = Describe("ServicePlanRepo", func() {
 					Expect(visibilityErr).NotTo(HaveOccurred())
 					Expect(plan.Visibility).To(Equal(repositories.PlanVisibility{
 						Type: korifiv1alpha1.OrganizationServicePlanVisibilityType,
-						Organizations: []services.VisibilityOrganization{{
+						Organizations: []repositories.VisibilityOrganization{{
 							GUID: cfOrg.Name,
 							Name: cfOrg.Spec.DisplayName,
 						}},
@@ -564,7 +545,7 @@ var _ = Describe("ServicePlanRepo", func() {
 
 					It("returns plan visibility with replaced orgs", func() {
 						Expect(visibilityErr).NotTo(HaveOccurred())
-						Expect(plan.Visibility.Organizations).To(ConsistOf(services.VisibilityOrganization{
+						Expect(plan.Visibility.Organizations).To(ConsistOf(repositories.VisibilityOrganization{
 							GUID: cfOrg.Name,
 							Name: cfOrg.Spec.DisplayName,
 						}))

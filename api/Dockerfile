@@ -11,11 +11,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY api api
-COPY model model
 COPY controllers/api controllers/api
 COPY controllers/controllers/shared controllers/controllers/shared
 COPY controllers/controllers/workloads controllers/controllers/workloads
 COPY controllers/controllers/services/credentials controllers/controllers/services/credentials
+COPY controllers/controllers/services/osbapi controllers/controllers/services/osbapi
 COPY controllers/webhooks controllers/webhooks
 COPY tools tools
 COPY version version

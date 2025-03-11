@@ -4,7 +4,7 @@ package fake
 import (
 	"sync"
 
-	"code.cloudfoundry.org/korifi/api/handlers/include"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 )
 

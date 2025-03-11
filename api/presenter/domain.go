@@ -4,7 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -45,7 +45,7 @@ type SharedOrganizations struct {
 	Data []string `json:"data"`
 }
 
-func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL, includes ...model.IncludedResource) DomainResponse {
+func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL, includes ...include.Resource) DomainResponse {
 	return DomainResponse{
 		Name:               responseDomain.Name,
 		GUID:               responseDomain.GUID,

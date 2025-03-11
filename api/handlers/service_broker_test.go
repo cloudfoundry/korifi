@@ -10,8 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -48,17 +46,13 @@ var _ = Describe("ServiceBroker", func() {
 
 		BeforeEach(func() {
 			payload = payloads.ServiceBrokerCreate{
-				ServiceBroker: services.ServiceBroker{
-					Name: "my-broker",
-				},
+				Name:           "my-broker",
 				Authentication: &payloads.BrokerAuthentication{},
 			}
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
 
 			serviceBrokerRepo.CreateServiceBrokerReturns(repositories.ServiceBrokerRecord{
-				CFResource: model.CFResource{
-					GUID: "service-broker-guid",
-				},
+				GUID: "service-broker-guid",
 			}, nil)
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "POST", "/v3/service_brokers", strings.NewReader("request-body"))
@@ -73,7 +67,7 @@ var _ = Describe("ServiceBroker", func() {
 			Expect(serviceBrokerRepo.CreateServiceBrokerCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualCreateMsg := serviceBrokerRepo.CreateServiceBrokerArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualCreateMsg.Broker.Name).To(Equal("my-broker"))
+			Expect(actualCreateMsg.Name).To(Equal("my-broker"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Location", "https://api.example.org/v3/jobs/service_broker.create~service-broker-guid"))
@@ -102,13 +96,7 @@ var _ = Describe("ServiceBroker", func() {
 
 	Describe("GET /v3/service_brokers", func() {
 		BeforeEach(func() {
-			serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{
-				{
-					CFResource: model.CFResource{
-						GUID: "broker-guid",
-					},
-				},
-			}, nil)
+			serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{GUID: "broker-guid"}}, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/service_brokers", nil)
@@ -169,11 +157,7 @@ var _ = Describe("ServiceBroker", func() {
 
 	Describe("GET /v3/service_brokers/guid", func() {
 		BeforeEach(func() {
-			serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{
-				CFResource: model.CFResource{
-					GUID: "broker-guid",
-				},
-			}, nil)
+			serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{GUID: "broker-guid"}, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/service_brokers/broker-guid", nil)
@@ -215,11 +199,7 @@ var _ = Describe("ServiceBroker", func() {
 
 	Describe("DELETE /v3/service_brokers/guid", func() {
 		BeforeEach(func() {
-			serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{
-				CFResource: model.CFResource{
-					GUID: "broker-guid",
-				},
-			}, nil)
+			serviceBrokerRepo.GetServiceBrokerReturns(repositories.ServiceBrokerRecord{GUID: "broker-guid"}, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "DELETE", "/v3/service_brokers/broker-guid", nil)
@@ -278,11 +258,7 @@ var _ = Describe("ServiceBroker", func() {
 				Name: tools.PtrTo("new-name"),
 			})
 
-			serviceBrokerRepo.UpdateServiceBrokerReturns(repositories.ServiceBrokerRecord{
-				CFResource: model.CFResource{
-					GUID: "service-broker-guid",
-				},
-			}, nil)
+			serviceBrokerRepo.UpdateServiceBrokerReturns(repositories.ServiceBrokerRecord{GUID: "service-broker-guid"}, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/service_brokers/service-broker-guid", strings.NewReader("the-json-body"))
@@ -316,12 +292,10 @@ var _ = Describe("ServiceBroker", func() {
 					},
 				})
 				serviceBrokerRepo.UpdateServiceBrokerReturns(repositories.ServiceBrokerRecord{
-					CFResource: model.CFResource{
-						GUID: "service-broker-guid",
-						Metadata: model.Metadata{
-							Labels: map[string]string{
-								"foo": "bar",
-							},
+					GUID: "service-broker-guid",
+					Metadata: repositories.Metadata{
+						Labels: map[string]string{
+							"foo": "bar",
 						},
 					},
 				}, nil)

@@ -55,6 +55,11 @@ type CFProcessSpec struct {
 	// Deprecated: No longer used
 	// +kubebuilder:validation:Optional
 	Ports []int32 `json:"ports,omitempty"`
+
+	// Reference to service credentials secrets to be projected onto the app workload
+	// They are in the [servicebinding.io](https://servicebinding.io/spec/core/1.1.0/) format
+	//+kubebuilder:validation:Optional
+	ServiceBindings []ServiceBinding `json:"serviceBindings,omitempty"`
 }
 
 type HealthCheck struct {

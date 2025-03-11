@@ -25,6 +25,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -129,6 +130,12 @@ func main() {
 		panic(fmt.Sprintf("could not parse server URL: %v", err))
 	}
 
+	paramsClient := repositories.NewServiceBrokerClient(
+		osbapi.NewClientFactory(privilegedClient, false),
+		privilegedClient,
+		cfg.RootNamespace,
+	)
+
 	orgRepo := repositories.NewOrgRepo(
 		cfg.RootNamespace,
 		privilegedClient,
@@ -207,6 +214,8 @@ func main() {
 		namespaceRetriever,
 		userClientFactory,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBindingList](conditionTimeout),
+		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
+		paramsClient,
 	)
 	stackRepo := repositories.NewStackRepository(cfg.BuilderName,
 		userClientFactoryUnfiltered,

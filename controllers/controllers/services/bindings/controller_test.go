@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/credentials"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -346,9 +345,7 @@ var _ = Describe("CFServiceBinding", func() {
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					ServiceBroker: services.ServiceBroker{
-						Name: "my-service-broker",
-					},
+					Name: "my-service-broker",
 					Credentials: corev1.LocalObjectReference{
 						Name: "my-broker-secret",
 					},
@@ -365,10 +362,8 @@ var _ = Describe("CFServiceBinding", func() {
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceOfferingSpec{
-					ServiceOffering: services.ServiceOffering{
-						BrokerCatalog: services.ServiceBrokerCatalog{
-							ID: "service-offering-id",
-						},
+					BrokerCatalog: korifiv1alpha1.ServiceBrokerCatalog{
+						ID: "service-offering-id",
 					},
 				},
 			}
@@ -387,10 +382,8 @@ var _ = Describe("CFServiceBinding", func() {
 					Visibility: korifiv1alpha1.ServicePlanVisibility{
 						Type: "public",
 					},
-					ServicePlan: services.ServicePlan{
-						BrokerCatalog: services.ServicePlanBrokerCatalog{
-							ID: "service-plan-id",
-						},
+					BrokerCatalog: korifiv1alpha1.ServicePlanBrokerCatalog{
+						ID: "service-plan-id",
 					},
 				},
 			}

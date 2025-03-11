@@ -9,8 +9,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
@@ -25,10 +23,16 @@ import (
 
 const ServiceBrokerResourceType = "Service Broker"
 
+type BrokerCredentials struct {
+	Username string
+	Password string
+}
+
 type CreateServiceBrokerMessage struct {
-	Metadata    model.Metadata
-	Broker      services.ServiceBroker
-	Credentials services.BrokerCredentials
+	Name        string
+	URL         string
+	Credentials BrokerCredentials
+	Metadata    Metadata
 }
 
 type ListServiceBrokerMessage struct {
@@ -45,7 +49,7 @@ type UpdateServiceBrokerMessage struct {
 	GUID          string
 	Name          *string
 	URL           *string
-	Credentials   *services.BrokerCredentials
+	Credentials   *BrokerCredentials
 	MetadataPatch MetadataPatch
 }
 
@@ -67,8 +71,12 @@ type ServiceBrokerRepo struct {
 }
 
 type ServiceBrokerRecord struct {
-	services.ServiceBroker
-	model.CFResource
+	GUID      string
+	Name      string
+	URL       string
+	CreatedAt time.Time
+	UpdatedAt *time.Time
+	Metadata  Metadata
 }
 
 func (r ServiceBrokerRecord) Relationships() map[string]string {
@@ -91,7 +99,10 @@ func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo au
 		return ServiceBrokerRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	credsSecretData, err := tools.ToCredentialsSecretData(message.Credentials)
+	credsSecretData, err := tools.ToCredentialsSecretData(map[string]string{
+		"username": message.Credentials.Username,
+		"password": message.Credentials.Password,
+	})
 	if err != nil {
 		return ServiceBrokerRecord{}, fmt.Errorf("failed to create credentials secret data: %w", err)
 	}
@@ -105,7 +116,8 @@ func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo au
 			Annotations: message.Metadata.Annotations,
 		},
 		Spec: korifiv1alpha1.CFServiceBrokerSpec{
-			ServiceBroker: message.Broker,
+			Name: message.Name,
+			URL:  message.URL,
 			Credentials: corev1.LocalObjectReference{
 				Name: credentialsSecretName,
 			},
@@ -136,22 +148,21 @@ func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo au
 
 func toServiceBrokerRecord(cfServiceBroker korifiv1alpha1.CFServiceBroker) ServiceBrokerRecord {
 	return ServiceBrokerRecord{
-		ServiceBroker: cfServiceBroker.Spec.ServiceBroker,
-		CFResource: model.CFResource{
-			GUID:      cfServiceBroker.Name,
-			CreatedAt: cfServiceBroker.CreationTimestamp.Time,
-			Metadata: model.Metadata{
-				Labels:      cfServiceBroker.Labels,
-				Annotations: cfServiceBroker.Annotations,
-			},
+		Name:      cfServiceBroker.Spec.Name,
+		URL:       cfServiceBroker.Spec.URL,
+		GUID:      cfServiceBroker.Name,
+		CreatedAt: cfServiceBroker.CreationTimestamp.Time,
+		Metadata: Metadata{
+			Labels:      cfServiceBroker.Labels,
+			Annotations: cfServiceBroker.Annotations,
 		},
 	}
 }
 
-func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization.Info, brokerGUID string) (model.CFResourceState, error) {
+func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization.Info, brokerGUID string) (ResourceState, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
-		return model.CFResourceStateUnknown, fmt.Errorf("failed to build user client: %w", err)
+		return ResourceStateUnknown, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	cfServiceBroker := &korifiv1alpha1.CFServiceBroker{
@@ -162,18 +173,18 @@ func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization
 	}
 
 	if err = userClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBroker), cfServiceBroker); err != nil {
-		return model.CFResourceStateUnknown, apierrors.FromK8sError(err, ServiceBrokerResourceType)
+		return ResourceStateUnknown, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
 	if cfServiceBroker.Generation != cfServiceBroker.Status.ObservedGeneration {
-		return model.CFResourceStateUnknown, nil
+		return ResourceStateUnknown, nil
 	}
 
 	if meta.IsStatusConditionTrue(cfServiceBroker.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
-		return model.CFResourceStateReady, nil
+		return ResourceStateReady, nil
 	}
 
-	return model.CFResourceStateUnknown, nil
+	return ResourceStateUnknown, nil
 }
 
 func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info, message ListServiceBrokerMessage) ([]ServiceBrokerRecord, error) {
@@ -244,7 +255,10 @@ func (r *ServiceBrokerRepo) UpdateServiceBroker(ctx context.Context, authInfo au
 	}
 
 	if message.Credentials != nil {
-		credsSecretData, err := tools.ToCredentialsSecretData(message.Credentials)
+		credsSecretData, err := tools.ToCredentialsSecretData(map[string]string{
+			"username": message.Credentials.Username,
+			"password": message.Credentials.Password,
+		})
 		if err != nil {
 			return ServiceBrokerRecord{}, fmt.Errorf("failed to marshal credentials secret data for service broker: %w", err)
 		}

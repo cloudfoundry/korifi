@@ -115,8 +115,7 @@ var _ = AfterSuite(func() {
 var _ = BeforeEach(func() {
 	ctx = context.Background()
 
-	logger := stdr.New(log.New(GinkgoWriter, ">>>", log.LstdFlags))
-	ctx = logr.NewContext(ctx, logger)
+	ctx = logr.NewContext(ctx, stdr.New(log.New(GinkgoWriter, ">>>", log.LstdFlags)))
 
 	userName = uuid.NewString()
 	cert, key := testhelpers.ObtainClientCert(testEnv, userName)

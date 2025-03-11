@@ -23,7 +23,6 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -134,7 +133,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *k
 	}
 
 	if err = r.validateCredentials(credentialsSecret); err != nil {
-		cfServiceInstance.Status.LastOperation = services.LastOperation{
+		cfServiceInstance.Status.LastOperation = korifiv1alpha1.LastOperation{
 			Type:  "create",
 			State: "failed",
 		}
@@ -159,15 +158,15 @@ func (r *Reconciler) validateCredentials(credentialsSecret *corev1.Secret) error
 	)
 }
 
-func reconcileLastOperation(cfServiceInstance *korifiv1alpha1.CFServiceInstance, credentialsSecret *corev1.Secret) services.LastOperation {
+func reconcileLastOperation(cfServiceInstance *korifiv1alpha1.CFServiceInstance, credentialsSecret *corev1.Secret) korifiv1alpha1.LastOperation {
 	if cfServiceInstance.Status.CredentialsObservedVersion == "" {
-		return services.LastOperation{
+		return korifiv1alpha1.LastOperation{
 			Type:  "create",
 			State: "succeeded",
 		}
 	}
 	if cfServiceInstance.Status.CredentialsObservedVersion != credentialsSecret.ResourceVersion && cfServiceInstance.Status.CredentialsObservedVersion != "" {
-		return services.LastOperation{
+		return korifiv1alpha1.LastOperation{
 			Type:  "update",
 			State: "succeeded",
 		}

@@ -5,7 +5,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -14,20 +14,20 @@ const (
 )
 
 type TaskResponse struct {
-	Name          string                             `json:"name"`
-	GUID          string                             `json:"guid"`
-	Command       string                             `json:"command,omitempty"`
-	DropletGUID   string                             `json:"droplet_guid"`
-	Metadata      Metadata                           `json:"metadata"`
-	Relationships map[string]model.ToOneRelationship `json:"relationships"`
-	Links         TaskLinks                          `json:"links"`
-	SequenceID    int64                              `json:"sequence_id"`
-	CreatedAt     string                             `json:"created_at"`
-	UpdatedAt     string                             `json:"updated_at"`
-	MemoryMB      int64                              `json:"memory_in_mb"`
-	DiskMB        int64                              `json:"disk_in_mb"`
-	State         string                             `json:"state"`
-	Result        TaskResult                         `json:"result"`
+	Name          string                       `json:"name"`
+	GUID          string                       `json:"guid"`
+	Command       string                       `json:"command,omitempty"`
+	DropletGUID   string                       `json:"droplet_guid"`
+	Metadata      Metadata                     `json:"metadata"`
+	Relationships map[string]ToOneRelationship `json:"relationships"`
+	Links         TaskLinks                    `json:"links"`
+	SequenceID    int64                        `json:"sequence_id"`
+	CreatedAt     string                       `json:"created_at"`
+	UpdatedAt     string                       `json:"updated_at"`
+	MemoryMB      int64                        `json:"memory_in_mb"`
+	DiskMB        int64                        `json:"disk_in_mb"`
+	State         string                       `json:"state"`
+	Result        TaskResult                   `json:"result"`
 }
 
 type TaskResult struct {
@@ -41,7 +41,7 @@ type TaskLinks struct {
 	Cancel  Link `json:"cancel"`
 }
 
-func ForTask(responseTask repositories.TaskRecord, baseURL url.URL, includes ...model.IncludedResource) TaskResponse {
+func ForTask(responseTask repositories.TaskRecord, baseURL url.URL, includes ...include.Resource) TaskResponse {
 	result := TaskResult{}
 
 	if responseTask.FailureReason != "" {

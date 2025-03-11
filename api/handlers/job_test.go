@@ -9,7 +9,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -155,7 +155,7 @@ var _ = Describe("Job", func() {
 
 		BeforeEach(func() {
 			stateRepo = new(fake.StateRepository)
-			stateRepo.GetStateReturns(model.CFResourceStateUnknown, nil)
+			stateRepo.GetStateReturns(repositories.ResourceStateUnknown, nil)
 			stateRepos["testing.state"] = stateRepo
 
 			jobGUID = "testing.state~my-resource-guid"
@@ -179,7 +179,7 @@ var _ = Describe("Job", func() {
 
 		When("the resource state is Ready", func() {
 			BeforeEach(func() {
-				stateRepo.GetStateReturns(model.CFResourceStateReady, nil)
+				stateRepo.GetStateReturns(repositories.ResourceStateReady, nil)
 			})
 
 			It("returns a complete status", func() {
@@ -192,7 +192,7 @@ var _ = Describe("Job", func() {
 
 		When("the user does not have permission to see the resource", func() {
 			BeforeEach(func() {
-				stateRepo.GetStateReturns(model.CFResourceStateUnknown, fmt.Errorf("wrapped err: %w", apierrors.NewForbiddenError(nil, "foo")))
+				stateRepo.GetStateReturns(repositories.ResourceStateUnknown, fmt.Errorf("wrapped err: %w", apierrors.NewForbiddenError(nil, "foo")))
 			})
 
 			It("returns a complete status", func() {
@@ -205,7 +205,7 @@ var _ = Describe("Job", func() {
 
 		When("getting the state fails", func() {
 			BeforeEach(func() {
-				stateRepo.GetStateReturns(model.CFResourceStateUnknown, errors.New("get-state-error"))
+				stateRepo.GetStateReturns(repositories.ResourceStateUnknown, errors.New("get-state-error"))
 			})
 
 			It("returns an error", func() {

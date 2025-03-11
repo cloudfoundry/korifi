@@ -3,16 +3,15 @@ package handlers
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/handlers/include"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/api/routing"
 	"github.com/go-logr/logr"
 )
@@ -58,7 +57,7 @@ func NewServiceOffering(
 
 func (h *ServiceOffering) get(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
-	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-offering.create")
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-offering.get")
 
 	payload := new(payloads.ServiceOfferingGet)
 	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
@@ -76,8 +75,6 @@ func (h *ServiceOffering) get(r *http.Request) (*routing.Response, error) {
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
-
-	log.Printf("included: %+v", includedResources)
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceOffering(serviceOffering, h.serverURL, includedResources...)), nil
 }

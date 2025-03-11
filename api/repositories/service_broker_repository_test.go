@@ -6,8 +6,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	corev1 "k8s.io/api/core/v1"
@@ -38,7 +36,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 		BeforeEach(func() {
 			createMsg = repositories.CreateServiceBrokerMessage{
-				Metadata: model.Metadata{
+				Metadata: repositories.Metadata{
 					Labels: map[string]string{
 						"label": "label-value",
 					},
@@ -46,11 +44,9 @@ var _ = Describe("ServiceBrokerRepo", func() {
 						"annotation": "annotation-value",
 					},
 				},
-				Broker: services.ServiceBroker{
-					Name: "my-broker",
-					URL:  "https://my.broker.com",
-				},
-				Credentials: services.BrokerCredentials{
+				Name: "my-broker",
+				URL:  "https://my.broker.com",
+				Credentials: repositories.BrokerCredentials{
 					Username: "broker-user",
 					Password: "broker-password",
 				},
@@ -81,20 +77,20 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 			It("returns a ServiceBrokerRecord", func() {
 				Expect(createErr).NotTo(HaveOccurred())
-				Expect(brokerRecord.ServiceBroker).To(Equal(services.ServiceBroker{
-					Name: "my-broker",
-					URL:  "https://my.broker.com",
+				Expect(brokerRecord).To(MatchFields(IgnoreExtras, Fields{
+					"Name":      Equal("my-broker"),
+					"URL":       Equal("https://my.broker.com"),
+					"CreatedAt": Not(BeZero()),
+					"GUID":      BeValidUUID(),
+					"Metadata": MatchAllFields(Fields{
+						"Labels": Equal(map[string]string{
+							"label": "label-value",
+						}),
+						"Annotations": Equal(map[string]string{
+							"annotation": "annotation-value",
+						}),
+					}),
 				}))
-				Expect(brokerRecord.Metadata).To(Equal(model.Metadata{
-					Labels: map[string]string{
-						"label": "label-value",
-					},
-					Annotations: map[string]string{
-						"annotation": "annotation-value",
-					},
-				}))
-				Expect(brokerRecord.GUID).To(BeValidUUID())
-				Expect(brokerRecord.CFResource.CreatedAt).NotTo(BeZero())
 			})
 
 			It("creates a CFServiceBroker resource in Kubernetes", func() {
@@ -148,7 +144,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 	Describe("GetState", func() {
 		var (
 			cfServiceBroker *korifiv1alpha1.CFServiceBroker
-			state           model.CFResourceState
+			state           repositories.ResourceState
 			getStateErr     error
 		)
 
@@ -181,7 +177,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 			It("returns unknown state", func() {
 				Expect(getStateErr).NotTo(HaveOccurred())
-				Expect(state).To(Equal(model.CFResourceStateUnknown))
+				Expect(state).To(Equal(repositories.ResourceStateUnknown))
 			})
 
 			When("the broker is ready", func() {
@@ -199,7 +195,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 				It("returns ready state", func() {
 					Expect(getStateErr).NotTo(HaveOccurred())
-					Expect(state).To(Equal(model.CFResourceStateReady))
+					Expect(state).To(Equal(repositories.ResourceStateReady))
 				})
 
 				When("the ready status is stale ", func() {
@@ -211,7 +207,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 					It("returns unknown state", func() {
 						Expect(getStateErr).NotTo(HaveOccurred())
-						Expect(state).To(Equal(model.CFResourceStateUnknown))
+						Expect(state).To(Equal(repositories.ResourceStateUnknown))
 					})
 				})
 			})
@@ -230,7 +226,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 				It("returns unknown state", func() {
 					Expect(getStateErr).NotTo(HaveOccurred())
-					Expect(state).To(Equal(model.CFResourceStateUnknown))
+					Expect(state).To(Equal(repositories.ResourceStateUnknown))
 				})
 			})
 		})
@@ -257,10 +253,8 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					ServiceBroker: services.ServiceBroker{
-						Name: "first-broker",
-						URL:  "https://first.broker",
-					},
+					Name: "first-broker",
+					URL:  "https://first.broker",
 				},
 			})).To(Succeed())
 
@@ -270,10 +264,8 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					Name:      "broker-2",
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					ServiceBroker: services.ServiceBroker{
-						Name: "second-broker",
-						URL:  "https://second.broker",
-					},
+					Name: "second-broker",
+					URL:  "https://second.broker",
 				},
 			})).To(Succeed())
 		})
@@ -286,32 +278,24 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 		It("returns a list of brokers", func() {
 			Expect(brokers).To(ConsistOf(
-				MatchAllFields(Fields{
-					"ServiceBroker": MatchAllFields(Fields{
-						"Name": Equal("first-broker"),
-						"URL":  Equal("https://first.broker"),
-					}),
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID":      Equal("broker-1"),
-						"CreatedAt": Not(BeZero()),
-						"Metadata": MatchAllFields(Fields{
-							"Labels":      HaveKeyWithValue("broker-label", "broker-label-value"),
-							"Annotations": HaveKeyWithValue("broker-annotation", "broker-annotation-value"),
-						}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":      Equal("first-broker"),
+					"URL":       Equal("https://first.broker"),
+					"GUID":      Equal("broker-1"),
+					"CreatedAt": Not(BeZero()),
+					"Metadata": MatchAllFields(Fields{
+						"Labels":      HaveKeyWithValue("broker-label", "broker-label-value"),
+						"Annotations": HaveKeyWithValue("broker-annotation", "broker-annotation-value"),
 					}),
 				}),
-				MatchAllFields(Fields{
-					"ServiceBroker": MatchAllFields(Fields{
-						"Name": Equal("second-broker"),
-						"URL":  Equal("https://second.broker"),
-					}),
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID":      Equal("broker-2"),
-						"CreatedAt": Not(BeZero()),
-						"Metadata": MatchAllFields(Fields{
-							"Labels":      BeEmpty(),
-							"Annotations": BeEmpty(),
-						}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":      Equal("second-broker"),
+					"URL":       Equal("https://second.broker"),
+					"GUID":      Equal("broker-2"),
+					"CreatedAt": Not(BeZero()),
+					"Metadata": MatchAllFields(Fields{
+						"Labels":      BeEmpty(),
+						"Annotations": BeEmpty(),
 					}),
 				}),
 			))
@@ -325,9 +309,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 			It("only returns the matching brokers", func() {
 				Expect(brokers).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
-						"ServiceBroker": MatchFields(IgnoreExtras, Fields{
-							"Name": Equal("second-broker"),
-						}),
+						"Name": Equal("second-broker"),
 					}),
 				))
 			})
@@ -341,9 +323,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 			It("only returns the matching brokers", func() {
 				Expect(brokers).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
-						"CFResource": MatchFields(IgnoreExtras, Fields{
-							"GUID": Equal("broker-2"),
-						}),
+						"GUID": Equal("broker-2"),
 					}),
 				))
 			})
@@ -379,10 +359,8 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					ServiceBroker: services.ServiceBroker{
-						Name: "first-broker",
-						URL:  "https://first.broker",
-					},
+					Name: "first-broker",
+					URL:  "https://first.broker",
 				},
 			})).To(Succeed())
 		})
@@ -405,18 +383,14 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 			It("returns the broker", func() {
 				Expect(getErr).NotTo(HaveOccurred())
-				Expect(serviceBroker).To(MatchAllFields(Fields{
-					"ServiceBroker": MatchAllFields(Fields{
-						"Name": Equal("first-broker"),
-						"URL":  Equal("https://first.broker"),
-					}),
-					"CFResource": MatchFields(IgnoreExtras, Fields{
-						"GUID":      Equal("broker-1"),
-						"CreatedAt": Not(BeZero()),
-						"Metadata": MatchAllFields(Fields{
-							"Labels":      HaveKeyWithValue("broker-label", "broker-label-value"),
-							"Annotations": HaveKeyWithValue("broker-annotation", "broker-annotation-value"),
-						}),
+				Expect(serviceBroker).To(MatchFields(IgnoreExtras, Fields{
+					"Name":      Equal("first-broker"),
+					"URL":       Equal("https://first.broker"),
+					"GUID":      Equal("broker-1"),
+					"CreatedAt": Not(BeZero()),
+					"Metadata": MatchAllFields(Fields{
+						"Labels":      HaveKeyWithValue("broker-label", "broker-label-value"),
+						"Annotations": HaveKeyWithValue("broker-annotation", "broker-annotation-value"),
 					}),
 				}))
 			})
@@ -453,10 +427,8 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					Name:      uuid.NewString(),
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					ServiceBroker: services.ServiceBroker{
-						Name: "my-broker",
-						URL:  "https://my.broker",
-					},
+					Name: "my-broker",
+					URL:  "https://my.broker",
 					Credentials: corev1.LocalObjectReference{
 						Name: credentialsSecret.Name,
 					},
@@ -468,7 +440,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 				GUID: cfServiceBroker.Name,
 				Name: tools.PtrTo("your-broker"),
 				URL:  tools.PtrTo("https://your.broker"),
-				Credentials: &services.BrokerCredentials{
+				Credentials: &repositories.BrokerCredentials{
 					Username: "another-user",
 					Password: "another-pass",
 				},
@@ -498,24 +470,24 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 			It("returns an updated ServiceBrokerRecord", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
-				Expect(brokerRecord.ServiceBroker).To(Equal(services.ServiceBroker{
-					Name: "your-broker",
-					URL:  "https://your.broker",
+				Expect(brokerRecord).To(MatchFields(IgnoreExtras, Fields{
+					"Name": Equal("your-broker"),
+					"URL":  Equal("https://your.broker"),
+					"Metadata": MatchAllFields(Fields{
+						"Labels":      HaveKeyWithValue("foo", "bar"),
+						"Annotations": HaveKeyWithValue("baz", "qux"),
+					}),
 				}))
-
-				Expect(brokerRecord.Metadata.Labels).To(HaveKeyWithValue("foo", "bar"))
-				Expect(brokerRecord.Metadata.Annotations).To(HaveKeyWithValue("baz", "qux"))
 			})
 
 			It("updates the CFServiceBroker resource in Kubernetes", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBroker), cfServiceBroker)).To(Succeed())
 
-				Expect(cfServiceBroker.Spec.ServiceBroker).To(Equal(services.ServiceBroker{
-					Name: "your-broker",
-					URL:  "https://your.broker",
+				Expect(cfServiceBroker.Spec).To(MatchFields(IgnoreExtras, Fields{
+					"Name": Equal("your-broker"),
+					"URL":  Equal("https://your.broker"),
 				}))
-
 				Expect(cfServiceBroker.Labels).To(HaveKeyWithValue("foo", "bar"))
 				Expect(cfServiceBroker.Annotations).To(HaveKeyWithValue("baz", "qux"))
 			})

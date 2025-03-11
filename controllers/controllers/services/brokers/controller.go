@@ -18,14 +18,12 @@ package brokers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -176,7 +174,7 @@ func (r *Reconciler) reconcileCatalogService(ctx context.Context, cfServiceBroke
 		serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerNameLabel] = cfServiceBroker.Spec.Name
 
 		var err error
-		serviceOffering.Spec.ServiceOffering, err = toSpecServiceOffering(catalogService)
+		serviceOffering.Spec, err = toServiceOfferingSpec(catalogService)
 		return err
 	})
 	if err != nil {
@@ -210,33 +208,60 @@ func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *
 		servicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel] = serviceOffering.Name
 		servicePlan.Labels[korifiv1alpha1.RelServiceOfferingNameLabel] = serviceOffering.Spec.Name
 
-		rawMetadata, err := json.Marshal(catalogPlan.Metadata)
-		if err != nil {
-			return fmt.Errorf("failed to marshal service plan %q metadata: %w", catalogPlan.ID, err)
-		}
-
 		visibilityType := korifiv1alpha1.AdminServicePlanVisibilityType
 		if servicePlan.Spec.Visibility.Type != "" {
 			visibilityType = servicePlan.Spec.Visibility.Type
 		}
 
+		metadata, err := korifiv1alpha1.AsRawExtension(catalogPlan.Metadata)
+		if err != nil {
+			return err
+		}
+
+		instanceCreateParameters, err := korifiv1alpha1.AsRawExtension(catalogPlan.Schemas.ServiceInstance.Create.Parameters)
+		if err != nil {
+			return err
+		}
+
+		instanceUpdateParameters, err := korifiv1alpha1.AsRawExtension(catalogPlan.Schemas.ServiceInstance.Update.Parameters)
+		if err != nil {
+			return err
+		}
+
+		bindingCreateParameters, err := korifiv1alpha1.AsRawExtension(catalogPlan.Schemas.ServiceBinding.Create.Parameters)
+		if err != nil {
+			return err
+		}
+
 		servicePlan.Spec = korifiv1alpha1.CFServicePlanSpec{
-			ServicePlan: services.ServicePlan{
-				Name:        catalogPlan.Name,
-				Free:        catalogPlan.Free,
-				Description: catalogPlan.Description,
-				BrokerCatalog: services.ServicePlanBrokerCatalog{
-					ID: catalogPlan.ID,
-					Metadata: &runtime.RawExtension{
-						Raw: rawMetadata,
+			Name:        catalogPlan.Name,
+			Free:        catalogPlan.Free,
+			Description: catalogPlan.Description,
+			BrokerCatalog: korifiv1alpha1.ServicePlanBrokerCatalog{
+				ID:       catalogPlan.ID,
+				Metadata: metadata,
+				Features: korifiv1alpha1.ServicePlanFeatures{
+					PlanUpdateable: catalogPlan.PlanUpdateable,
+					Bindable:       catalogPlan.Bindable,
+				},
+			},
+			Schemas: korifiv1alpha1.ServicePlanSchemas{
+				ServiceInstance: korifiv1alpha1.ServiceInstanceSchema{
+					Create: korifiv1alpha1.InputParameterSchema{
+						Parameters: instanceCreateParameters,
 					},
-					Features: services.ServicePlanFeatures{
-						PlanUpdateable: catalogPlan.PlanUpdateable,
-						Bindable:       catalogPlan.Bindable,
+					Update: korifiv1alpha1.InputParameterSchema{
+						Parameters: instanceUpdateParameters,
 					},
 				},
-				Schemas:         catalogPlan.Schemas,
-				MaintenanceInfo: catalogPlan.MaintenanceInfo,
+				ServiceBinding: korifiv1alpha1.ServiceBindingSchema{
+					Create: korifiv1alpha1.InputParameterSchema{
+						Parameters: bindingCreateParameters,
+					},
+				},
+			},
+			MaintenanceInfo: korifiv1alpha1.MaintenanceInfo{
+				Version: catalogPlan.MaintenanceInfo.Version,
 			},
 			Visibility: korifiv1alpha1.ServicePlanVisibility{
 				Type: visibilityType,
@@ -249,31 +274,32 @@ func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *
 	return err
 }
 
-func toSpecServiceOffering(catalogService osbapi.Service) (services.ServiceOffering, error) {
-	offering := services.ServiceOffering{
+func toServiceOfferingSpec(catalogService osbapi.Service) (korifiv1alpha1.CFServiceOfferingSpec, error) {
+	metadata, err := korifiv1alpha1.AsRawExtension(catalogService.Metadata)
+	if err != nil {
+		return korifiv1alpha1.CFServiceOfferingSpec{}, err
+	}
+
+	offering := korifiv1alpha1.CFServiceOfferingSpec{
 		Name:        catalogService.Name,
 		Description: catalogService.Description,
 		Tags:        catalogService.Tags,
 		Requires:    catalogService.Requires,
-		BrokerCatalog: services.ServiceBrokerCatalog{
+		BrokerCatalog: korifiv1alpha1.ServiceBrokerCatalog{
 			ID:       catalogService.ID,
-			Features: catalogService.BrokerCatalogFeatures,
+			Metadata: metadata,
+			Features: korifiv1alpha1.BrokerCatalogFeatures{
+				PlanUpdateable:       catalogService.PlanUpdateable,
+				Bindable:             catalogService.Bindable,
+				InstancesRetrievable: catalogService.InstancesRetrievable,
+				BindingsRetrievable:  catalogService.BindingsRetrievable,
+				AllowContextUpdates:  catalogService.AllowContextUpdates,
+			},
 		},
 	}
 
-	if catalogService.Metadata != nil {
-		if u, ok := catalogService.Metadata["documentationUrl"]; ok {
-			offering.DocumentationURL = tools.PtrTo(u.(string))
-		}
-
-		rawMd, err := json.Marshal(catalogService.Metadata)
-		if err != nil {
-			return services.ServiceOffering{}, err
-		}
-		offering.BrokerCatalog.Metadata = &runtime.RawExtension{
-			Raw: rawMd,
-		}
-
+	if u, ok := catalogService.Metadata["documentationUrl"]; ok {
+		offering.DocumentationURL = tools.PtrTo(u.(string))
 	}
 
 	return offering, nil

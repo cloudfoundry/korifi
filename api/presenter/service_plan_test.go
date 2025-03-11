@@ -7,12 +7,9 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var _ = Describe("Service Plan", func() {
@@ -32,56 +29,52 @@ var _ = Describe("Service Plan", func() {
 
 		BeforeEach(func() {
 			record = repositories.ServicePlanRecord{
-				ServicePlan: services.ServicePlan{
-					Name:        "my-service-plan",
-					Free:        true,
-					Description: "service plan description",
-					BrokerCatalog: services.ServicePlanBrokerCatalog{
-						ID: "broker-catalog-plan-guid",
-						Metadata: &runtime.RawExtension{
-							Raw: []byte(`{"foo":"bar"}`),
-						},
-						Features: services.ServicePlanFeatures{
-							PlanUpdateable: true,
-							Bindable:       true,
-						},
+				Name:        "my-service-plan",
+				Free:        true,
+				Description: "service plan description",
+				BrokerCatalog: repositories.ServicePlanBrokerCatalog{
+					ID: "broker-catalog-plan-guid",
+					Metadata: map[string]any{
+						"foo": "bar",
 					},
-					Schemas: services.ServicePlanSchemas{
-						ServiceInstance: services.ServiceInstanceSchema{
-							Create: services.InputParameterSchema{
-								Parameters: &runtime.RawExtension{
-									Raw: []byte(`{"create-param":"create-value"}`),
-								},
-							},
-							Update: services.InputParameterSchema{
-								Parameters: &runtime.RawExtension{
-									Raw: []byte(`{"update-param":"update-value"}`),
-								},
-							},
-						},
-						ServiceBinding: services.ServiceBindingSchema{
-							Create: services.InputParameterSchema{
-								Parameters: &runtime.RawExtension{
-									Raw: []byte(`{"binding-create-param":"binding-create-value"}`),
-								},
-							},
-						},
-					},
-					MaintenanceInfo: services.MaintenanceInfo{
-						Version: "1.2.3",
+					Features: repositories.ServicePlanFeatures{
+						PlanUpdateable: true,
+						Bindable:       true,
 					},
 				},
-				CFResource: model.CFResource{
-					GUID:      "resource-guid",
-					CreatedAt: time.UnixMilli(1000).UTC(),
-					UpdatedAt: tools.PtrTo(time.UnixMilli(2000).UTC()),
-					Metadata: model.Metadata{
-						Labels: map[string]string{
-							"label": "label-foo",
+				Schemas: repositories.ServicePlanSchemas{
+					ServiceInstance: repositories.ServiceInstanceSchema{
+						Create: repositories.InputParameterSchema{
+							Parameters: map[string]any{
+								"create-param": "create-value",
+							},
 						},
-						Annotations: map[string]string{
-							"annotation": "annotation-bar",
+						Update: repositories.InputParameterSchema{
+							Parameters: map[string]any{
+								"update-param": "update-value",
+							},
 						},
+					},
+					ServiceBinding: repositories.ServiceBindingSchema{
+						Create: repositories.InputParameterSchema{
+							Parameters: map[string]any{
+								"binding-create-param": "binding-create-value",
+							},
+						},
+					},
+				},
+				MaintenanceInfo: repositories.MaintenanceInfo{
+					Version: "1.2.3",
+				},
+				GUID:      "resource-guid",
+				CreatedAt: time.UnixMilli(1000).UTC(),
+				UpdatedAt: tools.PtrTo(time.UnixMilli(2000).UTC()),
+				Metadata: repositories.Metadata{
+					Labels: map[string]string{
+						"label": "label-foo",
+					},
+					Annotations: map[string]string{
+						"annotation": "annotation-bar",
 					},
 				},
 				Visibility: repositories.PlanVisibility{
@@ -180,7 +173,7 @@ var _ = Describe("Service Plan", func() {
 			record = repositories.ServicePlanRecord{
 				Visibility: repositories.PlanVisibility{
 					Type: "organization",
-					Organizations: []services.VisibilityOrganization{{
+					Organizations: []repositories.VisibilityOrganization{{
 						GUID: "org-guid",
 						Name: "org-name",
 					}},

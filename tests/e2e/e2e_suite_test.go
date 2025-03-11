@@ -9,13 +9,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/korifi/model/services"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 
@@ -299,7 +300,12 @@ type cfErr struct {
 
 type planVisibilityResource struct {
 	Type          string                            `json:"type"`
-	Organizations []services.VisibilityOrganization `json:"organizations"`
+	Organizations []payloads.VisibilityOrganization `json:"organizations"`
+}
+
+type buildpackResource struct {
+	resource `json:",inline"`
+	Stack    string `json:"stack"`
 }
 
 func TestE2E(t *testing.T) {
@@ -922,14 +928,24 @@ func waitAppStaged(appGUID string) {
 	}).Should(Succeed())
 }
 
-func startApp(appGUID string) {
+func appAction(appGUID, action string) {
 	GinkgoHelper()
 
 	resp, err := adminClient.R().
-		Post("/v3/apps/" + appGUID + "/actions/start")
+		Post("/v3/apps/" + appGUID + "/actions/" + action)
 
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+}
+
+func startApp(appGUID string) {
+	GinkgoHelper()
+	appAction(appGUID, "start")
+}
+
+func restartApp(appGUID string) {
+	GinkgoHelper()
+	appAction(appGUID, "restart")
 }
 
 func uploadTestApp(pkgGUID, appBitsFile string) {
@@ -1018,13 +1034,13 @@ var skipSSLClient = http.Client{
 	},
 }
 
-func curlApp(appGUID, path string) []byte {
+func curlApp(appGUID string, pathSegments ...string) string {
 	GinkgoHelper()
 
 	url := getAppRoute(appGUID)
 	var body []byte
 	Eventually(func(g Gomega) {
-		r, err := skipSSLClient.Get("https://" + url + path)
+		r, err := skipSSLClient.Get("https://" + url + path.Join(pathSegments...))
 		g.Expect(err).NotTo(HaveOccurred())
 		defer r.Body.Close()
 		g.Expect(r).To(HaveHTTPStatus(http.StatusOK))
@@ -1032,7 +1048,13 @@ func curlApp(appGUID, path string) []byte {
 		g.Expect(err).NotTo(HaveOccurred())
 	}).Should(Succeed())
 
-	return body
+	return string(body)
+}
+
+func curlAppJSON(appGUID string, pathSegments ...string) map[string]any {
+	data := map[string]interface{}{}
+	Expect(json.Unmarshal([]byte(curlApp(appGUID, pathSegments...)), &data)).To(Succeed())
+	return data
 }
 
 func getDomainGUID(domainName string) string {
@@ -1177,8 +1199,7 @@ func printAllRoleBindings(config *rest.Config) {
 func pushSampleBroker(brokerBitsFile string) string {
 	brokerSpaceGUID := createSpace(uuid.NewString(), brokerOrgGUID)
 	brokerAppGUID, _ := pushTestApp(brokerSpaceGUID, brokerBitsFile)
-	body := curlApp(brokerAppGUID, "")
-	Expect(body).To(ContainSubstring("Hi, I'm the sample broker!"))
+	Expect(curlApp(brokerAppGUID)).To(ContainSubstring("Hi, I'm the sample broker!"))
 	return helpers.GetInClusterURL(brokerAppGUID)
 }
 

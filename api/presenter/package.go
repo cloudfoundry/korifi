@@ -4,7 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -13,15 +13,15 @@ const (
 )
 
 type PackageResponse struct {
-	GUID          string                             `json:"guid"`
-	Type          string                             `json:"type"`
-	Data          PackageData                        `json:"data"`
-	State         string                             `json:"state"`
-	Relationships map[string]model.ToOneRelationship `json:"relationships"`
-	Links         PackageLinks                       `json:"links"`
-	Metadata      Metadata                           `json:"metadata"`
-	CreatedAt     string                             `json:"created_at"`
-	UpdatedAt     string                             `json:"updated_at"`
+	GUID          string                       `json:"guid"`
+	Type          string                       `json:"type"`
+	Data          PackageData                  `json:"data"`
+	State         string                       `json:"state"`
+	Relationships map[string]ToOneRelationship `json:"relationships"`
+	Links         PackageLinks                 `json:"links"`
+	Metadata      Metadata                     `json:"metadata"`
+	CreatedAt     string                       `json:"created_at"`
+	UpdatedAt     string                       `json:"updated_at"`
 }
 
 type PackageData struct {
@@ -35,7 +35,7 @@ type PackageLinks struct {
 	App      Link `json:"app"`
 }
 
-func ForPackage(record repositories.PackageRecord, baseURL url.URL, includes ...model.IncludedResource) PackageResponse {
+func ForPackage(record repositories.PackageRecord, baseURL url.URL, includes ...include.Resource) PackageResponse {
 	return PackageResponse{
 		GUID:          record.GUID,
 		Type:          record.Type,

@@ -3,6 +3,7 @@ package repositories_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -10,11 +11,13 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,29 +35,56 @@ var _ = Describe("ServiceBindingRepo", func() {
 		org   *korifiv1alpha1.CFOrg
 		space *korifiv1alpha1.CFSpace
 
-		appGUID          string
-		bindingName      *string
-		conditionAwaiter *fakeawaiter.FakeAwaiter[
+		appGUID                 string
+		bindingName             *string
+		bindingConditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
 		]
+		appConditionAwaiter *fakeawaiter.FakeAwaiter[
+			*korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFAppList,
+			*korifiv1alpha1.CFAppList,
+		]
+		brokerClient *fake.BrokerClient
 	)
 
 	BeforeEach(func() {
-		conditionAwaiter = &fakeawaiter.FakeAwaiter[
+		bindingConditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
 		]{}
+		appConditionAwaiter = &fakeawaiter.FakeAwaiter[
+			*korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFApp,
+			korifiv1alpha1.CFAppList,
+			*korifiv1alpha1.CFAppList,
+		]{}
+
+		brokerClient = new(fake.BrokerClient)
+		brokerClientFactory := new(fake.BrokerClientFactory)
+		brokerClientFactory.CreateClientReturns(brokerClient, nil)
+
+		paramsClient := repositories.NewServiceBrokerClient(
+			brokerClientFactory,
+			k8sClient,
+			rootNamespace,
+		)
+
 		repo = repositories.NewServiceBindingRepo(
 			namespaceRetriever,
 			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
 			}),
-			conditionAwaiter)
+			bindingConditionAwaiter,
+			appConditionAwaiter,
+			paramsClient,
+		)
 
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
@@ -86,7 +116,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 	Describe("GetState", func() {
 		var (
 			cfServiceBinding *korifiv1alpha1.CFServiceBinding
-			state            model.CFResourceState
+			state            repositories.ResourceState
 			stateErr         error
 		)
 		BeforeEach(func() {
@@ -130,7 +160,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			It("returns unknown state", func() {
 				Expect(stateErr).NotTo(HaveOccurred())
-				Expect(state).To(Equal(model.CFResourceStateUnknown))
+				Expect(state).To(Equal(repositories.ResourceStateUnknown))
 			})
 
 			When("the service binding is ready", func() {
@@ -148,7 +178,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				It("returns ready state", func() {
 					Expect(stateErr).NotTo(HaveOccurred())
-					Expect(state).To(Equal(model.CFResourceStateReady))
+					Expect(state).To(Equal(repositories.ResourceStateReady))
 				})
 
 				When("the ready status is stale ", func() {
@@ -160,7 +190,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 					It("returns unknown state", func() {
 						Expect(stateErr).NotTo(HaveOccurred())
-						Expect(state).To(Equal(model.CFResourceStateUnknown))
+						Expect(state).To(Equal(repositories.ResourceStateUnknown))
 					})
 				})
 			})
@@ -231,6 +261,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		var (
 			cfServiceInstance    *korifiv1alpha1.CFServiceInstance
 			serviceBindingRecord repositories.ServiceBindingRecord
+			bindingGUID          string
 			createErr            error
 		)
 
@@ -248,7 +279,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				k8sClient.Create(ctx, cfServiceInstance),
 			).To(Succeed())
 
-			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFServiceBinding, error) {
+			bindingConditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFServiceBinding, error) {
 				cfServiceBinding, ok := object.(*korifiv1alpha1.CFServiceBinding)
 				Expect(ok).To(BeTrue())
 
@@ -261,8 +292,24 @@ var _ = Describe("ServiceBindingRepo", func() {
 						Message: "blah",
 					})
 				})).To(Succeed())
+				bindingGUID = cfServiceBinding.Name
 
 				return cfServiceBinding, nil
+			}
+
+			appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+				cfApp, ok := object.(*korifiv1alpha1.CFApp)
+				Expect(ok).To(BeTrue())
+
+				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+					cfApp.Status.ObservedGeneration = cfApp.Generation
+					cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+						GUID: bindingGUID,
+					}}
+				})).To(Succeed())
+
+				err := checkState(cfApp)
+				return cfApp, err
 			}
 
 			bindingName = nil
@@ -325,26 +372,71 @@ var _ = Describe("ServiceBindingRepo", func() {
 				))
 			})
 
-			It("awaits the vcap services secret available condition", func() {
+			It("awaits the binding to become ready", func() {
 				Expect(createErr).NotTo(HaveOccurred())
 
 				cfServiceBinding := new(korifiv1alpha1.CFServiceBinding)
 				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: space.Name, Name: serviceBindingRecord.GUID}, cfServiceBinding)).To(Succeed())
 
-				Expect(conditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
-				obj, conditionType := conditionAwaiter.AwaitConditionArgsForCall(0)
+				Expect(bindingConditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
+				obj, conditionType := bindingConditionAwaiter.AwaitConditionArgsForCall(0)
 				Expect(obj.GetName()).To(Equal(cfServiceBinding.Name))
 				Expect(obj.GetNamespace()).To(Equal(space.Name))
 				Expect(conditionType).To(Equal(korifiv1alpha1.StatusConditionReady))
 			})
 
-			When("the vcap services secret available condition is never met", func() {
+			It("awaits the binding to become available in the app status", func() {
+				Expect(createErr).NotTo(HaveOccurred())
+
+				cfServiceBinding := new(korifiv1alpha1.CFServiceBinding)
+				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: space.Name, Name: serviceBindingRecord.GUID}, cfServiceBinding)).To(Succeed())
+
+				Expect(appConditionAwaiter.AwaitStateCallCount()).To(Equal(1))
+				actualObj, _ := appConditionAwaiter.AwaitStateArgsForCall(0)
+				Expect(actualObj.GetName()).To(Equal(appGUID))
+			})
+
+			When("the binding never becomes ready", func() {
 				BeforeEach(func() {
-					conditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFServiceBinding{}, errors.New("time-out-err"))
+					bindingConditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFServiceBinding{}, errors.New("time-out-err"))
 				})
 
 				It("errors", func() {
 					Expect(createErr).To(MatchError(ContainSubstring("time-out-err")))
+				})
+			})
+
+			When("the binding never makes it to the app status", func() {
+				BeforeEach(func() {
+					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+						return nil, errors.New("time-out-err")
+					}
+				})
+
+				It("errors", func() {
+					Expect(createErr).To(MatchError(ContainSubstring("time-out-err")))
+				})
+			})
+
+			When("the app status is outdated", func() {
+				BeforeEach(func() {
+					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+						cfApp, ok := object.(*korifiv1alpha1.CFApp)
+						Expect(ok).To(BeTrue())
+
+						Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+							cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+								GUID: bindingGUID,
+							}}
+						})).To(Succeed())
+
+						err := checkState(cfApp)
+						return cfApp, err
+					}
+				})
+
+				It("errors", func() {
+					Expect(createErr).To(MatchError(ContainSubstring("outdated")))
 				})
 			})
 
@@ -686,6 +778,10 @@ var _ = Describe("ServiceBindingRepo", func() {
 						}),
 					}))
 				})
+
+				It("does not await for app state", func() {
+					Expect(appConditionAwaiter.AwaitStateCallCount()).To(BeZero())
+				})
 			})
 		})
 	})
@@ -726,6 +822,21 @@ var _ = Describe("ServiceBindingRepo", func() {
 			Expect(
 				k8sClient.Create(ctx, serviceBinding),
 			).To(Succeed())
+
+			appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+				cfApp, ok := object.(*korifiv1alpha1.CFApp)
+				Expect(ok).To(BeTrue())
+
+				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+					cfApp.Status.ObservedGeneration = cfApp.Generation
+					cfApp.Status.ServiceBindings = slices.Collect(it.Exclude(slices.Values(cfApp.Status.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) bool {
+						return b.GUID == serviceBindingGUID
+					}))
+				})).To(Succeed())
+
+				err := checkState(cfApp)
+				return cfApp, err
+			}
 		})
 
 		JustBeforeEach(func() {
@@ -762,6 +873,48 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				It("returns a not-found error", func() {
 					Expect(deleteErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
+				})
+			})
+
+			It("awaits bindings to disappear from the app status", func() {
+				Expect(deleteErr).NotTo(HaveOccurred())
+
+				Expect(appConditionAwaiter.AwaitStateCallCount()).To(Equal(1))
+				actualObj, _ := appConditionAwaiter.AwaitStateArgsForCall(0)
+				Expect(actualObj.GetName()).To(Equal(appGUID))
+			})
+
+			When("the binding is not removed from the status", func() {
+				BeforeEach(func() {
+					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+						return nil, errors.New("time-out-err")
+					}
+				})
+
+				It("returns error", func() {
+					Expect(deleteErr).To(MatchError(ContainSubstring("time-out-err")))
+				})
+			})
+
+			When("the app status is outdated", func() {
+				BeforeEach(func() {
+					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+						cfApp, ok := object.(*korifiv1alpha1.CFApp)
+						Expect(ok).To(BeTrue())
+
+						Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+							cfApp.Status.ServiceBindings = slices.Collect(it.Exclude(slices.Values(cfApp.Status.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) bool {
+								return b.GUID == serviceBindingGUID
+							}))
+						})).To(Succeed())
+
+						err := checkState(cfApp)
+						return cfApp, err
+					}
+				})
+
+				It("returns error", func() {
+					Expect(deleteErr).To(MatchError(ContainSubstring("outdated")))
 				})
 			})
 		})
@@ -1145,6 +1298,133 @@ var _ = Describe("ServiceBindingRepo", func() {
 				It("returns an error", func() {
 					Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
+			})
+		})
+	})
+
+	Describe("GetServiceBindingParameters", func() {
+		var (
+			serviceBindingGUID   string
+			serviceBindingParams map[string]any
+			getErr               error
+		)
+
+		BeforeEach(func() {
+			serviceBrokerGUID := uuid.NewString()
+			serviceOfferingGUID := uuid.NewString()
+			servicePlanGUID := uuid.NewString()
+			serviceInstanceGUID := uuid.NewString()
+			serviceBindingGUID = uuid.NewString()
+
+			brokerClient.GetServiceBindingReturns(osbapi.BindingResponse{
+				Parameters: map[string]any{
+					"foo": "val1",
+					"bar": "val2",
+				},
+			}, nil)
+
+			serviceBroker := &korifiv1alpha1.CFServiceBroker{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      serviceBrokerGUID,
+				},
+				Spec: korifiv1alpha1.CFServiceBrokerSpec{
+					Name: uuid.NewString(),
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceBroker)).To(Succeed())
+
+			offering := &korifiv1alpha1.CFServiceOffering{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      serviceOfferingGUID,
+				},
+			}
+			Expect(k8sClient.Create(ctx, offering)).To(Succeed())
+
+			servicePlan := &korifiv1alpha1.CFServicePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      servicePlanGUID,
+					Labels: map[string]string{
+						korifiv1alpha1.RelServiceBrokerGUIDLabel:   serviceBrokerGUID,
+						korifiv1alpha1.RelServiceOfferingGUIDLabel: serviceOfferingGUID,
+					},
+				},
+				Spec: korifiv1alpha1.CFServicePlanSpec{
+					Visibility: korifiv1alpha1.ServicePlanVisibility{
+						Type: korifiv1alpha1.PublicServicePlanVisibilityType,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, servicePlan)).To(Succeed())
+
+			serviceInstance := &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: space.Name,
+					Name:      serviceInstanceGUID,
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					Type:     korifiv1alpha1.ManagedType,
+					PlanGUID: servicePlanGUID,
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceInstance)).To(Succeed())
+
+			serviceBinding := &korifiv1alpha1.CFServiceBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceBindingGUID,
+					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceBindingSpec{
+					Service: corev1.ObjectReference{
+						Kind:       "CFServiceInstance",
+						APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
+						Name:       serviceInstanceGUID,
+					},
+					Type: korifiv1alpha1.CFServiceBindingTypeApp,
+					AppRef: corev1.LocalObjectReference{
+						Name: appGUID,
+					},
+				},
+			}
+			Expect(
+				k8sClient.Create(ctx, serviceBinding),
+			).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			serviceBindingParams, getErr = repo.GetServiceBindingParameters(ctx, authInfo, serviceBindingGUID)
+		})
+
+		It("returns a forbidden error as no user bindings are in place", func() {
+			Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			It("gets the service binding parameters", func() {
+				Expect(getErr).NotTo(HaveOccurred())
+				Expect(serviceBindingParams).To(SatisfyAll(
+					HaveKeyWithValue("foo", "val1"),
+					HaveKeyWithValue("bar", "val2")),
+				)
+			})
+		})
+
+		When("no CFServiceBinding exists", func() {
+			BeforeEach(func() {
+				serviceBindingGUID = "i-dont-exist"
+			})
+
+			It("returns an error", func() {
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})

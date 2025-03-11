@@ -3,7 +3,7 @@ package presenter
 import (
 	"net/url"
 
-	"code.cloudfoundry.org/korifi/model"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 )
 
 const usersBase = "/v3/users"
@@ -13,6 +13,6 @@ type UserResponse struct {
 	GUID string `json:"guid"`
 }
 
-func ForUser(name string, _ url.URL, includes ...model.IncludedResource) UserResponse {
+func ForUser(name string, _ url.URL, includes ...include.Resource) UserResponse {
 	return UserResponse{Name: name, GUID: name}
 }

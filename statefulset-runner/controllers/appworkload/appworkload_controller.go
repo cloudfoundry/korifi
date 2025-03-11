@@ -161,7 +161,7 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 	log.V(1).Info("set observed generation", "generation", appWorkload.Status.ObservedGeneration)
 
 	if !appWorkload.GetDeletionTimestamp().IsZero() {
-		return ctrl.Result{}, nil
+		return r.reconcileDeletedAppWorkloadStatus(ctx, appWorkload)
 	}
 
 	statefulSet, err := r.workloadsToStSet.Convert(appWorkload)
@@ -195,7 +195,7 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 		return ctrl.Result{}, err
 	}
 
-	appWorkload.Status.ActualInstances = createdStSet.Status.Replicas
+	appWorkload.Status.ActualInstances = createdStSet.Status.ReadyReplicas
 
 	instancesState, err := r.stateCollector.CollectState(ctx, appWorkload.Spec.GUID)
 	if err != nil {
@@ -203,6 +203,23 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 		return ctrl.Result{}, err
 	}
 	appWorkload.Status.InstancesStatus = instancesState
+
+	return ctrl.Result{}, nil
+}
+
+func (r *AppWorkloadReconciler) reconcileDeletedAppWorkloadStatus(ctx context.Context, appWorkload *korifiv1alpha1.AppWorkload) (ctrl.Result, error) {
+	workloadStSets := &appsv1.StatefulSetList{}
+	err := r.k8sClient.List(ctx, workloadStSets, client.InNamespace(appWorkload.Namespace), client.MatchingLabels{
+		LabelAppWorkloadGUID: appWorkload.Name,
+	})
+	if err != nil {
+		return ctrl.Result{}, nil
+	}
+
+	appWorkload.Status.ActualInstances = 0
+	if len(workloadStSets.Items) != 0 {
+		appWorkload.Status.ActualInstances = workloadStSets.Items[0].Status.Replicas
+	}
 
 	return ctrl.Result{}, nil
 }

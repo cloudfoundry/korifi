@@ -7,8 +7,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/model"
-	"code.cloudfoundry.org/korifi/model/services"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,21 +24,17 @@ var _ = Describe("Service Broker", func() {
 		baseURL, err = url.Parse("https://api.example.org")
 		Expect(err).NotTo(HaveOccurred())
 		record = repositories.ServiceBrokerRecord{
-			ServiceBroker: services.ServiceBroker{
-				Name: "my-broker",
-				URL:  "https://my.broker",
-			},
-			CFResource: model.CFResource{
-				GUID:      "resource-guid",
-				CreatedAt: time.UnixMilli(1000).UTC(),
-				UpdatedAt: tools.PtrTo(time.UnixMilli(2000).UTC()),
-				Metadata: model.Metadata{
-					Labels: map[string]string{
-						"label": "broker-label",
-					},
-					Annotations: map[string]string{
-						"annotation": "broker-annotation",
-					},
+			Name:      "my-broker",
+			URL:       "https://my.broker",
+			GUID:      "resource-guid",
+			CreatedAt: time.UnixMilli(1000).UTC(),
+			UpdatedAt: tools.PtrTo(time.UnixMilli(2000).UTC()),
+			Metadata: repositories.Metadata{
+				Labels: map[string]string{
+					"label": "broker-label",
+				},
+				Annotations: map[string]string{
+					"annotation": "broker-annotation",
 				},
 			},
 		}
