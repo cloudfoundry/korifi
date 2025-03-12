@@ -5,7 +5,7 @@ go 1.23.3
 toolchain go1.23.5
 
 require (
-	code.cloudfoundry.org/bytefmt v0.31.0
+	code.cloudfoundry.org/bytefmt v0.32.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.1.0
 	code.cloudfoundry.org/go-loggregator/v10 v10.1.0
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
@@ -14,7 +14,7 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
 	github.com/aws/aws-sdk-go-v2/config v1.29.9
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.42.1
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.43.0
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.36.4
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
@@ -46,7 +46,7 @@ require (
 	k8s.io/metrics v0.32.2
 	k8s.io/pod-security-admission v0.32.2
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
-	sigs.k8s.io/controller-runtime v0.20.2
+	sigs.k8s.io/controller-runtime v0.20.3
 	sigs.k8s.io/controller-tools v0.17.2
 	sigs.k8s.io/gateway-api v1.2.1
 )
@@ -91,8 +91,8 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.33.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/term v0.29.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/term v0.30.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 )
@@ -183,13 +183,13 @@ require (
 	github.com/vbatts/tar-split v0.11.6 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.33.0 // indirect
-	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	golang.org/x/tools v0.30.0 // indirect
+	golang.org/x/tools v0.31.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/grpc v1.70.0 // indirect
