@@ -64,6 +64,7 @@ var _ = Describe("Org", func() {
 
 		BeforeEach(func() {
 			payload = payloads.OrgPatch{
+				Name: tools.PtrTo("new-org-name"),
 				Metadata: payloads.MetadataPatch{
 					Annotations: map[string]*string{
 						"foo": tools.PtrTo("bar"),
@@ -95,6 +96,18 @@ var _ = Describe("Org", func() {
 				expectUnprocessableEntityError(
 					validatorErr,
 					"label/annotation key cannot use the cloudfoundry.org domain",
+				)
+			})
+		})
+		When("the name is invalid", func() {
+			BeforeEach(func() {
+				payload.Name = tools.PtrTo("")
+			})
+
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError(
+					validatorErr,
+					"Name cannot be blank",
 				)
 			})
 		})
