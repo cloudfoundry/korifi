@@ -55,6 +55,10 @@ var _ = Describe("Config", func() {
 					"url":                   "https://my-logcache.com",
 					"trustInsecureLogCache": true,
 				},
+				"k8sClient": map[string]any{
+					"qps":   1.0,
+					"burst": 2,
+				},
 			},
 		}
 	})
@@ -103,6 +107,10 @@ var _ = Describe("Config", func() {
 			Enabled:               true,
 			URL:                   "https://my-logcache.com",
 			TrustInsecureLogCache: true,
+		}))
+		Expect(cfg.Experimental.K8SClient).To(Equal(config.K8SClientConfig{
+			QPS:   1.0,
+			Burst: 2,
 		}))
 	})
 

@@ -50,6 +50,10 @@
         "type": "string"
       }
     },
+    "disableMigrations": {
+      "description": "Disables automatic migrations of kubernetes artifacts",
+      "type": "boolean"
+    },
     "eksContainerRegistryRoleARN": {
       "description": "Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.",
       "type": "string"
@@ -648,6 +652,22 @@
               "description": "Disable external log cache certificate validation. Not recommended to be set to 'true' in production environments",
               "type": "boolean"
             }
+          },
+          "type": "object"
+        },
+        "api" : {
+          "k8sclient" : {
+            "properties": {
+              "qps" : {
+                "description": "The maximum QPS to the k8s API server, see https://github.com/kubernetes/client-go/blob/ec8a292223d913dc635704c6d57959e1bc00290a/rest/config.go#L117-L122",
+                "type": "number"
+              },
+              "burst" : {
+                "description": "The maximum burst for the QPS to the k8s API server, see https://github.com/kubernetes/client-go/blob/ec8a292223d913dc635704c6d57959e1bc00290a/rest/config.go#L124-L126",
+                "type": "integer"
+              }
+            },
+            "type": "object"
           },
           "type": "object"
         }
