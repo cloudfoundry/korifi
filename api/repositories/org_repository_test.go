@@ -471,9 +471,11 @@ var _ = Describe("OrgRepository", func() {
 		})
 	})
 
-	Describe("PatchOrgMetadata", func() {
+	Describe("PatchOrg", func() {
 		var (
 			orgGUID                       string
+			displayName                   string
+			orgNewName                    *string
 			cfOrg                         *korifiv1alpha1.CFOrg
 			patchErr                      error
 			orgRecord                     repositories.OrgRecord
@@ -481,22 +483,25 @@ var _ = Describe("OrgRepository", func() {
 		)
 
 		BeforeEach(func() {
-			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org-name"))
+			displayName = prefixedGUID("org-name")
+			cfOrg = createOrgWithCleanup(ctx, displayName)
 			orgGUID = cfOrg.Name
 			labelsPatch = nil
 			annotationsPatch = nil
+			orgNewName = tools.PtrTo("new-org-name")
 		})
 
 		JustBeforeEach(func() {
-			patchMsg := repositories.PatchOrgMetadataMessage{
+			patchMsg := repositories.PatchOrgMessage{
 				GUID: orgGUID,
+				Name: orgNewName,
 				MetadataPatch: repositories.MetadataPatch{
 					Annotations: annotationsPatch,
 					Labels:      labelsPatch,
 				},
 			}
 
-			orgRecord, patchErr = orgRepo.PatchOrgMetadata(ctx, authInfo, patchMsg)
+			orgRecord, patchErr = orgRepo.PatchOrg(ctx, authInfo, patchMsg)
 		})
 
 		When("the user is authorized and an org exists", func() {
@@ -553,6 +558,7 @@ var _ = Describe("OrgRepository", func() {
 							"key-two": "value-two",
 						},
 					))
+					Expect(updatedCFOrg.Spec.DisplayName).To(Equal("new-org-name"))
 				})
 			})
 
@@ -599,6 +605,7 @@ var _ = Describe("OrgRepository", func() {
 							"key-two":        "value-two",
 						},
 					))
+					Expect(orgRecord.Name).To(Equal("new-org-name"))
 				})
 
 				It("sets the k8s CFOrg resource", func() {
@@ -619,6 +626,7 @@ var _ = Describe("OrgRepository", func() {
 							"key-two":        "value-two",
 						},
 					))
+					Expect(orgRecord.Name).To(Equal("new-org-name"))
 				})
 			})
 
@@ -655,6 +663,16 @@ var _ = Describe("OrgRepository", func() {
 						ContainSubstring(`"-bad-label"`),
 						ContainSubstring("alphanumeric"),
 					))
+				})
+			})
+
+			When("the name is nil", func() {
+				BeforeEach(func() {
+					orgNewName = nil
+				})
+
+				It("org display name remains unchanged", func() {
+					Expect(orgRecord.Name).To(Equal(displayName))
 				})
 			})
 		})

@@ -194,7 +194,10 @@ var _ = Describe("Org", func() {
 	})
 
 	Describe("Updating Orgs", func() {
-		var requestBody string
+		var (
+			requestBody string
+			newOrgName  *string
+		)
 
 		JustBeforeEach(func() {
 			request, err := http.NewRequestWithContext(ctx, http.MethodPatch, "/v3/organizations/org-guid", strings.NewReader(requestBody))
@@ -208,9 +211,10 @@ var _ = Describe("Org", func() {
 				Name: "test-org",
 			}, nil)
 
-			orgRepo.PatchOrgMetadataReturns(repositories.OrgRecord{
+			newOrgName = tools.PtrTo("new-org-name")
+			orgRepo.PatchOrgReturns(repositories.OrgRecord{
 				GUID: "org-guid",
-				Name: "test-org",
+				Name: *newOrgName,
 				Labels: map[string]string{
 					"env":                           "production",
 					"foo.example.com/my-identifier": "aruba",
@@ -224,6 +228,7 @@ var _ = Describe("Org", func() {
 			requestBody = "the-json-body"
 
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.OrgPatch{
+				Name: newOrgName,
 				Metadata: payloads.MetadataPatch{
 					Annotations: map[string]*string{
 						"hello":                       tools.PtrTo("there"),
@@ -242,9 +247,10 @@ var _ = Describe("Org", func() {
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
-			Expect(orgRepo.PatchOrgMetadataCallCount()).To(Equal(1))
-			_, _, msg := orgRepo.PatchOrgMetadataArgsForCall(0)
+			Expect(orgRepo.PatchOrgCallCount()).To(Equal(1))
+			_, _, msg := orgRepo.PatchOrgArgsForCall(0)
 			Expect(msg.GUID).To(Equal("org-guid"))
+			Expect(msg.Name).To(PointTo(Equal("new-org-name")))
 			Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
 			Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
 			Expect(msg.Labels).To(HaveKeyWithValue("env", PointTo(Equal("production"))))
@@ -253,6 +259,7 @@ var _ = Describe("Org", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.name", "new-org-name"),
 				MatchJSONPath("$.metadata.annotations", map[string]any{
 					"hello":                       "there",
 					"foo.example.com/lorem-ipsum": "Lorem ipsum.",
@@ -274,7 +281,7 @@ var _ = Describe("Org", func() {
 			})
 
 			It("does not call patch", func() {
-				Expect(orgRepo.PatchOrgMetadataCallCount()).To(Equal(0))
+				Expect(orgRepo.PatchOrgCallCount()).To(Equal(0))
 			})
 		})
 
@@ -288,13 +295,13 @@ var _ = Describe("Org", func() {
 			})
 
 			It("does not call patch", func() {
-				Expect(orgRepo.PatchOrgMetadataCallCount()).To(Equal(0))
+				Expect(orgRepo.PatchOrgCallCount()).To(Equal(0))
 			})
 		})
 
 		When("patching the org errors", func() {
 			BeforeEach(func() {
-				orgRepo.PatchOrgMetadataReturns(repositories.OrgRecord{}, errors.New("boom"))
+				orgRepo.PatchOrgReturns(repositories.OrgRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {

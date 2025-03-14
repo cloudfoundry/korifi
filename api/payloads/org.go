@@ -30,18 +30,21 @@ func (p OrgCreate) ToMessage() repositories.CreateOrgMessage {
 }
 
 type OrgPatch struct {
+	Name     *string       `json:"name"`
 	Metadata MetadataPatch `json:"metadata"`
 }
 
 func (p OrgPatch) Validate() error {
 	return validation.ValidateStruct(&p,
 		validation.Field(&p.Metadata),
+		validation.Field(&p.Name, validation.NilOrNotEmpty),
 	)
 }
 
-func (p OrgPatch) ToMessage(orgGUID string) repositories.PatchOrgMetadataMessage {
-	return repositories.PatchOrgMetadataMessage{
+func (p OrgPatch) ToMessage(orgGUID string) repositories.PatchOrgMessage {
+	return repositories.PatchOrgMessage{
 		GUID: orgGUID,
+		Name: p.Name,
 		MetadataPatch: repositories.MetadataPatch{
 			Labels:      p.Metadata.Labels,
 			Annotations: p.Metadata.Annotations,

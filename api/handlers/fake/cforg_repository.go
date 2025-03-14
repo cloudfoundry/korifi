@@ -85,18 +85,18 @@ type CFOrgRepository struct {
 		result1 []repositories.OrgRecord
 		result2 error
 	}
-	PatchOrgMetadataStub        func(context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error)
-	patchOrgMetadataMutex       sync.RWMutex
-	patchOrgMetadataArgsForCall []struct {
+	PatchOrgStub        func(context.Context, authorization.Info, repositories.PatchOrgMessage) (repositories.OrgRecord, error)
+	patchOrgMutex       sync.RWMutex
+	patchOrgArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.PatchOrgMetadataMessage
+		arg3 repositories.PatchOrgMessage
 	}
-	patchOrgMetadataReturns struct {
+	patchOrgReturns struct {
 		result1 repositories.OrgRecord
 		result2 error
 	}
-	patchOrgMetadataReturnsOnCall map[int]struct {
+	patchOrgReturnsOnCall map[int]struct {
 		result1 repositories.OrgRecord
 		result2 error
 	}
@@ -431,18 +431,18 @@ func (fake *CFOrgRepository) ListOrgsReturnsOnCall(i int, result1 []repositories
 	}{result1, result2}
 }
 
-func (fake *CFOrgRepository) PatchOrgMetadata(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error) {
-	fake.patchOrgMetadataMutex.Lock()
-	ret, specificReturn := fake.patchOrgMetadataReturnsOnCall[len(fake.patchOrgMetadataArgsForCall)]
-	fake.patchOrgMetadataArgsForCall = append(fake.patchOrgMetadataArgsForCall, struct {
+func (fake *CFOrgRepository) PatchOrg(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchOrgMessage) (repositories.OrgRecord, error) {
+	fake.patchOrgMutex.Lock()
+	ret, specificReturn := fake.patchOrgReturnsOnCall[len(fake.patchOrgArgsForCall)]
+	fake.patchOrgArgsForCall = append(fake.patchOrgArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.PatchOrgMetadataMessage
+		arg3 repositories.PatchOrgMessage
 	}{arg1, arg2, arg3})
-	stub := fake.PatchOrgMetadataStub
-	fakeReturns := fake.patchOrgMetadataReturns
-	fake.recordInvocation("PatchOrgMetadata", []interface{}{arg1, arg2, arg3})
-	fake.patchOrgMetadataMutex.Unlock()
+	stub := fake.PatchOrgStub
+	fakeReturns := fake.patchOrgReturns
+	fake.recordInvocation("PatchOrg", []interface{}{arg1, arg2, arg3})
+	fake.patchOrgMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -452,46 +452,46 @@ func (fake *CFOrgRepository) PatchOrgMetadata(arg1 context.Context, arg2 authori
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFOrgRepository) PatchOrgMetadataCallCount() int {
-	fake.patchOrgMetadataMutex.RLock()
-	defer fake.patchOrgMetadataMutex.RUnlock()
-	return len(fake.patchOrgMetadataArgsForCall)
+func (fake *CFOrgRepository) PatchOrgCallCount() int {
+	fake.patchOrgMutex.RLock()
+	defer fake.patchOrgMutex.RUnlock()
+	return len(fake.patchOrgArgsForCall)
 }
 
-func (fake *CFOrgRepository) PatchOrgMetadataCalls(stub func(context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error)) {
-	fake.patchOrgMetadataMutex.Lock()
-	defer fake.patchOrgMetadataMutex.Unlock()
-	fake.PatchOrgMetadataStub = stub
+func (fake *CFOrgRepository) PatchOrgCalls(stub func(context.Context, authorization.Info, repositories.PatchOrgMessage) (repositories.OrgRecord, error)) {
+	fake.patchOrgMutex.Lock()
+	defer fake.patchOrgMutex.Unlock()
+	fake.PatchOrgStub = stub
 }
 
-func (fake *CFOrgRepository) PatchOrgMetadataArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) {
-	fake.patchOrgMetadataMutex.RLock()
-	defer fake.patchOrgMetadataMutex.RUnlock()
-	argsForCall := fake.patchOrgMetadataArgsForCall[i]
+func (fake *CFOrgRepository) PatchOrgArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchOrgMessage) {
+	fake.patchOrgMutex.RLock()
+	defer fake.patchOrgMutex.RUnlock()
+	argsForCall := fake.patchOrgArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFOrgRepository) PatchOrgMetadataReturns(result1 repositories.OrgRecord, result2 error) {
-	fake.patchOrgMetadataMutex.Lock()
-	defer fake.patchOrgMetadataMutex.Unlock()
-	fake.PatchOrgMetadataStub = nil
-	fake.patchOrgMetadataReturns = struct {
+func (fake *CFOrgRepository) PatchOrgReturns(result1 repositories.OrgRecord, result2 error) {
+	fake.patchOrgMutex.Lock()
+	defer fake.patchOrgMutex.Unlock()
+	fake.PatchOrgStub = nil
+	fake.patchOrgReturns = struct {
 		result1 repositories.OrgRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFOrgRepository) PatchOrgMetadataReturnsOnCall(i int, result1 repositories.OrgRecord, result2 error) {
-	fake.patchOrgMetadataMutex.Lock()
-	defer fake.patchOrgMetadataMutex.Unlock()
-	fake.PatchOrgMetadataStub = nil
-	if fake.patchOrgMetadataReturnsOnCall == nil {
-		fake.patchOrgMetadataReturnsOnCall = make(map[int]struct {
+func (fake *CFOrgRepository) PatchOrgReturnsOnCall(i int, result1 repositories.OrgRecord, result2 error) {
+	fake.patchOrgMutex.Lock()
+	defer fake.patchOrgMutex.Unlock()
+	fake.PatchOrgStub = nil
+	if fake.patchOrgReturnsOnCall == nil {
+		fake.patchOrgReturnsOnCall = make(map[int]struct {
 			result1 repositories.OrgRecord
 			result2 error
 		})
 	}
-	fake.patchOrgMetadataReturnsOnCall[i] = struct {
+	fake.patchOrgReturnsOnCall[i] = struct {
 		result1 repositories.OrgRecord
 		result2 error
 	}{result1, result2}
@@ -510,8 +510,8 @@ func (fake *CFOrgRepository) Invocations() map[string][][]interface{} {
 	defer fake.getOrgMutex.RUnlock()
 	fake.listOrgsMutex.RLock()
 	defer fake.listOrgsMutex.RUnlock()
-	fake.patchOrgMetadataMutex.RLock()
-	defer fake.patchOrgMetadataMutex.RUnlock()
+	fake.patchOrgMutex.RLock()
+	defer fake.patchOrgMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
