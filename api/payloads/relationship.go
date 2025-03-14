@@ -23,3 +23,16 @@ func (r RelationshipData) Validate() error {
 		validation.Field(&r.GUID, validation.Required),
 	)
 }
+
+type ToManyRelationship struct {
+	Data []RelationshipData `json:"data"`
+}
+
+func (r ToManyRelationship) CollectGUIDs() []string {
+	var guids []string
+	for _, s := range r.Data {
+		guids = append(guids, s.GUID)
+	}
+
+	return guids
+}
