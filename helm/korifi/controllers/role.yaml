@@ -79,23 +79,23 @@ rules:
   - patch
   - watch
 - apiGroups:
-  - gateway.networking.k8s.io
+    - gateway.networking.k8s.io
   resources:
-  - httproutes
+    - httproutes
   verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 - apiGroups:
-  - gateway.networking.k8s.io
+    - gateway.networking.k8s.io
   resources:
-  - httproutes/status
+    - httproutes/status
   verbs:
-  - get
+    - get
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
