@@ -107,7 +107,7 @@ func validateRuleDestination(destination string) error {
 		}
 	}
 
-	return fmt.Errorf("The Destination: %s is not in a valid format", destination)
+	return fmt.Errorf("the destination: %s is not in a valid format", destination)
 }
 
 func validateRulePorts(ports string) error {
@@ -132,7 +132,7 @@ func validateRulePorts(ports string) error {
 		return nil
 	}
 
-	return fmt.Errorf("The ports: %s is not in a valid format", ports)
+	return fmt.Errorf("the ports: %s is not in a valid format", ports)
 }
 
 func isValidPort(portStr string) bool {

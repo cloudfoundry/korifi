@@ -74,7 +74,7 @@ var _ = Describe("SecurityGroupCreate", func() {
 				createPayload.Rules[0].Protocol = "invalid"
 			})
 			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "Rules[0]: protocol invalid not supported")
+				expectUnprocessableEntityError(validatorErr, "rules[0]: protocol invalid not supported")
 			})
 		})
 
@@ -84,7 +84,7 @@ var _ = Describe("SecurityGroupCreate", func() {
 				createPayload.Rules[0].Ports = "80"
 			})
 			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "Rules[0]: ports are not allowed for protocols of type all")
+				expectUnprocessableEntityError(validatorErr, "rules[0]: ports are not allowed for protocols of type all")
 			})
 		})
 
@@ -94,7 +94,7 @@ var _ = Describe("SecurityGroupCreate", func() {
 				createPayload.Rules[0].Ports = ""
 			})
 			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "Rules[0]: ports are required for protocols of type TCP and UDP")
+				expectUnprocessableEntityError(validatorErr, "rules[0]: ports are required for protocols of type TCP and UDP")
 			})
 		})
 
@@ -103,7 +103,7 @@ var _ = Describe("SecurityGroupCreate", func() {
 				createPayload.Rules[0].Destination = "invalid-dest"
 			})
 			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "Rules[0]: The Destination: invalid-dest is not in a valid format")
+				expectUnprocessableEntityError(validatorErr, "rules[0]: the destination: invalid-dest is not in a valid format")
 			})
 		})
 
@@ -112,7 +112,7 @@ var _ = Describe("SecurityGroupCreate", func() {
 				createPayload.Rules[0].Ports = "invalid-port"
 			})
 			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "Rules[0]: The ports: invalid-port is not in a valid format")
+				expectUnprocessableEntityError(validatorErr, "rules[0]: the ports: invalid-port is not in a valid format")
 			})
 		})
 	})
