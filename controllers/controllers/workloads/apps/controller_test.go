@@ -413,6 +413,23 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			}).Should(Succeed())
 		})
 
+		When("the binding is being deleted", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, binding, func() {
+					binding.Finalizers = append(binding.Finalizers, "do-not-delete-me")
+				})).To(Succeed())
+				Expect(k8sManager.GetClient().Delete(ctx, binding)).To(Succeed())
+			})
+
+			It("does not add the binding to the app status", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					g.Expect(meta.IsStatusConditionTrue(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
+					g.Expect(cfApp.Status.ServiceBindings).To(BeEmpty())
+				}).Should(Succeed())
+			})
+		})
+
 		When("the binding becomes ready", func() {
 			BeforeEach(func() {
 				Expect(k8s.Patch(ctx, adminClient, binding, func() {

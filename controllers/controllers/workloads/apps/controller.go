@@ -175,7 +175,9 @@ func (r *Reconciler) getServiceBindings(ctx context.Context, cfApp *korifiv1alph
 		return nil, err
 	}
 
-	return bindings.Items, nil
+	return slices.Collect(it.Exclude(slices.Values(bindings.Items), func(b korifiv1alpha1.CFServiceBinding) bool {
+		return b.DeletionTimestamp != nil
+	})), nil
 }
 
 func bindingsReady(bindings []korifiv1alpha1.CFServiceBinding) bool {

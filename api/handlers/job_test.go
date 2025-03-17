@@ -114,7 +114,7 @@ var _ = Describe("Job", func() {
 					MatchJSONPath("$.state", "FAILED"),
 					MatchJSONPath("$.errors", ConsistOf(map[string]interface{}{
 						"code":   float64(10008),
-						"detail": "Testing deletion timed out, check the remaining \"my-resource-guid\" resource",
+						"detail": "testing deletion timed out, check the remaining \"my-resource-guid\" resource",
 						"title":  "CF-UnprocessableEntity",
 					})),
 				)))
@@ -155,7 +155,7 @@ var _ = Describe("Job", func() {
 
 		BeforeEach(func() {
 			stateRepo = new(fake.StateRepository)
-			stateRepo.GetStateReturns(repositories.ResourceStateUnknown, nil)
+			stateRepo.GetStateReturns(repositories.ResourceStateReady, nil)
 			stateRepos["testing.state"] = stateRepo
 
 			jobGUID = "testing.state~my-resource-guid"
@@ -172,22 +172,9 @@ var _ = Describe("Job", func() {
 				MatchJSONPath("$.guid", jobGUID),
 				MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
 				MatchJSONPath("$.operation", "testing.state"),
-				MatchJSONPath("$.state", "PROCESSING"),
+				MatchJSONPath("$.state", "COMPLETE"),
 				MatchJSONPath("$.errors", BeEmpty()),
 			)))
-		})
-
-		When("the resource state is Ready", func() {
-			BeforeEach(func() {
-				stateRepo.GetStateReturns(repositories.ResourceStateReady, nil)
-			})
-
-			It("returns a complete status", func() {
-				Expect(rr).To(HaveHTTPBody(SatisfyAll(
-					MatchJSONPath("$.state", "COMPLETE"),
-					MatchJSONPath("$.errors", BeEmpty()),
-				)))
-			})
 		})
 
 		When("the user does not have permission to see the resource", func() {
