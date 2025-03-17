@@ -123,7 +123,7 @@ func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository
 		if errors.As(err, &apierrors.NotFoundError{}) || errors.As(err, &apierrors.ForbiddenError{}) {
 			return presenter.ForJob(job,
 				[]presenter.JobResponseError{},
-				presenter.StateComplete,
+				repositories.ResourceStateReady,
 				h.serverURL,
 			), nil
 		}
@@ -149,7 +149,7 @@ func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository
 		return presenter.ForJob(
 			job,
 			[]presenter.JobResponseError{},
-			presenter.StateProcessing,
+			repositories.ResourceStateUnknown,
 			h.serverURL,
 		), nil
 	}
@@ -161,7 +161,7 @@ func (h *Job) handleDeleteJob(ctx context.Context, repository DeletionRepository
 			Detail: fmt.Sprintf("%s deletion timed out, check the remaining %q resource", job.ResourceType, job.ResourceGUID),
 			Title:  "CF-UnprocessableEntity",
 		}},
-		presenter.StateFailed,
+		repositories.ResourceStateUnknown,
 		h.serverURL,
 	), nil
 }
@@ -174,7 +174,7 @@ func (h *Job) handleStateJob(ctx context.Context, repository StateRepository, jo
 		if errors.As(err, &apierrors.ForbiddenError{}) {
 			return presenter.ForJob(job,
 				[]presenter.JobResponseError{},
-				presenter.StateComplete,
+				repositories.ResourceStateReady,
 				h.serverURL,
 			), nil
 		}
@@ -186,21 +186,11 @@ func (h *Job) handleStateJob(ctx context.Context, repository StateRepository, jo
 		)
 	}
 
-	switch state {
-	case repositories.ResourceStateReady:
-		return presenter.ForJob(job,
-			[]presenter.JobResponseError{},
-			presenter.StateComplete,
-			h.serverURL,
-		), nil
-
-	default:
-		return presenter.ForJob(job,
-			[]presenter.JobResponseError{},
-			presenter.StateProcessing,
-			h.serverURL,
-		), nil
-	}
+	return presenter.ForJob(job,
+		[]presenter.JobResponseError{},
+		state,
+		h.serverURL,
+	), nil
 }
 
 func (h *Job) retryGetDeletedAt(ctx context.Context, repository DeletionRepository, job presenter.Job) (*time.Time, error) {
