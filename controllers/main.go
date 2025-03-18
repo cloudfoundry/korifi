@@ -48,6 +48,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/spaces"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/tasks"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
+	"code.cloudfoundry.org/korifi/controllers/k8s"
 	controllersfinalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	domainswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
@@ -162,36 +163,38 @@ func main() {
 		os.Exit(1)
 	}
 
+	controllersClient := k8s.IgnoreEmptyPatches(mgr.GetClient())
+
 	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
 		controllersLog := ctrl.Log.WithName("controllers")
 		imageClient := image.NewClient(k8sClient)
 
 		if err = apps.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			mgr.GetScheme(),
 			controllersLog,
-			env.NewVCAPServicesEnvValueBuilder(mgr.GetClient()),
-			env.NewVCAPApplicationEnvValueBuilder(mgr.GetClient(), controllerConfig.ExtraVCAPApplicationValues),
+			env.NewVCAPServicesEnvValueBuilder(controllersClient),
+			env.NewVCAPApplicationEnvValueBuilder(controllersClient, controllerConfig.ExtraVCAPApplicationValues),
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFApp")
 			os.Exit(1)
 		}
 
-		buildCleaner := cleanup.NewBuildCleaner(mgr.GetClient(), controllerConfig.MaxRetainedBuildsPerApp)
+		buildCleaner := cleanup.NewBuildCleaner(controllersClient, controllerConfig.MaxRetainedBuildsPerApp)
 		if err = buildpack.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			buildCleaner,
 			mgr.GetScheme(),
 			controllersLog,
 			controllerConfig,
-			env.NewAppEnvBuilder(mgr.GetClient()),
+			env.NewAppEnvBuilder(controllersClient),
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFBuildpackBuild")
 			os.Exit(1)
 		}
 
 		if err = docker.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			buildCleaner,
 			imageClient,
 			mgr.GetScheme(),
@@ -202,11 +205,11 @@ func main() {
 		}
 
 		if err = packages.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			mgr.GetScheme(),
 			controllersLog,
 			imageClient,
-			cleanup.NewPackageCleaner(mgr.GetClient(), controllerConfig.MaxRetainedPackagesPerApp),
+			cleanup.NewPackageCleaner(controllersClient, controllerConfig.MaxRetainedPackagesPerApp),
 			controllerConfig.ContainerRegistrySecretNames,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFPackage")
@@ -214,18 +217,18 @@ func main() {
 		}
 
 		if err = processes.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			mgr.GetScheme(),
 			controllersLog,
 			controllerConfig,
-			env.NewProcessEnvBuilder(mgr.GetClient()),
+			env.NewProcessEnvBuilder(controllersClient),
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFProcess")
 			os.Exit(1)
 		}
 
 		if err = (upsi_instances.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			mgr.GetScheme(),
 			controllersLog,
 		)).SetupWithManager(mgr); err != nil {
@@ -234,13 +237,13 @@ func main() {
 		}
 
 		if err = (bindings.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			mgr.GetScheme(),
 			controllersLog,
-			upsi_bindings.NewReconciler(mgr.GetClient(), mgr.GetScheme()),
+			upsi_bindings.NewReconciler(controllersClient, mgr.GetScheme()),
 			managed_bindings.NewReconciler(
-				mgr.GetClient(),
-				osbapi.NewClientFactory(mgr.GetClient(), controllerConfig.TrustInsecureServiceBrokers),
+				controllersClient,
+				osbapi.NewClientFactory(controllersClient, controllerConfig.TrustInsecureServiceBrokers),
 				controllerConfig.CFRootNamespace,
 				mgr.GetScheme(),
 			),
@@ -257,7 +260,7 @@ func main() {
 			Defaults(controllerConfig.NamespaceLabels)
 
 		if err = orgs.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			controllersLog,
 			controllerConfig.ContainerRegistrySecretNames,
 			labelCompiler,
@@ -267,7 +270,7 @@ func main() {
 		}
 
 		if err = spaces.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			controllersLog,
 			controllerConfig.ContainerRegistrySecretNames,
 			controllerConfig.CFRootNamespace,
@@ -286,11 +289,11 @@ func main() {
 
 		}
 		if err = tasks.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			mgr.GetScheme(),
 			mgr.GetEventRecorderFor("cftask-controller"),
 			controllersLog,
-			env.NewAppEnvBuilder(mgr.GetClient()),
+			env.NewAppEnvBuilder(controllersClient),
 			taskTTL,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFTask")
@@ -298,7 +301,7 @@ func main() {
 		}
 
 		if err = domains.NewReconciler(
-			mgr.GetClient(),
+			controllersClient,
 			mgr.GetScheme(),
 			controllersLog,
 		).SetupWithManager(mgr); err != nil {
@@ -308,8 +311,8 @@ func main() {
 
 		if controllerConfig.ExperimentalManagedServicesEnabled {
 			if err = brokers.NewReconciler(
-				mgr.GetClient(),
-				osbapi.NewClientFactory(mgr.GetClient(), controllerConfig.TrustInsecureServiceBrokers),
+				controllersClient,
+				osbapi.NewClientFactory(controllersClient, controllerConfig.TrustInsecureServiceBrokers),
 				mgr.GetScheme(),
 				controllersLog,
 			).SetupWithManager(mgr); err != nil {
@@ -318,8 +321,8 @@ func main() {
 			}
 
 			if err = managed.NewReconciler(
-				mgr.GetClient(),
-				osbapi.NewClientFactory(mgr.GetClient(), controllerConfig.TrustInsecureServiceBrokers),
+				controllersClient,
+				osbapi.NewClientFactory(controllersClient, controllerConfig.TrustInsecureServiceBrokers),
 				mgr.GetScheme(),
 				controllerConfig.CFRootNamespace,
 				controllersLog,
@@ -340,7 +343,7 @@ func main() {
 
 		if !controllerConfig.DisableRouteController {
 			if err = routes.NewReconciler(
-				mgr.GetClient(),
+				controllersClient,
 				mgr.GetScheme(),
 				controllersLog,
 				controllerConfig,

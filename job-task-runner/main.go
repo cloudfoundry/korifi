@@ -6,6 +6,7 @@ import (
 	"os"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/k8s"
 	jobtaskcontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/version"
@@ -76,12 +77,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	controllersClient := k8s.IgnoreEmptyPatches(mgr.GetClient())
+
 	controllersLog := ctrl.Log.WithName("controllers")
 	if err = jobtaskcontrollers.NewTaskWorkloadReconciler(
 		controllersLog,
-		mgr.GetClient(),
+		controllersClient,
 		mgr.GetScheme(),
-		jobtaskcontrollers.NewStatusGetter(mgr.GetClient()),
+		jobtaskcontrollers.NewStatusGetter(controllersClient),
 		jobTTL,
 	).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TaskWorkload")
