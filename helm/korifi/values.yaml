@@ -162,3 +162,5 @@ experimental:
     k8sclient:
       qps: 0
       burst: 0
+  securityGroups: 
+    enabled: false
