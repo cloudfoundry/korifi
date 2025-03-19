@@ -154,9 +154,9 @@ func (d *Deleter) cleanupInsances(planName string) error {
 }
 
 func forceDelete[T any, PT k8s.ObjectWithDeepCopy[T]](ctx context.Context, k8sClient client.Client, obj PT) {
-	Expect(k8s.PatchResource(ctx, k8sClient, obj, func() {
+	Expect(client.IgnoreNotFound(k8s.PatchResource(ctx, k8sClient, obj, func() {
 		obj.SetFinalizers(nil)
-	})).To(Succeed())
+	}))).To(Succeed())
 
-	Expect(k8sClient.Delete(ctx, obj)).To(Succeed())
+	Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, obj))).To(Succeed())
 }
