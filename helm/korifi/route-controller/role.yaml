@@ -1,85 +1,62 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: korifi-route-controllers-manager-role
+  name: korifi-route-controller-manager-role
 rules:
-  - apiGroups:
-    - ""
-    resources:
-    - events
-    verbs:
-    - create
-    - patch
-    - update
-  - apiGroups:
-    - ""
-    resources:
-    - services
-    - secrets
-    verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-  - apiGroups:
-    - ""
-    resources:
-    - pods
-    verbs:
-    - delete
-    - get
-    - list
-    - patch
-  - apiGroups:
-    - ""
-    resources:
-    - pods/log
-    verbs:
-    - get
-  - apiGroups:
-    - gateway.networking.k8s.io
-    resources:
-    - httproutes
-    verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-  - apiGroups:
-    - gateway.networking.k8s.io
-    resources:
-    - httproutes/status
-    verbs:
-    - get
-  - apiGroups:
-    - korifi.cloudfoundry.org
-    resources:
-    - cfroutes
-    verbs:
-    - watch
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-  - apiGroups:
-    - korifi.cloudfoundry.org
-    resources:
-    - cfroutes/finalizers
-    verbs:
-    - update
-  - apiGroups:
-    - korifi.cloudfoundry.org
-    resources:
-    - cfroutes/status
-    verbs:
-    - get
-    - patch
-    - update
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes/status
+  verbs:
+  - get
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfroutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfroutes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
+  - cfroutes/status
+  verbs:
+  - get
+  - patch
+  - update
