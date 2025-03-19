@@ -17,7 +17,6 @@ rules:
   resources:
   - namespaces
   - secrets
-  - services
   verbs:
   - create
   - delete
@@ -78,24 +77,6 @@ rules:
   - list
   - patch
   - watch
-- apiGroups:
-    - gateway.networking.k8s.io
-  resources:
-    - httproutes
-  verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-- apiGroups:
-    - gateway.networking.k8s.io
-  resources:
-    - httproutes/status
-  verbs:
-    - get
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
