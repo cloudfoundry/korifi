@@ -5,8 +5,7 @@ import (
 	"net/url"
 	"regexp"
 
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
+	"code.cloudfoundry.org/korifi/api/repositories"
 )
 
 const (
@@ -15,6 +14,7 @@ const (
 	StateComplete   = "COMPLETE"
 	StateFailed     = "FAILED"
 	StateProcessing = "PROCESSING"
+	StatePolling    = "POLLING"
 
 	AppDeleteOperation           = "app.delete"
 	OrgDeleteOperation           = "org.delete"
@@ -27,10 +27,12 @@ const (
 	ServiceBrokerDeleteOperation = "service_broker.delete"
 	ServiceBrokerUpdateOperation = "service_broker.update"
 
-	ManagedServiceInstanceCreateOperation = "managed_service_instance.create"
-	ManagedServiceInstanceDeleteOperation = "managed_service_instance.delete"
-	ManagedServiceBindingCreateOperation  = "managed_service_binding.create"
-	ManagedServiceBindingDeleteOperation  = "managed_service_binding.delete"
+	ManagedServiceInstanceResourceType    = "managed_service_instance"
+	ManagedServiceBindingResourceType     = "managed_service_binding"
+	ManagedServiceInstanceCreateOperation = ManagedServiceInstanceResourceType + ".create"
+	ManagedServiceInstanceDeleteOperation = ManagedServiceInstanceResourceType + ".delete"
+	ManagedServiceBindingCreateOperation  = ManagedServiceBindingResourceType + ".create"
+	ManagedServiceBindingDeleteOperation  = ManagedServiceBindingResourceType + ".delete"
 )
 
 var (
@@ -55,7 +57,7 @@ func JobFromGUID(guid string) (Job, bool) {
 		return Job{
 			GUID:         guid,
 			Type:         matches[1],
-			ResourceType: cases.Title(language.AmericanEnglish).String(matches[2]),
+			ResourceType: matches[2],
 			ResourceGUID: matches[4],
 		}, true
 	}
@@ -70,11 +72,8 @@ type JobResponseError struct {
 type JobResponse struct {
 	GUID      string             `json:"guid"`
 	Errors    []JobResponseError `json:"errors"`
-	Warnings  *string            `json:"warnings"`
 	Operation string             `json:"operation"`
 	State     string             `json:"state"`
-	CreatedAt string             `json:"created_at"`
-	UpdatedAt string             `json:"updated_at"`
 	Links     JobLinks           `json:"links"`
 }
 
@@ -84,28 +83,42 @@ type JobLinks struct {
 }
 
 func ForManifestApplyJob(job Job, baseURL url.URL) JobResponse {
-	response := ForJob(job, []JobResponseError{}, StateComplete, baseURL)
+	response := ForJob(job, []JobResponseError{}, repositories.ResourceStateReady, baseURL)
 	response.Links.Space = &Link{
 		HRef: buildURL(baseURL).appendPath("/v3/spaces", job.ResourceGUID).build(),
 	}
 	return response
 }
 
-func ForJob(job Job, errors []JobResponseError, state string, baseURL url.URL) JobResponse {
+func ForJob(job Job, errors []JobResponseError, state repositories.ResourceState, baseURL url.URL) JobResponse {
 	return JobResponse{
 		GUID:      job.GUID,
 		Errors:    errors,
-		Warnings:  nil,
 		Operation: job.Type,
-		State:     state,
-		CreatedAt: "",
-		UpdatedAt: "",
+		State:     forJobState(job, state, errors),
 		Links: JobLinks{
 			Self: Link{
 				HRef: buildURL(baseURL).appendPath("/v3/jobs", job.GUID).build(),
 			},
 		},
 	}
+}
+
+func forJobState(job Job, state repositories.ResourceState, errors []JobResponseError) string {
+	if len(errors) > 0 {
+		return StateFailed
+	}
+
+	if state == repositories.ResourceStateReady {
+		return StateComplete
+	}
+
+	if job.ResourceType == ManagedServiceInstanceResourceType ||
+		job.ResourceType == ManagedServiceBindingResourceType {
+		return StatePolling
+	}
+
+	return StateProcessing
 }
 
 func JobURLForRedirects(resourceGUID string, operation string, baseURL url.URL) string {

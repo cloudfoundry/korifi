@@ -24,7 +24,7 @@ var _ = Describe("cf unbind-service", func() {
 	})
 
 	JustBeforeEach(func() {
-		unbindSession = helpers.Cf("unbind-service", appName, serviceName)
+		unbindSession = helpers.Cf("unbind-service", appName, serviceName, "--wait")
 	})
 
 	Describe("Unbinding from user-provided service instances", func() {

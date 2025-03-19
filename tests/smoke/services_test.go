@@ -47,7 +47,7 @@ var _ = Describe("Services", func() {
 		})
 
 		It("deletes the managed service", func() {
-			session := helpers.Cf("delete-service", "-f", serviceName)
+			session := helpers.Cf("delete-service", "-f", serviceName, "--wait")
 			Expect(session).To(Exit(0))
 		})
 	})
