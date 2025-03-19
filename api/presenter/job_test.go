@@ -5,8 +5,11 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("", func() {
@@ -42,7 +45,7 @@ var _ = Describe("", func() {
 				GUID:         "resource.operation~guid",
 				Type:         "resource.operation",
 				ResourceGUID: "guid",
-				ResourceType: "Resource",
+				ResourceType: "resource",
 			}))
 		})
 	})
@@ -61,7 +64,6 @@ var _ = Describe("", func() {
 
 		It("renders the job", func() {
 			Expect(output).To(MatchJSON(`{
-				"created_at": "",
 				"errors": [],
 				"guid": "the-job-guid",
 				"links": {
@@ -73,23 +75,30 @@ var _ = Describe("", func() {
 					}
 				},
 				"operation": "space.apply_manifest",
-				"state": "COMPLETE",
-				"updated_at": "",
-				"warnings": null
+				"state": "COMPLETE"
 			}`))
 		})
 	})
 
 	Describe("ForJob", func() {
-		JustBeforeEach(func() {
-			response := presenter.ForJob(presenter.Job{
+		var (
+			job    presenter.Job
+			errors []presenter.JobResponseError
+			state  repositories.ResourceState
+		)
+
+		BeforeEach(func() {
+			job = presenter.Job{
 				GUID: "the-job-guid",
 				Type: "the.operation",
-			}, []presenter.JobResponseError{{
-				Detail: "error detail",
-				Title:  "CF-JobErrorTitle",
-				Code:   12345,
-			}}, "COMPLETE", *baseURL)
+			}
+			errors = []presenter.JobResponseError{}
+			state = repositories.ResourceStateReady
+		})
+
+		JustBeforeEach(func() {
+			response := presenter.ForJob(job, errors, state, *baseURL)
+
 			var err error
 			output, err = json.Marshal(response)
 			Expect(err).NotTo(HaveOccurred())
@@ -97,14 +106,7 @@ var _ = Describe("", func() {
 
 		It("renders the job", func() {
 			Expect(output).To(MatchJSON(`{
-				"created_at": "",
-				"errors": [
-					{
-						"code": 12345,
-						"detail": "error detail",
-						"title": "CF-JobErrorTitle"
-					}
-				],
+				"errors": [],
 				"guid": "the-job-guid",
 				"links": {
 					"self": {
@@ -112,13 +114,62 @@ var _ = Describe("", func() {
 					}
 				},
 				"operation": "the.operation",
-				"state": "COMPLETE",
-				"updated_at": "",
-				"warnings": null
+				"state": "COMPLETE"
 			}`))
 		})
-	})
 
-	Describe("JobURLForRedirects", func() {
+		When("there are errors", func() {
+			BeforeEach(func() {
+				errors = []presenter.JobResponseError{{
+					Detail: "error detail",
+					Title:  "CF-JobErrorTitle",
+					Code:   12345,
+				}}
+			})
+
+			It("renders them in the job", func() {
+				Expect(output).To(matchers.MatchJSONPath("$.errors[0]", MatchAllKeys(Keys{
+					"detail": Equal("error detail"),
+					"title":  Equal("CF-JobErrorTitle"),
+					"code":   BeEquivalentTo(12345),
+				})))
+			})
+
+			It("renders the job as FAILED", func() {
+				Expect(output).To(matchers.MatchJSONPath("$.state", Equal("FAILED")))
+			})
+		})
+
+		When("the job resource is not ready", func() {
+			BeforeEach(func() {
+				state = repositories.ResourceStateUnknown
+			})
+
+			It("renders the job as PROCESSING", func() {
+				Expect(output).To(matchers.MatchJSONPath("$.state", Equal("PROCESSING")))
+			})
+		})
+
+		When("the job refers to a service instance that is not ready", func() {
+			BeforeEach(func() {
+				job.ResourceType = presenter.ManagedServiceInstanceResourceType
+				state = repositories.ResourceStateUnknown
+			})
+
+			It("renders the job as POLLING", func() {
+				Expect(output).To(matchers.MatchJSONPath("$.state", Equal("POLLING")))
+			})
+		})
+
+		When("the job refers to a service binding that is not ready", func() {
+			BeforeEach(func() {
+				job.ResourceType = presenter.ManagedServiceBindingResourceType
+				state = repositories.ResourceStateUnknown
+			})
+
+			It("renders the job as POLLING", func() {
+				Expect(output).To(matchers.MatchJSONPath("$.state", Equal("POLLING")))
+			})
+		})
 	})
 })
