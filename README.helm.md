@@ -78,6 +78,7 @@ Here are all the values that can be set for the chart:
 - `disableMigrations` (_Boolean_): Disables automatic migrations of kubernetes artifacts
 - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
 - `experimental`: Experimental features. No guarantees are provided and breaking/backwards incompatible changes should be expected. These features are not recommended for use in production environments.
+  - `api`:
   - `externalLogCache`:
     - `enabled` (_Boolean_): Enable external LogCache
     - `trustInsecureLogCache` (_Boolean_): Disable external log cache certificate validation. Not recommended to be set to 'true' in production environments
@@ -90,9 +91,6 @@ Here are all the values that can be set for the chart:
   - `uaa`:
     - `enabled` (_Boolean_): Enable UAA support
     - `url` (_String_): The url of a UAA instance
-  - `k8sclient`:
-    - `qps` (_Decimal_) The maximum QPS to the k8s API server, see https://github.com/kubernetes/client-go/blob/ec8a292223d913dc635704c6d57959e1bc00290a/rest/config.go#L117-L122
-    - `burst` (_Integer_) The maximum burst for the QPS to the k8s API server, see https://github.com/kubernetes/client-go/blob/ec8a292223d913dc635704c6d57959e1bc00290a/rest/config.go#L124-L126
 - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
 - `helm`:
   - `hooksImage` (_String_): Image for the helm hooks containing kubectl

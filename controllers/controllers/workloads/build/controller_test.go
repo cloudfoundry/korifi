@@ -2,6 +2,7 @@ package build_test
 
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -222,15 +223,15 @@ var _ = Describe("CFBuildReconciler", func() {
 				g.Expect(delegateInvokedCondition).NotTo(BeNil())
 			}).Should(Succeed())
 
-			Expect(k8s.Patch(ctx, adminClient, cfBuild, func() {
-				meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
+			helpers.EnsurePatch(adminClient, cfBuild, func(b *korifiv1alpha1.CFBuild) {
+				meta.SetStatusCondition(&b.Status.Conditions, metav1.Condition{
 					Type:               korifiv1alpha1.SucceededConditionType,
 					Status:             metav1.ConditionTrue,
 					LastTransitionTime: metav1.Now(),
 					Reason:             "ok",
 					Message:            "ok",
 				})
-			})).To(Succeed())
+			})
 		})
 
 		It("stops reconciling", func() {

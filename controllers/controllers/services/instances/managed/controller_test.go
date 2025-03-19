@@ -11,6 +11,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -829,6 +830,42 @@ var _ = Describe("CFServiceInstance", func() {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 					g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">", 1))
 				}).Should(Succeed())
+			})
+		})
+
+		When("the instance has remaining bindings", func() {
+			BeforeEach(func() {
+				binding := &korifiv1alpha1.CFServiceBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      uuid.NewString(),
+						Namespace: instance.Namespace,
+						Finalizers: []string{
+							"do-not-delete-me",
+						},
+					},
+					Spec: korifiv1alpha1.CFServiceBindingSpec{
+						Service: corev1.ObjectReference{
+							Kind:       "ServiceInstance",
+							Name:       instance.Name,
+							APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+						},
+						Type: korifiv1alpha1.CFServiceBindingTypeApp,
+					},
+				}
+				Expect(adminClient.Create(ctx, binding)).To(Succeed())
+			})
+
+			It("does not delete the instance", func() {
+				helpers.EventuallyShouldHold(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(brokerClient.DeprovisionCallCount()).To(BeZero())
+
+					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("BindingsAvailable")),
+					)))
+				})
 			})
 		})
 

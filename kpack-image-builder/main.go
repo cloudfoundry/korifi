@@ -6,6 +6,7 @@ import (
 	"os"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/k8s"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/config"
 	kpackimagebuilderfinalizer "code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
@@ -115,9 +116,11 @@ func setupControllers(mgr manager.Manager, restConf *rest.Config, configPath str
 		return fmt.Errorf("config could not be read: %v", err)
 	}
 
+	controllersClient := k8s.IgnoreEmptyPatches(mgr.GetClient())
+
 	imageClient := image.NewClient(imageClientSet)
 	if err = controllers.NewBuildWorkloadReconciler(
-		mgr.GetClient(),
+		controllersClient,
 		mgr.GetScheme(),
 		controllersLog,
 		controllerConfig,
@@ -128,7 +131,7 @@ func setupControllers(mgr manager.Manager, restConf *rest.Config, configPath str
 	}
 
 	if err = controllers.NewBuilderInfoReconciler(
-		mgr.GetClient(),
+		controllersClient,
 		mgr.GetScheme(),
 		controllersLog,
 		controllerConfig.ClusterBuilderName,
@@ -138,7 +141,7 @@ func setupControllers(mgr manager.Manager, restConf *rest.Config, configPath str
 	}
 
 	if err = controllers.NewKpackBuildController(
-		mgr.GetClient(),
+		controllersClient,
 		controllersLog,
 		imageClient,
 		controllerConfig.BuilderServiceAccount,
