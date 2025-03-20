@@ -46,9 +46,17 @@ type DeleteOrgMessage struct {
 	GUID string
 }
 
-type PatchOrgMetadataMessage struct {
+type PatchOrgMessage struct {
 	MetadataPatch
 	GUID string
+	Name *string
+}
+
+func (p *PatchOrgMessage) Apply(org *korifiv1alpha1.CFOrg) {
+	if p.Name != nil {
+		org.Spec.DisplayName = *p.Name
+	}
+	p.MetadataPatch.Apply(org)
 }
 
 type OrgRecord struct {
@@ -168,7 +176,7 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 	return apierrors.FromK8sError(err, OrgResourceType)
 }
 
-func (r *OrgRepo) PatchOrgMetadata(ctx context.Context, authInfo authorization.Info, message PatchOrgMetadataMessage) (OrgRecord, error) {
+func (r *OrgRepo) PatchOrg(ctx context.Context, authInfo authorization.Info, message PatchOrgMessage) (OrgRecord, error) {
 	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)

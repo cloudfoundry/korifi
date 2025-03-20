@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -471,9 +472,11 @@ var _ = Describe("OrgRepository", func() {
 		})
 	})
 
-	Describe("PatchOrgMetadata", func() {
+	Describe("PatchOrg", func() {
 		var (
 			orgGUID                       string
+			displayName                   string
+			orgNewName                    *string
 			cfOrg                         *korifiv1alpha1.CFOrg
 			patchErr                      error
 			orgRecord                     repositories.OrgRecord
@@ -481,29 +484,29 @@ var _ = Describe("OrgRepository", func() {
 		)
 
 		BeforeEach(func() {
-			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org-name"))
+			displayName = uuid.NewString()
+			cfOrg = createOrgWithCleanup(ctx, displayName)
 			orgGUID = cfOrg.Name
 			labelsPatch = nil
 			annotationsPatch = nil
+			orgNewName = tools.PtrTo(uuid.NewString())
 		})
 
 		JustBeforeEach(func() {
-			patchMsg := repositories.PatchOrgMetadataMessage{
+			patchMsg := repositories.PatchOrgMessage{
 				GUID: orgGUID,
+				Name: orgNewName,
 				MetadataPatch: repositories.MetadataPatch{
 					Annotations: annotationsPatch,
 					Labels:      labelsPatch,
 				},
 			}
-
-			orgRecord, patchErr = orgRepo.PatchOrgMetadata(ctx, authInfo, patchMsg)
+			orgRecord, patchErr = orgRepo.PatchOrg(ctx, authInfo, patchMsg)
 		})
-
 		When("the user is authorized and an org exists", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 			})
-
 			When("the org doesn't have any labels or annotations", func() {
 				BeforeEach(func() {
 					labelsPatch = map[string]*string{
@@ -535,6 +538,7 @@ var _ = Describe("OrgRepository", func() {
 							"key-two": "value-two",
 						},
 					))
+					Expect(orgRecord.Name).To(Equal(*orgNewName))
 				})
 
 				It("sets the k8s CFOrg resource", func() {
@@ -553,6 +557,7 @@ var _ = Describe("OrgRepository", func() {
 							"key-two": "value-two",
 						},
 					))
+					Expect(updatedCFOrg.Spec.DisplayName).To(Equal(*orgNewName))
 				})
 			})
 
@@ -599,6 +604,7 @@ var _ = Describe("OrgRepository", func() {
 							"key-two":        "value-two",
 						},
 					))
+					Expect(orgRecord.Name).To(Equal(*orgNewName))
 				})
 
 				It("sets the k8s CFOrg resource", func() {
@@ -619,6 +625,7 @@ var _ = Describe("OrgRepository", func() {
 							"key-two":        "value-two",
 						},
 					))
+					Expect(orgRecord.Name).To(Equal(*orgNewName))
 				})
 			})
 
@@ -655,6 +662,16 @@ var _ = Describe("OrgRepository", func() {
 						ContainSubstring(`"-bad-label"`),
 						ContainSubstring("alphanumeric"),
 					))
+				})
+			})
+
+			When("the name is nil", func() {
+				BeforeEach(func() {
+					orgNewName = nil
+				})
+
+				It("org display name remains unchanged", func() {
+					Expect(orgRecord.Name).To(Equal(displayName))
 				})
 			})
 		})
