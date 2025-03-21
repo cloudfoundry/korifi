@@ -66,7 +66,7 @@ var _ = Describe("Builder", func() {
 				Namespace: cfSpace.Status.GUID,
 				Name:      "my-service-binding-guid",
 				Annotations: map[string]string{
-					korifiv1alpha1.ServiceInstanceTypeAnnotationKey: "sb-1-type",
+					korifiv1alpha1.ServiceInstanceTypeAnnotation: "sb-1-type",
 				},
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -108,7 +108,7 @@ var _ = Describe("Builder", func() {
 				Namespace: cfSpace.Status.GUID,
 				Name:      "my-service-binding-guid-2",
 				Annotations: map[string]string{
-					korifiv1alpha1.ServiceInstanceTypeAnnotationKey: "sb-2-type",
+					korifiv1alpha1.ServiceInstanceTypeAnnotation: "sb-2-type",
 				},
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{

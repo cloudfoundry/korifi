@@ -69,7 +69,7 @@ func buildSingleServiceEnv(ctx context.Context, k8sClient client.Client, service
 		return ServiceDetails{}, "", fmt.Errorf("credentials secret name not set for service binding %q", serviceBinding.Name)
 	}
 
-	serviceLabel := serviceBinding.Annotations[korifiv1alpha1.ServiceInstanceTypeAnnotationKey]
+	serviceLabel := serviceBinding.Annotations[korifiv1alpha1.ServiceInstanceTypeAnnotation]
 
 	serviceInstance := korifiv1alpha1.CFServiceInstance{}
 	err := k8sClient.Get(ctx, types.NamespacedName{Namespace: serviceBinding.Namespace, Name: serviceBinding.Spec.Service.Name}, &serviceInstance)
