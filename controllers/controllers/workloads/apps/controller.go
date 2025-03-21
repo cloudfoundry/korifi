@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
@@ -351,15 +350,6 @@ func (r *Reconciler) finalizeCFApp(ctx context.Context, cfApp *korifiv1alpha1.CF
 		return ctrl.Result{}, err
 	}
 
-	sbFinalizationResult, err := r.finalizeCFServiceBindings(ctx, cfApp)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if (sbFinalizationResult != ctrl.Result{}) {
-		return sbFinalizationResult, nil
-	}
-
 	if controllerutil.RemoveFinalizer(cfApp, korifiv1alpha1.CFAppFinalizerName) {
 		log.V(1).Info("finalizer removed")
 	}
@@ -379,31 +369,6 @@ func (r *Reconciler) finalizeCFAppRoutes(ctx context.Context, cfApp *korifiv1alp
 	}
 
 	return nil
-}
-
-func (r *Reconciler) finalizeCFServiceBindings(ctx context.Context, cfApp *korifiv1alpha1.CFApp) (ctrl.Result, error) {
-	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceBindings")
-
-	sbList := korifiv1alpha1.CFServiceBindingList{}
-	err := r.k8sClient.List(ctx, &sbList, client.InNamespace(cfApp.Namespace), client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name})
-	if err != nil {
-		log.Info("failed to list app service bindings", "reason", err)
-		return ctrl.Result{}, err
-	}
-
-	if len(sbList.Items) == 0 {
-		return ctrl.Result{}, nil
-	}
-
-	for i := range sbList.Items {
-		err = r.k8sClient.Delete(ctx, &sbList.Items[i])
-		if err != nil {
-			log.Info("failed to delete service binding", "serviceBindingName", sbList.Items[i].Name, "reason", err)
-			return ctrl.Result{}, err
-		}
-	}
-
-	return ctrl.Result{RequeueAfter: time.Second}, nil
 }
 
 func (r *Reconciler) updateRouteDestinations(ctx context.Context, cfAppGUID string, cfRoutes []korifiv1alpha1.CFRoute) error {

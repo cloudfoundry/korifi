@@ -30,6 +30,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -113,7 +114,22 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 		return ctrl.Result{}, err
 	}
 
-	cfServiceBinding.Annotations = tools.SetMapValue(cfServiceBinding.Annotations, korifiv1alpha1.ServiceInstanceTypeAnnotationKey, string(cfServiceInstance.Spec.Type))
+	cfServiceBinding.Annotations = tools.SetMapValue(cfServiceBinding.Annotations, korifiv1alpha1.ServiceInstanceTypeAnnotation, string(cfServiceInstance.Spec.Type))
+
+	if cfServiceBinding.Spec.Type == korifiv1alpha1.CFServiceBindingTypeApp {
+		cfApp := new(korifiv1alpha1.CFApp)
+		err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
+		if err != nil {
+			log.Info("cf app not found", "app", cfServiceBinding.Spec.AppRef.Name, "error", err)
+			return ctrl.Result{}, err
+		}
+
+		err = controllerutil.SetOwnerReference(cfApp, cfServiceBinding, r.scheme)
+		if err != nil {
+			log.Info("error when making the cf app owner of the service binding", "reason", err)
+			return ctrl.Result{}, err
+		}
+	}
 
 	res, err := r.reconcileByType(ctx, cfServiceInstance, cfServiceBinding)
 	if needsRequeue(res, err) {

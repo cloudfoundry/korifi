@@ -28,9 +28,9 @@ import (
 var _ = Describe("CFServiceBinding", func() {
 	var (
 		testNamespace string
-		cfAppGUID     string
 		instanceGUID  string
 		binding       *korifiv1alpha1.CFServiceBinding
+		cfApp         *korifiv1alpha1.CFApp
 	)
 
 	BeforeEach(func() {
@@ -41,9 +41,22 @@ var _ = Describe("CFServiceBinding", func() {
 			},
 		})).To(Succeed())
 
-		cfAppGUID = uuid.NewString()
-
 		instanceGUID = uuid.NewString()
+
+		cfApp = &korifiv1alpha1.CFApp{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      uuid.NewString(),
+				Namespace: testNamespace,
+			},
+			Spec: korifiv1alpha1.CFAppSpec{
+				DisplayName:  "test-app",
+				DesiredState: korifiv1alpha1.StoppedState,
+				Lifecycle: korifiv1alpha1.Lifecycle{
+					Type: "buildpack",
+				},
+			},
+		}
+		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 
 		binding = &korifiv1alpha1.CFServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -60,7 +73,7 @@ var _ = Describe("CFServiceBinding", func() {
 					APIVersion: "korifi.cloudfoundry.org/v1alpha1",
 				},
 				AppRef: corev1.LocalObjectReference{
-					Name: cfAppGUID,
+					Name: cfApp.Name,
 				},
 				Type: korifiv1alpha1.CFServiceBindingTypeApp,
 			},
@@ -121,8 +134,17 @@ var _ = Describe("CFServiceBinding", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Annotations).To(HaveKeyWithValue(
-					korifiv1alpha1.ServiceInstanceTypeAnnotationKey, "user-provided",
+					korifiv1alpha1.ServiceInstanceTypeAnnotation, "user-provided",
 				))
+			}).Should(Succeed())
+		})
+
+		It("sets an owner reference from the app to the binding", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"Name": Equal(cfApp.Name),
+				})))
 			}).Should(Succeed())
 		})
 
@@ -407,8 +429,17 @@ var _ = Describe("CFServiceBinding", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Annotations).To(HaveKeyWithValue(
-					korifiv1alpha1.ServiceInstanceTypeAnnotationKey, "managed",
+					korifiv1alpha1.ServiceInstanceTypeAnnotation, "managed",
 				))
+			}).Should(Succeed())
+		})
+
+		It("sets an owner reference from the app to the binding", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+				g.Expect(binding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"Name": Equal(cfApp.Name),
+				})))
 			}).Should(Succeed())
 		})
 
@@ -431,9 +462,9 @@ var _ = Describe("CFServiceBinding", func() {
 					BindRequest: osbapi.BindRequest{
 						ServiceId: "service-offering-id",
 						PlanID:    "service-plan-id",
-						AppGUID:   cfAppGUID,
+						AppGUID:   cfApp.Name,
 						BindResource: osbapi.BindResource{
-							AppGUID: cfAppGUID,
+							AppGUID: cfApp.Name,
 						},
 					},
 				}))
@@ -552,6 +583,13 @@ var _ = Describe("CFServiceBinding", func() {
 				Expect(k8s.Patch(ctx, adminClient, binding, func() {
 					binding.Spec.Type = korifiv1alpha1.CFServiceBindingTypeKey
 				})).To(Succeed())
+			})
+
+			It("does not owner reference from the app to the binding", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					g.Expect(binding.OwnerReferences).To(BeEmpty())
+				}).Should(Succeed())
 			})
 
 			It("does not create a mount secret", func() {
@@ -795,9 +833,9 @@ var _ = Describe("CFServiceBinding", func() {
 							BindRequest: osbapi.BindRequest{
 								ServiceId: "service-offering-id",
 								PlanID:    "service-plan-id",
-								AppGUID:   cfAppGUID,
+								AppGUID:   cfApp.Name,
 								BindResource: osbapi.BindResource{
-									AppGUID: cfAppGUID,
+									AppGUID: cfApp.Name,
 								},
 							},
 						}))
