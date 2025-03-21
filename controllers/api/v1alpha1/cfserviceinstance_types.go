@@ -56,6 +56,11 @@ type CFServiceInstanceSpec struct {
 	PlanGUID string `json:"planGuid"`
 
 	Parameters corev1.LocalObjectReference `json:"parameters,omitempty"`
+
+	// When set the service instance and its bindings are deleted
+	// without any interaction with the broker
+	// +optional
+	NoopDeprovisioning bool `json:"noopDeprovisioning"`
 }
 
 // InstanceType defines the type of the Service Instance

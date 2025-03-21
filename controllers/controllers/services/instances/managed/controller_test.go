@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
@@ -754,27 +753,6 @@ var _ = Describe("CFServiceInstance", func() {
 		})
 	})
 
-	When("the service instance is purged", func() {
-		BeforeEach(func() {
-			Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
-				controllerutil.RemoveFinalizer(instance, korifiv1alpha1.CFServiceInstanceFinalizerName)
-			})).To(Succeed())
-		})
-
-		JustBeforeEach(func() {
-			Expect(k8sManager.GetClient().Delete(ctx, instance)).To(Succeed())
-		})
-
-		It("does not contact the broker for deprovisioning", func() {
-			Eventually(func(g Gomega) {
-				err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
-
-				g.Expect(brokerClient.DeprovisionCallCount()).To(Equal(0))
-			}).Should(Succeed())
-		})
-	})
-
 	When("the service instance is user-provided", func() {
 		BeforeEach(func() {
 			Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
@@ -882,6 +860,27 @@ var _ = Describe("CFServiceInstance", func() {
 						)))
 					})
 				})
+			})
+		})
+
+		When("noop deprovisioning is requested", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+					instance.Spec.NoopDeprovisioning = true
+				})).To(Succeed())
+			})
+
+			It("does not contact the broker for deprovisioning", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(brokerClient.DeprovisionCallCount()).To(Equal(0))
+				}).Should(Succeed())
+			})
+
+			It("deletes the instance", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
 			})
 		})
 
