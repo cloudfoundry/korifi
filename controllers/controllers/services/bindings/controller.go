@@ -113,7 +113,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 		return ctrl.Result{}, err
 	}
 
-	cfServiceBinding.Annotations = tools.SetMapValue(cfServiceBinding.Annotations, korifiv1alpha1.ServiceInstanceTypeAnnotationKey, string(cfServiceInstance.Spec.Type))
+	cfServiceBinding.Annotations = tools.SetMapValue(cfServiceBinding.Annotations, korifiv1alpha1.ServiceInstanceTypeAnnotation, string(cfServiceInstance.Spec.Type))
 
 	res, err := r.reconcileByType(ctx, cfServiceInstance, cfServiceBinding)
 	if needsRequeue(res, err) {

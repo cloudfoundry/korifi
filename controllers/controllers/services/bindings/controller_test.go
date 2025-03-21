@@ -121,7 +121,7 @@ var _ = Describe("CFServiceBinding", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Annotations).To(HaveKeyWithValue(
-					korifiv1alpha1.ServiceInstanceTypeAnnotationKey, "user-provided",
+					korifiv1alpha1.ServiceInstanceTypeAnnotation, "user-provided",
 				))
 			}).Should(Succeed())
 		})
@@ -407,7 +407,7 @@ var _ = Describe("CFServiceBinding", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Annotations).To(HaveKeyWithValue(
-					korifiv1alpha1.ServiceInstanceTypeAnnotationKey, "managed",
+					korifiv1alpha1.ServiceInstanceTypeAnnotation, "managed",
 				))
 			}).Should(Succeed())
 		})
