@@ -799,7 +799,7 @@ var _ = Describe("CFServiceInstance", func() {
 
 		JustBeforeEach(func() {
 			// For deletion test we want to request deletion and verify the behaviour when finalization fails.
-			// Therefore we use the standard k8s client instncea of `adminClient` as it ensures that the object is deleted
+			// Therefore we use the standard k8s client instnce of `adminClient` as it ensures that the object is deleted
 			Expect(k8sManager.GetClient().Delete(ctx, instance)).To(Succeed())
 		})
 
@@ -820,28 +820,21 @@ var _ = Describe("CFServiceInstance", func() {
 			}).Should(Succeed())
 		})
 
-		When("deprovision fails", func() {
-			BeforeEach(func() {
-				brokerClient.DeprovisionReturns(osbapi.ProvisionResponse{}, errors.New("deprovision-failed"))
-			})
-
-			It("the instance is not deleted", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-					g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">", 1))
-				}).Should(Succeed())
-			})
+		It("deletes the instance", func() {
+			Eventually(func(g Gomega) {
+				err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
 		})
 
-		When("the instance has remaining bindings", func() {
+		When("the instance has bindings", func() {
+			var binding *korifiv1alpha1.CFServiceBinding
+
 			BeforeEach(func() {
-				binding := &korifiv1alpha1.CFServiceBinding{
+				binding = &korifiv1alpha1.CFServiceBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      uuid.NewString(),
 						Namespace: instance.Namespace,
-						Finalizers: []string{
-							"do-not-delete-me",
-						},
 					},
 					Spec: korifiv1alpha1.CFServiceBindingSpec{
 						Service: corev1.ObjectReference{
@@ -852,20 +845,56 @@ var _ = Describe("CFServiceInstance", func() {
 						Type: korifiv1alpha1.CFServiceBindingTypeApp,
 					},
 				}
+
 				Expect(adminClient.Create(ctx, binding)).To(Succeed())
 			})
 
-			It("does not delete the instance", func() {
-				helpers.EventuallyShouldHold(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-					g.Expect(brokerClient.DeprovisionCallCount()).To(BeZero())
+			It("deletes them", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			})
 
-					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-						HasStatus(Equal(metav1.ConditionFalse)),
-						HasReason(Equal("BindingsAvailable")),
-					)))
+			It("deletes the instance", func() {
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			})
+
+			When("a binding cannot be deleted", func() {
+				BeforeEach(func() {
+					Expect(k8s.Patch(ctx, adminClient, binding, func() {
+						binding.Finalizers = []string{"do-not-delete-me"}
+					})).To(Succeed())
 				})
+
+				It("does not delete the instance", func() {
+					helpers.EventuallyShouldHold(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+						g.Expect(brokerClient.DeprovisionCallCount()).To(BeZero())
+
+						g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+							HasStatus(Equal(metav1.ConditionFalse)),
+							HasReason(Equal("BindingsAvailable")),
+						)))
+					})
+				})
+			})
+		})
+
+		When("deprovision fails", func() {
+			BeforeEach(func() {
+				brokerClient.DeprovisionReturns(osbapi.ProvisionResponse{}, errors.New("deprovision-failed"))
+			})
+
+			It("the instance is not deleted", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(brokerClient.DeprovisionCallCount()).To(BeNumerically(">", 1))
+				}).Should(Succeed())
 			})
 		})
 

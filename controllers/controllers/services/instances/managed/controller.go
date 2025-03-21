@@ -23,6 +23,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools"
@@ -278,13 +279,8 @@ func (r *Reconciler) finalizeCFServiceInstance(
 		return ctrl.Result{}, nil
 	}
 
-	bindings, err := r.getBindings(ctx, serviceInstance)
-	if err != nil {
+	if err := instances.FinalizeServiceBindings(ctx, r.k8sClient, serviceInstance); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if len(bindings) > 0 {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingsAvailable").WithMessage(fmt.Sprintf("There are still %d bindings for the service instance", len(bindings)))
 	}
 
 	deprovisionResponse, err := r.deprovisionServiceInstance(ctx, serviceInstance, assets, osbapiClient)
@@ -306,18 +302,6 @@ func (r *Reconciler) finalizeCFServiceInstance(
 	log.V(1).Info("finalizer removed")
 
 	return ctrl.Result{}, nil
-}
-
-func (r *Reconciler) getBindings(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance) ([]korifiv1alpha1.CFServiceBinding, error) {
-	serviceBindings := korifiv1alpha1.CFServiceBindingList{}
-	if err := r.k8sClient.List(ctx, &serviceBindings,
-		client.InNamespace(serviceInstance.Namespace),
-		client.MatchingFields{shared.IndexServiceBindingServiceInstanceGUID: serviceInstance.Name},
-	); err != nil {
-		return nil, fmt.Errorf("failed to list bindings: %w", err)
-	}
-
-	return serviceBindings.Items, nil
 }
 
 func (r *Reconciler) deprovisionServiceInstance(
