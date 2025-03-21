@@ -254,6 +254,13 @@ func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalize-managed-service-binding")
 
+	if assets.ServiceInstance.Spec.NoopDeprovisioning {
+		if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
+			log.V(1).Info("finalizer removed")
+		}
+		return ctrl.Result{}, nil
+	}
+
 	unbindResponse, err := r.deleteServiceBinding(ctx, serviceBinding, assets, osbapiClient)
 	if err != nil {
 		return ctrl.Result{}, err

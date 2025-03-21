@@ -23,7 +23,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -115,19 +114,21 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceBinding *ko
 		return ctrl.Result{}, err
 	}
 
-	cfServiceBinding.Annotations = tools.SetMapValue(cfServiceBinding.Annotations, korifiv1alpha1.ServiceInstanceTypeAnnotationKey, string(cfServiceInstance.Spec.Type))
+	cfServiceBinding.Annotations = tools.SetMapValue(cfServiceBinding.Annotations, korifiv1alpha1.ServiceInstanceTypeAnnotation, string(cfServiceInstance.Spec.Type))
 
-	if err = k8s.Patch(ctx, r.k8sClient, cfServiceInstance, func() {
-		controllerutil.AddFinalizer(cfServiceInstance, metav1.FinalizerDeleteDependents)
-	}); err != nil {
-		log.Info("error when setting the foreground deletion finalizer on the service instance", "reason", err)
-		return ctrl.Result{}, err
-	}
+	if cfServiceBinding.Spec.Type == korifiv1alpha1.CFServiceBindingTypeApp {
+		cfApp := new(korifiv1alpha1.CFApp)
+		err = r.k8sClient.Get(ctx, types.NamespacedName{Name: cfServiceBinding.Spec.AppRef.Name, Namespace: cfServiceBinding.Namespace}, cfApp)
+		if err != nil {
+			log.Info("cf app not found", "app", cfServiceBinding.Spec.AppRef.Name, "error", err)
+			return ctrl.Result{}, err
+		}
 
-	err = controllerutil.SetOwnerReference(cfServiceInstance, cfServiceBinding, r.scheme, controllerutil.WithBlockOwnerDeletion(true))
-	if err != nil {
-		log.Info("error when making the service instance owner of the service binding", "reason", err)
-		return ctrl.Result{}, err
+		err = controllerutil.SetOwnerReference(cfApp, cfServiceBinding, r.scheme)
+		if err != nil {
+			log.Info("error when making the cf app owner of the service binding", "reason", err)
+			return ctrl.Result{}, err
+		}
 	}
 
 	res, err := r.reconcileByType(ctx, cfServiceInstance, cfServiceBinding)

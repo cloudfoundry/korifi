@@ -579,21 +579,9 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				},
 			}
 			Expect(adminClient.Create(ctx, cfRoute)).To(Succeed())
+		})
 
-			cfServiceBinding := korifiv1alpha1.CFServiceBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.NewString(),
-					Namespace: testNamespace,
-				},
-				Spec: korifiv1alpha1.CFServiceBindingSpec{
-					AppRef: corev1.LocalObjectReference{
-						Name: cfApp.Name,
-					},
-					Type: korifiv1alpha1.CFServiceBindingTypeApp,
-				},
-			}
-			Expect(adminClient.Create(ctx, &cfServiceBinding)).To(Succeed())
-
+		JustBeforeEach(func() {
 			Expect(k8sManager.GetClient().Delete(ctx, cfApp)).To(Succeed())
 		})
 
@@ -608,14 +596,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), cfRoute)).To(Succeed())
 				g.Expect(cfRoute.Spec.Destinations).To(BeEmpty())
-			}).Should(Succeed())
-		})
-
-		It("deletes the referencing service bindings", func() {
-			Eventually(func(g Gomega) {
-				sbList := korifiv1alpha1.CFServiceBindingList{}
-				g.Expect(adminClient.List(ctx, &sbList, client.InNamespace(cfApp.Namespace))).To(Succeed())
-				g.Expect(sbList.Items).To(BeEmpty())
 			}).Should(Succeed())
 		})
 	})

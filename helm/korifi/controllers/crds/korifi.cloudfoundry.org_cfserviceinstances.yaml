@@ -50,6 +50,11 @@ spec:
                 description: The mutable, user-friendly name of the service instance.
                   Unlike metadata.name, the user can change this field
                 type: string
+              noopDeprovisioning:
+                description: |-
+                  When set the service instance and its bindings are deleted
+                  without any interaction with the broker
+                type: boolean
               parameters:
                 description: |-
                   LocalObjectReference contains enough information to let you locate the
