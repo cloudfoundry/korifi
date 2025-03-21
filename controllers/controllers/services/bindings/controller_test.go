@@ -841,7 +841,7 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 		})
 
-		Describe("unbind", func() {
+		Describe("binding deletion", func() {
 			BeforeEach(func() {
 				brokerClient.UnbindReturns(osbapi.UnbindResponse{}, nil)
 			})
@@ -870,6 +870,27 @@ var _ = Describe("CFServiceBinding", func() {
 					err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
 					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 				}).Should(Succeed())
+			})
+
+			When("noop deprovisioning is requested", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+						instance.Spec.NoopDeprovisioning = true
+					})).To(Succeed())
+				})
+
+				It("does not contact the broker for unbinding", func() {
+					Consistently(func(g Gomega) {
+						g.Expect(brokerClient.UnbindCallCount()).To(Equal(0))
+					}).Should(Succeed())
+				})
+
+				It("deletes the binding", func() {
+					Eventually(func(g Gomega) {
+						err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+					}).Should(Succeed())
+				})
 			})
 
 			When("unbind fails with recoverable error", func() {

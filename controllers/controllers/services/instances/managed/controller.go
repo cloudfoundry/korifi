@@ -138,7 +138,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	}
 
 	if !serviceInstance.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+		return r.finalize(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 	}
 
 	serviceInstance.Status.UpgradeAvailable = serviceInstance.Status.MaintenanceInfo.Version != serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo.Version
@@ -267,41 +267,55 @@ func (r *Reconciler) processProvisionOperation(
 	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionInProgress").WithRequeue()
 }
 
-func (r *Reconciler) finalizeCFServiceInstance(
+func (r *Reconciler) finalize(
 	ctx context.Context,
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	assets osbapi.ServiceInstanceAssets,
 	osbapiClient osbapi.BrokerClient,
 ) (ctrl.Result, error) {
-	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
+	if err := r.finalizeCFServiceInstance(ctx, serviceInstance, assets, osbapiClient); err != nil {
+		return ctrl.Result{}, err
+	}
 
+	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
+	logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance").V(1).Info("finalizer removed")
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) finalizeCFServiceInstance(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	assets osbapi.ServiceInstanceAssets,
+	osbapiClient osbapi.BrokerClient,
+) error {
 	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	if err := instances.FinalizeServiceBindings(ctx, r.k8sClient, serviceInstance); err != nil {
-		return ctrl.Result{}, err
+		return err
+	}
+
+	if serviceInstance.Spec.NoopDeprovisioning {
+		return nil
 	}
 
 	deprovisionResponse, err := r.deprovisionServiceInstance(ctx, serviceInstance, assets, osbapiClient)
 	if err != nil {
-		log.Error(err, "failed to deprovision service instance with broker")
-		return ctrl.Result{}, err
+		return err
 	}
 
 	if deprovisionResponse.IsAsync {
-
 		lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, assets, osbapiClient, deprovisionResponse.Operation)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
-		return r.processDeprovisionOperation(serviceInstance, lastOpResponse)
+		if err = r.processDeprovisionOperation(serviceInstance, lastOpResponse); err != nil {
+			return err
+		}
 	}
 
-	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
-	log.V(1).Info("finalizer removed")
-
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (r *Reconciler) deprovisionServiceInstance(
@@ -345,9 +359,9 @@ func (r *Reconciler) deprovisionServiceInstance(
 func (r *Reconciler) processDeprovisionOperation(
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	lastOpResponse osbapi.LastOperationResponse,
-) (ctrl.Result, error) {
+) error {
 	if lastOpResponse.State == "in progress" {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("DeprovisionInProgress").WithRequeue()
+		return k8s.NewNotReadyError().WithReason("DeprovisionInProgress").WithRequeue()
 	}
 
 	if lastOpResponse.State == "failed" {
@@ -359,10 +373,10 @@ func (r *Reconciler) processDeprovisionOperation(
 			Reason:             "DeprovisionFailed",
 			Message:            lastOpResponse.Description,
 		})
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("DeprovisionFailed")
+		return k8s.NewNotReadyError().WithReason("DeprovisionFailed")
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (r *Reconciler) pollLastOperation(
