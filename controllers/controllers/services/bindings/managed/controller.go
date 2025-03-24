@@ -54,7 +54,7 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	}
 
 	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFServiceBinding(ctx, cfServiceBinding, assets, osbapiClient)
+		return r.finalize(ctx, cfServiceBinding, assets, osbapiClient)
 	}
 
 	if isReconciled(cfServiceBinding) {
@@ -246,7 +246,7 @@ func (r *ManagedBindingsReconciler) createMountSecret(ctx context.Context, cfSer
 	return mountSecret, nil
 }
 
-func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
+func (r *ManagedBindingsReconciler) finalize(
 	ctx context.Context,
 	serviceBinding *korifiv1alpha1.CFServiceBinding,
 	assets osbapi.ServiceBindingAssets,
@@ -254,31 +254,45 @@ func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalize-managed-service-binding")
 
-	if assets.ServiceInstance.Spec.NoopDeprovisioning {
-		if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
-			log.V(1).Info("finalizer removed")
-		}
+	if !controllerutil.ContainsFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
-	unbindResponse, err := r.deleteServiceBinding(ctx, serviceBinding, assets, osbapiClient)
+	err := r.finalizeCFServiceBinding(ctx, serviceBinding, assets, osbapiClient)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-	if unbindResponse.IsAsync {
-		lastOpresponse, err := r.pollLastOperation(ctx, serviceBinding, assets, osbapiClient, unbindResponse.Operation)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		return r.processUnbindLastOperation(serviceBinding, lastOpresponse)
 	}
 
 	if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
 		log.V(1).Info("finalizer removed")
 	}
-
 	return ctrl.Result{}, nil
+}
+
+func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
+	ctx context.Context,
+	serviceBinding *korifiv1alpha1.CFServiceBinding,
+	assets osbapi.ServiceBindingAssets,
+	osbapiClient osbapi.BrokerClient,
+) error {
+	if assets.ServiceInstance.Annotations[korifiv1alpha1.DeprovisionWithoutBrokerAnnotation] == "true" {
+		return nil
+	}
+
+	unbindResponse, err := r.deleteServiceBinding(ctx, serviceBinding, assets, osbapiClient)
+	if err != nil {
+		return err
+	}
+	if unbindResponse.IsAsync {
+		lastOpresponse, err := r.pollLastOperation(ctx, serviceBinding, assets, osbapiClient, unbindResponse.Operation)
+		if err != nil {
+			return err
+		}
+
+		return r.processUnbindLastOperation(serviceBinding, lastOpresponse)
+	}
+
+	return nil
 }
 
 func (r *ManagedBindingsReconciler) pollLastOperation(
@@ -310,10 +324,11 @@ func (r *ManagedBindingsReconciler) pollLastOperation(
 func (r *ManagedBindingsReconciler) processUnbindLastOperation(
 	serviceBinding *korifiv1alpha1.CFServiceBinding,
 	lastOpResponse osbapi.LastOperationResponse,
-) (ctrl.Result, error) {
-	if lastOpResponse.State == "in progress" {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindingInProgress").WithRequeue()
+) error {
+	if lastOpResponse.State == "succeeded" {
+		return nil
 	}
+
 	if lastOpResponse.State == "failed" {
 		meta.SetStatusCondition(&serviceBinding.Status.Conditions, metav1.Condition{
 			Type:               korifiv1alpha1.UnbindingFailedCondition,
@@ -323,11 +338,10 @@ func (r *ManagedBindingsReconciler) processUnbindLastOperation(
 			Reason:             "UnbindingFailed",
 			Message:            lastOpResponse.Description,
 		})
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindFailed")
+		return k8s.NewNotReadyError().WithReason("UnbindFailed")
 
 	}
-
-	return ctrl.Result{Requeue: true}, nil
+	return k8s.NewNotReadyError().WithReason("UnbindingInProgress").WithRequeue()
 }
 
 func (r *ManagedBindingsReconciler) deleteServiceBinding(

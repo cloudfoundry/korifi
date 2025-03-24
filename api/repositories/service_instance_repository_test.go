@@ -1206,10 +1206,10 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					})).To(Succeed())
 				})
 
-				It("requests noop deprovisioning", func() {
+				It("requests deprovisioning without broker", func() {
 					actualServiceInstance := &korifiv1alpha1.CFServiceInstance{}
 					Expect(k8sClient.Get(ctx, types.NamespacedName{Name: serviceInstance.Name, Namespace: space.Name}, actualServiceInstance)).To(Succeed())
-					Expect(actualServiceInstance.Spec.NoopDeprovisioning).To(BeTrue())
+					Expect(actualServiceInstance.Annotations).To(HaveKeyWithValue(korifiv1alpha1.DeprovisionWithoutBrokerAnnotation, "true"))
 				})
 
 				It("deletes the instance", func() {

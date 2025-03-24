@@ -3,6 +3,7 @@ package instances
 import (
 	"context"
 	"fmt"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
@@ -10,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func FinalizeServiceBindings(
+func EnsureNoServiceBindings(
 	ctx context.Context,
 	k8sClient client.Client,
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
@@ -27,7 +28,10 @@ func FinalizeServiceBindings(
 	}
 
 	if len(bindings) > 0 {
-		return k8s.NewNotReadyError().WithReason("BindingsAvailable").WithMessage(fmt.Sprintf("There are still %d bindings for the service instance", len(bindings)))
+		return k8s.NewNotReadyError().
+			WithReason("BindingsAvailable").
+			WithMessage(fmt.Sprintf("There are still %d bindings for the service instance", len(bindings))).
+			WithRequeueAfter(time.Second)
 	}
 
 	return nil
