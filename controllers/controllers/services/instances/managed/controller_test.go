@@ -863,10 +863,10 @@ var _ = Describe("CFServiceInstance", func() {
 			})
 		})
 
-		When("noop deprovisioning is requested", func() {
+		When("deprovision without broker is is requested", func() {
 			BeforeEach(func() {
 				Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
-					instance.Spec.NoopDeprovisioning = true
+					instance.Annotations = tools.SetMapValue(instance.Annotations, korifiv1alpha1.DeprovisionWithoutBrokerAnnotation, "true")
 				})).To(Succeed())
 			})
 

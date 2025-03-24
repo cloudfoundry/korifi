@@ -273,6 +273,10 @@ func (r *Reconciler) finalize(
 	assets osbapi.ServiceInstanceAssets,
 	osbapiClient osbapi.BrokerClient,
 ) (ctrl.Result, error) {
+	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
+		return ctrl.Result{}, nil
+	}
+
 	if err := r.finalizeCFServiceInstance(ctx, serviceInstance, assets, osbapiClient); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -288,15 +292,11 @@ func (r *Reconciler) finalizeCFServiceInstance(
 	assets osbapi.ServiceInstanceAssets,
 	osbapiClient osbapi.BrokerClient,
 ) error {
-	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
-		return nil
-	}
-
-	if err := instances.FinalizeServiceBindings(ctx, r.k8sClient, serviceInstance); err != nil {
+	if err := instances.EnsureNoServiceBindings(ctx, r.k8sClient, serviceInstance); err != nil {
 		return err
 	}
 
-	if serviceInstance.Spec.NoopDeprovisioning {
+	if serviceInstance.Annotations[korifiv1alpha1.DeprovisionWithoutBrokerAnnotation] == "true" {
 		return nil
 	}
 
@@ -360,8 +360,8 @@ func (r *Reconciler) processDeprovisionOperation(
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	lastOpResponse osbapi.LastOperationResponse,
 ) error {
-	if lastOpResponse.State == "in progress" {
-		return k8s.NewNotReadyError().WithReason("DeprovisionInProgress").WithRequeue()
+	if lastOpResponse.State == "succeeded" {
+		return nil
 	}
 
 	if lastOpResponse.State == "failed" {
@@ -376,7 +376,7 @@ func (r *Reconciler) processDeprovisionOperation(
 		return k8s.NewNotReadyError().WithReason("DeprovisionFailed")
 	}
 
-	return nil
+	return k8s.NewNotReadyError().WithReason("DeprovisionInProgress").WithRequeue()
 }
 
 func (r *Reconciler) pollLastOperation(

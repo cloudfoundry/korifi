@@ -158,7 +158,7 @@ func (r *Reconciler) finalizeCFServiceInstance(
 		return ctrl.Result{}, nil
 	}
 
-	if err := instances.FinalizeServiceBindings(ctx, r.k8sClient, serviceInstance); err != nil {
+	if err := instances.EnsureNoServiceBindings(ctx, r.k8sClient, serviceInstance); err != nil {
 		return ctrl.Result{}, err
 	}
 
