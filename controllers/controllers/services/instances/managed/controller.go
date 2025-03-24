@@ -125,6 +125,10 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	serviceInstance.Status.ObservedGeneration = serviceInstance.Generation
 	log.V(1).Info("set observed generation", "generation", serviceInstance.Status.ObservedGeneration)
 
+	if !serviceInstance.GetDeletionTimestamp().IsZero() {
+		return r.finalize(ctx, serviceInstance)
+	}
+
 	serviceInstanceAssets, err := r.assets.GetServiceInstanceAssets(ctx, serviceInstance)
 	if err != nil {
 		log.Error(err, "failed to get service instance assets")
@@ -135,10 +139,6 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	if err != nil {
 		log.Error(err, "failed to create broker client", "broker", serviceInstanceAssets.ServiceBroker.Name)
 		return ctrl.Result{}, fmt.Errorf("failed to create client for broker %q: %w", serviceInstanceAssets.ServiceBroker.Name, err)
-	}
-
-	if !serviceInstance.GetDeletionTimestamp().IsZero() {
-		return r.finalize(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 	}
 
 	serviceInstance.Status.UpgradeAvailable = serviceInstance.Status.MaintenanceInfo.Version != serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo.Version
@@ -270,14 +270,12 @@ func (r *Reconciler) processProvisionOperation(
 func (r *Reconciler) finalize(
 	ctx context.Context,
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
-	assets osbapi.ServiceInstanceAssets,
-	osbapiClient osbapi.BrokerClient,
 ) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.finalizeCFServiceInstance(ctx, serviceInstance, assets, osbapiClient); err != nil {
+	if err := r.finalizeCFServiceInstance(ctx, serviceInstance); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -289,8 +287,6 @@ func (r *Reconciler) finalize(
 func (r *Reconciler) finalizeCFServiceInstance(
 	ctx context.Context,
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
-	assets osbapi.ServiceInstanceAssets,
-	osbapiClient osbapi.BrokerClient,
 ) error {
 	if err := instances.EnsureNoServiceBindings(ctx, r.k8sClient, serviceInstance); err != nil {
 		return err
@@ -298,6 +294,16 @@ func (r *Reconciler) finalizeCFServiceInstance(
 
 	if serviceInstance.Annotations[korifiv1alpha1.DeprovisionWithoutBrokerAnnotation] == "true" {
 		return nil
+	}
+
+	assets, err := r.assets.GetServiceInstanceAssets(ctx, serviceInstance)
+	if err != nil {
+		return fmt.Errorf("failed to get service instance assets: %w", err)
+	}
+
+	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, assets.ServiceBroker)
+	if err != nil {
+		return fmt.Errorf("failed to create client for broker %q: %w", assets.ServiceBroker.Name, err)
 	}
 
 	deprovisionResponse, err := r.deprovisionServiceInstance(ctx, serviceInstance, assets, osbapiClient)
