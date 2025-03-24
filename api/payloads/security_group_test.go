@@ -115,37 +115,23 @@ var _ = Describe("SecurityGroupCreate", func() {
 				expectUnprocessableEntityError(validatorErr, "rules[0]: the ports: invalid-port is not in a valid format")
 			})
 		})
-	})
 
-	Describe("ToMessage", func() {
-		var message repositories.CreateSecurityGroupMessage
+		When("Converting to repo message", func() {
+			var message repositories.CreateSecurityGroupMessage
 
-		BeforeEach(func() {
-			createPayload = payloads.SecurityGroupCreate{
-				DisplayName: "test-security-group",
-				Rules: []korifiv1alpha1.SecurityGroupRule{
-					{Protocol: korifiv1alpha1.ProtocolTCP, Ports: "80", Destination: "192.168.1.1"},
-				},
-				GloballyEnabled: korifiv1alpha1.SecurityGroupWorkloads{Running: false, Staging: false},
-				Relationships: payloads.SecurityGroupRelationships{
-					RunningSpaces: payloads.ToManyRelationship{Data: []payloads.RelationshipData{{GUID: "space1"}}},
-					StagingSpaces: payloads.ToManyRelationship{Data: []payloads.RelationshipData{{GUID: "space2"}}},
-				},
-			}
-		})
+			BeforeEach(func() {
+				message = createPayload.ToMessage()
+			})
 
-		JustBeforeEach(func() {
-			message = createPayload.ToMessage()
-		})
-
-		It("converts to repo message correctly", func() {
-			Expect(message.DisplayName).To(Equal("test-security-group"))
-			Expect(message.Rules).To(Equal(createPayload.Rules))
-			Expect(message.GloballyEnabled).To(Equal(korifiv1alpha1.SecurityGroupWorkloads{Running: false, Staging: false}))
-			Expect(message.Spaces).To(MatchAllKeys(Keys{
-				"space1": Equal(korifiv1alpha1.SecurityGroupWorkloads{Running: true}),
-				"space2": Equal(korifiv1alpha1.SecurityGroupWorkloads{Staging: true}),
-			}))
+			It("Converts the message correctly", func() {
+				Expect(message.DisplayName).To(Equal("test-security-group"))
+				Expect(message.Rules).To(Equal(createPayload.Rules))
+				Expect(message.GloballyEnabled).To(Equal(korifiv1alpha1.SecurityGroupWorkloads{Running: false, Staging: false}))
+				Expect(message.Spaces).To(MatchAllKeys(Keys{
+					"space1": Equal(korifiv1alpha1.SecurityGroupWorkloads{Running: true}),
+					"space2": Equal(korifiv1alpha1.SecurityGroupWorkloads{Staging: true}),
+				}))
+			})
 		})
 	})
 })

@@ -97,6 +97,15 @@ var _ = Describe("SecurityGroup", func() {
 				RunningSpaces: []string{"space1"},
 				StagingSpaces: []string{"space2"},
 			}, nil)
+
+			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
+				{
+					Name: "space1",
+				},
+				{
+					Name: "space2",
+				},
+			}, nil)
 		})
 
 		It("validates the request", func() {

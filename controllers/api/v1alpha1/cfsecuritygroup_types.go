@@ -32,7 +32,7 @@ type CFSecurityGroupSpec struct {
 	DisplayName string              `json:"displayName"`
 	Rules       []SecurityGroupRule `json:"rules"`
 	// //+kubebuilder:validation:Optional
-	Spaces map[string]SecurityGroupWorkloads `json:"spaces"`
+	Spaces map[string]SecurityGroupWorkloads `json:"spaces,omitempty"`
 	// //+kubebuilder:validation:Optional
 	GloballyEnabled SecurityGroupWorkloads `json:"globally_enabled"`
 }

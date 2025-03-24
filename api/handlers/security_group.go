@@ -53,17 +53,23 @@ func (h *SecurityGroup) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	securityGroup, err := h.securityGroupRepo.CreateSecurityGroup(r.Context(), authInfo, payload.ToMessage())
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to create security group")
+	if len(payload.Relationships.RunningSpaces.Data) != 0 || len(payload.Relationships.StagingSpaces.Data) != 0 {
+		spaces, err := h.spaceRepo.ListSpaces(r.Context(), authInfo, repositories.ListSpacesMessage{
+			GUIDs: append(payload.Relationships.RunningSpaces.CollectGUIDs(),
+				payload.Relationships.StagingSpaces.CollectGUIDs()...),
+		})
+		if err != nil {
+			return nil, apierrors.LogAndReturn(logger, err, "failed to list spaces for binding to security group")
+		}
+
+		if len(spaces) == 0 {
+			return nil, apierrors.LogAndReturn(logger, apierrors.NewNotFoundError(nil, repositories.SpaceResourceType), "failed to bind space to security group, space not found")
+		}
 	}
 
-	_, err = h.spaceRepo.ListSpaces(r.Context(), authInfo, repositories.ListSpacesMessage{
-		GUIDs: append(payload.Relationships.RunningSpaces.CollectGUIDs(),
-			payload.Relationships.StagingSpaces.CollectGUIDs()...),
-	})
+	securityGroup, err := h.securityGroupRepo.CreateSecurityGroup(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to create security group, space  does not exist")
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to create security group", "Security group Name", payload.DisplayName)
 	}
 
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForSecurityGroup(securityGroup, h.serverURL)), nil
