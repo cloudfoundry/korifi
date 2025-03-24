@@ -75,7 +75,6 @@ Here are all the values that can be set for the chart:
   - `include` (_Boolean_): Install CRDs as part of the Helm installation.
 - `debug` (_Boolean_): Enables remote debugging with [Delve](https://github.com/go-delve/delve).
 - `defaultAppDomainName` (_String_): Base domain name for application URLs.
-- `disableMigrations` (_Boolean_): Disables automatic migrations of kubernetes artifacts
 - `eksContainerRegistryRoleARN` (_String_): Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.
 - `experimental`: Experimental features. No guarantees are provided and breaking/backwards incompatible changes should be expected. These features are not recommended for use in production environments.
   - `api`:
