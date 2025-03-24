@@ -805,6 +805,20 @@ var _ = Describe("CFServiceInstance", func() {
 			}).Should(Succeed())
 		})
 
+		When("creating the broker is not possible (e.g. missing service plan)", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+					instance.Spec.PlanGUID = ""
+				})).To(Succeed())
+			})
+
+			It("does not delete the instance", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+				}).Should(Succeed())
+			})
+		})
+
 		When("the instance has bindings", func() {
 			var binding *korifiv1alpha1.CFServiceBinding
 
@@ -863,7 +877,7 @@ var _ = Describe("CFServiceInstance", func() {
 			})
 		})
 
-		When("deprovision without broker is is requested", func() {
+		When("deprovision without broker is requested", func() {
 			BeforeEach(func() {
 				Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
 					instance.Annotations = tools.SetMapValue(instance.Annotations, korifiv1alpha1.DeprovisionWithoutBrokerAnnotation, "true")
@@ -881,6 +895,21 @@ var _ = Describe("CFServiceInstance", func() {
 					err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
 					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 				}).Should(Succeed())
+			})
+
+			When("creating the broker is not possible (e.g. missing service plan)", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+						instance.Spec.PlanGUID = ""
+					})).To(Succeed())
+				})
+
+				It("deletes the instance", func() {
+					Eventually(func(g Gomega) {
+						err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+					}).Should(Succeed())
+				})
 			})
 		})
 

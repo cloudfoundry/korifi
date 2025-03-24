@@ -872,6 +872,20 @@ var _ = Describe("CFServiceBinding", func() {
 				}).Should(Succeed())
 			})
 
+			When("broker client cannot be created (e.g. instance is missing service plan", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+						instance.Spec.PlanGUID = ""
+					})).To(Succeed())
+				})
+
+				It("does not delete the binding", func() {
+					Consistently(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					}).Should(Succeed())
+				})
+			})
+
 			When("deprovision without broker is requested", func() {
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
@@ -890,6 +904,21 @@ var _ = Describe("CFServiceBinding", func() {
 						err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
 						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 					}).Should(Succeed())
+				})
+
+				When("broker client cannot be created (e.g. instance is missing service plan", func() {
+					BeforeEach(func() {
+						Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+							instance.Spec.PlanGUID = ""
+						})).To(Succeed())
+					})
+
+					It("deletes the binding", func() {
+						Eventually(func(g Gomega) {
+							err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+							g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+						}).Should(Succeed())
+					})
 				})
 			})
 
