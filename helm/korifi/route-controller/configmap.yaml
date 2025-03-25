@@ -27,13 +27,6 @@ data:
     {{ - range $key, $value := .Values.route-controller.namespaceLabels }}
       {{ $key }}: {{ $value }}
     {{ - end }}
-    extraVCAPApplicationValues:
-    {{ - $defaultDict := dict "cf_api" (printf "https://%s" .Values.api.apiServer.url) - }}
-    {{ - range $key, $value := merge .Values.route-controller.extraVCAPApplicationValues $defaultDict }}
-      {{ $key }}: {{ $value }}
-    {{ - end }}
-    maxRetainedPackagesPerApp: { { .Values.route-controller.maxRetainedPackagesPerApp } }
-    maxRetainedBuildsPerApp: { { .Values.route-controller.maxRetainedBuildsPerApp } }
     logLevel: { { .Values.logLevel } }
     networking:
       gatewayNamespace: { { .Release.Namespace } }-gateway

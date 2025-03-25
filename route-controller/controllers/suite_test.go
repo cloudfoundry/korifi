@@ -49,8 +49,8 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "crds"),
-			filepath.Join("..", "..", "..", "..", "tests", "vendor", "gateway-api"),
+			filepath.Join("..", "..", "helm", "korifi", "route-controller", "crds"),
+			filepath.Join("..", "..", "tests", "vendor", "gateway-api"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -61,7 +61,7 @@ var _ = BeforeSuite(func() {
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(gatewayv1beta1.Install(scheme.Scheme)).To(Succeed())
 
-	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "route-controller", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
@@ -69,7 +69,7 @@ var _ = BeforeSuite(func() {
 	Expect(controllers.NewReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
-		ctrl.Log.WithName("controllers").WithName("CFRoute"),
+		ctrl.Log.WithName("route-controller").WithName("CFRoute"),
 		&config.ControllerConfig{
 			CFProcessDefaults: config.CFProcessDefaults{
 				MemoryMB:    500,
