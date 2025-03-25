@@ -25,6 +25,10 @@ func (r *Resource) PresentResource(resource relationships.Resource) any {
 		return ForServiceOffering(res, r.serverURL)
 	case repositories.ServicePlanRecord:
 		return ForServicePlan(res, r.serverURL)
+	case repositories.SpaceRecord:
+		return ForSpace(res, r.serverURL)
+	case repositories.OrgRecord:
+		return ForOrg(res, r.serverURL)
 	default:
 		return resource
 	}
