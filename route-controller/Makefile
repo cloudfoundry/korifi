@@ -38,7 +38,7 @@ manifests: bin/controller-gen bin/yq
 		crd \
 		rbac:roleName=korifi-route-controller-manager-role \
 		webhook \
-		output:crd:artifacts:config=../helm/korifi/route-controller/crds \
+		output:crd:artifacts:config=../helm/korifi/controllers/crds \
 		output:rbac:artifacts:config=../helm/korifi/route-controller \
 		output:webhook:artifacts:config=../helm/korifi/route-controller
 

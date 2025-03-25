@@ -144,7 +144,7 @@ func main() {
 
 		(&appswebhook.AppRevWebhook{}).SetupWebhookWithManager(mgr)
 
-		uncachedClient, err = client.New(mgr.GetConfig(), client.Options{
+		uncachedClient, err := client.New(mgr.GetConfig(), client.Options{
 			Scheme: scheme,
 		})
 		if err != nil {
