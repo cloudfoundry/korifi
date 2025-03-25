@@ -86,11 +86,9 @@ route-controller:
     memoryMB: 1024
     diskQuotaMB: 1024
   taskTTL: 30d
+  workloadsTLSSecret: korifi-workloads-ingress-cert
 
   namespaceLabels: {}
-  extraVCAPApplicationValues: { }
-  maxRetainedPackagesPerApp: 5
-  maxRetainedBuildsPerApp: 5
 
 controllers:
   image: cloudfoundry/korifi-controllers:latest
