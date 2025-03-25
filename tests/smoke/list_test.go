@@ -1,6 +1,8 @@
 package smoke_test
 
 import (
+	"fmt"
+
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
@@ -14,7 +16,7 @@ var _ = Describe("list", func() {
 	listResources := func(resourceType string, resourcesMatch types.GomegaMatcher) {
 		cfCurlOutput, err := sessionOutput(helpers.Cf("curl", "/v3/"+resourceType))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(cfCurlOutput).To(MatchJSONPath("$.resources", resourcesMatch))
+		Expect(cfCurlOutput).To(MatchJSONPath("$.resources", resourcesMatch), fmt.Sprintf("JSON output: %s", cfCurlOutput))
 	}
 
 	BeforeEach(func() {

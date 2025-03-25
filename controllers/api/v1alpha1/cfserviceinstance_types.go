@@ -29,6 +29,8 @@ const (
 
 	CFServiceInstanceFinalizerName = "cfServiceInstance.korifi.cloudfoundry.org"
 
+	DeprovisionWithoutBrokerAnnotation = "korifi.cloudfoundry.org/deprovision-without-broker"
+
 	ProvisioningFailedCondition   = "ProvisioningFailed"
 	DeprovisioningFailedCondition = "DeprovisioningFailed"
 )

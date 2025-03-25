@@ -156,8 +156,8 @@ var _ = Describe("App", func() {
 				record.Lifecycle.Data.Buildpacks = nil
 			})
 
-			It("does not render buildpacks", func() {
-				Expect(output).To(MatchJSONPathError("$.lifecycle.data.buildpacks", MatchError("unknown key buildpacks")))
+			It("renders the lifecycle with empty buildpacks", func() {
+				Expect(output).To(MatchJSONPath("$.lifecycle.data.buildpacks", BeEmpty()))
 			})
 		})
 
@@ -168,9 +168,9 @@ var _ = Describe("App", func() {
 				}
 			})
 
-			It("renders the docker lifecycle with empty data", func() {
+			It("renders the docker lifecycle with empty buildpacks", func() {
 				Expect(output).To(MatchJSONPath("$.lifecycle.type", Equal("docker")))
-				Expect(output).To(MatchJSONPath("$.lifecycle.data", BeEmpty()))
+				Expect(output).To(MatchJSONPath("$.lifecycle.data.buildpacks", BeEmpty()))
 			})
 		})
 	})

@@ -803,7 +803,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 						korifiv1alpha1.SpaceGUIDKey: space.Name,
 					},
 					Annotations: map[string]string{
-						korifiv1alpha1.ServiceInstanceTypeAnnotationKey: korifiv1alpha1.UserProvidedType,
+						korifiv1alpha1.ServiceInstanceTypeAnnotation: korifiv1alpha1.UserProvidedType,
 					},
 					Finalizers: []string{korifiv1alpha1.CFServiceBindingFinalizerName},
 				},

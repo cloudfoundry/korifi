@@ -17,7 +17,7 @@ type Lifecycle struct {
 }
 
 type LifecycleData struct {
-	Buildpacks []string `json:"buildpacks,omitempty"`
+	Buildpacks []string `json:"buildpacks"`
 	Stack      string   `json:"stack,omitempty"`
 }
 

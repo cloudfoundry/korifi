@@ -216,6 +216,43 @@ var _ = Describe("CFServiceInstance", func() {
 						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 					}).Should(Succeed())
 				})
+
+				When("the instance has bindings", func() {
+					var binding *korifiv1alpha1.CFServiceBinding
+
+					BeforeEach(func() {
+						binding = &korifiv1alpha1.CFServiceBinding{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      uuid.NewString(),
+								Namespace: instance.Namespace,
+							},
+							Spec: korifiv1alpha1.CFServiceBindingSpec{
+								Service: corev1.ObjectReference{
+									Kind:       "ServiceInstance",
+									Name:       instance.Name,
+									APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+								},
+								Type: korifiv1alpha1.CFServiceBindingTypeApp,
+							},
+						}
+
+						Expect(adminClient.Create(ctx, binding)).To(Succeed())
+					})
+
+					It("deletes them", func() {
+						Eventually(func(g Gomega) {
+							err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+							g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+						}).Should(Succeed())
+					})
+
+					It("is deleted", func() {
+						Eventually(func(g Gomega) {
+							err := adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)
+							g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+						}).Should(Succeed())
+					})
+				})
 			})
 		})
 
