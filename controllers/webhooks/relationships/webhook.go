@@ -49,24 +49,25 @@ func (r *SpaceGUIDWebhook) Handle(ctx context.Context, req admission.Request) ad
 	case admissionv1.Create:
 		logger.V(1).Info("adding-space-guid-on-create")
 
-		return r.setSpaceGUID(obj)
+		return r.setGUIDLabels(obj)
 	case admissionv1.Update:
-		return r.ensureSpaceGUIDImmutable(logger, obj, req)
+		return r.ensureGUIDsImmutable(logger, obj, req)
 	default:
 		logger.Info("received-unexpected-operation-type", "operation", req.Operation)
 		return admission.Denied("we only accept create/update")
 	}
 }
 
-func (r *SpaceGUIDWebhook) setSpaceGUID(obj metav1.PartialObjectMetadata) admission.Response {
+func (r *SpaceGUIDWebhook) setGUIDLabels(obj metav1.PartialObjectMetadata) admission.Response {
 	origMarshalled, err := json.Marshal(obj)
 	if err != nil {
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	obj.SetLabels(
-		tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.SpaceGUIDKey, obj.GetNamespace()),
-	)
+	labels := obj.GetLabels()
+	labels = tools.SetMapValue(labels, korifiv1alpha1.GUIDKey, obj.GetName())
+	labels = tools.SetMapValue(labels, korifiv1alpha1.SpaceGUIDKey, obj.GetNamespace())
+	obj.SetLabels(labels)
 
 	marshalled, err := json.Marshal(obj)
 	if err != nil {
@@ -76,7 +77,7 @@ func (r *SpaceGUIDWebhook) setSpaceGUID(obj metav1.PartialObjectMetadata) admiss
 	return admission.PatchResponseFromRaw(origMarshalled, marshalled)
 }
 
-func (r *SpaceGUIDWebhook) ensureSpaceGUIDImmutable(logger logr.Logger, obj metav1.PartialObjectMetadata, req admission.Request) admission.Response {
+func (r *SpaceGUIDWebhook) ensureGUIDsImmutable(logger logr.Logger, obj metav1.PartialObjectMetadata, req admission.Request) admission.Response {
 	var oldObj metav1.PartialObjectMetadata
 	if err := r.decoder.DecodeRaw(req.OldObject, &oldObj); err != nil {
 		logger.Error(err, "failed-to-decode-old-object")
@@ -85,6 +86,10 @@ func (r *SpaceGUIDWebhook) ensureSpaceGUIDImmutable(logger logr.Logger, obj meta
 
 	if oldObj.Labels[korifiv1alpha1.SpaceGUIDKey] != obj.Labels[korifiv1alpha1.SpaceGUIDKey] {
 		return admission.Denied(fmt.Sprintf("Label %q is immutable", korifiv1alpha1.SpaceGUIDKey))
+	}
+
+	if oldObj.Labels[korifiv1alpha1.GUIDKey] != obj.Labels[korifiv1alpha1.GUIDKey] {
+		return admission.Denied(fmt.Sprintf("Label %q is immutable", korifiv1alpha1.GUIDKey))
 	}
 
 	return admission.Allowed("")

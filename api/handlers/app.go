@@ -531,12 +531,7 @@ func (h *App) updateEnvVars(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
-	}
-
-	envVarsRecord, err := h.appRepo.PatchAppEnvVars(r.Context(), authInfo, payload.ToMessage(appGUID, app.SpaceGUID))
+	envVarsRecord, err := h.appRepo.PatchAppEnvVars(r.Context(), authInfo, payload.ToMessage(appGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error updating app environment variables")
 	}

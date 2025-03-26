@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
@@ -55,7 +56,7 @@ var _ = Describe("OrgRepository", func() {
 		)
 
 		BeforeEach(func() {
-			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFOrg, error) {
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ conditions.Watcher, object client.Object, _ string) (*korifiv1alpha1.CFOrg, error) {
 				cfOrg, ok := object.(*korifiv1alpha1.CFOrg)
 				Expect(ok).To(BeTrue())
 

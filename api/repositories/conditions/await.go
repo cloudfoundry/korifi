@@ -5,11 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/repositories/resources"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+type Watcher interface {
+	Watch(ctx context.Context, obj client.ObjectList, opts ...resources.ListOption) (watch.Interface, error)
+}
 
 type ObjectList[L any] interface {
 	*L
@@ -26,13 +32,13 @@ func NewConditionAwaiter[T k8s.RuntimeObjectWithStatusConditions[TT], TT any, L 
 	}
 }
 
-func (a *Awaiter[T, TT, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
+func (a *Awaiter[T, TT, L, PL]) AwaitCondition(ctx context.Context, k8sClient Watcher, object client.Object, conditionType string) (T, error) {
 	return a.AwaitState(ctx, k8sClient, object, func(o T) error {
 		return checkConditionIsTrue(o, conditionType)
 	})
 }
 
-func (a *Awaiter[T, TT, L, PL]) AwaitState(ctx context.Context, k8sClient client.WithWatch, object client.Object, checkState func(T) error) (T, error) {
+func (a *Awaiter[T, TT, L, PL]) AwaitState(ctx context.Context, k8sClient Watcher, object client.Object, checkState func(T) error) (T, error) {
 	var empty T
 	objList := PL(new(L))
 
@@ -41,8 +47,8 @@ func (a *Awaiter[T, TT, L, PL]) AwaitState(ctx context.Context, k8sClient client
 
 	watch, err := k8sClient.Watch(ctxWithTimeout,
 		objList,
-		client.InNamespace(object.GetNamespace()),
-		client.MatchingFields{"metadata.name": object.GetName()},
+		resources.InNamespace(object.GetNamespace()),
+		resources.MatchingFields{"metadata.name": object.GetName()},
 	)
 	if err != nil {
 		return empty, err

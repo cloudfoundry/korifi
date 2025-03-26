@@ -13,15 +13,15 @@ type FakeAwaiter[T k8s.RuntimeObjectWithStatusConditions[TT], TT any, L any, PL 
 		obj           client.Object
 		conditionType string
 	}
-	AwaitConditionStub func(context.Context, client.WithWatch, client.Object, string) (T, error)
-	AwaitStateStub     func(context.Context, client.WithWatch, client.Object, func(T) error) (T, error)
+	AwaitConditionStub func(context.Context, conditions.Watcher, client.Object, string) (T, error)
+	AwaitStateStub     func(context.Context, conditions.Watcher, client.Object, func(T) error) (T, error)
 	awaitStateCalls    []struct {
 		obj        client.Object
 		checkState func(T) error
 	}
 }
 
-func (a *FakeAwaiter[T, TT, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
+func (a *FakeAwaiter[T, TT, L, PL]) AwaitCondition(ctx context.Context, k8sClient conditions.Watcher, object client.Object, conditionType string) (T, error) {
 	a.awaitConditionCalls = append(a.awaitConditionCalls, struct {
 		obj           client.Object
 		conditionType string
@@ -38,7 +38,7 @@ func (a *FakeAwaiter[T, TT, L, PL]) AwaitCondition(ctx context.Context, k8sClien
 }
 
 func (a *FakeAwaiter[T, TT, L, PL]) AwaitConditionReturns(object T, err error) {
-	a.AwaitConditionStub = func(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
+	a.AwaitConditionStub = func(ctx context.Context, k8sClient conditions.Watcher, object client.Object, conditionType string) (T, error) {
 		return object.(T), err
 	}
 }
@@ -51,7 +51,7 @@ func (a *FakeAwaiter[T, TT, L, PL]) AwaitConditionArgsForCall(i int) (client.Obj
 	return a.awaitConditionCalls[i].obj, a.awaitConditionCalls[i].conditionType
 }
 
-func (a *FakeAwaiter[T, TT, L, PL]) AwaitState(ctx context.Context, k8sClient client.WithWatch, object client.Object, checkState func(T) error) (T, error) {
+func (a *FakeAwaiter[T, TT, L, PL]) AwaitState(ctx context.Context, k8sClient conditions.Watcher, object client.Object, checkState func(T) error) (T, error) {
 	a.awaitStateCalls = append(a.awaitStateCalls, struct {
 		obj        client.Object
 		checkState func(T) error
@@ -68,7 +68,7 @@ func (a *FakeAwaiter[T, TT, L, PL]) AwaitState(ctx context.Context, k8sClient cl
 }
 
 func (a *FakeAwaiter[T, TT, L, PL]) AwaitStateReturns(object T, err error) {
-	a.AwaitStateStub = func(ctx context.Context, k8sClient client.WithWatch, object client.Object, _ func(T) error) (T, error) {
+	a.AwaitStateStub = func(ctx context.Context, k8sClient conditions.Watcher, object client.Object, _ func(T) error) (T, error) {
 		return object.(T), err
 	}
 }

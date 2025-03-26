@@ -8,6 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/resources"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -123,7 +124,7 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
-	cfSpace, err = r.conditionAwaiter.AwaitCondition(ctx, userClient, cfSpace, korifiv1alpha1.StatusConditionReady)
+	cfSpace, err = r.conditionAwaiter.AwaitCondition(ctx, resources.NewKlient(nil, r.userClientFactory), cfSpace, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}

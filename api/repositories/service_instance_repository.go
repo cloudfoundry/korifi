@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories/compare"
+	"code.cloudfoundry.org/korifi/api/repositories/resources"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -348,7 +349,7 @@ func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo
 }
 
 func (r *ServiceInstanceRepo) migrateLegacyCredentials(ctx context.Context, userClient client.WithWatch, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (*korifiv1alpha1.CFServiceInstance, error) {
-	cfServiceInstance, err := r.awaiter.AwaitCondition(ctx, userClient, cfServiceInstance, korifiv1alpha1.StatusConditionReady)
+	cfServiceInstance, err := r.awaiter.AwaitCondition(ctx, resources.NewKlient(nil, r.userClientFactory), cfServiceInstance, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return nil, err
 	}

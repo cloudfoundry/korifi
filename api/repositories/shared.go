@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,8 +30,8 @@ type RepositoryCreator interface {
 }
 
 type Awaiter[T runtime.Object] interface {
-	AwaitCondition(context.Context, client.WithWatch, client.Object, string) (T, error)
-	AwaitState(context.Context, client.WithWatch, client.Object, func(T) error) (T, error)
+	AwaitCondition(context.Context, conditions.Watcher, client.Object, string) (T, error)
+	AwaitState(context.Context, conditions.Watcher, client.Object, func(T) error) (T, error)
 }
 
 func getLastUpdatedTime(obj client.Object) *time.Time {

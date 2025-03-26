@@ -1676,7 +1676,6 @@ var _ = Describe("App", func() {
 			Expect(appRepo.PatchAppEnvVarsCallCount()).To(Equal(1))
 			_, _, message := appRepo.PatchAppEnvVarsArgsForCall(0)
 			Expect(message.AppGUID).To(Equal(appGUID))
-			Expect(message.SpaceGUID).To(Equal(spaceGUID))
 			Expect(message.EnvironmentVariables).To(Equal(map[string]*string{
 				"KEY1": nil,
 				"KEY2": tools.PtrTo("VAL2"),

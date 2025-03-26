@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories/compare"
+	"code.cloudfoundry.org/korifi/api/repositories/resources"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/packages"
 	"code.cloudfoundry.org/korifi/tools"
@@ -254,7 +255,7 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 		}
 	}
 
-	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, packages.InitializedConditionType)
+	cfPackage, err = r.awaiter.AwaitCondition(ctx, resources.NewKlient(nil, r.userClientFactory), cfPackage, packages.InitializedConditionType)
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed waiting for Initialized condition: %w", err)
 	}
@@ -392,7 +393,7 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 		return PackageRecord{}, fmt.Errorf("failed to update package source: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, korifiv1alpha1.StatusConditionReady)
+	cfPackage, err = r.awaiter.AwaitCondition(ctx, resources.NewKlient(nil, r.userClientFactory), cfPackage, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed awaiting Ready status condition: %w", err)
 	}

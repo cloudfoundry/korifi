@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/api/repositories/resources"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,6 +23,27 @@ func PatchResource[T any, PT k8s.ObjectWithDeepCopy[T]](
 
 	return errors.Wrapf(
 		k8s.PatchResource(ctx, k8sClient, obj, modify),
+		"failed to patch %T %v", obj, client.ObjectKeyFromObject(obj),
+	)
+}
+
+// TODO: think of a better name
+// This function is useful when updating an object with "blank" literal. Get
+// would populate the blank literal so that Patch can compute a proper diff to
+// apply
+func GetAndPatch(
+	ctx context.Context,
+	klient resources.Klient,
+	obj client.Object,
+	modify func() error,
+) error {
+	err := klient.Get(ctx, obj)
+	if err != nil {
+		return fmt.Errorf("failed to get %T %v: %w", obj, client.ObjectKeyFromObject(obj), err)
+	}
+
+	return errors.Wrapf(
+		klient.Patch(ctx, obj, modify),
 		"failed to patch %T %v", obj, client.ObjectKeyFromObject(obj),
 	)
 }

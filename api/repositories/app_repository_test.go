@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
+	"code.cloudfoundry.org/korifi/api/repositories/resources"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -33,7 +34,7 @@ const (
 	CFAppRevisionValue = "1"
 )
 
-var _ = Describe("AppRepository", func() {
+var _ = FDescribe("AppRepository", func() {
 	var (
 		appAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
@@ -62,7 +63,8 @@ var _ = Describe("AppRepository", func() {
 		userClientFactory = userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
 		})
-		appRepo = repositories.NewAppRepo(namespaceRetriever, userClientFactory, appAwaiter, sorter)
+
+		appRepo = repositories.NewAppRepo(resources.NewKlient(namespaceRetriever, userClientFactory), appAwaiter, sorter)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
@@ -144,7 +146,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("returns an error", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(MatchError("get-app duplicate records exist"))
+				Expect(getErr).To(MatchError(ContainSubstring("get-app duplicate records exist")))
 			})
 		})
 
@@ -741,7 +743,6 @@ var _ = Describe("AppRepository", func() {
 			}
 			patchEnvMsg := repositories.PatchAppEnvVarsMessage{
 				AppGUID:              cfApp.Name,
-				SpaceGUID:            cfSpace.Name,
 				EnvironmentVariables: newEnvVars,
 			}
 

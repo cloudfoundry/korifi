@@ -7,6 +7,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
@@ -62,7 +63,7 @@ var _ = Describe("SpaceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFSpace, error) {
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ conditions.Watcher, object client.Object, _ string) (*korifiv1alpha1.CFSpace, error) {
 				cfSpace, ok := object.(*korifiv1alpha1.CFSpace)
 				Expect(ok).To(BeTrue())
 

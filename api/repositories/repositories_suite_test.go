@@ -383,6 +383,7 @@ func createApp(space string) *korifiv1alpha1.CFApp {
 }
 
 func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
+	displayName := uuid.NewString()
 	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
@@ -391,11 +392,13 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 				CFAppRevisionKey: CFAppRevisionValue,
 			},
 			Labels: map[string]string{
-				korifiv1alpha1.SpaceGUIDKey: space,
+				korifiv1alpha1.SpaceGUIDKey:          space,
+				korifiv1alpha1.GUIDKey:               guid,
+				korifiv1alpha1.CFAppDisplayNameLabel: displayName,
 			},
 		},
 		Spec: korifiv1alpha1.CFAppSpec{
-			DisplayName:  uuid.NewString(),
+			DisplayName:  displayName,
 			DesiredState: "STOPPED",
 			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",

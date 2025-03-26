@@ -134,10 +134,9 @@ func (p AppPatchEnvVars) Validate() error {
 		))
 }
 
-func (a *AppPatchEnvVars) ToMessage(appGUID, spaceGUID string) repositories.PatchAppEnvVarsMessage {
+func (a *AppPatchEnvVars) ToMessage(appGUID string) repositories.PatchAppEnvVarsMessage {
 	message := repositories.PatchAppEnvVarsMessage{
 		AppGUID:              appGUID,
-		SpaceGUID:            spaceGUID,
 		EnvironmentVariables: map[string]*string{},
 	}
 

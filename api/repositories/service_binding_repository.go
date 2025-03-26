@@ -13,6 +13,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/resources"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
@@ -191,7 +192,7 @@ func (r *ServiceBindingRepo) createAppServiceBinding(ctx context.Context, userCl
 		return ServiceBindingRecord{}, err
 	}
 
-	_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
+	_, err = r.appConditionAwaiter.AwaitState(ctx, resources.NewKlient(nil, r.userClientFactory), cfApp, func(a *korifiv1alpha1.CFApp) error {
 		if a.Generation != a.Status.ObservedGeneration {
 			return fmt.Errorf("app status is outdated")
 		}
@@ -242,7 +243,7 @@ func (r *ServiceBindingRepo) createServiceBinding(ctx context.Context, userClien
 	}
 
 	if cfServiceInstance.Spec.Type == korifiv1alpha1.UserProvidedType {
-		cfServiceBinding, err = r.bindingConditionAwaiter.AwaitCondition(ctx, userClient, cfServiceBinding, korifiv1alpha1.StatusConditionReady)
+		cfServiceBinding, err = r.bindingConditionAwaiter.AwaitCondition(ctx, resources.NewKlient(nil, r.userClientFactory), cfServiceBinding, korifiv1alpha1.StatusConditionReady)
 		if err != nil {
 			return ServiceBindingRecord{}, err
 		}
@@ -305,7 +306,7 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 		return apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
-	_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
+	_, err = r.appConditionAwaiter.AwaitState(ctx, resources.NewKlient(nil, r.userClientFactory), cfApp, func(a *korifiv1alpha1.CFApp) error {
 		if a.Generation != a.Status.ObservedGeneration {
 			return fmt.Errorf("app status is outdated")
 		}

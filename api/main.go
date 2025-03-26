@@ -23,6 +23,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
+	"code.cloudfoundry.org/korifi/api/repositories/resources"
 	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
@@ -158,8 +159,7 @@ func main() {
 		userClientFactoryUnfiltered,
 	)
 	appRepo := repositories.NewAppRepo(
-		namespaceRetriever,
-		userClientFactory,
+		resources.NewKlient(namespaceRetriever, userClientFactory),
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
 		repositories.NewAppSorter(),
 	)

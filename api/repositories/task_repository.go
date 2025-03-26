@@ -8,6 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/resources"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/tasks"
 	"code.cloudfoundry.org/korifi/tools"
@@ -161,7 +162,7 @@ func (r *TaskRepo) GetTask(ctx context.Context, authInfo authorization.Info, tas
 }
 
 func (r *TaskRepo) awaitCondition(ctx context.Context, userClient client.WithWatch, task *korifiv1alpha1.CFTask, conditionType string) (*korifiv1alpha1.CFTask, error) {
-	awaitedTask, err := r.taskConditionAwaiter.AwaitCondition(ctx, userClient, task, conditionType)
+	awaitedTask, err := r.taskConditionAwaiter.AwaitCondition(ctx, resources.NewKlient(nil, r.userClientFactory), task, conditionType)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, TaskResourceType)
 	}
