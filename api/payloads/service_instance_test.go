@@ -24,6 +24,7 @@ var _ = Describe("ServiceInstanceList", func() {
 		Entry("names", "names=name", payloads.ServiceInstanceList{Names: "name"}),
 		Entry("space_guids", "space_guids=space_guid", payloads.ServiceInstanceList{SpaceGUIDs: "space_guid"}),
 		Entry("guids", "guids=guid", payloads.ServiceInstanceList{GUIDs: "guid"}),
+		Entry("type", "type=managed", payloads.ServiceInstanceList{Type: "managed"}),
 		Entry("created_at", "order_by=created_at", payloads.ServiceInstanceList{OrderBy: "created_at"}),
 		Entry("-created_at", "order_by=-created_at", payloads.ServiceInstanceList{OrderBy: "-created_at"}),
 		Entry("updated_at", "order_by=updated_at", payloads.ServiceInstanceList{OrderBy: "updated_at"}),
@@ -70,6 +71,7 @@ var _ = Describe("ServiceInstanceList", func() {
 			_, decodeErr := decodeQuery[payloads.ServiceInstanceList](query)
 			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
 		},
+		Entry("invalid type", "type=foo", "value must be one of"),
 		Entry("invalid order_by", "order_by=foo", "value must be one of"),
 		Entry("invalid fields", "fields[foo]=bar", "unsupported query parameter: fields[foo]"),
 		Entry("invalid service offering fields", "fields[service_plan.service_offering]=foo", "value must be one of"),
@@ -90,6 +92,7 @@ var _ = Describe("ServiceInstanceList", func() {
 				Names:         "n1,n2",
 				GUIDs:         "g1,g2",
 				SpaceGUIDs:    "sg1,sg2",
+				Type:          "managed",
 				OrderBy:       "order",
 				LabelSelector: "foo=bar",
 				PlanGUIDs:     "p1,p2",
@@ -105,6 +108,7 @@ var _ = Describe("ServiceInstanceList", func() {
 				Names:         []string{"n1", "n2"},
 				SpaceGUIDs:    []string{"sg1", "sg2"},
 				GUIDs:         []string{"g1", "g2"},
+				Type:          "managed",
 				OrderBy:       "order",
 				LabelSelector: "foo=bar",
 				PlanGUIDs:     []string{"p1", "p2"},
