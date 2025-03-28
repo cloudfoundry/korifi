@@ -66,6 +66,8 @@ data:
       k8sclient:
         qps: {{ .Values.experimental.api.k8sclient.qps }}
         burst: {{ .Values.experimental.api.k8sclient.burst }}
+      securityGroups:
+        enabled: {{ .Values.experimental.securityGroups.enabled }}
   role_mappings_config.yaml: |
     roleMappings:
       admin:
