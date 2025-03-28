@@ -133,11 +133,23 @@ func (g ServiceInstanceGet) Validate() error {
 					"guid",
 					"name",
 				)).Validate(rule.Fields)
+			case "space":
+				return jellidation.Each(validation.OneOf(
+					"guid",
+					"name",
+				)).Validate(rule.Fields)
+			case "space.organization":
+				return jellidation.Each(validation.OneOf(
+					"guid",
+					"name",
+				)).Validate(rule.Fields)
 			}
 			return validation.OneOf(
 				"service_plan",
 				"service_plan.service_offering",
 				"service_plan.service_offering.service_broker",
+				"space",
+				"space.organization",
 			).Validate(relationshipsPath)
 		}))),
 	)
@@ -148,6 +160,8 @@ func (g *ServiceInstanceGet) SupportedKeys() []string {
 		"fields[service_plan.service_offering]",
 		"fields[service_plan.service_offering.service_broker]",
 		"fields[service_plan]",
+		"fields[space]",
+		"fields[space.organization]",
 	}
 }
 
@@ -250,12 +264,25 @@ func (l ServiceInstanceList) Validate() error {
 					"guid",
 					"name",
 				)).Validate(rule.Fields)
+			case "space":
+				return jellidation.Each(validation.OneOf(
+					"guid",
+					"name",
+					"relationships.organization",
+				)).Validate(rule.Fields)
+			case "space.organization":
+				return jellidation.Each(validation.OneOf(
+					"guid",
+					"name",
+				)).Validate(rule.Fields)
 			}
 
 			return validation.OneOf(
 				"service_plan",
 				"service_plan.service_offering",
 				"service_plan.service_offering.service_broker",
+				"space",
+				"space.organization",
 			).Validate(relationshipsPath)
 		}))),
 	)
@@ -282,6 +309,8 @@ func (l *ServiceInstanceList) SupportedKeys() []string {
 		"fields[service_plan.service_offering]",
 		"fields[service_plan.service_offering.service_broker]",
 		"fields[service_plan]",
+		"fields[space]",
+		"fields[space.organization]",
 		"service_plan_guids",
 	}
 }

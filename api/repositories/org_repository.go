@@ -70,6 +70,10 @@ type OrgRecord struct {
 	DeletedAt   *time.Time
 }
 
+func (r OrgRecord) Relationships() map[string]string {
+	return map[string]string{}
+}
+
 type OrgRepo struct {
 	rootNamespace     string
 	privilegedClient  client.WithWatch
