@@ -17,6 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
@@ -30,11 +36,7 @@ import (
 	routeControllers "code.cloudfoundry.org/korifi/route-controller/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/version"
-	"context"
-	"flag"
-	"fmt"
-	"log"
-	"os"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 

@@ -43,6 +43,7 @@ spec:
             - "--health-probe-bind-address=:8081"
             - "--leader-elect"
           { { - else } }
+          args:
             - "--health-probe-bind-address=:8081"
             - "--leader-elect"
           { { - end } }
