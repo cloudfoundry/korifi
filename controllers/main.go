@@ -28,7 +28,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/domains"
-	"code.cloudfoundry.org/korifi/controllers/controllers/networking/routes"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	managed_bindings "code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/managed"
 	upsi_bindings "code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/upsi"
@@ -339,18 +338,6 @@ func main() {
 		if err != nil {
 			setupLog.Error(err, "unable to setup index on manager")
 			os.Exit(1)
-		}
-
-		if !controllerConfig.DisableRouteController {
-			if err = routes.NewReconciler(
-				controllersClient,
-				mgr.GetScheme(),
-				controllersLog,
-				controllerConfig,
-			).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
-				os.Exit(1)
-			}
 		}
 	}
 
