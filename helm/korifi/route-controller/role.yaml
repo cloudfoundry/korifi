@@ -37,7 +37,16 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - cfapps
+  - cfbuilds
+  - cfdomains
+  - cforgs
   - cfroutes
+  - cfservicebindings
+  - cfservicebrokers
+  - cfserviceinstances
+  - cfspaces
+  - cftasks
   verbs:
   - create
   - delete

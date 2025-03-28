@@ -27,12 +27,8 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/k8s"
-	controllersfinalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/relationships"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
-	versionwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/version"
-	appswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/apps"
 	routeControllers "code.cloudfoundry.org/korifi/route-controller/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/version"
@@ -119,7 +115,7 @@ func main() {
 		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "13c200ec.cloudfoundry.org",
+		LeaderElectionID:       "13c200rc.cloudfoundry.org",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to initialize manager")
@@ -129,22 +125,20 @@ func main() {
 	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
 		controllersLog := ctrl.Log.WithName("controllers")
 
-		if !controllerConfig.DisableRouteController {
-			if err = routeControllers.NewReconciler(
-				controllersClient,
-				mgr.GetScheme(),
-				controllersLog,
-				controllerConfig,
-			).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
-				os.Exit(1)
-			}
+
+		if err = routeControllers.NewReconciler(
+			controllersClient,
+			mgr.GetScheme(),
+			controllersLog,
+			controllerConfig,
+		).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create route-controller", "route-controller", "CFRoute")
+			os.Exit(1)
 		}
+
 	}
 	// Setup webhooks with manager
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-
-		(&appswebhook.AppRevWebhook{}).SetupWebhookWithManager(mgr)
 
 		uncachedClient, err := client.New(mgr.GetConfig(), client.Options{
 			Scheme: scheme,
@@ -167,10 +161,6 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
 			os.Exit(1)
 		}
-
-		versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
-		controllersfinalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
-		relationships.NewSpaceGUIDWebhook().SetupWebhookWithManager(mgr)
 
 		if err = mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
 			setupLog.Error(err, "unable to set up ready check")

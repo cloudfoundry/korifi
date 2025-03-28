@@ -10,7 +10,6 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-COPY api api
 COPY controllers controllers
 COPY route-controller route-controller
 COPY model model

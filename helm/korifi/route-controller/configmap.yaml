@@ -33,4 +33,3 @@ data:
         gatewayName: korifi
     experimentalManagedServicesEnabled: { { .Values.experimental.managedServices.enabled } }
     trustInsecureServiceBrokers: { { .Values.experimental.managedServices.trustInsecureBrokers } }
-    disableRouteController: { { .Values.experimental.routing.disableRouteController } }
