@@ -141,6 +141,7 @@ type ListServiceInstanceMessage struct {
 	Names         []string
 	SpaceGUIDs    []string
 	GUIDs         []string
+	Type          string
 	LabelSelector string
 	OrderBy       string
 	PlanGUIDs     []string
@@ -150,7 +151,8 @@ func (m *ListServiceInstanceMessage) matches(serviceInstance korifiv1alpha1.CFSe
 	return tools.EmptyOrContains(m.Names, serviceInstance.Spec.DisplayName) &&
 		tools.EmptyOrContains(m.GUIDs, serviceInstance.Name) &&
 		tools.EmptyOrContains(m.PlanGUIDs, serviceInstance.Spec.PlanGUID) &&
-		tools.EmptyOrContains(m.SpaceGUIDs, serviceInstance.Namespace)
+		tools.EmptyOrContains(m.SpaceGUIDs, serviceInstance.Namespace) &&
+		tools.ZeroOrEquals(korifiv1alpha1.InstanceType(m.Type), serviceInstance.Spec.Type)
 }
 
 type DeleteServiceInstanceMessage struct {

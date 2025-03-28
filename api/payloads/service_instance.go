@@ -229,6 +229,7 @@ func (p *ServiceInstancePatch) UnmarshalJSON(data []byte) error {
 type ServiceInstanceList struct {
 	Names                string
 	GUIDs                string
+	Type                 string
 	SpaceGUIDs           string
 	PlanGUIDs            string
 	OrderBy              string
@@ -239,6 +240,7 @@ type ServiceInstanceList struct {
 func (l ServiceInstanceList) Validate() error {
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "name", "updated_at")),
+		jellidation.Field(&l.Type, validation.OneOf("managed", "user-provided")),
 		jellidation.Field(&l.IncludeResourceRules, jellidation.Each(jellidation.By(func(value any) error {
 			rule, ok := value.(params.IncludeResourceRule)
 			if !ok {
@@ -293,6 +295,7 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 		Names:         parse.ArrayParam(l.Names),
 		SpaceGUIDs:    parse.ArrayParam(l.SpaceGUIDs),
 		GUIDs:         parse.ArrayParam(l.GUIDs),
+		Type:          l.Type,
 		OrderBy:       l.OrderBy,
 		LabelSelector: l.LabelSelector,
 		PlanGUIDs:     parse.ArrayParam(l.PlanGUIDs),
@@ -304,6 +307,7 @@ func (l *ServiceInstanceList) SupportedKeys() []string {
 		"names",
 		"space_guids",
 		"guids",
+		"type",
 		"order_by",
 		"label_selector",
 		"fields[service_plan.service_offering]",
@@ -326,6 +330,7 @@ func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
 	l.SpaceGUIDs = values.Get("space_guids")
 	l.GUIDs = values.Get("guids")
+	l.Type = values.Get("type")
 	l.OrderBy = values.Get("order_by")
 	l.LabelSelector = values.Get("label_selector")
 	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseFields(values)...)
