@@ -21,29 +21,35 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type Reconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
-	log    logr.Logger
+	client           client.Client
+	scheme           *runtime.Scheme
+	log              logr.Logger
+	controllerConfig *config.ControllerConfig
 }
 
 func NewReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
+	controllerConfig *config.ControllerConfig,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFDomain, *korifiv1alpha1.CFDomain] {
-	routeReconciler := Reconciler{client: client, scheme: scheme, log: log}
+	routeReconciler := Reconciler{client: client, scheme: scheme, log: log, controllerConfig: controllerConfig}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFDomain, *korifiv1alpha1.CFDomain](log, client, &routeReconciler)
 }
 
@@ -62,6 +68,47 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfDomain *korifiv1al
 	if !cfDomain.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFDomain(ctx, cfDomain)
 	}
+	gateway := gatewayv1beta1.Gateway{
+		TypeMeta:   metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{Name: r.controllerConfig.Networking.GatewayName, Namespace: r.controllerConfig.Networking.GatewayNamespace},
+		Spec: gatewayv1beta1.GatewaySpec{
+			GatewayClassName: "contour",
+			Listeners: []gatewayv1beta1.Listener{
+				Name:     "http-apps",
+				Hostname: "*.apps-127-0-0-1.nip.io",
+				Port:     32443,
+				Protocol: "HTTPS",
+				TLS: &gatewayv1beta1.GatewayTLSConfig{
+					Mode: &"Terminate",
+					CertificateRefs: gatewayv1beta1.SecretObjectReference{
+						Group:     &"",
+						Kind:      &"Secret",
+						Name:      "korifi-workloads-ingress-cert",
+						Namespace: &"korifi",
+					},
+				},
+				AllowedRoutes: &v1.AllowedRoutes{
+					Namespaces: &v1.RouteNamespaces{
+						From: &"All",
+					},
+				},
+			},
+		},
+		Status: v1.GatewayStatus{},
+	}
+
+	err := r.client.Create(ctx, &gateway)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// err := r.client.Get(ctx, types.NamespacedName{Name: r.controllerConfig.Networking.GatewayName, Namespace: r.controllerConfig.Networking.GatewayNamespace}, &gateway)
+	// if err != nil {
+	// 	return ctrl.Result{}, fmt.Errorf("failed to get gateway with name %w", err)
+	// }
+	// k8s.Patch(ctx, r.client, &gateway, func() {
+	// 	gateway.Labels = map[string]string{"foo": "bar"}
+	// })
 
 	cfDomain.Status.ObservedGeneration = cfDomain.Generation
 	log.V(1).Info("set observed generation", "generation", cfDomain.Status.ObservedGeneration)

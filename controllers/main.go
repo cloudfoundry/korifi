@@ -304,6 +304,7 @@ func main() {
 			controllersClient,
 			mgr.GetScheme(),
 			controllersLog,
+			controllerConfig,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
 			os.Exit(1)
