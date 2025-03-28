@@ -512,13 +512,9 @@ func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInf
 
 	if message.Purge {
 		if err = k8s.PatchResource(ctx, userClient, serviceInstance, func() {
-			controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
+			serviceInstance.Annotations = tools.SetMapValue(serviceInstance.Annotations, korifiv1alpha1.DeprovisionWithoutBrokerAnnotation, "true")
 		}); err != nil {
 			return ServiceInstanceRecord{}, fmt.Errorf("failed to remove finalizer for service instance: %s, %w", message.GUID, apierrors.FromK8sError(err, ServiceInstanceResourceType))
-		}
-
-		if err = r.removeBindingsFinalizer(ctx, userClient, namespace, message.GUID); err != nil {
-			return ServiceInstanceRecord{}, fmt.Errorf("failed delete related service bindings for instance: %s, %w", message.GUID, apierrors.FromK8sError(err, ServiceBindingResourceType))
 		}
 	}
 
@@ -553,28 +549,6 @@ func (r *ServiceInstanceRepo) GetDeletedAt(ctx context.Context, authInfo authori
 		return nil, err
 	}
 	return serviceInstance.DeletedAt, nil
-}
-
-func (r *ServiceInstanceRepo) removeBindingsFinalizer(ctx context.Context, userClient client.WithWatch, namespace, instanceGUID string) error {
-	serviceBindings := new(korifiv1alpha1.CFServiceBindingList)
-	if err := userClient.List(ctx, serviceBindings, client.InNamespace(namespace)); err != nil {
-		return fmt.Errorf("failed to get service bindings: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))
-	}
-
-	filtered := itx.FromSlice(serviceBindings.Items).Filter(func(serviceBinding korifiv1alpha1.CFServiceBinding) bool {
-		return instanceGUID == serviceBinding.Spec.Service.Name
-	}).Collect()
-
-	for _, binding := range filtered {
-		err := k8s.PatchResource(ctx, userClient, &binding, func() {
-			controllerutil.RemoveFinalizer(&binding, korifiv1alpha1.CFServiceBindingFinalizerName)
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func cfServiceInstanceToRecord(cfServiceInstance korifiv1alpha1.CFServiceInstance) ServiceInstanceRecord {

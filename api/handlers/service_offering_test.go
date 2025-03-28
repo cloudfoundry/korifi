@@ -23,6 +23,8 @@ var _ = Describe("ServiceOffering", func() {
 		serviceOfferingRepo *fake.CFServiceOfferingRepository
 		serviceBrokerRepo   *fake.CFServiceBrokerRepository
 		servicePlanRepo     *fake.CFServicePlanRepository
+		spaceRepo           *fake.CFSpaceRepository
+		orgRepo             *fake.CFOrgRepository
 	)
 
 	BeforeEach(func() {
@@ -30,6 +32,8 @@ var _ = Describe("ServiceOffering", func() {
 		serviceOfferingRepo = new(fake.CFServiceOfferingRepository)
 		serviceBrokerRepo = new(fake.CFServiceBrokerRepository)
 		servicePlanRepo = new(fake.CFServicePlanRepository)
+		spaceRepo = new(fake.CFSpaceRepository)
+		orgRepo = new(fake.CFOrgRepository)
 
 		apiHandler := NewServiceOffering(
 			*serverURL,
@@ -40,6 +44,8 @@ var _ = Describe("ServiceOffering", func() {
 				serviceOfferingRepo,
 				serviceBrokerRepo,
 				servicePlanRepo,
+				spaceRepo,
+				orgRepo,
 			),
 		)
 		routerBuilder.LoadRoutes(apiHandler)

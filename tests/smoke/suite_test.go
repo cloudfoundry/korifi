@@ -180,6 +180,7 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
+	Expect(helpers.Cf("auth", sharedData.CfAdmin)).To(Exit(0))
 	cfAppNamespace, err := sessionOutput(helpers.Cf("space", sharedData.SpaceName, "--guid"))
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "failed to run 'cf space %s --guid': %v\n", sharedData.SpaceName, err)

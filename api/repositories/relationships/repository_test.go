@@ -15,6 +15,8 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		serviceOfferingRepo *fake.ServiceOfferingRepository
 		serviceBrokerRepo   *fake.ServiceBrokerRepository
 		servicePlanRepo     *fake.ServicePlanRepository
+		spaceRepo           *fake.SpaceRepository
+		orgRepo             *fake.OrgRepository
 		relationshipsRepo   relationships.ResourceRelationshipsRepo
 
 		resourceType   string
@@ -35,7 +37,9 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 		serviceOfferingRepo = new(fake.ServiceOfferingRepository)
 		serviceBrokerRepo = new(fake.ServiceBrokerRepository)
 		servicePlanRepo = new(fake.ServicePlanRepository)
-		relationshipsRepo = *relationships.NewResourseRelationshipsRepo(serviceOfferingRepo, serviceBrokerRepo, servicePlanRepo)
+		spaceRepo = new(fake.SpaceRepository)
+		orgRepo = new(fake.OrgRepository)
+		relationshipsRepo = *relationships.NewResourseRelationshipsRepo(serviceOfferingRepo, serviceBrokerRepo, servicePlanRepo, spaceRepo, orgRepo)
 	})
 
 	JustBeforeEach(func() {
@@ -175,22 +179,54 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 	Describe("resource type space", func() {
 		BeforeEach(func() {
 			resourceType = "space"
+
+			inputResource.RelationshipsReturns(map[string]string{
+				"space": "space-guid",
+			})
+
+			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{{GUID: "space-guid"}}, nil)
 		})
 
-		It("returns a empty list", func() {
+		It("returns a list of related spaces", func() {
 			Expect(listError).NotTo(HaveOccurred())
-			Expect(result).To(BeEmpty())
+			Expect(result).To(ConsistOf(repositories.SpaceRecord{GUID: "space-guid"}), nil)
+		})
+
+		When("the underlying repo returns an error", func() {
+			BeforeEach(func() {
+				spaceRepo.ListSpacesReturns(nil, errors.New("list-space-error"))
+			})
+
+			It("returns an error", func() {
+				Expect(listError).To(MatchError("list-space-error"))
+			})
 		})
 	})
 
-	Describe("resource type space", func() {
+	Describe("resource type organization", func() {
 		BeforeEach(func() {
-			resourceType = "space"
+			resourceType = "organization"
+
+			inputResource.RelationshipsReturns(map[string]string{
+				"organization": "org-guid",
+			})
+
+			orgRepo.ListOrgsReturns([]repositories.OrgRecord{{GUID: "org-guid"}}, nil)
 		})
 
-		It("returns a empty list", func() {
+		It("returns a list of related orgs", func() {
 			Expect(listError).NotTo(HaveOccurred())
-			Expect(result).To(BeEmpty())
+			Expect(result).To(ConsistOf(repositories.OrgRecord{GUID: "org-guid"}), nil)
+		})
+
+		When("the underlying repo returns an error", func() {
+			BeforeEach(func() {
+				orgRepo.ListOrgsReturns(nil, errors.New("list-org-error"))
+			})
+
+			It("returns an error", func() {
+				Expect(listError).To(MatchError("list-org-error"))
+			})
 		})
 	})
 })

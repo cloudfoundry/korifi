@@ -117,28 +117,11 @@ var _ = Describe("CFServiceBinding", func() {
 			}).Should(Succeed())
 		})
 
-		It("sets the foregroundDeletion finalizer on the service instance", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-				g.Expect(instance.Finalizers).To(ContainElement(metav1.FinalizerDeleteDependents))
-			}).Should(Succeed())
-		})
-
-		It("sets an owner reference from the instance to the binding", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-				g.Expect(binding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name":               Equal(instance.Name),
-					"BlockOwnerDeletion": PointTo(BeTrue()),
-				})))
-			}).Should(Succeed())
-		})
-
 		It("sets the service-instance-type annotation to user-provided", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Annotations).To(HaveKeyWithValue(
-					korifiv1alpha1.ServiceInstanceTypeAnnotationKey, "user-provided",
+					korifiv1alpha1.ServiceInstanceTypeAnnotation, "user-provided",
 				))
 			}).Should(Succeed())
 		})
@@ -420,20 +403,11 @@ var _ = Describe("CFServiceBinding", func() {
 			}).Should(Succeed())
 		})
 
-		It("sets an owner reference from the instance to the binding", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-				g.Expect(binding.OwnerReferences).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name": Equal(instance.Name),
-				})))
-			}).Should(Succeed())
-		})
-
 		It("sets the service-instance-type annotation to managed", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Annotations).To(HaveKeyWithValue(
-					korifiv1alpha1.ServiceInstanceTypeAnnotationKey, "managed",
+					korifiv1alpha1.ServiceInstanceTypeAnnotation, "managed",
 				))
 			}).Should(Succeed())
 		})
@@ -867,7 +841,7 @@ var _ = Describe("CFServiceBinding", func() {
 			})
 		})
 
-		Describe("unbind", func() {
+		Describe("binding deletion", func() {
 			BeforeEach(func() {
 				brokerClient.UnbindReturns(osbapi.UnbindResponse{}, nil)
 			})
@@ -896,6 +870,56 @@ var _ = Describe("CFServiceBinding", func() {
 					err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
 					g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 				}).Should(Succeed())
+			})
+
+			When("broker client cannot be created (e.g. instance is missing service plan", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+						instance.Spec.PlanGUID = ""
+					})).To(Succeed())
+				})
+
+				It("does not delete the binding", func() {
+					Consistently(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+					}).Should(Succeed())
+				})
+			})
+
+			When("deprovision without broker is requested", func() {
+				BeforeEach(func() {
+					Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+						instance.Annotations = tools.SetMapValue(instance.Annotations, korifiv1alpha1.DeprovisionWithoutBrokerAnnotation, "true")
+					})).To(Succeed())
+				})
+
+				It("does not contact the broker for unbinding", func() {
+					Consistently(func(g Gomega) {
+						g.Expect(brokerClient.UnbindCallCount()).To(Equal(0))
+					}).Should(Succeed())
+				})
+
+				It("deletes the binding", func() {
+					Eventually(func(g Gomega) {
+						err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+						g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+					}).Should(Succeed())
+				})
+
+				When("broker client cannot be created (e.g. instance is missing service plan", func() {
+					BeforeEach(func() {
+						Expect(k8s.PatchResource(ctx, adminClient, instance, func() {
+							instance.Spec.PlanGUID = ""
+						})).To(Succeed())
+					})
+
+					It("deletes the binding", func() {
+						Eventually(func(g Gomega) {
+							err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+							g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+						}).Should(Succeed())
+					})
+				})
 			})
 
 			When("unbind fails with recoverable error", func() {
@@ -956,38 +980,45 @@ var _ = Describe("CFServiceBinding", func() {
 					}).Should(Succeed())
 				})
 
-				When("the last operation is in progress", func() {
+				It("sets the ready condition to false", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
+
+						g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
+							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+							HasStatus(Equal(metav1.ConditionFalse)),
+							HasReason(Equal("UnbindingInProgress")),
+						)))
+					}).Should(Succeed())
+				})
+
+				It("keeps checking last operation", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeNumerically(">", 1))
+						_, actualLastOpPayload := brokerClient.GetServiceBindingLastOperationArgsForCall(1)
+						g.Expect(actualLastOpPayload).To(Equal(osbapi.GetBindingLastOperationRequest{
+							InstanceID: instance.Name,
+							BindingID:  binding.Name,
+							GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
+								ServiceId: "service-offering-id",
+								PlanID:    "service-plan-id",
+								Operation: "unbind-op",
+							},
+						}))
+					}).Should(Succeed())
+				})
+
+				When("the last operation is succeeded", func() {
 					BeforeEach(func() {
 						brokerClient.GetServiceBindingLastOperationReturns(osbapi.LastOperationResponse{
-							State: "in progress",
+							State: "succeeded",
 						}, nil)
 					})
 
-					It("sets the ready condition to false", func() {
+					It("deletes the binding", func() {
 						Eventually(func(g Gomega) {
-							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
-
-							g.Expect(binding.Status.Conditions).To(ContainElement(SatisfyAll(
-								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-								HasStatus(Equal(metav1.ConditionFalse)),
-								HasReason(Equal("UnbindingInProgress")),
-							)))
-						}).Should(Succeed())
-					})
-
-					It("keeps checking last operation", func() {
-						Eventually(func(g Gomega) {
-							g.Expect(brokerClient.GetServiceBindingLastOperationCallCount()).To(BeNumerically(">", 1))
-							_, actualLastOpPayload := brokerClient.GetServiceBindingLastOperationArgsForCall(1)
-							g.Expect(actualLastOpPayload).To(Equal(osbapi.GetBindingLastOperationRequest{
-								InstanceID: instance.Name,
-								BindingID:  binding.Name,
-								GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
-									ServiceId: "service-offering-id",
-									PlanID:    "service-plan-id",
-									Operation: "unbind-op",
-								},
-							}))
+							err := adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)
+							g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
 						}).Should(Succeed())
 					})
 				})

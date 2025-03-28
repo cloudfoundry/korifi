@@ -9,7 +9,6 @@ containerRegistrySecrets:
 eksContainerRegistryRoleARN: ""
 containerRegistryCACertSecret:
 systemImagePullSecrets: []
-disableMigrations: false
 
 reconcilers:
   build: kpack-image-builder

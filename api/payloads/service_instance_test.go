@@ -49,6 +49,18 @@ var _ = Describe("ServiceInstanceList", func() {
 				RelationshipPath: []string{"service_plan"},
 				Fields:           []string{"guid", "name", "relationships.service_offering"},
 			}}}),
+		Entry("fields[space]",
+			"fields[space]=guid,name,relationships.organization",
+			payloads.ServiceInstanceList{IncludeResourceRules: []params.IncludeResourceRule{{
+				RelationshipPath: []string{"space"},
+				Fields:           []string{"guid", "name", "relationships.organization"},
+			}}}),
+		Entry("fields[space.organization]",
+			"fields[space.organization]=guid,name",
+			payloads.ServiceInstanceList{IncludeResourceRules: []params.IncludeResourceRule{{
+				RelationshipPath: []string{"space", "organization"},
+				Fields:           []string{"guid", "name"},
+			}}}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceInstanceList{LabelSelector: "foo"}),
 		Entry("service_plan_guids=plan-guid", "service_plan_guids=plan-guid", payloads.ServiceInstanceList{PlanGUIDs: "plan-guid"}),
 	)
@@ -63,6 +75,8 @@ var _ = Describe("ServiceInstanceList", func() {
 		Entry("invalid service offering fields", "fields[service_plan.service_offering]=foo", "value must be one of"),
 		Entry("invalid service broker fields", "fields[service_plan.service_offering.service_broker]=foo", "value must be one of"),
 		Entry("invalid service plan fields", "fields[service_plan]=foo", "value must be one of"),
+		Entry("invalid space fields", "fields[space]=foo", "value must be one of"),
+		Entry("invalid organization fields", "fields[space.organization]=foo", "value must be one of"),
 	)
 
 	Describe("ToMessage", func() {
@@ -125,6 +139,18 @@ var _ = Describe("ServiceInstanceList", func() {
 					RelationshipPath: []string{"service_plan"},
 					Fields:           []string{"guid", "name", "relationships.service_offering"},
 				}}}),
+			Entry("fields[space]",
+				"fields[space]=guid,name",
+				payloads.ServiceInstanceGet{IncludeResourceRules: []params.IncludeResourceRule{{
+					RelationshipPath: []string{"space"},
+					Fields:           []string{"guid", "name"},
+				}}}),
+			Entry("fields[space.organization]",
+				"fields[space.organization]=guid,name",
+				payloads.ServiceInstanceGet{IncludeResourceRules: []params.IncludeResourceRule{{
+					RelationshipPath: []string{"space", "organization"},
+					Fields:           []string{"guid", "name"},
+				}}}),
 		)
 
 		DescribeTable("invalid query",
@@ -135,6 +161,8 @@ var _ = Describe("ServiceInstanceList", func() {
 			Entry("invalid service offering fields", "fields[service_plan.service_offering]=foo", "value must be one of"),
 			Entry("invalid service broker fields", "fields[service_plan.service_offering.service_broker]=foo", "value must be one of"),
 			Entry("invalid service plan fields", "fields[service_plan]=foo", "value must be one of"),
+			Entry("invalid space fields", "fields[space]=foo", "value must be one of"),
+			Entry("invalid organization fields", "fields[space.organization]=foo", "value must be one of"),
 		)
 	})
 })

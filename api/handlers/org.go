@@ -33,7 +33,7 @@ type CFOrgRepository interface {
 	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
 	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
 	GetOrg(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
-	PatchOrgMetadata(context.Context, authorization.Info, repositories.PatchOrgMetadataMessage) (repositories.OrgRecord, error)
+	PatchOrg(context.Context, authorization.Info, repositories.PatchOrgMessage) (repositories.OrgRecord, error)
 	GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
 }
 
@@ -91,7 +91,7 @@ func (h *Org) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	org, err := h.orgRepo.PatchOrgMetadata(r.Context(), authInfo, payload.ToMessage(orgGUID))
+	org, err := h.orgRepo.PatchOrg(r.Context(), authInfo, payload.ToMessage(orgGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch org metadata", "OrgGUID", orgGUID)
 	}
