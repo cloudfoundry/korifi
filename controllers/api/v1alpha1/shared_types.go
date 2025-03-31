@@ -24,6 +24,7 @@ const (
 	CFTaskGUIDLabelKey       = "korifi.cloudfoundry.org/task-guid"
 
 	SpaceGUIDKey            = "korifi.cloudfoundry.org/space-guid"
+	GUIDKey                 = "korifi.cloudfoundry.org/guid"
 	ServiceBindingTypeLabel = "korifi.cloudfoundry.org/service-binding-type"
 
 	PodIndexLabelKey = "apps.kubernetes.io/pod-index"

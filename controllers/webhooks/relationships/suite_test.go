@@ -67,7 +67,7 @@ var _ = BeforeSuite(func() {
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	relationships.NewSpaceGUIDWebhook().SetupWebhookWithManager(k8sManager)
+	relationships.NewGUIDWebhook().SetupWebhookWithManager(k8sManager)
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 })

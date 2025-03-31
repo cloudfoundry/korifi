@@ -123,6 +123,14 @@ var _ = Describe("Setting the space-guid label", func() {
 				)
 			}
 		})
+
+		It("sets guid label", func() {
+			for _, o := range testObjects {
+				Expect(o.GetLabels()).To(HaveKeyWithValue(korifiv1alpha1.GUIDKey, o.GetName()),
+					func() string { return fmt.Sprintf("%T does not have the expected guid label", o) },
+				)
+			}
+		})
 	})
 
 	Describe("updates", func() {
@@ -134,6 +142,18 @@ var _ = Describe("Setting the space-guid label", func() {
 				err := adminClient.Update(ctx, o)
 				Expect(err).To(MatchError(ContainSubstring("immutable")),
 					func() string { return fmt.Sprintf("%T had its space-guid updated", o) },
+				)
+			}
+		})
+
+		It("rejects updating guid label", func() {
+			for _, o := range testObjects {
+				o.SetLabels(
+					tools.SetMapValue(o.GetLabels(), korifiv1alpha1.GUIDKey, "new-guid"),
+				)
+				err := adminClient.Update(ctx, o)
+				Expect(err).To(MatchError(ContainSubstring("immutable")),
+					func() string { return fmt.Sprintf("%T had its guid updated", o) },
 				)
 			}
 		})

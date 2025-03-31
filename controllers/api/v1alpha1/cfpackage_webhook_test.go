@@ -39,7 +39,7 @@ var _ = Describe("CFPackageMutatingWebhook", func() {
 	})
 
 	It("sets a label with the app guid", func() {
-		Expect(cfPackage.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
+		Expect(cfPackage.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID))
 	})
 
 	It("preserves other labels", func() {

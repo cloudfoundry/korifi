@@ -9,11 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	cfAppLabelKey    = "korifi.cloudfoundry.org/app-guid"
-	cfAppRevisionKey = "korifi.cloudfoundry.org/app-rev"
-)
-
 var _ = Describe("CFAppMutatingWebhook", func() {
 	var cfApp *korifiv1alpha1.CFApp
 
@@ -44,11 +39,15 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 	})
 
 	It("adds a label matching metadata.name", func() {
-		Expect(cfApp.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfApp.Name))
+		Expect(cfApp.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfApp.Name))
+	})
+
+	It("adds a label matching the display name", func() {
+		Expect(cfApp.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppDisplayNameLabelKey, cfApp.Spec.DisplayName))
 	})
 
 	It("adds an app revision annotation", func() {
-		Expect(cfApp.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "0"))
+		Expect(cfApp.Annotations).To(HaveKeyWithValue(korifiv1alpha1.CFAppRevisionKey, "0"))
 	})
 
 	It("preserves all other app labels and annotations", func() {
@@ -62,7 +61,7 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 		})
 
 		It("adds a label mathching metadata.name", func() {
-			Expect(cfApp.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfApp.Name))
+			Expect(cfApp.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfApp.Name))
 		})
 	})
 
@@ -72,7 +71,7 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 		})
 
 		It("adds an app revision annotation", func() {
-			Expect(cfApp.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "0"))
+			Expect(cfApp.Annotations).To(HaveKeyWithValue(korifiv1alpha1.CFAppRevisionKey, "0"))
 		})
 	})
 })

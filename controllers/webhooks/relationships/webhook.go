@@ -21,22 +21,22 @@ import (
 
 var spaceguidlog = log.Log.WithName("spaceguid-webhook")
 
-type SpaceGUIDWebhook struct {
+type GUIDWebhook struct {
 	decoder admission.Decoder
 }
 
-func NewSpaceGUIDWebhook() *SpaceGUIDWebhook {
-	return &SpaceGUIDWebhook{}
+func NewGUIDWebhook() *GUIDWebhook {
+	return &GUIDWebhook{}
 }
 
-func (r *SpaceGUIDWebhook) SetupWebhookWithManager(mgr ctrl.Manager) {
+func (r *GUIDWebhook) SetupWebhookWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register("/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-space-guid", &admission.Webhook{
 		Handler: r,
 	})
 	r.decoder = admission.NewDecoder(mgr.GetScheme())
 }
 
-func (r *SpaceGUIDWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (r *GUIDWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
 	var obj metav1.PartialObjectMetadata
 
 	if err := r.decoder.Decode(req, &obj); err != nil {
@@ -49,16 +49,16 @@ func (r *SpaceGUIDWebhook) Handle(ctx context.Context, req admission.Request) ad
 	case admissionv1.Create:
 		logger.V(1).Info("adding-space-guid-on-create")
 
-		return r.setSpaceGUID(obj)
+		return r.setGUIDs(obj)
 	case admissionv1.Update:
-		return r.ensureSpaceGUIDImmutable(logger, obj, req)
+		return r.ensureGUIDsImmutable(logger, obj, req)
 	default:
 		logger.Info("received-unexpected-operation-type", "operation", req.Operation)
 		return admission.Denied("we only accept create/update")
 	}
 }
 
-func (r *SpaceGUIDWebhook) setSpaceGUID(obj metav1.PartialObjectMetadata) admission.Response {
+func (r *GUIDWebhook) setGUIDs(obj metav1.PartialObjectMetadata) admission.Response {
 	origMarshalled, err := json.Marshal(obj)
 	if err != nil {
 		return admission.Errored(http.StatusInternalServerError, err)
@@ -66,6 +66,10 @@ func (r *SpaceGUIDWebhook) setSpaceGUID(obj metav1.PartialObjectMetadata) admiss
 
 	obj.SetLabels(
 		tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.SpaceGUIDKey, obj.GetNamespace()),
+	)
+
+	obj.SetLabels(
+		tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.GUIDKey, obj.GetName()),
 	)
 
 	marshalled, err := json.Marshal(obj)
@@ -76,7 +80,7 @@ func (r *SpaceGUIDWebhook) setSpaceGUID(obj metav1.PartialObjectMetadata) admiss
 	return admission.PatchResponseFromRaw(origMarshalled, marshalled)
 }
 
-func (r *SpaceGUIDWebhook) ensureSpaceGUIDImmutable(logger logr.Logger, obj metav1.PartialObjectMetadata, req admission.Request) admission.Response {
+func (r *GUIDWebhook) ensureGUIDsImmutable(logger logr.Logger, obj metav1.PartialObjectMetadata, req admission.Request) admission.Response {
 	var oldObj metav1.PartialObjectMetadata
 	if err := r.decoder.DecodeRaw(req.OldObject, &oldObj); err != nil {
 		logger.Error(err, "failed-to-decode-old-object")
@@ -85,6 +89,10 @@ func (r *SpaceGUIDWebhook) ensureSpaceGUIDImmutable(logger logr.Logger, obj meta
 
 	if oldObj.Labels[korifiv1alpha1.SpaceGUIDKey] != obj.Labels[korifiv1alpha1.SpaceGUIDKey] {
 		return admission.Denied(fmt.Sprintf("Label %q is immutable", korifiv1alpha1.SpaceGUIDKey))
+	}
+
+	if oldObj.Labels[korifiv1alpha1.GUIDKey] != obj.Labels[korifiv1alpha1.GUIDKey] {
+		return admission.Denied(fmt.Sprintf("Label %q is immutable", korifiv1alpha1.GUIDKey))
 	}
 
 	return admission.Allowed("")

@@ -24,6 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	CFAppDisplayNameLabelKey = "korifi.cloudfoundry.org/app-display-name"
+)
+
 // CFAppSpec defines the desired state of CFApp
 type CFAppSpec struct {
 	// The mutable, user-friendly name of the app. Unlike metadata.name, the user can change this field.

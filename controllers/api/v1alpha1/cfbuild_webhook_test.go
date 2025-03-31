@@ -10,11 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	cfAppGUIDLabelKey     = "korifi.cloudfoundry.org/app-guid"
-	cfPackageGUIDLabelKey = "korifi.cloudfoundry.org/package-guid"
-)
-
 var _ = Describe("CFBuildMutatingWebhook", func() {
 	var (
 		cfBuild       *korifiv1alpha1.CFBuild
@@ -57,8 +52,8 @@ var _ = Describe("CFBuildMutatingWebhook", func() {
 	})
 
 	It("sets labels with the guids of the related app and package", func() {
-		Expect(cfBuild.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
-		Expect(cfBuild.Labels).To(HaveKeyWithValue(cfPackageGUIDLabelKey, cfPackageGUID))
+		Expect(cfBuild.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID))
+		Expect(cfBuild.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFPackageGUIDLabelKey, cfPackageGUID))
 	})
 
 	It("preserves all other labels", func() {

@@ -473,7 +473,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		relationships.NewSpaceGUIDWebhook().SetupWebhookWithManager(mgr)
+		relationships.NewGUIDWebhook().SetupWebhookWithManager(mgr)
 
 		if err = mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
 			setupLog.Error(err, "unable to set up ready check")
