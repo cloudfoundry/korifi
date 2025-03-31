@@ -1,26 +1,26 @@
-kind: Gateway
-apiVersion: gateway.networking.k8s.io/v1beta1
-metadata:
-  name: app-korifi
-  namespace: {{ .Release.Namespace }}-gateway
-spec:
-  gatewayClassName: {{ .Values.networking.gatewayClass }}
-  {{- if .Values.networking.gatewayInfrastructure }}
-  infrastructure:
-    {{- .Values.networking.gatewayInfrastructure | toYaml | nindent 4 }}
-  {{- end }}
-  listeners:
-  - allowedRoutes:
-      namespaces:
-        from: All
-    hostname: "*.{{ .Values.defaultAppDomainName }}"
-    name: https-apps
-    port: {{ .Values.networking.gatewayPorts.https }}
-    protocol: HTTPS
-    tls:
-      certificateRefs:
-      - group: ""
-        kind: Secret
-        name: korifi-workloads-ingress-cert
-        namespace: {{ .Release.Namespace }}
-      mode: Terminate
+{{/* kind: Gateway */}}
+{{/* apiVersion: gateway.networking.k8s.io/v1beta1 */}}
+{{/* metadata: */}}
+{{/*   name: app-korifi */}}
+{{/*   namespace: {{ .Release.Namespace }}-gateway */}}
+{{/* spec: */}}
+{{/*   gatewayClassName: {{ .Values.networking.gatewayClass }} */}}
+{{/*   {{- if .Values.networking.gatewayInfrastructure }} */}}
+{{/*   infrastructure: */}}
+{{/*     {{- .Values.networking.gatewayInfrastructure | toYaml | nindent 4 }} */}}
+{{/*   {{- end }} */}}
+{{/*   listeners: */}}
+{{/*   - allowedRoutes: */}}
+{{/*       namespaces: */}}
+{{/*         from: All */}}
+{{/*     hostname: "*.{{ .Values.defaultAppDomainName }}" */}}
+{{/*     name: https-apps */}}
+{{/*     port: {{ .Values.networking.gatewayPorts.https }} */}}
+{{/*     protocol: HTTPS */}}
+{{/*     tls: */}}
+{{/*       certificateRefs: */}}
+{{/*       - group: "" */}}
+{{/*         kind: Secret */}}
+{{/*         name: korifi-workloads-ingress-cert */}}
+{{/*         namespace: {{ .Release.Namespace }} */}}
+{{/*       mode: Terminate */}}
