@@ -452,7 +452,7 @@ func main() {
 		}
 
 		if err = securitygroupswebhook.NewValidator(
-			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, securitygroupswebhook.SecurityGroupEnyityType)),
+			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, securitygroupswebhook.SecurityGroupEntityType)),
 			controllerConfig.CFRootNamespace,
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFSecurityGroup")

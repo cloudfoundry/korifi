@@ -58,7 +58,7 @@ var _ = Describe("SecurityGroup", func() {
 
 			payload = payloads.SecurityGroupCreate{
 				DisplayName: "test-security-group",
-				Rules: []korifiv1alpha1.SecurityGroupRule{
+				Rules: []payloads.SecurityGroupRule{
 					{
 						Protocol:    korifiv1alpha1.ProtocolTCP,
 						Ports:       "80",
@@ -87,7 +87,7 @@ var _ = Describe("SecurityGroup", func() {
 			securityGroupRepo.CreateSecurityGroupReturns(repositories.SecurityGroupRecord{
 				GUID: "test-guid",
 				Name: "test-security-group",
-				Rules: []korifiv1alpha1.SecurityGroupRule{
+				Rules: []repositories.SecurityGroupRule{
 					{
 						Protocol:    korifiv1alpha1.ProtocolTCP,
 						Ports:       "80",
@@ -121,7 +121,7 @@ var _ = Describe("SecurityGroup", func() {
 			_, actualAuthInfo, createSecurityGroupMessage := securityGroupRepo.CreateSecurityGroupArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(createSecurityGroupMessage.DisplayName).To(Equal("test-security-group"))
-			Expect(createSecurityGroupMessage.Rules).To(Equal([]korifiv1alpha1.SecurityGroupRule{
+			Expect(createSecurityGroupMessage.Rules).To(Equal([]repositories.SecurityGroupRule{
 				{
 					Protocol:    korifiv1alpha1.ProtocolTCP,
 					Ports:       "80",
@@ -147,11 +147,11 @@ var _ = Describe("SecurityGroup", func() {
 
 		When("a space in the security group does not exist", func() {
 			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{}, apierrors.NewNotFoundError(nil, repositories.SecurityGroupResourceType))
+				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{}, nil)
 			})
 
 			It("returns a not found error", func() {
-				expectNotFoundError(repositories.SecurityGroupResourceType)
+				expectUnprocessableEntityError("Space does not exist, or you do not have access")
 			})
 		})
 

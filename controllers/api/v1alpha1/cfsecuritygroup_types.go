@@ -34,7 +34,7 @@ type CFSecurityGroupSpec struct {
 	// //+kubebuilder:validation:Optional
 	Spaces map[string]SecurityGroupWorkloads `json:"spaces,omitempty"`
 	// //+kubebuilder:validation:Optional
-	GloballyEnabled SecurityGroupWorkloads `json:"globally_enabled"`
+	GloballyEnabled SecurityGroupWorkloads `json:"globallyEnabled,omitempty"`
 }
 
 type CFSecurityGroupStatus struct {
@@ -63,7 +63,7 @@ func (s CFSecurityGroup) UniqueName() string {
 }
 
 func (b CFSecurityGroup) UniqueValidationErrorMessage() string {
-	return fmt.Sprintf("The security group name is taken: %s", b.Spec.DisplayName)
+	return fmt.Sprintf("Security group with name '%s' already exists.", b.Spec.DisplayName)
 }
 
 func (g *CFSecurityGroup) StatusConditions() *[]metav1.Condition {

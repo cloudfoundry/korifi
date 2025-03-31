@@ -2,25 +2,26 @@ package presenter
 
 import (
 	"net/url"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
+	"github.com/BooleanCat/go-functional/v2/it"
 )
 
 const securityGroupBase = "/v3/security_groups"
 
 type SecurityGroupResponse struct {
-	GUID            string                                `json:"guid"`
-	CreatedAt       string                                `json:"created_at"`
-	UpdatedAt       string                                `json:"updated_at"`
-	Name            string                                `json:"name"`
-	GloballyEnabled korifiv1alpha1.SecurityGroupWorkloads `json:"globally_enabled"`
-	Rules           []korifiv1alpha1.SecurityGroupRule    `json:"rules"`
-	Relationships   payloads.SecurityGroupRelationships   `json:"relationships"`
-	Links           SecurityGroupLinks                    `json:"links"`
+	GUID            string                              `json:"guid"`
+	CreatedAt       string                              `json:"created_at"`
+	UpdatedAt       string                              `json:"updated_at"`
+	Name            string                              `json:"name"`
+	GloballyEnabled repositories.SecurityGroupWorkloads `json:"globally_enabled"`
+	Rules           []repositories.SecurityGroupRule    `json:"rules"`
+	Relationships   payloads.SecurityGroupRelationships `json:"relationships"`
+	Links           SecurityGroupLinks                  `json:"links"`
 }
 
 type SecurityGroupLinks struct {
@@ -52,12 +53,11 @@ func ForSecurityGroup(securityGroupRecord repositories.SecurityGroupRecord, base
 }
 
 func toManyRelationshipData(guids []string) []payloads.RelationshipData {
-	if guids == nil {
+	if len(guids) == 0 {
 		return []payloads.RelationshipData{}
 	}
-	data := make([]payloads.RelationshipData, 0, len(guids))
-	for _, guid := range guids {
-		data = append(data, payloads.RelationshipData{GUID: guid})
-	}
-	return data
+
+	return slices.Collect(it.Map(slices.Values(guids), func(guid string) payloads.RelationshipData {
+		return payloads.RelationshipData{GUID: guid}
+	}))
 }

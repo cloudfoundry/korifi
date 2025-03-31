@@ -24,14 +24,14 @@ var _ = Describe("SecurityGroupCreate", func() {
 		BeforeEach(func() {
 			createPayload = payloads.SecurityGroupCreate{
 				DisplayName: "test-security-group",
-				Rules: []korifiv1alpha1.SecurityGroupRule{
+				Rules: []payloads.SecurityGroupRule{
 					{
 						Protocol:    korifiv1alpha1.ProtocolTCP,
 						Ports:       "80",
 						Destination: "192.168.1.1",
 					},
 				},
-				GloballyEnabled: korifiv1alpha1.SecurityGroupWorkloads{
+				GloballyEnabled: payloads.SecurityGroupWorkloads{
 					Running: false,
 					Staging: false,
 				},
@@ -62,57 +62,10 @@ var _ = Describe("SecurityGroupCreate", func() {
 
 		When("The rules are empty", func() {
 			BeforeEach(func() {
-				createPayload.Rules = []korifiv1alpha1.SecurityGroupRule{}
+				createPayload.Rules = []payloads.SecurityGroupRule{}
 			})
 			It("returns an error", func() {
 				expectUnprocessableEntityError(validatorErr, "rules cannot be blank")
-			})
-		})
-
-		When("The protocol is invalid", func() {
-			BeforeEach(func() {
-				createPayload.Rules[0].Protocol = "invalid"
-			})
-			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "rules[0]: protocol invalid not supported")
-			})
-		})
-
-		When("Protocol is ALL with ports", func() {
-			BeforeEach(func() {
-				createPayload.Rules[0].Protocol = korifiv1alpha1.ProtocolALL
-				createPayload.Rules[0].Ports = "80"
-			})
-			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "rules[0]: ports are not allowed for protocols of type all")
-			})
-		})
-
-		When("Protocol is TCP but has no ports", func() {
-			BeforeEach(func() {
-				createPayload.Rules[0].Protocol = korifiv1alpha1.ProtocolTCP
-				createPayload.Rules[0].Ports = ""
-			})
-			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "rules[0]: ports are required for protocols of type TCP and UDP")
-			})
-		})
-
-		When("Destination is invalid", func() {
-			BeforeEach(func() {
-				createPayload.Rules[0].Destination = "invalid-dest"
-			})
-			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "rules[0]: the destination: invalid-dest is not in a valid format")
-			})
-		})
-
-		When("Ports are invalid", func() {
-			BeforeEach(func() {
-				createPayload.Rules[0].Ports = "invalid-port"
-			})
-			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "rules[0]: the ports: invalid-port is not in a valid format")
 			})
 		})
 
@@ -125,11 +78,15 @@ var _ = Describe("SecurityGroupCreate", func() {
 
 			It("Converts the message correctly", func() {
 				Expect(message.DisplayName).To(Equal("test-security-group"))
-				Expect(message.Rules).To(Equal(createPayload.Rules))
-				Expect(message.GloballyEnabled).To(Equal(korifiv1alpha1.SecurityGroupWorkloads{Running: false, Staging: false}))
+				Expect(message.Rules).To(Equal([]repositories.SecurityGroupRule{{
+					Protocol:    korifiv1alpha1.ProtocolTCP,
+					Ports:       "80",
+					Destination: "192.168.1.1",
+				}}))
+				Expect(message.GloballyEnabled).To(Equal(repositories.SecurityGroupWorkloads{Running: false, Staging: false}))
 				Expect(message.Spaces).To(MatchAllKeys(Keys{
-					"space1": Equal(korifiv1alpha1.SecurityGroupWorkloads{Running: true}),
-					"space2": Equal(korifiv1alpha1.SecurityGroupWorkloads{Staging: true}),
+					"space1": Equal(repositories.SecurityGroupWorkloads{Running: true}),
+					"space2": Equal(repositories.SecurityGroupWorkloads{Staging: true}),
 				}))
 			})
 		})

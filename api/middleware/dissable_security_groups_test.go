@@ -26,15 +26,14 @@ var _ = Describe("DisableSecurityGroups", func() {
 		Expect(rr).To(HaveHTTPStatus(http.StatusTeapot))
 	})
 
-	DescribeTable("Security Groups endpoints",
-		func(requestURL string) {
-			request, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	When("requesting /v3/security_groups", func() {
+		It("denies the request", func() {
+			request, err := http.NewRequest(http.MethodGet, "/v3/security_groups", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			securityGroupsMiddleware.ServeHTTP(rr, request)
 			Expect(rr).To(HaveHTTPStatus(http.StatusBadRequest))
 			Expect(rr).To(HaveHTTPBody(ContainSubstring("Experimental security groups support is not enabled")))
-		},
-		Entry("/v3/security_groups", "/v3/security_groups"),
-	)
+		})
+	})
 })

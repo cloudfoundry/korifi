@@ -8,6 +8,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/networking/security_groups"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -71,7 +72,7 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 			Expect(actualContext).To(Equal(ctx))
 			Expect(actualNamespace).To(Equal(securityGroup.Namespace))
 			Expect(actualResource).To(Equal(securityGroup))
-			Expect(actualResource.UniqueValidationErrorMessage()).To(Equal("The security group name is taken: " + securityGroup.Spec.DisplayName))
+			Expect(actualResource.UniqueValidationErrorMessage()).To(Equal("Security group with name '" + securityGroup.Spec.DisplayName + "' already exists."))
 		})
 
 		When("the security group name is a duplicate", func() {
@@ -151,6 +152,133 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 
 			It("disallows the request", func() {
 				Expect(retErr).To(MatchError("foo"))
+			})
+		})
+	})
+
+	Describe("Validating the security group rules", func() {
+		JustBeforeEach(func() {
+			_, retErr = validatingWebhook.ValidateCreate(ctx, securityGroup)
+		})
+
+		When("the rule ports is invalid", func() {
+			When("the protocol is invalid", func() {
+				BeforeEach(func() {
+					securityGroup.Spec.Rules[0].Protocol = "invalid"
+				})
+
+				It("returns an error", func() {
+					Expect(retErr).To(matchers.BeValidationError(
+						security_groups.InvalidSecurityGroupRuleErrorType,
+						ContainSubstring("protocol must be 'tcp', 'udp', or 'all'"),
+					))
+				})
+			})
+
+			When("the protocol is ALL and has ports", func() {
+				BeforeEach(func() {
+					securityGroup.Spec.Rules[0].Protocol = "all"
+				})
+
+				It("returns an error", func() {
+					Expect(retErr).To(matchers.BeValidationError(
+						security_groups.InvalidSecurityGroupRuleErrorType,
+						ContainSubstring("ports are not allowed for protocols of type all"),
+					))
+				})
+			})
+
+			When("the protocol is TCP and does not have ports", func() {
+				BeforeEach(func() {
+					securityGroup.Spec.Rules[0].Ports = ""
+				})
+
+				It("returns an error", func() {
+					Expect(retErr).To(matchers.BeValidationError(
+						security_groups.InvalidSecurityGroupRuleErrorType,
+						ContainSubstring("ports are required for protocols of type TCP and UDP"),
+					))
+				})
+			})
+
+			When("the ports are invalid", func() {
+				BeforeEach(func() {
+					securityGroup.Spec.Rules[0].Ports = "invalid"
+				})
+
+				It("returns an error", func() {
+					Expect(retErr).To(matchers.BeValidationError(
+						security_groups.InvalidSecurityGroupRuleErrorType,
+						ContainSubstring("ports must be a valid single port, comma separated list of ports, or range or ports, formatted as a string"),
+					))
+				})
+			})
+
+			When("the port is > 65535", func() {
+				BeforeEach(func() {
+					securityGroup.Spec.Rules[0].Ports = "67000"
+				})
+
+				It("returns an error", func() {
+					Expect(retErr).To(matchers.BeValidationError(
+						security_groups.InvalidSecurityGroupRuleErrorType,
+						ContainSubstring("ports must be a valid single port, comma separated list of ports, or range or ports, formatted as a string"),
+					))
+				})
+			})
+
+			When("the port range is invalid", func() {
+				BeforeEach(func() {
+					securityGroup.Spec.Rules[0].Ports = "8080-invalid"
+				})
+
+				It("returns an error", func() {
+					Expect(retErr).To(matchers.BeValidationError(
+						security_groups.InvalidSecurityGroupRuleErrorType,
+						ContainSubstring("ports must be a valid single port, comma separated list of ports, or range or ports, formatted as a string"),
+					))
+				})
+			})
+		})
+
+		When("the rule destination is invalid", func() {
+			When("the destination is not a valid IPV4", func() {
+				BeforeEach(func() {
+					securityGroup.Spec.Rules[0].Destination = "invalid"
+				})
+
+				It("returns an error", func() {
+					Expect(retErr).To(matchers.BeValidationError(
+						security_groups.InvalidSecurityGroupRuleErrorType,
+						ContainSubstring("destination must contain valid CIDR(s), IP address(es), or IP address range(s)"),
+					))
+				})
+			})
+
+			When("the destination is not a valid CIDR", func() {
+				BeforeEach(func() {
+					securityGroup.Spec.Rules[0].Destination = "192.168.1.20/50"
+				})
+
+				It("returns an error", func() {
+					Expect(retErr).To(matchers.BeValidationError(
+						security_groups.InvalidSecurityGroupRuleErrorType,
+						ContainSubstring("destination must contain valid CIDR(s), IP address(es), or IP address range(s)"),
+					))
+				})
+			})
+
+			When("the destination is not a valid ip range", func() {
+				BeforeEach(func() {
+					securityGroup.Spec.Rules[0].Destination = "192.168.1.20-invalid"
+				})
+
+				It("returns an error", func() {
+					Expect(retErr).To(matchers.BeValidationError(
+						security_groups.InvalidSecurityGroupRuleErrorType,
+						ContainSubstring("destination IP address range is invalid"),
+					))
+				})
 			})
 		})
 	})

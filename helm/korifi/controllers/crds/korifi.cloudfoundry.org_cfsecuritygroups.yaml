@@ -43,7 +43,7 @@ spec:
             properties:
               displayName:
                 type: string
-              globally_enabled:
+              globallyEnabled:
                 description: //+kubebuilder:validation:Optional
                 properties:
                   running:
@@ -91,7 +91,6 @@ spec:
                 type: object
             required:
             - displayName
-            - globally_enabled
             - rules
             type: object
           status:

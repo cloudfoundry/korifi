@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -11,11 +13,13 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/go-logr/logr"
 )
 
 const (
 	SecurityGroupsPath = "/v3/security_groups"
+	spaceNotFoundErr   = "Space does not exist, or you do not have access."
 )
 
 type SecurityGroup struct {
@@ -54,16 +58,20 @@ func (h *SecurityGroup) create(r *http.Request) (*routing.Response, error) {
 	}
 
 	if len(payload.Relationships.RunningSpaces.Data) != 0 || len(payload.Relationships.StagingSpaces.Data) != 0 {
-		spaces, err := h.spaceRepo.ListSpaces(r.Context(), authInfo, repositories.ListSpacesMessage{
-			GUIDs: append(payload.Relationships.RunningSpaces.CollectGUIDs(),
-				payload.Relationships.StagingSpaces.CollectGUIDs()...),
-		})
+		runningSpaces := slices.Collect(it.Map(slices.Values(payload.Relationships.RunningSpaces.Data), func(d payloads.RelationshipData) string { return d.GUID }))
+		stagingSpaces := slices.Collect(it.Map(slices.Values(payload.Relationships.StagingSpaces.Data), func(d payloads.RelationshipData) string { return d.GUID }))
+
+		spaces, err := h.spaceRepo.ListSpaces(r.Context(), authInfo, repositories.ListSpacesMessage{GUIDs: append(runningSpaces, stagingSpaces...)})
 		if err != nil {
 			return nil, apierrors.LogAndReturn(logger, err, "failed to list spaces for binding to security group")
 		}
 
 		if len(spaces) == 0 {
-			return nil, apierrors.LogAndReturn(logger, apierrors.NewNotFoundError(nil, repositories.SpaceResourceType), "failed to bind space to security group, space not found")
+			return nil, apierrors.LogAndReturn(
+				logger,
+				apierrors.NewUnprocessableEntityError(fmt.Errorf("failed to create security group"), spaceNotFoundErr),
+				spaceNotFoundErr,
+			)
 		}
 	}
 
