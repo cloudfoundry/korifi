@@ -50,17 +50,17 @@ metadata:
   uid: 374265ba-9dd8-4769-8363-76ab2b94d56e
 spec:
   sources:
-  - image: gcr.io/paketo-buildpacks/java
-  - image: gcr.io/paketo-buildpacks/nodejs
-  - image: gcr.io/paketo-buildpacks/ruby
-  - image: gcr.io/paketo-buildpacks/procfile
-  - image: gcr.io/paketo-buildpacks/go
+  - image: paketobuildpacks/java
+  - image: paketobuildpacks/nodejs
+  - image: paketobuildpacks/ruby
+  - image: paketobuildpacks/procfile
+  - image: paketobuildpacks/go
 ...
 ``` 
 We now need to add the image for the new buildpack `web-servers` we want to use under `.spec.sources`. For that we use the patch command below:
 
 ```yaml
-kubectl patch ClusterStore/cf-default-buildpacks --type json -p '[{"op": "add", "path": "/spec/sources/-","value": {"image": "gcr.io/paketo-buildpacks/web-servers"}}]'
+kubectl patch ClusterStore/cf-default-buildpacks --type json -p '[{"op": "add", "path": "/spec/sources/-","value": {"image": "paketobuildpacks/web-servers"}}]'
 ```
 
 Afterwards we can see that sources now includes web-servers as well
@@ -69,22 +69,22 @@ Afterwards we can see that sources now includes web-servers as well
 kubectl get ClusterStore cf-default-buildpacks -o jsonpath={".spec.sources"} | jq
 [
   {
-    "image": "gcr.io/paketo-buildpacks/java"
+    "image": "paketobuildpacks/java"
   },
   {
-    "image": "gcr.io/paketo-buildpacks/nodejs"
+    "image": "paketobuildpacks/nodejs"
   },
   {
-    "image": "gcr.io/paketo-buildpacks/ruby"
+    "image": "paketobuildpacks/ruby"
   },
   {
-    "image": "gcr.io/paketo-buildpacks/procfile"
+    "image": "paketobuildpacks/procfile"
   },
   {
-    "image": "gcr.io/paketo-buildpacks/go"
+    "image": "paketobuildpacks/go"
   },
   {
-    "image": "gcr.io/paketo-buildpacks/web-servers"
+    "image": "paketobuildpacks/web-servers"
   }
 ]
 ```
@@ -170,7 +170,7 @@ metadata:
   name: custom-cluster-store
 spec:
   sources:
-  - image: gcr.io/paketo-buildpacks/web-servers
+  - image: paketobuildpacks/web-servers
 ```
 
 Please check that the `ClusterStore` was succesfully created
