@@ -129,7 +129,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				},
 			}
 		})).To(Succeed())
-		Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
+		Expect(k8s.PatchResource(ctx, adminClient, cfApp, func() {
 			cfApp.Spec.CurrentDropletRef.Name = cfBuild.Name
 		})).To(Succeed())
 
@@ -206,6 +206,9 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			Expect(k8s.PatchResource(ctx, adminClient, cfApp, func() {
 				cfApp.Spec.DesiredState = korifiv1alpha1.StartedState
 			})).To(Succeed())
+			Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
+				cfApp.Status.ObservedGeneration = cfApp.Generation
+			})).To(Succeed())
 		})
 
 		It("reconciles the CFProcess into an AppWorkload", func() {
@@ -258,6 +261,33 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				))
 
 				g.Expect(appWorkload.Spec.RunnerName).To(Equal("cf-process-controller-test"))
+			})
+		})
+
+		When("the CFApp status is outdated", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
+					cfApp.Status.ObservedGeneration = 0
+				})).To(Succeed())
+			})
+
+			It("does not reconcile to app workload", func() {
+				Consistently(func(g Gomega) {
+					var appWorkloads korifiv1alpha1.AppWorkloadList
+					g.Expect(adminClient.List(ctx, &appWorkloads, client.InNamespace(testNamespace))).To(Succeed())
+					g.Expect(appWorkloads.Items).To(BeEmpty())
+				}).Should(Succeed())
+			})
+
+			It("sets the CFProcess ready status to false", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfProcess), cfProcess)).To(Succeed())
+					g.Expect(cfProcess.Status.Conditions).To(ContainElement(SatisfyAll(
+						matchers.HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						matchers.HasStatus(Equal(metav1.ConditionFalse)),
+						matchers.HasReason(Equal("OutdatedCFAppStatus")),
+					)))
+				}).Should(Succeed())
 			})
 		})
 
@@ -378,10 +408,10 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 		})
 
-		When("the process spec has service bindings", func() {
+		When("the app has service bindings", func() {
 			BeforeEach(func() {
 				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
-					cfProcess.Spec.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+					cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
 						Secret: "binding-secret",
 						Name:   "binding-name",
 					}}
@@ -398,14 +428,14 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 		})
 
-		When("the process bindings change after the workload has been created", func() {
+		When("the app bindings change after the workload has been created", func() {
 			JustBeforeEach(func() {
 				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
 					g.Expect(appWorkload.Spec.Services).To(BeEmpty())
 				})
 
-				Expect(k8s.Patch(ctx, adminClient, cfProcess, func() {
-					cfProcess.Spec.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
+					cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
 						Secret: "binding-secret",
 					}}
 				})).To(Succeed())
