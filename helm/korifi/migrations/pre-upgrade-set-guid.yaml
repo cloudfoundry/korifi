@@ -1,0 +1,87 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  name: set-guid
+  namespace: {{ .Release.Namespace }}
+spec:
+  template:
+    metadata:
+      name: set-guid
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      serviceAccountName: korifi-controllers-controller-manager
+      restartPolicy: Never
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
+      containers:
+      - name: post-install-set-guid
+        image: {{ .Values.helm.hooksImage }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        command:
+        - bash
+        - -c
+        - |
+          RESOURCE_KINDS=(cfapps)
+
+          set-guid() {
+            local kind namespace name
+            kind=$1
+            namespace="$2"
+            name="$3"
+
+            kubectl patch \
+              --namespace "$namespace" \
+              --type=json \
+              --patch "[{ "op": "add", "path": "/metadata/labels", "value": { "korifi.cloudfoundry.org/guid": "$name" } }]" \
+              "$kind" "$name"
+          }
+
+          list-resources() {
+            local kind="$1"
+
+            kubectl get --all-namespaces "$kind" -o=custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers
+          }
+
+          patch-resources() {
+            local kind="$1"
+
+            resources="$(list-resources "$kind")"
+            if [[ -z "${resources}" ]]; then
+              echo "No resources of kind $kind. Nothing to do."
+              return
+            fi
+
+            while IFS= read -r line; do
+              read -r namespace name <<<$line
+              set-guid "$kind" $namespace $name
+            done <<<"$resources"
+          }
+
+          main() {
+            for kind in "${RESOURCE_KINDS[@]}"; do
+              patch-resources "$kind"
+            done
+          }
+
+          main
