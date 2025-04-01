@@ -8,10 +8,8 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 )
 
-const (
-	// TODO: repetition with handler endpoint?
-	spacesBase = "/v3/spaces"
-)
+// TODO: repetition with handler endpoint?
+const spacesBase = "/v3/spaces"
 
 type SpaceResponse struct {
 	Name          string                       `json:"name"`
@@ -21,6 +19,7 @@ type SpaceResponse struct {
 	Links         SpaceLinks                   `json:"links"`
 	Metadata      Metadata                     `json:"metadata"`
 	Relationships map[string]ToOneRelationship `json:"relationships"`
+	Included      map[string][]any             `json:"included,omitempty"`
 }
 
 type SpaceLinks struct {
@@ -47,5 +46,6 @@ func ForSpace(space repositories.SpaceRecord, apiBaseURL url.URL, includes ...in
 				HRef: buildURL(apiBaseURL).appendPath(orgsBase, space.OrganizationGUID).build(),
 			},
 		},
+		Included: includedResources(includes...),
 	}
 }
