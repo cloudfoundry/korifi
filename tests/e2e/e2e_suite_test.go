@@ -458,6 +458,7 @@ func deleteOrg(guid string) *resty.Response {
 		Delete("/v3/organizations/" + guid)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+	expectJobCompletes(resp)
 
 	return resp
 }
@@ -534,6 +535,7 @@ func deleteSpace(guid string) {
 		Delete("/v3/spaces/" + guid)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+	expectJobCompletes(resp)
 }
 
 func createSpace(spaceName, orgGUID string) string {
