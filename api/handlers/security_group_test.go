@@ -155,6 +155,16 @@ var _ = Describe("SecurityGroup", func() {
 			})
 		})
 
+		When("fetching the spaces returns an error", func() {
+			BeforeEach(func() {
+				spaceRepo.ListSpacesReturns(nil, errors.New("boom!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
 		When("the request body is not valid", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "nope"))

@@ -202,6 +202,12 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - cfsecuritygroups
+  verbs:
+  - create
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - runnerinfos/status
   verbs:
   - get

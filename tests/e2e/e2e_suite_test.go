@@ -237,6 +237,12 @@ type serviceInstanceResource struct {
 	InstanceType string         `json:"type"`
 }
 
+type securityGroupResource struct {
+	Name  string `json:"name"`
+	GUID  string `json:"guid,omitempty"`
+	Rules []payloads.SecurityGroupRule
+}
+
 type serviceBrokerResource struct {
 	resource       `json:",inline"`
 	URL            string                              `json:"url"`

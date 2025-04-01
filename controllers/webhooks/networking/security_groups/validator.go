@@ -82,7 +82,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Obje
 		return nil, validationwebhook.ValidationError{
 			Type:    InvalidSecurityGroupRuleErrorType,
 			Message: err.Error(),
-		}
+		}.ExportJSONError()
 	}
 
 	oldSecurityGroup, ok := oldObj.(*korifiv1alpha1.CFSecurityGroup)

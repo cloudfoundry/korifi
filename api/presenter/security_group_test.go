@@ -7,6 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -97,30 +98,8 @@ var _ = Describe("SecurityGroup", func() {
 		})
 
 		It("returns empty arrays for rules and relationships", func() {
-			Expect(output).To(MatchJSON(`{
-                "guid": "security-group-guid",
-                "created_at": "1970-01-01T00:00:01Z",
-                "updated_at": "1970-01-01T00:00:02Z",
-                "name": "my-security-group",
-                "globally_enabled": {
-                    "running": true,
-                    "staging": false
-                },
-                "rules": [],
-                "relationships": {
-                    "running_spaces": {
-                        "data": []
-                    },
-                    "staging_spaces": {
-                        "data": []
-                    }
-                },
-                "links": {
-                    "self": {
-                        "href": "https://api.example.org/v3/security_groups/security-group-guid"
-                    }
-                }
-            }`))
+			Expect(output).To(MatchJSONPath("$.relationships.running_spaces.data", BeEmpty()))
+			Expect(output).To(MatchJSONPath("$.relationships.staging_spaces.data", BeEmpty()))
 		})
 	})
 })

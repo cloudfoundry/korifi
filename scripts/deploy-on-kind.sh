@@ -204,6 +204,7 @@ function deploy_korifi() {
       --set=networking.gatewayPorts.http="32080" \
       --set=networking.gatewayPorts.https="32443" \
       --set=experimental.managedServices.enabled="true" \
+      --set=experimental.securityGroups.enabled="true" \
       --set=experimental.managedServices.trustInsecureBrokers="true" \
       --wait
   }

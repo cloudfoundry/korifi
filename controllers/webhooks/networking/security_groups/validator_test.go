@@ -156,7 +156,7 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 		})
 	})
 
-	Describe("Validating the security group rules", func() {
+	Describe("Validating the security group rules when creating", func() {
 		JustBeforeEach(func() {
 			_, retErr = validatingWebhook.ValidateCreate(ctx, securityGroup)
 		})
@@ -279,6 +279,41 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 						ContainSubstring("destination IP address range is invalid"),
 					))
 				})
+			})
+		})
+	})
+
+	Describe("Validating the security group rules when updating", func() {
+		var updatedSecurityGroup *korifiv1alpha1.CFSecurityGroup
+
+		JustBeforeEach(func() {
+			updatedSecurityGroup = securityGroup.DeepCopy()
+			_, retErr = validatingWebhook.ValidateUpdate(ctx, securityGroup, updatedSecurityGroup)
+		})
+
+		When("the protocol is invalid", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0].Protocol = "invalid"
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					security_groups.InvalidSecurityGroupRuleErrorType,
+					ContainSubstring("protocol must be 'tcp', 'udp', or 'all'"),
+				))
+			})
+		})
+
+		When("the destination is not a valid IPV4", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0].Destination = "invalid"
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					security_groups.InvalidSecurityGroupRuleErrorType,
+					ContainSubstring("destination must contain valid CIDR(s), IP address(es), or IP address range(s)"),
+				))
 			})
 		})
 	})
