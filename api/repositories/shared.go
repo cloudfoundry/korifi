@@ -84,8 +84,8 @@ type Watcher interface {
 }
 
 type Awaiter[T runtime.Object] interface {
-	AwaitCondition(context.Context, client.WithWatch, client.Object, string) (T, error)
-	AwaitState(context.Context, client.WithWatch, client.Object, func(T) error) (T, error)
+	AwaitCondition(context.Context, Watcher, client.Object, string) (T, error)
+	AwaitState(context.Context, Watcher, client.Object, func(T) error) (T, error)
 }
 
 func getLastUpdatedTime(obj client.Object) *time.Time {

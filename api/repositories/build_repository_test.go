@@ -12,9 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -25,12 +23,7 @@ var _ = Describe("BuildRepository", func() {
 	var buildRepo *repositories.BuildRepo
 
 	BeforeEach(func() {
-		buildRepo = repositories.NewBuildRepo(
-			namespaceRetriever,
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
-		)
+		buildRepo = repositories.NewBuildRepo(klient)
 	})
 
 	Describe("GetBuild", func() {

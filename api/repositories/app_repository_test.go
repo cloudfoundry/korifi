@@ -62,7 +62,7 @@ var _ = Describe("AppRepository", func() {
 		userClientFactory = userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
 		})
-		appRepo = repositories.NewAppRepo(namespaceRetriever, userClientFactory, appAwaiter, sorter)
+		appRepo = repositories.NewAppRepo(klient, appAwaiter, sorter)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))

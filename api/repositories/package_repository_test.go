@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
@@ -58,10 +57,7 @@ var _ = Describe("PackageRepository", func() {
 		}
 
 		packageRepo = repositories.NewPackageRepo(
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
-			namespaceRetriever,
+			klient,
 			repoCreator,
 			"container.registry/foo/my/prefix-",
 			conditionAwaiter,

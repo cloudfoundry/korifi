@@ -42,7 +42,7 @@ var _ = Describe("OrgRepository", func() {
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]{}
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, conditionAwaiter)
+		orgRepo = repositories.NewOrgRepo(rootNamespace, klient, nsPerms, conditionAwaiter)
 	})
 
 	Describe("CreateOrg", func() {
@@ -55,7 +55,7 @@ var _ = Describe("OrgRepository", func() {
 		)
 
 		BeforeEach(func() {
-			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFOrg, error) {
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ repositories.Watcher, object client.Object, _ string) (*korifiv1alpha1.CFOrg, error) {
 				cfOrg, ok := object.(*korifiv1alpha1.CFOrg)
 				Expect(ok).To(BeTrue())
 

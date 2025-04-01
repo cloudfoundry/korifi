@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -47,11 +48,14 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
-	ctx                   context.Context
-	testEnv               *envtest.Environment
-	k8sClient             client.WithWatch
-	namespaceRetriever    repositories.NamespaceRetriever
+	ctx       context.Context
+	testEnv   *envtest.Environment
+	k8sClient client.WithWatch
+	// TODO: remove
+	namespaceRetriever repositories.NamespaceRetriever
+	// TODO: remove
 	userClientFactory     authorization.UnprivilegedClientFactory
+	klient                repositories.Klient
 	userClientsetFactory  authorization.UnprivilegedClientsetFactory
 	userName              string
 	authInfo              authorization.Info
@@ -144,6 +148,8 @@ var _ = BeforeEach(func() {
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)
+
+	klient = k8sklient.NewK8sKlient(namespaceRetriever, userClientFactory)
 })
 
 var _ = AfterEach(func() {

@@ -50,7 +50,7 @@ var _ = Describe("RoleRepository", func() {
 		sorter.SortStub = func(records []repositories.RoleRecord, _ string) []repositories.RoleRecord {
 			return records
 		}
-		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &fakeawaiter.FakeAwaiter[
+		orgRepo := repositories.NewOrgRepo(rootNamespace, klient, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
