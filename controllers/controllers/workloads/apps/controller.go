@@ -280,7 +280,6 @@ func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1
 func (r *Reconciler) updateCFProcess(ctx context.Context, process *korifiv1alpha1.CFProcess, command string, bindings []korifiv1alpha1.ServiceBinding) error {
 	return k8s.Patch(ctx, r.k8sClient, process, func() {
 		process.Spec.DetectedCommand = command
-		process.Spec.ServiceBindings = bindings
 	})
 }
 
@@ -298,7 +297,6 @@ func (r *Reconciler) createCFProcess(ctx context.Context, process korifiv1alpha1
 			AppRef:          corev1.LocalObjectReference{Name: cfApp.Name},
 			ProcessType:     process.Type,
 			DetectedCommand: process.Command,
-			ServiceBindings: cfApp.Status.ServiceBindings,
 		},
 	}
 
