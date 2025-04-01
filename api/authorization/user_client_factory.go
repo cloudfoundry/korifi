@@ -15,6 +15,7 @@ import (
 
 type ClientWrappingFunc func(client.WithWatch) client.WithWatch
 
+//counterfeiter:generate -o fake -fake-name UserClientFactory . UserClientFactory
 type UserClientFactory interface {
 	BuildClient(Info) (client.WithWatch, error)
 }
