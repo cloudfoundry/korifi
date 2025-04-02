@@ -17,12 +17,13 @@ limitations under the License.
 package main
 
 import (
-	routeControllers "code.cloudfoundry.org/korifi/route-controller/controllers"
 	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+
+	routeControllers "code.cloudfoundry.org/korifi/route-controller/controllers"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"

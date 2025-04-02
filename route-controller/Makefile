@@ -43,7 +43,7 @@ manifests: ../route-controller/bin/controller-gen bin/yq
 	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-route-controller-serving-cert")' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
 
-generate: ../route-controller/bin/controller-gen
+generate: bin/controller-gen
 	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 test: manifests generate
@@ -52,8 +52,8 @@ test: manifests generate
 bin:
 	mkdir -p bin
 
-bin/controller-gen: ../route-controller/bin
+bin/controller-gen: bin
 	go install sigs.k8s.io/controller-tools/cmd/controller-gen
 
-bin/yq: ../route-controller/bin
+bin/yq: bin
 	go install github.com/mikefarah/yq/v4@latest

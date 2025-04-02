@@ -1,11 +1,12 @@
 package controllers_test
 
 import (
-	"code.cloudfoundry.org/korifi/route-controller/controllers"
 	"context"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"code.cloudfoundry.org/korifi/route-controller/controllers"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
