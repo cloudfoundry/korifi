@@ -1,6 +1,7 @@
 package payloads
 
 import (
+	"fmt"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
@@ -82,5 +83,35 @@ func (l *SpaceList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
 	l.GUIDs = values.Get("guids")
 	l.OrganizationGUIDs = values.Get("organization_guids")
+	return nil
+}
+
+type SpaceDeleteRoutes struct {
+	Unmapped string `json:"unmapped"`
+}
+
+func (d *SpaceDeleteRoutes) SupportedKeys() []string {
+	return []string{"unmapped"}
+}
+
+func (d SpaceDeleteRoutes) Validate() error {
+	return validation.ValidateStruct(&d,
+		validation.Field(&d.Unmapped, validation.Required, validation.By(func(value any) error {
+			unmappedStr, _ := value.(string)
+
+			switch unmappedStr {
+			case "true":
+				return nil
+			case "false":
+				return fmt.Errorf("mass delete not supported for mapped routes. Use 'unmapped=true' parameter to delete all unmapped routes")
+			default:
+				return fmt.Errorf("must be a boolean")
+			}
+		})),
+	)
+}
+
+func (d *SpaceDeleteRoutes) DecodeFromURLValues(values url.Values) error {
+	d.Unmapped = values.Get("unmapped")
 	return nil
 }
