@@ -44,7 +44,7 @@ var _ = Describe("ImageRepository", func() {
 		tags = []string{"foo", "bar"}
 
 		imageRepo = repositories.NewImageRepository(
-			klient,
+			klientUnfiltered,
 			imagePusher,
 			[]string{"push-secret-name"},
 			rootNamespace,
