@@ -5,11 +5,11 @@ metadata:
   name: cf-default-buildpacks
 spec:
   sources:
-  - image: gcr.io/paketo-buildpacks/java
-  - image: gcr.io/paketo-buildpacks/nodejs
-  - image: gcr.io/paketo-buildpacks/ruby
-  - image: gcr.io/paketo-buildpacks/procfile
-  - image: gcr.io/paketo-buildpacks/go
+  - image: paketobuildpacks/java
+  - image: paketobuildpacks/nodejs
+  - image: paketobuildpacks/ruby
+  - image: paketobuildpacks/procfile
+  - image: paketobuildpacks/go
 ---
 apiVersion: kpack.io/v1alpha2
 kind: ClusterStack
