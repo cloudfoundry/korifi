@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
-	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -57,7 +56,6 @@ var (
 )
 
 func init() {
-	utilruntime.Must(buildv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(gatewayv1beta1.Install(scheme))
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
@@ -124,7 +122,6 @@ func main() {
 	controllersClient := k8s.IgnoreEmptyPatches(mgr.GetClient())
 	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
 		controllersLog := ctrl.Log.WithName("controllers")
-
 
 		if err = routeControllers.NewReconciler(
 			controllersClient,
