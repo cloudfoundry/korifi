@@ -24,7 +24,7 @@ help: ## Display this help.
 export GOBIN = $(shell pwd)/bin
 export PATH := $(shell pwd)/bin:$(PATH)
 
-CONTROLLERS=controllers job-task-runner kpack-image-builder statefulset-runner route-controller
+CONTROLLERS=controllers job-task-runner kpack-image-builder statefulset-runner gatewayapi-router
 COMPONENTS=api $(CONTROLLERS)
 
 manifests:

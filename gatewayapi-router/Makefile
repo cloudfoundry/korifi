@@ -31,19 +31,19 @@ help: ## Display this help.
 export GOBIN = $(shell pwd)/bin
 export PATH := $(shell pwd)/bin:$(PATH)
 
-webhooks-file = ../helm/korifi/route-controller/manifests.yaml
-manifests: bin/controller-gen bin/yq
+webhooks-file = ../helm/korifi/gatewayapi-router/manifests.yaml
+manifests: ../gatewayapi-router/bin/controller-gen bin/yq
 	controller-gen \
 		paths="./..." \
-		rbac:roleName=korifi-route-controller-manager-role \
+		rbac:roleName=korifi-gatewayapi-router-manager-role \
 		webhook \
-		output:rbac:artifacts:config=../helm/korifi/route-controller \
-		output:webhook:artifacts:config=../helm/korifi/route-controller
+		output:rbac:artifacts:config=../helm/korifi/gatewayapi-router \
+		output:webhook:artifacts:config=../helm/korifi/gatewayapi-router
 
-	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-route-controller-serving-cert")' $(webhooks-file)
+	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-gatewayapi-router-serving-cert")' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
 
-generate: bin/controller-gen
+generate: ../gatewayapi-router/bin/controller-gen
 	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 test: manifests generate
@@ -52,8 +52,8 @@ test: manifests generate
 bin:
 	mkdir -p bin
 
-bin/controller-gen: bin
+bin/controller-gen: ../gatewayapi-router/bin
 	go install sigs.k8s.io/controller-tools/cmd/controller-gen
 
-bin/yq: bin
+bin/yq: ../gatewayapi-router/bin
 	go install github.com/mikefarah/yq/v4@latest

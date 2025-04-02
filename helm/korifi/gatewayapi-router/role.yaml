@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: korifi-route-controller-manager-role
+  name: korifi-gatewayapi-router-manager-role
 rules:
 - apiGroups:
   - ""
