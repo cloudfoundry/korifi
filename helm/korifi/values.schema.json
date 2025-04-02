@@ -599,6 +599,15 @@
     },
     "experimental": {
       "properties": {
+        "routing": {
+          "properties": {
+            "disableRouteController": {
+              "description": "Disable route controller. Default value is 'false'.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "managedServices": {
           "properties": {
             "enabled": {

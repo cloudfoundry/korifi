@@ -32,7 +32,7 @@ export GOBIN = $(shell pwd)/bin
 export PATH := $(shell pwd)/bin:$(PATH)
 
 webhooks-file = ../helm/korifi/route-controller/manifests.yaml
-manifests: ../route-controller/bin/controller-gen bin/yq
+manifests: bin/controller-gen bin/yq
 	controller-gen \
 		paths="./..." \
 		rbac:roleName=korifi-route-controller-manager-role \
