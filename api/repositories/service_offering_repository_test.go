@@ -30,10 +30,10 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 	BeforeEach(func() {
 		repo = repositories.NewServiceOfferingRepo(
-			userClientFactory,
+			klient,
 			rootNamespace,
 			repositories.NewServiceBrokerRepo(
-				userClientFactory,
+				klient,
 				rootNamespace,
 			),
 			nsPerms,

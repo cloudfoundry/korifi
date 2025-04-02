@@ -80,14 +80,14 @@ type OrgRepo struct {
 }
 
 func NewOrgRepo(
-	rootNamespace string,
 	klient Klient,
+	rootNamespace string,
 	nsPerms *authorization.NamespacePermissions,
 	conditionAwaiter Awaiter[*korifiv1alpha1.CFOrg],
 ) *OrgRepo {
 	return &OrgRepo{
-		rootNamespace:    rootNamespace,
 		klient:           klient,
+		rootNamespace:    rootNamespace,
 		nsPerms:          nsPerms,
 		conditionAwaiter: conditionAwaiter,
 	}

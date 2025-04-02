@@ -11,15 +11,12 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/tasks"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -97,36 +94,28 @@ func (m *CreateTaskMessage) toCFTask() *korifiv1alpha1.CFTask {
 }
 
 type TaskRepo struct {
-	userClientFactory    authorization.UserClientFactory
-	namespaceRetriever   NamespaceRetriever
+	klient               Klient
 	taskConditionAwaiter Awaiter[*korifiv1alpha1.CFTask]
 }
 
 func NewTaskRepo(
-	userClientFactory authorization.UserClientFactory,
-	nsRetriever NamespaceRetriever,
+	klient Klient,
 	taskConditionAwaiter Awaiter[*korifiv1alpha1.CFTask],
 ) *TaskRepo {
 	return &TaskRepo{
-		userClientFactory:    userClientFactory,
-		namespaceRetriever:   nsRetriever,
+		klient:               klient,
 		taskConditionAwaiter: taskConditionAwaiter,
 	}
 }
 
 func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, createMessage CreateTaskMessage) (TaskRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return TaskRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	task := createMessage.toCFTask()
-	err = userClient.Create(ctx, task)
+	err := r.klient.Create(ctx, task)
 	if err != nil {
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
 	}
 
-	task, err = r.awaitCondition(ctx, userClient, task, korifiv1alpha1.TaskInitializedConditionType)
+	task, err = r.awaitCondition(ctx, task, korifiv1alpha1.TaskInitializedConditionType)
 	if err != nil {
 		return TaskRecord{}, fmt.Errorf("failed waiting for task to get initialized: %w", err)
 	}
@@ -135,18 +124,12 @@ func (r *TaskRepo) CreateTask(ctx context.Context, authInfo authorization.Info, 
 }
 
 func (r *TaskRepo) GetTask(ctx context.Context, authInfo authorization.Info, taskGUID string) (TaskRecord, error) {
-	taskNamespace, err := r.namespaceRetriever.NamespaceFor(ctx, taskGUID, TaskResourceType)
-	if err != nil {
-		return TaskRecord{}, err
+	cfTask := &korifiv1alpha1.CFTask{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: taskGUID,
+		},
 	}
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return TaskRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	cfTask := &korifiv1alpha1.CFTask{}
-	err = userClient.Get(ctx, types.NamespacedName{Namespace: taskNamespace, Name: taskGUID}, cfTask)
+	err := r.klient.Get(ctx, cfTask)
 	if err != nil {
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
 	}
@@ -160,8 +143,8 @@ func (r *TaskRepo) GetTask(ctx context.Context, authInfo authorization.Info, tas
 	return taskToRecord(*cfTask), nil
 }
 
-func (r *TaskRepo) awaitCondition(ctx context.Context, userClient client.WithWatch, task *korifiv1alpha1.CFTask, conditionType string) (*korifiv1alpha1.CFTask, error) {
-	awaitedTask, err := r.taskConditionAwaiter.AwaitCondition(ctx, userClient, task, conditionType)
+func (r *TaskRepo) awaitCondition(ctx context.Context, task *korifiv1alpha1.CFTask, conditionType string) (*korifiv1alpha1.CFTask, error) {
+	awaitedTask, err := r.taskConditionAwaiter.AwaitCondition(ctx, r.klient, task, conditionType)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, TaskResourceType)
 	}
@@ -170,13 +153,8 @@ func (r *TaskRepo) awaitCondition(ctx context.Context, userClient client.WithWat
 }
 
 func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, msg ListTaskMessage) ([]TaskRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	taskList := &korifiv1alpha1.CFTaskList{}
-	err = userClient.List(ctx, taskList)
+	err := r.klient.List(ctx, taskList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks: %w", apierrors.FromK8sError(err, TaskResourceType))
 	}
@@ -186,30 +164,20 @@ func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, m
 }
 
 func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, taskGUID string) (TaskRecord, error) {
-	taskNamespace, err := r.namespaceRetriever.NamespaceFor(ctx, taskGUID, TaskResourceType)
-	if err != nil {
-		return TaskRecord{}, err
-	}
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return TaskRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	task := &korifiv1alpha1.CFTask{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: taskNamespace,
-			Name:      taskGUID,
+			Name: taskGUID,
 		},
 	}
-	err = k8s.PatchResource(ctx, userClient, task, func() {
+	err := GetAndPatch(ctx, r.klient, task, func() error {
 		task.Spec.Canceled = true
+		return nil
 	})
 	if err != nil {
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)
 	}
 
-	task, err = r.awaitCondition(ctx, userClient, task, korifiv1alpha1.TaskCanceledConditionType)
+	task, err = r.awaitCondition(ctx, task, korifiv1alpha1.TaskCanceledConditionType)
 	if err != nil {
 		return TaskRecord{}, fmt.Errorf("failed waiting for task to get canceled: %w", err)
 	}
@@ -218,19 +186,16 @@ func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, 
 }
 
 func (r *TaskRepo) PatchTaskMetadata(ctx context.Context, authInfo authorization.Info, message PatchTaskMetadataMessage) (TaskRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return TaskRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	task := &korifiv1alpha1.CFTask{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: message.SpaceGUID,
+			Name:      message.TaskGUID,
+		},
 	}
 
-	task := new(korifiv1alpha1.CFTask)
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: message.SpaceGUID, Name: message.TaskGUID}, task)
-	if err != nil {
-		return TaskRecord{}, fmt.Errorf("failed to get task: %w", apierrors.FromK8sError(err, TaskResourceType))
-	}
-
-	err = k8s.PatchResource(ctx, userClient, task, func() {
+	err := GetAndPatch(ctx, r.klient, task, func() error {
 		message.Apply(task)
+		return nil
 	})
 	if err != nil {
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)

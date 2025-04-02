@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -17,7 +16,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
@@ -25,7 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -39,23 +36,20 @@ type ParametersClient interface {
 }
 
 type ServiceBindingRepo struct {
-	userClientFactory       authorization.UserClientFactory
-	namespaceRetriever      NamespaceRetriever
+	klient                  Klient
 	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding]
 	appConditionAwaiter     Awaiter[*korifiv1alpha1.CFApp]
 	paramsClient            ParametersClient
 }
 
 func NewServiceBindingRepo(
-	namespaceRetriever NamespaceRetriever,
-	userClientFactory authorization.UserClientFactory,
+	klient Klient,
 	bindingConditionAwaiter Awaiter[*korifiv1alpha1.CFServiceBinding],
 	appConditionAwaiter Awaiter[*korifiv1alpha1.CFApp],
 	paramsClient ParametersClient,
 ) *ServiceBindingRepo {
 	return &ServiceBindingRepo{
-		userClientFactory:       userClientFactory,
-		namespaceRetriever:      namespaceRetriever,
+		klient:                  klient,
 		bindingConditionAwaiter: bindingConditionAwaiter,
 		appConditionAwaiter:     appConditionAwaiter,
 		paramsClient:            paramsClient,
@@ -161,21 +155,21 @@ type UpdateServiceBindingMessage struct {
 }
 
 func (r *ServiceBindingRepo) CreateServiceBinding(ctx context.Context, authInfo authorization.Info, message CreateServiceBindingMessage) (ServiceBindingRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	if message.Type == korifiv1alpha1.CFServiceBindingTypeApp {
-		return r.createAppServiceBinding(ctx, userClient, message)
+		return r.createAppServiceBinding(ctx, message)
 	}
 
-	return r.createServiceBinding(ctx, userClient, message)
+	return r.createServiceBinding(ctx, message)
 }
 
-func (r *ServiceBindingRepo) createAppServiceBinding(ctx context.Context, userClient client.WithWatch, message CreateServiceBindingMessage) (ServiceBindingRecord, error) {
-	cfApp := &korifiv1alpha1.CFApp{}
-	err := userClient.Get(ctx, types.NamespacedName{Name: message.AppGUID, Namespace: message.SpaceGUID}, cfApp)
+func (r *ServiceBindingRepo) createAppServiceBinding(ctx context.Context, message CreateServiceBindingMessage) (ServiceBindingRecord, error) {
+	cfApp := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: message.SpaceGUID,
+			Name:      message.AppGUID,
+		},
+	}
+	err := r.klient.Get(ctx, cfApp)
 	if err != nil {
 		return ServiceBindingRecord{},
 			apierrors.AsUnprocessableEntity(
@@ -186,12 +180,12 @@ func (r *ServiceBindingRepo) createAppServiceBinding(ctx context.Context, userCl
 			)
 	}
 
-	bindingRecord, err := r.createServiceBinding(ctx, userClient, message)
+	bindingRecord, err := r.createServiceBinding(ctx, message)
 	if err != nil {
 		return ServiceBindingRecord{}, err
 	}
 
-	_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
+	_, err = r.appConditionAwaiter.AwaitState(ctx, r.klient, cfApp, func(a *korifiv1alpha1.CFApp) error {
 		if a.Generation != a.Status.ObservedGeneration {
 			return fmt.Errorf("app status is outdated")
 		}
@@ -209,9 +203,14 @@ func (r *ServiceBindingRepo) createAppServiceBinding(ctx context.Context, userCl
 	return bindingRecord, nil
 }
 
-func (r *ServiceBindingRepo) createServiceBinding(ctx context.Context, userClient client.WithWatch, message CreateServiceBindingMessage) (ServiceBindingRecord, error) {
-	cfServiceInstance := new(korifiv1alpha1.CFServiceInstance)
-	err := userClient.Get(ctx, types.NamespacedName{Name: message.ServiceInstanceGUID, Namespace: message.SpaceGUID}, cfServiceInstance)
+func (r *ServiceBindingRepo) createServiceBinding(ctx context.Context, message CreateServiceBindingMessage) (ServiceBindingRecord, error) {
+	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: message.SpaceGUID,
+			Name:      message.ServiceInstanceGUID,
+		},
+	}
+	err := r.klient.Get(ctx, cfServiceInstance)
 	if err != nil {
 		return ServiceBindingRecord{},
 			apierrors.AsUnprocessableEntity(
@@ -223,7 +222,7 @@ func (r *ServiceBindingRepo) createServiceBinding(ctx context.Context, userClien
 	}
 
 	cfServiceBinding := message.toCFServiceBinding(cfServiceInstance.Spec.Type)
-	err = userClient.Create(ctx, cfServiceBinding)
+	err = r.klient.Create(ctx, cfServiceBinding)
 	if err != nil {
 		if validationError, ok := validation.WebhookErrorToValidationError(err); ok {
 			if validationError.Type == bindings.ServiceBindingErrorType {
@@ -235,14 +234,14 @@ func (r *ServiceBindingRepo) createServiceBinding(ctx context.Context, userClien
 	}
 
 	if cfServiceInstance.Spec.Type == korifiv1alpha1.ManagedType {
-		err = r.createParametersSecret(ctx, userClient, cfServiceBinding, message.Parameters)
+		err = r.createParametersSecret(ctx, cfServiceBinding, message.Parameters)
 		if err != nil {
 			return ServiceBindingRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
 		}
 	}
 
 	if cfServiceInstance.Spec.Type == korifiv1alpha1.UserProvidedType {
-		cfServiceBinding, err = r.bindingConditionAwaiter.AwaitCondition(ctx, userClient, cfServiceBinding, korifiv1alpha1.StatusConditionReady)
+		cfServiceBinding, err = r.bindingConditionAwaiter.AwaitCondition(ctx, r.klient, cfServiceBinding, korifiv1alpha1.StatusConditionReady)
 		if err != nil {
 			return ServiceBindingRecord{}, err
 		}
@@ -257,7 +256,7 @@ func actualBindingGUIDs(cfApp *korifiv1alpha1.CFApp) []string {
 	}))
 }
 
-func (r *ServiceBindingRepo) createParametersSecret(ctx context.Context, userClient client.Client, cfServiceBinding *korifiv1alpha1.CFServiceBinding, parameters map[string]any) error {
+func (r *ServiceBindingRepo) createParametersSecret(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, parameters map[string]any) error {
 	parametersData, err := tools.ToParametersSecretData(parameters)
 	if err != nil {
 		return err
@@ -273,39 +272,38 @@ func (r *ServiceBindingRepo) createParametersSecret(ctx context.Context, userCli
 
 	_ = controllerutil.SetOwnerReference(cfServiceBinding, paramsSecret, scheme.Scheme)
 
-	return userClient.Create(ctx, paramsSecret)
+	return r.klient.Create(ctx, paramsSecret)
 }
 
 func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo authorization.Info, guid string) error {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
+	binding := &korifiv1alpha1.CFServiceBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: guid,
+		},
 	}
 
-	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, guid, ServiceBindingResourceType)
-	if err != nil {
-		return err
-	}
-
-	binding := &korifiv1alpha1.CFServiceBinding{}
-
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, binding)
+	err := r.klient.Get(ctx, binding)
 	if err != nil {
 		return apierrors.ForbiddenAsNotFound(apierrors.FromK8sError(err, ServiceBindingResourceType))
 	}
 
-	err = userClient.Delete(ctx, binding)
+	err = r.klient.Delete(ctx, binding)
 	if err != nil {
 		return apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
-	cfApp := new(korifiv1alpha1.CFApp)
-	err = userClient.Get(ctx, types.NamespacedName{Name: binding.Spec.AppRef.Name, Namespace: binding.Namespace}, cfApp)
+	cfApp := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: binding.Namespace,
+			Name:      binding.Spec.AppRef.Name,
+		},
+	}
+	err = r.klient.Get(ctx, cfApp)
 	if err != nil {
 		return apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
-	_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
+	_, err = r.appConditionAwaiter.AwaitState(ctx, r.klient, cfApp, func(a *korifiv1alpha1.CFApp) error {
 		if a.Generation != a.Status.ObservedGeneration {
 			return fmt.Errorf("app status is outdated")
 		}
@@ -337,18 +335,13 @@ func (r *ServiceBindingRepo) GetServiceBindingDetails(ctx context.Context, authI
 		return ServiceBindingDetailsRecord{}, errors.New("get-service-binding-details failed due to binding not ready yet")
 	}
 
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceBindingDetailsRecord{}, fmt.Errorf("get-service-binding-details failed to create user client: %w", err)
-	}
-
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: binding.Namespace,
 			Name:      binding.Status.EnvSecretRef.Name,
 		},
 	}
-	err = userClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret)
+	err = r.klient.Get(ctx, credentialsSecret)
 	if err != nil {
 		return ServiceBindingDetailsRecord{}, fmt.Errorf("failed to get credentials: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))
 	}
@@ -362,18 +355,12 @@ func (r *ServiceBindingRepo) GetServiceBindingDetails(ctx context.Context, authI
 }
 
 func (r *ServiceBindingRepo) getServiceBinding(ctx context.Context, authInfo authorization.Info, bindingGUID string) (korifiv1alpha1.CFServiceBinding, error) {
-	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, bindingGUID, ServiceBindingResourceType)
-	if err != nil {
-		return korifiv1alpha1.CFServiceBinding{}, fmt.Errorf("failed to retrieve namespace: %w", err)
+	serviceBinding := korifiv1alpha1.CFServiceBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: bindingGUID,
+		},
 	}
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return korifiv1alpha1.CFServiceBinding{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	serviceBinding := korifiv1alpha1.CFServiceBinding{}
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: bindingGUID}, &serviceBinding)
+	err := r.klient.Get(ctx, &serviceBinding)
 	if err != nil {
 		return korifiv1alpha1.CFServiceBinding{}, fmt.Errorf("failed to get service binding: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))
 	}
@@ -454,30 +441,20 @@ func serviceBindingRecordLastOperation(binding korifiv1alpha1.CFServiceBinding) 
 }
 
 func (r *ServiceBindingRepo) UpdateServiceBinding(ctx context.Context, authInfo authorization.Info, updateMsg UpdateServiceBindingMessage) (ServiceBindingRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceBindingRecord{}, fmt.Errorf("failed to create user client: %w", err)
-	}
-
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, updateMsg.GUID, ServiceBindingResourceType)
-	if err != nil {
-		return ServiceBindingRecord{}, err
-	}
-
 	serviceBinding := &korifiv1alpha1.CFServiceBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      updateMsg.GUID,
-			Namespace: ns,
+			Name: updateMsg.GUID,
 		},
 	}
 
-	err = userClient.Get(ctx, client.ObjectKeyFromObject(serviceBinding), serviceBinding)
+	err := r.klient.Get(ctx, serviceBinding)
 	if err != nil {
 		return ServiceBindingRecord{}, fmt.Errorf("failed to get service binding: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))
 	}
 
-	err = k8s.PatchResource(ctx, userClient, serviceBinding, func() {
+	err = r.klient.Patch(ctx, serviceBinding, func() error {
 		updateMsg.MetadataPatch.Apply(serviceBinding)
+		return nil
 	})
 	if err != nil {
 		return ServiceBindingRecord{}, fmt.Errorf("failed to patch service binding metadata: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))
@@ -509,18 +486,13 @@ func (r *ServiceBindingRepo) GetDeletedAt(ctx context.Context, authInfo authoriz
 
 // nolint:dupl
 func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo authorization.Info, message ListServiceBindingsMessage) ([]ServiceBindingRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []ServiceBindingRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	labelSelector, err := labels.Parse(message.LabelSelector)
 	if err != nil {
 		return []ServiceBindingRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
 	}
 
 	serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
-	err = userClient.List(ctx, serviceBindingList, &client.ListOptions{LabelSelector: labelSelector})
+	err = r.klient.List(ctx, serviceBindingList, WithLabels{Selector: labelSelector})
 	if err != nil {
 		return []ServiceBindingRecord{}, fmt.Errorf("failed to list service instances: %w",
 			apierrors.FromK8sError(err, ServiceBindingResourceType),

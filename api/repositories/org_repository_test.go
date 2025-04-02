@@ -42,7 +42,7 @@ var _ = Describe("OrgRepository", func() {
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]{}
-		orgRepo = repositories.NewOrgRepo(rootNamespace, klient, nsPerms, conditionAwaiter)
+		orgRepo = repositories.NewOrgRepo(klient, rootNamespace, nsPerms, conditionAwaiter)
 	})
 
 	Describe("CreateOrg", func() {

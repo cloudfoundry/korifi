@@ -35,7 +35,7 @@ var _ = Describe("SpaceRepository", func() {
 	)
 
 	BeforeEach(func() {
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &fakeawaiter.FakeAwaiter[
+		orgRepo = repositories.NewOrgRepo(rootNamespace, klient, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
@@ -48,7 +48,7 @@ var _ = Describe("SpaceRepository", func() {
 			korifiv1alpha1.CFSpaceList,
 			*korifiv1alpha1.CFSpaceList,
 		]{}
-		spaceRepo = repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, conditionAwaiter)
+		spaceRepo = repositories.NewSpaceRepo(klient, orgRepo, nsPerms, conditionAwaiter)
 	})
 
 	Describe("CreateSpace", func() {
@@ -62,7 +62,7 @@ var _ = Describe("SpaceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFSpace, error) {
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ repositories.Watcher, object client.Object, _ string) (*korifiv1alpha1.CFSpace, error) {
 				cfSpace, ok := object.(*korifiv1alpha1.CFSpace)
 				Expect(ok).To(BeTrue())
 

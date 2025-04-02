@@ -9,12 +9,11 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -55,7 +54,7 @@ func (r ServiceOfferingRecord) Relationships() map[string]string {
 }
 
 type ServiceOfferingRepo struct {
-	userClientFactory    authorization.UserClientFactory
+	klient               Klient
 	rootNamespace        string
 	brokerRepo           *ServiceBrokerRepo
 	namespacePermissions *authorization.NamespacePermissions
@@ -79,13 +78,13 @@ func (m *ListServiceOfferingMessage) matches(cfServiceOffering korifiv1alpha1.CF
 }
 
 func NewServiceOfferingRepo(
-	userClientFactory authorization.UserClientFactory,
+	klient Klient,
 	rootNamespace string,
 	brokerRepo *ServiceBrokerRepo,
 	namespacePermissions *authorization.NamespacePermissions,
 ) *ServiceOfferingRepo {
 	return &ServiceOfferingRepo{
-		userClientFactory:    userClientFactory,
+		klient:               klient,
 		rootNamespace:        rootNamespace,
 		brokerRepo:           brokerRepo,
 		namespacePermissions: namespacePermissions,
@@ -93,11 +92,6 @@ func NewServiceOfferingRepo(
 }
 
 func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo authorization.Info, guid string) (ServiceOfferingRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceOfferingRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	offering := &korifiv1alpha1.CFServiceOffering{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
@@ -105,7 +99,7 @@ func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo a
 		},
 	}
 
-	if err = userClient.Get(ctx, client.ObjectKeyFromObject(offering), offering); err != nil {
+	if err := r.klient.Get(ctx, offering); err != nil {
 		return ServiceOfferingRecord{}, fmt.Errorf("failed to get service offering: %s %w", guid, apierrors.FromK8sError(err, ServiceOfferingResourceType))
 	}
 
@@ -113,13 +107,8 @@ func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo a
 }
 
 func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []ServiceOfferingRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	offeringsList := &korifiv1alpha1.CFServiceOfferingList{}
-	err = userClient.List(ctx, offeringsList, client.InNamespace(r.rootNamespace))
+	err := r.klient.List(ctx, offeringsList, InNamespace(r.rootNamespace))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return []ServiceOfferingRecord{}, nil
@@ -134,11 +123,6 @@ func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo author
 }
 
 func (r *ServiceOfferingRepo) DeleteOffering(ctx context.Context, authInfo authorization.Info, message DeleteServiceOfferingMessage) error {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	offering := &korifiv1alpha1.CFServiceOffering{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
@@ -146,17 +130,17 @@ func (r *ServiceOfferingRepo) DeleteOffering(ctx context.Context, authInfo autho
 		},
 	}
 
-	if err = userClient.Get(ctx, client.ObjectKeyFromObject(offering), offering); err != nil {
+	if err := r.klient.Get(ctx, offering); err != nil {
 		return fmt.Errorf("failed to get service offering: %w", apierrors.FromK8sError(err, ServiceOfferingResourceType))
 	}
 
 	if message.Purge {
-		if err = r.purgeRelatedResources(ctx, authInfo, userClient, message.GUID); err != nil {
+		if err := r.purgeRelatedResources(ctx, authInfo, message.GUID); err != nil {
 			return fmt.Errorf("failed to purge service offering resources: %w", apierrors.FromK8sError(err, ServiceOfferingResourceType))
 		}
 	}
 
-	if err = userClient.Delete(ctx, offering); err != nil {
+	if err := r.klient.Delete(ctx, offering); err != nil {
 		return fmt.Errorf("failed to delete service offering: %w", apierrors.FromK8sError(err, ServiceOfferingResourceType))
 	}
 
@@ -190,8 +174,8 @@ func offeringToRecord(offering korifiv1alpha1.CFServiceOffering) (ServiceOfferin
 	}, nil
 }
 
-func (r *ServiceOfferingRepo) purgeRelatedResources(ctx context.Context, authInfo authorization.Info, userClient client.WithWatch, offeringGUID string) error {
-	planGUIDs, err := r.deleteServicePlans(ctx, userClient, offeringGUID)
+func (r *ServiceOfferingRepo) purgeRelatedResources(ctx context.Context, authInfo authorization.Info, offeringGUID string) error {
+	planGUIDs, err := r.deleteServicePlans(ctx, offeringGUID)
 	if err != nil {
 		return fmt.Errorf("failed to delete service plans: %w", apierrors.FromK8sError(err, ServicePlanResourceType))
 	}
@@ -201,33 +185,35 @@ func (r *ServiceOfferingRepo) purgeRelatedResources(ctx context.Context, authInf
 		return fmt.Errorf("failed to list namespaces: %w", err)
 	}
 
-	serviceInstances, err := r.fetchServiceInstances(ctx, userClient, authorizedSpaceNamespacesIter, planGUIDs)
+	serviceInstances, err := r.fetchServiceInstances(ctx, authorizedSpaceNamespacesIter, planGUIDs)
 	if err != nil {
 		return fmt.Errorf("failed to list service instances: %w", err)
 	}
 
 	for _, instance := range serviceInstances {
-		err = k8s.PatchResource(ctx, userClient, &instance, func() {
+		err = r.klient.Patch(ctx, &instance, func() error {
 			controllerutil.RemoveFinalizer(&instance, korifiv1alpha1.CFServiceInstanceFinalizerName)
+			return nil
 		})
 		if err != nil {
 			return fmt.Errorf("failed to remove finalizer for service instance: %s, %w", instance.Name, apierrors.FromK8sError(err, ServiceInstanceResourceType))
 		}
 
-		if err = userClient.Delete(ctx, &instance); err != nil {
+		if err = r.klient.Delete(ctx, &instance); err != nil {
 			return fmt.Errorf("failed to delete service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 		}
 
 	}
 
-	serviceBindings, err := r.fetchServiceBindings(ctx, userClient, authorizedSpaceNamespacesIter, planGUIDs)
+	serviceBindings, err := r.fetchServiceBindings(ctx, authorizedSpaceNamespacesIter, planGUIDs)
 	if err != nil {
 		return fmt.Errorf("failed to list service bindings: %w", err)
 	}
 
 	for _, binding := range serviceBindings {
-		err = k8s.PatchResource(ctx, userClient, &binding, func() {
+		err = r.klient.Patch(ctx, &binding, func() error {
 			controllerutil.RemoveFinalizer(&binding, korifiv1alpha1.CFServiceBindingFinalizerName)
+			return nil
 		})
 		if err != nil {
 			return fmt.Errorf("failed to remove finalizer for service binding: %s, %w", binding.Name, apierrors.FromK8sError(err, ServiceBindingResourceType))
@@ -237,19 +223,21 @@ func (r *ServiceOfferingRepo) purgeRelatedResources(ctx context.Context, authInf
 	return nil
 }
 
-func (r *ServiceOfferingRepo) deleteServicePlans(ctx context.Context, userClient client.WithWatch, offeringGUID string) ([]string, error) {
+func (r *ServiceOfferingRepo) deleteServicePlans(ctx context.Context, offeringGUID string) ([]string, error) {
 	var planGUIDs []string
 	plans := &korifiv1alpha1.CFServicePlanList{}
 
-	if err := userClient.List(ctx, plans, client.InNamespace(r.rootNamespace), client.MatchingLabels{
-		korifiv1alpha1.RelServiceOfferingGUIDLabel: offeringGUID,
+	if err := r.klient.List(ctx, plans, InNamespace(r.rootNamespace), WithLabels{
+		Selector: labels.SelectorFromValidatedSet(map[string]string{
+			korifiv1alpha1.RelServiceOfferingGUIDLabel: offeringGUID,
+		}),
 	}); err != nil {
 		return []string{}, fmt.Errorf("failed to list service plans: %w", err)
 	}
 
 	for _, plan := range plans.Items {
 		planGUIDs = append(planGUIDs, plan.Name)
-		if err := userClient.Delete(ctx, &plan); err != nil {
+		if err := r.klient.Delete(ctx, &plan); err != nil {
 			return []string{}, apierrors.FromK8sError(err, ServicePlanResourceType)
 		}
 	}
@@ -257,13 +245,13 @@ func (r *ServiceOfferingRepo) deleteServicePlans(ctx context.Context, userClient
 	return planGUIDs, nil
 }
 
-func (r *ServiceOfferingRepo) fetchServiceInstances(ctx context.Context, userClient client.WithWatch, authorizedNamespaces itx.Iterator[string], planGUIDs []string) ([]korifiv1alpha1.CFServiceInstance, error) {
+func (r *ServiceOfferingRepo) fetchServiceInstances(ctx context.Context, authorizedNamespaces itx.Iterator[string], planGUIDs []string) ([]korifiv1alpha1.CFServiceInstance, error) {
 	var serviceInstances []korifiv1alpha1.CFServiceInstance
 
 	for _, ns := range authorizedNamespaces.Collect() {
 		instances := new(korifiv1alpha1.CFServiceInstanceList)
 
-		err := userClient.List(ctx, instances, client.InNamespace(ns))
+		err := r.klient.List(ctx, instances, InNamespace(ns))
 		if err != nil {
 			return []korifiv1alpha1.CFServiceInstance{}, fmt.Errorf("failed to list service instances: %w", err)
 		}
@@ -278,13 +266,13 @@ func (r *ServiceOfferingRepo) fetchServiceInstances(ctx context.Context, userCli
 	return serviceInstances, nil
 }
 
-func (r *ServiceOfferingRepo) fetchServiceBindings(ctx context.Context, userClient client.WithWatch, authorizedNamespaces itx.Iterator[string], planGUIDs []string) ([]korifiv1alpha1.CFServiceBinding, error) {
+func (r *ServiceOfferingRepo) fetchServiceBindings(ctx context.Context, authorizedNamespaces itx.Iterator[string], planGUIDs []string) ([]korifiv1alpha1.CFServiceBinding, error) {
 	var serviceBindings []korifiv1alpha1.CFServiceBinding
 
 	for _, ns := range authorizedNamespaces.Collect() {
 		bindings := new(korifiv1alpha1.CFServiceBindingList)
 
-		err := userClient.List(ctx, bindings, client.InNamespace(ns))
+		err := r.klient.List(ctx, bindings, InNamespace(ns))
 		if err != nil {
 			return []korifiv1alpha1.CFServiceBinding{}, fmt.Errorf("failed to list service bindings: %w", err)
 		}

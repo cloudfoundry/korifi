@@ -46,10 +46,7 @@ var _ = Describe("TaskRepository", func() {
 			*korifiv1alpha1.CFTaskList,
 		]{}
 		taskRepo = repositories.NewTaskRepo(
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
-			namespaceRetriever,
+			klient,
 			conditionAwaiter,
 		)
 
@@ -67,7 +64,7 @@ var _ = Describe("TaskRepository", func() {
 		)
 
 		BeforeEach(func() {
-			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFTask, error) {
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ repositories.Watcher, object client.Object, _ string) (*korifiv1alpha1.CFTask, error) {
 				cfTask, ok := object.(*korifiv1alpha1.CFTask)
 				Expect(ok).To(BeTrue())
 
@@ -543,7 +540,7 @@ var _ = Describe("TaskRepository", func() {
 				cfTask.Status.DropletRef.Name = cfApp.Spec.CurrentDropletRef.Name
 			})).To(Succeed())
 
-			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFTask, error) {
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ repositories.Watcher, object client.Object, _ string) (*korifiv1alpha1.CFTask, error) {
 				cfTask, ok := object.(*korifiv1alpha1.CFTask)
 				Expect(ok).To(BeTrue())
 

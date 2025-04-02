@@ -22,6 +22,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -136,17 +137,17 @@ func main() {
 		cfg.RootNamespace,
 	)
 
+	klient := k8sklient.NewK8sKlient(namespaceRetriever, userClientFactory)
+
 	orgRepo := repositories.NewOrgRepo(
+		klient,
 		cfg.RootNamespace,
-		privilegedClient,
-		userClientFactoryUnfiltered,
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFOrg, korifiv1alpha1.CFOrg, korifiv1alpha1.CFOrgList](conditionTimeout),
 	)
 	spaceRepo := repositories.NewSpaceRepo(
-		namespaceRetriever,
+		klient,
 		orgRepo,
-		userClientFactoryUnfiltered,
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFSpace, korifiv1alpha1.CFSpace, korifiv1alpha1.CFSpaceList](conditionTimeout),
 	)

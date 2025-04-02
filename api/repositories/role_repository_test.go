@@ -56,7 +56,7 @@ var _ = Describe("RoleRepository", func() {
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]{})
-		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, &fakeawaiter.FakeAwaiter[
+		spaceRepo := repositories.NewSpaceRepo(klient, orgRepo, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFSpace,
 			korifiv1alpha1.CFSpace,
 			korifiv1alpha1.CFSpaceList,
