@@ -173,6 +173,8 @@ networking:
   gatewayClass:
 
 experimental:
+  routing:
+    disableRouteController: false
   managedServices:
     enabled: false
     trustInsecureBrokers: false
