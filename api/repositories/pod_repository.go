@@ -11,25 +11,19 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	corev1 "k8s.io/api/core/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type PodRepo struct {
-	userClientFactory authorization.UserClientFactory
+	klient Klient
 }
 
-func NewPodRepo(userClientFactory authorization.UserClientFactory) *PodRepo {
+func NewPodRepo(klient Klient) *PodRepo {
 	return &PodRepo{
-		userClientFactory: userClientFactory,
+		klient: klient,
 	}
 }
 
 func (r *PodRepo) DeletePod(ctx context.Context, authInfo authorization.Info, appRevision string, process ProcessRecord, instanceID string) error {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		"korifi.cloudfoundry.org/app-guid":     process.AppGUID,
 		"korifi.cloudfoundry.org/version":      appRevision,
@@ -38,10 +32,9 @@ func (r *PodRepo) DeletePod(ctx context.Context, authInfo authorization.Info, ap
 	if err != nil {
 		return fmt.Errorf("failed to build labelSelector: %w", apierrors.FromK8sError(err, PodResourceType))
 	}
-	listOpts := client.ListOptions{Namespace: process.SpaceGUID, LabelSelector: labelSelector}
 
 	podList := corev1.PodList{}
-	err = userClient.List(ctx, &podList, &listOpts)
+	err = r.klient.List(ctx, &podList, InNamespace(process.SpaceGUID), WithLabels{Selector: labelSelector})
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
 	}
@@ -58,7 +51,7 @@ func (r *PodRepo) DeletePod(ctx context.Context, authInfo authorization.Info, ap
 		return apierrors.NewUnprocessableEntityError(nil, "multiple pods found")
 	}
 
-	err = userClient.Delete(ctx, &podsToDelete[0])
+	err = r.klient.Delete(ctx, &podsToDelete[0])
 	if err != nil {
 		return fmt.Errorf("failed to 'delete' pod: %w", apierrors.FromK8sError(err, PodResourceType))
 	}

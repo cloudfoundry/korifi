@@ -10,27 +10,23 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const ProcessResourceType = "Process"
 
-func NewProcessRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserClientFactory) *ProcessRepo {
+func NewProcessRepo(klient Klient) *ProcessRepo {
 	return &ProcessRepo{
-		namespaceRetriever: namespaceRetriever,
-		clientFactory:      userClientFactory,
+		klient: klient,
 	}
 }
 
 type ProcessRepo struct {
-	namespaceRetriever NamespaceRetriever
-	clientFactory      authorization.UserClientFactory
+	klient Klient
 }
 
 type ProcessRecord struct {
@@ -128,33 +124,22 @@ func (m *ListProcessesMessage) matchesNamespace(ns string) bool {
 }
 
 func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Info, processGUID string) (ProcessRecord, error) {
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, processGUID, ProcessResourceType)
-	if err != nil {
-		return ProcessRecord{}, err
+	process := &korifiv1alpha1.CFProcess{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: processGUID,
+		},
 	}
-
-	userClient, err := r.clientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
-	}
-
-	var process korifiv1alpha1.CFProcess
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: processGUID}, &process)
+	err := r.klient.Get(ctx, process)
 	if err != nil {
 		return ProcessRecord{}, fmt.Errorf("failed to get process %q: %w", processGUID, apierrors.FromK8sError(err, ProcessResourceType))
 	}
 
-	return cfProcessToProcessRecord(process), nil
+	return cfProcessToProcessRecord(*process), nil
 }
 
 func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.Info, message ListProcessesMessage) ([]ProcessRecord, error) {
-	userClient, err := r.clientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
-	}
-
 	processList := &korifiv1alpha1.CFProcessList{}
-	err = userClient.List(ctx, processList)
+	err := r.klient.List(ctx, processList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
 	}
@@ -164,18 +149,13 @@ func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.
 }
 
 func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage ScaleProcessMessage) (ProcessRecord, error) {
-	userClient, err := r.clientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ProcessRecord{}, fmt.Errorf("get-process: failed to build user k8s client: %w", err)
-	}
-
 	cfProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scaleProcessMessage.GUID,
 			Namespace: scaleProcessMessage.SpaceGUID,
 		},
 	}
-	err = k8s.PatchResource(ctx, userClient, cfProcess, func() {
+	err := GetAndPatch(ctx, r.klient, cfProcess, func() error {
 		if scaleProcessMessage.Instances != nil {
 			cfProcess.Spec.DesiredInstances = scaleProcessMessage.Instances
 		}
@@ -185,6 +165,8 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.I
 		if scaleProcessMessage.DiskMB != nil {
 			cfProcess.Spec.DiskQuotaMB = *scaleProcessMessage.DiskMB
 		}
+
+		return nil
 	})
 	if err != nil {
 		return ProcessRecord{}, fmt.Errorf("failed to scale process %q: %w", scaleProcessMessage.GUID, apierrors.FromK8sError(err, ProcessResourceType))
@@ -194,11 +176,6 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.I
 }
 
 func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.Info, message CreateProcessMessage) error {
-	userClient, err := r.clientFactory.BuildClient(authInfo)
-	if err != nil {
-		return fmt.Errorf("get-process: failed to build user k8s client: %w", err)
-	}
-
 	process := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: message.SpaceGUID,
@@ -217,28 +194,22 @@ func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.
 			DiskQuotaMB:      message.DiskQuotaMB,
 		},
 	}
-	err = userClient.Create(ctx, process)
+	err := r.klient.Create(ctx, process)
 	return apierrors.FromK8sError(err, ProcessResourceType)
 }
 
 func (r *ProcessRepo) GetAppRevision(ctx context.Context, authInfo authorization.Info, appGUID string) (string, error) {
-	var appRevision string
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, appGUID, AppResourceType)
+	app := korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: appGUID,
+		},
+	}
+	err := r.klient.Get(ctx, &app)
 	if err != nil {
-		return appRevision, fmt.Errorf("get-apprevision-for-process: failed to get namespace: %w", apierrors.FromK8sError(err, ProcessResourceType))
+		return "", fmt.Errorf("get-apprevision-for-process: failed to get app from kubernetes: %w", apierrors.FromK8sError(err, ProcessResourceType))
 	}
 
-	userClient, err := r.clientFactory.BuildClient(authInfo)
-	if err != nil {
-		return appRevision, fmt.Errorf("get-apprevision-for-process: failed to build user k8s client: %w", err)
-	}
-	app := korifiv1alpha1.CFApp{}
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: appGUID}, &app)
-	if err != nil {
-		return appRevision, fmt.Errorf("get-apprevision-for-process: failed to get app from kubernetes: %w", apierrors.FromK8sError(err, ProcessResourceType))
-	}
-
-	appRevision = app.ObjectMeta.Annotations["korifi.cloudfoundry.org/app-rev"]
+	appRevision := app.ObjectMeta.Annotations["korifi.cloudfoundry.org/app-rev"]
 	if appRevision == "" {
 		return appRevision, fmt.Errorf("get-apprevision-for-process: cannot find app revision")
 	}
@@ -247,18 +218,13 @@ func (r *ProcessRepo) GetAppRevision(ctx context.Context, authInfo authorization
 }
 
 func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.Info, message PatchProcessMessage) (ProcessRecord, error) {
-	userClient, err := r.clientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ProcessRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	updatedProcess := &korifiv1alpha1.CFProcess{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.ProcessGUID,
 			Namespace: message.SpaceGUID,
 		},
 	}
-	err = k8s.PatchResource(ctx, userClient, updatedProcess, func() {
+	err := GetAndPatch(ctx, r.klient, updatedProcess, func() error {
 		if message.Command != nil {
 			updatedProcess.Spec.Command = *message.Command
 		}
@@ -287,6 +253,8 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 		if message.MetadataPatch != nil {
 			message.MetadataPatch.Apply(updatedProcess)
 		}
+
+		return nil
 	})
 	if err != nil {
 		return ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)

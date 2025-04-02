@@ -6,7 +6,6 @@ import (
 	"slices"
 	"time"
 
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 
@@ -15,7 +14,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // No kubebuilder RBAC tags required, because Build and Droplet are the same CR
@@ -25,17 +24,14 @@ const (
 )
 
 type DropletRepo struct {
-	userClientFactory  authorization.UserClientFactory
-	namespaceRetriever NamespaceRetriever
+	klient Klient
 }
 
 func NewDropletRepo(
-	userClientFactory authorization.UserClientFactory,
-	namespaceRetriever NamespaceRetriever,
+	klient Klient,
 ) *DropletRepo {
 	return &DropletRepo{
-		userClientFactory:  userClientFactory,
-		namespaceRetriever: namespaceRetriever,
+		klient: klient,
 	}
 }
 
@@ -79,7 +75,7 @@ func (m *ListDropletsMessage) createSelector() map[string]string {
 }
 
 func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (DropletRecord, error) {
-	build, _, err := r.getBuildAssociatedWithDroplet(ctx, authInfo, dropletGUID)
+	build, err := r.getBuildAssociatedWithDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
 		return DropletRecord{}, err
 	}
@@ -87,24 +83,17 @@ func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Inf
 	return cfBuildToDroplet(build)
 }
 
-func (r *DropletRepo) getBuildAssociatedWithDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (*korifiv1alpha1.CFBuild, client.WithWatch, error) {
-	// A droplet is a subset of a build
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, dropletGUID, DropletResourceType)
-	if err != nil {
-		return nil, nil, err
+func (r *DropletRepo) getBuildAssociatedWithDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (*korifiv1alpha1.CFBuild, error) {
+	build := &korifiv1alpha1.CFBuild{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dropletGUID,
+		},
 	}
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	err := r.klient.Get(ctx, build)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build user client: %w", err)
+		return nil, apierrors.FromK8sError(err, DropletResourceType)
 	}
-
-	var build korifiv1alpha1.CFBuild
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: dropletGUID}, &build)
-	if err != nil {
-		return nil, nil, apierrors.FromK8sError(err, DropletResourceType)
-	}
-	return &build, userClient, nil
+	return build, nil
 }
 
 func cfBuildToDroplet(cfBuild *korifiv1alpha1.CFBuild) (DropletRecord, error) {
@@ -154,13 +143,8 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 }
 
 func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []DropletRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	buildList := &korifiv1alpha1.CFBuildList{}
-	err = userClient.List(ctx, buildList, client.MatchingLabels(message.createSelector()))
+	err := r.klient.List(ctx, buildList, WithLabels{Selector: labels.SelectorFromValidatedSet(message.createSelector())})
 	if err != nil {
 		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
@@ -175,13 +159,15 @@ type UpdateDropletMessage struct {
 }
 
 func (r *DropletRepo) UpdateDroplet(ctx context.Context, authInfo authorization.Info, message UpdateDropletMessage) (DropletRecord, error) {
-	build, userClient, err := r.getBuildAssociatedWithDroplet(ctx, authInfo, message.GUID)
+	build, err := r.getBuildAssociatedWithDroplet(ctx, authInfo, message.GUID)
 	if err != nil {
 		return DropletRecord{}, err
 	}
 
-	err = k8s.PatchResource(ctx, userClient, build, func() {
+	err = r.klient.Patch(ctx, build, func() error {
 		message.MetadataPatch.Apply(build)
+
+		return nil
 	})
 	if err != nil {
 		return DropletRecord{}, fmt.Errorf("failed to patch droplet metadata: %w", apierrors.FromK8sError(err, DropletResourceType))

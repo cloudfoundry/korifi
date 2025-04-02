@@ -3,7 +3,6 @@ package repositories_test
 import (
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -48,12 +47,7 @@ var _ = Describe("DropletRepository", func() {
 		org = createOrgWithCleanup(ctx, orgName)
 		space = createSpaceWithCleanup(ctx, org.Name, spaceName)
 
-		dropletRepo = repositories.NewDropletRepo(
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
-			namespaceRetriever,
-		)
+		dropletRepo = repositories.NewDropletRepo(klient)
 
 		build = &korifiv1alpha1.CFBuild{
 			ObjectMeta: metav1.ObjectMeta{

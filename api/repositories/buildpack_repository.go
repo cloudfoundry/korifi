@@ -81,14 +81,14 @@ type ListBuildpacksMessage struct {
 }
 
 func NewBuildpackRepository(
-	builderName string,
 	klient Klient,
+	builderName string,
 	rootNamespace string,
 	sorter BuildpackSorter,
 ) *BuildpackRepository {
 	return &BuildpackRepository{
-		builderName:   builderName,
 		klient:        klient,
+		builderName:   builderName,
 		rootNamespace: rootNamespace,
 		sorter:        sorter,
 	}

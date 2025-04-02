@@ -31,7 +31,7 @@ var _ = Describe("BuildpackRepository", func() {
 			return records
 		}
 
-		buildpackRepo = NewBuildpackRepository(builderName, klient, rootNamespace, sorter)
+		buildpackRepo = NewBuildpackRepository(klient, builderName, rootNamespace, sorter)
 	})
 
 	Describe("ListBuildpacks", func() {

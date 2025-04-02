@@ -30,7 +30,7 @@ var _ = Describe("ServicePlanRepo", func() {
 	)
 
 	BeforeEach(func() {
-		orgRepo := repositories.NewOrgRepo(rootNamespace, klient, nsPerms, &fakeawaiter.FakeAwaiter[
+		orgRepo := repositories.NewOrgRepo(klient, rootNamespace, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,

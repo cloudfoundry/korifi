@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -31,12 +30,7 @@ var _ = Describe("ProcessRepo", func() {
 	)
 
 	BeforeEach(func() {
-		processRepo = repositories.NewProcessRepo(
-			namespaceRetriever,
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
-		)
+		processRepo = repositories.NewProcessRepo(klient)
 		org = createOrgWithCleanup(ctx, uuid.NewString())
 		space = createSpaceWithCleanup(ctx, org.Name, uuid.NewString())
 

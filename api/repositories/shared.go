@@ -79,6 +79,7 @@ func (m MatchingFields) ApplyToList(opts *ListOptions) {
 	opts.FieldSelector = sel
 }
 
+// TODO: Is this interface needed? can we not use Klient instead?
 type Watcher interface {
 	Watch(ctx context.Context, obj client.ObjectList, opts ...ListOption) (watch.Interface, error)
 }

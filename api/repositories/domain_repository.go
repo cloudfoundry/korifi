@@ -11,14 +11,12 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -26,20 +24,17 @@ const (
 )
 
 type DomainRepo struct {
-	userClientFactory  authorization.UserClientFactory
-	namespaceRetriever NamespaceRetriever
-	rootNamespace      string
+	klient        Klient
+	rootNamespace string
 }
 
 func NewDomainRepo(
-	userClientFactory authorization.UserClientFactory,
-	namespaceRetriever NamespaceRetriever,
+	klient Klient,
 	rootNamespace string,
 ) *DomainRepo {
 	return &DomainRepo{
-		userClientFactory:  userClientFactory,
-		namespaceRetriever: namespaceRetriever,
-		rootNamespace:      rootNamespace,
+		klient:        klient,
+		rootNamespace: rootNamespace,
 	}
 }
 
@@ -77,18 +72,12 @@ func (m *ListDomainsMessage) matches(d korifiv1alpha1.CFDomain) bool {
 }
 
 func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, domainGUID, DomainResourceType)
-	if err != nil {
-		return DomainRecord{}, err
+	domain := &korifiv1alpha1.CFDomain{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: domainGUID,
+		},
 	}
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return DomainRecord{}, fmt.Errorf("get-domain failed to create user client: %w", err)
-	}
-
-	domain := &korifiv1alpha1.CFDomain{}
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: domainGUID}, domain)
+	err := r.klient.Get(ctx, domain)
 	if err != nil {
 		return DomainRecord{}, fmt.Errorf("get-domain failed: %w", apierrors.FromK8sError(err, DomainResourceType))
 	}
@@ -97,11 +86,6 @@ func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info,
 }
 
 func (r *DomainRepo) CreateDomain(ctx context.Context, authInfo authorization.Info, message CreateDomainMessage) (DomainRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return DomainRecord{}, fmt.Errorf("create-domain failed to create user client: %w", err)
-	}
-
 	cfDomain := &korifiv1alpha1.CFDomain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        uuid.NewString(),
@@ -114,7 +98,7 @@ func (r *DomainRepo) CreateDomain(ctx context.Context, authInfo authorization.In
 		},
 	}
 
-	err = userClient.Create(ctx, cfDomain)
+	err := r.klient.Create(ctx, cfDomain)
 	if err != nil {
 		return DomainRecord{}, fmt.Errorf("create-domain failed: %w", apierrors.FromK8sError(err, DomainResourceType))
 	}
@@ -123,11 +107,6 @@ func (r *DomainRepo) CreateDomain(ctx context.Context, authInfo authorization.In
 }
 
 func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.Info, message UpdateDomainMessage) (DomainRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return DomainRecord{}, fmt.Errorf("create-domain failed to create user client: %w", err)
-	}
-
 	domain := &korifiv1alpha1.CFDomain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
@@ -135,13 +114,14 @@ func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.In
 		},
 	}
 
-	err = userClient.Get(ctx, client.ObjectKeyFromObject(domain), domain)
+	err := r.klient.Get(ctx, domain)
 	if err != nil {
 		return DomainRecord{}, fmt.Errorf("update-domain failed: %w", apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	err = k8s.PatchResource(ctx, userClient, domain, func() {
+	err = r.klient.Patch(ctx, domain, func() error {
 		message.MetadataPatch.Apply(domain)
+		return nil
 	})
 	if err != nil {
 		return DomainRecord{}, fmt.Errorf("failed to patch domain metadata: %w", apierrors.FromK8sError(err, DomainResourceType))
@@ -151,13 +131,8 @@ func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.In
 }
 
 func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) ([]DomainRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []DomainRecord{}, fmt.Errorf("list-domain failed to create user client: %w", err)
-	}
-
 	cfdomainList := &korifiv1alpha1.CFDomainList{}
-	err = userClient.List(ctx, cfdomainList, client.InNamespace(r.rootNamespace))
+	err := r.klient.List(ctx, cfdomainList, InNamespace(r.rootNamespace))
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return []DomainRecord{}, nil
@@ -177,11 +152,6 @@ func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Inf
 }
 
 func (r *DomainRepo) DeleteDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) error {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return fmt.Errorf("delete-domain failed to create user client: %w", err)
-	}
-
 	cfDomain := &korifiv1alpha1.CFDomain{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
@@ -189,7 +159,7 @@ func (r *DomainRepo) DeleteDomain(ctx context.Context, authInfo authorization.In
 		},
 	}
 
-	err = userClient.Delete(ctx, cfDomain)
+	err := r.klient.Delete(ctx, cfDomain)
 	if err != nil {
 		return apierrors.FromK8sError(err, DomainResourceType)
 	}
