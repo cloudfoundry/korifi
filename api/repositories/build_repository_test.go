@@ -253,7 +253,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns an error", func() {
 				_, err := buildRepo.GetBuild(ctx, authInfo, buildGUID)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError("get-build duplicate records exist"))
+				Expect(err).To(MatchError(ContainSubstring("get-build duplicate records exist")))
 			})
 		})
 

@@ -183,8 +183,6 @@ var _ = Describe("SpaceRepository", func() {
 		var space11, space12, space21, space22 *korifiv1alpha1.CFSpace
 
 		BeforeEach(func() {
-			ctx = context.Background()
-
 			cfOrg1 = createOrgWithCleanup(ctx, prefixedGUID("org1"))
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg1.Name)
 			cfOrg2 = createOrgWithCleanup(ctx, prefixedGUID("org2"))
@@ -428,8 +426,7 @@ var _ = Describe("SpaceRepository", func() {
 
 		When("the user has permission to delete spaces", func() {
 			BeforeEach(func() {
-				beforeCtx := context.Background()
-				createRoleBinding(beforeCtx, userName, adminRole.Name, cfSpace.Namespace)
+				createRoleBinding(ctx, userName, adminRole.Name, cfSpace.Namespace)
 			})
 
 			It("deletes the space resource", func() {

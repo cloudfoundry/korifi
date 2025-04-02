@@ -227,7 +227,7 @@ func appToDeploymentRecord(cfApp korifiv1alpha1.CFApp) DeploymentRecord {
 func (r *DeploymentRepo) ensureSupport(ctx context.Context, app *korifiv1alpha1.CFApp) error {
 	log := logr.FromContextOrDiscard(ctx).WithName("repo.deployment.ensureSupport")
 
-	appGuidReq, err := labels.NewRequirement(korifiv1alpha1.SpaceGUIDKey, selection.Equals, []string{app.Name})
+	appGuidReq, err := labels.NewRequirement(korifiv1alpha1.CFAppGUIDLabelKey, selection.Equals, []string{app.Name})
 	if err != nil {
 		return err
 	}

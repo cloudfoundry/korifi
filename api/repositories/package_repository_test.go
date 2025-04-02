@@ -446,7 +446,7 @@ var _ = Describe("PackageRepository", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(getErr).To(MatchError("get-package duplicate records exist"))
+				Expect(getErr).To(MatchError(ContainSubstring("get-package duplicate records exist")))
 			})
 		})
 

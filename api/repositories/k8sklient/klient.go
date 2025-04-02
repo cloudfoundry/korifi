@@ -138,6 +138,24 @@ func getResourceType(obj client.Object) (string, error) {
 	switch obj.(type) {
 	case *korifiv1alpha1.CFApp:
 		return repositories.AppResourceType, nil
+	case *korifiv1alpha1.CFBuild:
+		return repositories.BuildResourceType, nil
+	case *korifiv1alpha1.CFDomain:
+		return repositories.DomainResourceType, nil
+	case *korifiv1alpha1.CFPackage:
+		return repositories.PackageResourceType, nil
+	case *korifiv1alpha1.CFProcess:
+		return repositories.ProcessResourceType, nil
+	case *korifiv1alpha1.CFSpace:
+		return repositories.SpaceResourceType, nil
+	case *korifiv1alpha1.CFRoute:
+		return repositories.RouteResourceType, nil
+	case *korifiv1alpha1.CFServiceBinding:
+		return repositories.ServiceBindingResourceType, nil
+	case *korifiv1alpha1.CFServiceInstance:
+		return repositories.ServiceInstanceResourceType, nil
+	case *korifiv1alpha1.CFTask:
+		return repositories.TaskResourceType, nil
 	default:
 		return "", fmt.Errorf("unsupported resource type %T", obj)
 	}

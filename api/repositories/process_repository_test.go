@@ -184,7 +184,7 @@ var _ = Describe("ProcessRepo", func() {
 
 			It("returns an untyped error", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(MatchError("get-process duplicate records exist"))
+				Expect(getErr).To(MatchError(ContainSubstring("get-process duplicate records exist")))
 			})
 		})
 
@@ -195,7 +195,7 @@ var _ = Describe("ProcessRepo", func() {
 
 			It("returns a not found error", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
+				Expect(getErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 			})
 		})
 	})

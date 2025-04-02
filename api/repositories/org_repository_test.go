@@ -168,8 +168,6 @@ var _ = Describe("OrgRepository", func() {
 		var cfOrg1, cfOrg2, cfOrg3 *korifiv1alpha1.CFOrg
 
 		BeforeEach(func() {
-			ctx = context.Background()
-
 			cfOrg1 = createOrgWithCleanup(ctx, prefixedGUID("org1"))
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg1.Name)
 			cfOrg2 = createOrgWithCleanup(ctx, prefixedGUID("org2"))
@@ -424,10 +422,9 @@ var _ = Describe("OrgRepository", func() {
 
 		When("the user has permission to delete orgs", func() {
 			BeforeEach(func() {
-				beforeCtx := context.Background()
-				createRoleBinding(beforeCtx, userName, adminRole.Name, cfOrg.Namespace)
+				createRoleBinding(ctx, userName, adminRole.Name, cfOrg.Namespace)
 				// Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
-				createRoleBinding(beforeCtx, userName, adminRole.Name, cfOrg.Name)
+				createRoleBinding(ctx, userName, adminRole.Name, cfOrg.Name)
 			})
 
 			When("on the happy path", func() {
