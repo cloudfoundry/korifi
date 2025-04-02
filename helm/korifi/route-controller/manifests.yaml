@@ -2,16 +2,16 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: korifi-gatewayapi-router-mutating-webhook-configuration
+  name: korifi-route-controller-mutating-webhook-configuration
   annotations:
-    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/korifi-gatewayapi-router-serving-cert'
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/korifi-route-controller-serving-cert'
 webhooks:
   - admissionReviewVersions:
       - v1
       - v1beta1
     clientConfig:
       service:
-        name: korifi-gatewayapi-router-webhook-service
+        name: korifi-route-controller-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfroute
     failurePolicy: Fail
@@ -32,9 +32,9 @@ webhooks:
       - v1beta1
     clientConfig:
       service:
-        name: korifi-gatewayapi-router-webhook-service
+        name: korifi-route-controller-webhook-service
         namespace: '{{ .Release.Namespace }}'
-        path: /mutate-korifi-cloudfoundry-org-v1alpha1-gatewayapi-router-finalizer
+        path: /mutate-korifi-cloudfoundry-org-v1alpha1-route-controller-finalizer
     failurePolicy: Fail
     name: mcffinalizer.korifi.cloudfoundry.org
     rules:
@@ -52,9 +52,9 @@ webhooks:
       - v1beta1
     clientConfig:
       service:
-        name: korifi-gatewayapi-router-webhook-service
+        name: korifi-route-controller-webhook-service
         namespace: '{{ .Release.Namespace }}'
-        path: /mutate-korifi-cloudfoundry-org-v1alpha1-gatewayapi-router-space-guid
+        path: /mutate-korifi-cloudfoundry-org-v1alpha1-route-controller-space-guid
     failurePolicy: Fail
     name: mcfspaceguid.korifi.cloudfoundry.org
     rules:
@@ -73,7 +73,7 @@ webhooks:
       - v1beta1
     clientConfig:
       service:
-        name: korifi-gatewayapi-router-webhook-service
+        name: korifi-route-controller-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-all-version
     failurePolicy: Fail
@@ -94,7 +94,7 @@ webhooks:
       - v1beta1
     clientConfig:
       service:
-        name: korifi-gatewayapi-router-webhook-service
+        name: korifi-route-controller-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-all-version
     failurePolicy: Fail
