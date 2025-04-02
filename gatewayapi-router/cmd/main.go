@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	routeControllers "code.cloudfoundry.org/korifi/gatewayapi-router/controllers"
 	"context"
 	"flag"
 	"fmt"
@@ -29,7 +30,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/k8s"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
-	routeControllers "code.cloudfoundry.org/korifi/route-controller/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/version"
 
@@ -129,7 +129,7 @@ func main() {
 			controllersLog,
 			controllerConfig,
 		).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create route-controller", "route-controller", "CFRoute")
+			setupLog.Error(err, "unable to create gatewayapi-router", "gatewayapi-router", "CFRoute")
 			os.Exit(1)
 		}
 

@@ -11,14 +11,14 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY controllers controllers
-COPY route-controller route-controller
+COPY gatewayapi-router gatewayapi-router
 COPY model model
 COPY tools tools
 COPY version version
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags "-X code.cloudfoundry.org/korifi/version.Version=${version}" -o manager route-controller/cmd/main.go
+    CGO_ENABLED=0 GOOS=linux go build -ldflags "-X code.cloudfoundry.org/korifi/version.Version=${version}" -o manager gatewayapi-router/cmd/main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
