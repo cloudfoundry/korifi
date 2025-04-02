@@ -1,15 +1,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: korifi-gatewayapi-router-manager
+  name: korifi-route-controller-manager
   labels:
-    app: korifi-gatewayapi-router
+    app: korifi-route-controller
   namespace: { { .Release.Namespace } }
 spec:
   replicas: { { .Values.controllers.replicas | default 1 } }
   selector:
     matchLabels:
-      app: korifi-gatewayapi-router
+      app: korifi-route-controller
   template:
     metadata:
       annotations:
@@ -17,16 +17,16 @@ spec:
         prometheus.io/path: /metrics
         prometheus.io/port: "8080"
         prometheus.io/scrape: "true"
-        checksum/config: { { tpl ($.Files.Get "gatewayapi-router/configmap.yaml") $ | sha256sum } }
+        checksum/config: { { tpl ($.Files.Get "route-controller/configmap.yaml") $ | sha256sum } }
       labels:
-        app: korifi-gatewayapi-router
+        app: korifi-route-controller
     spec:
       containers:
         - name: manager
           env:
             - name: ROUTECONTROLCONFIG
-              value: /etc/korifi-gatewayapi-router-config
-          image: { { .Values.gatewayapi-router.image } }
+              value: /etc/korifi-route-controller-config
+          image: { { .Values.route-controller.image } }
           imagePullPolicy: IfNotPresent
           { { - if .Values.debug } }
           command:
@@ -72,25 +72,25 @@ spec:
             - mountPath: /tmp/k8s-webhook-server/serving-certs
               name: cert
               readOnly: true
-            - mountPath: /etc/korifi-gatewayapi-router-config
-              name: korifi-gatewayapi-router-config
+            - mountPath: /etc/korifi-route-controller-config
+              name: korifi-route-controller-config
               readOnly: true
             { { - include "korifi.podSecurityContext" . | indent 6 } }
-      serviceAccountName: korifi-gatewayapi-router-manager
-        { {- if .Values.gatewayapi-router.nodeSelector }}
+      serviceAccountName: korifi-route-controller-manager
+        { {- if .Values.route-controller.nodeSelector }}
       nodeSelector:
-        { { toYaml .Values.gatewayapi-router.nodeSelector | indent 8 } }
+        { { toYaml .Values.route-controller.nodeSelector | indent 8 } }
         { { - end } }
-        { { - if .Values.gatewayapi-router.tolerations } }
+        { { - if .Values.route-controller.tolerations } }
       tolerations:
-        { { - toYaml .Values.gatewayapi-router.tolerations | nindent 8 } }
+        { { - toYaml .Values.route-controller.tolerations | nindent 8 } }
         { { - end } }
       terminationGracePeriodSeconds: 10
       volumes:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: gatewayapi-router-webhook-server-cert
+            secretName: route-controller-webhook-server-cert
         - configMap:
-            name: korifi-gatewayapi-router-config
-          name: korifi-gatewayapi-router-config
+            name: korifi-route-controller-config
+          name: korifi-route-controller-config
