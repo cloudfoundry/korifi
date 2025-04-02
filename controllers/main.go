@@ -375,11 +375,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		uncachedClient, err := client.New(mgr.GetConfig(), client.Options{
+		uncachedClient, clientErr := client.New(mgr.GetConfig(), client.Options{
 			Scheme: scheme,
 		})
-		if err != nil {
-			setupLog.Error(err, "unable to create uncached client")
+		if clientErr != nil {
+			setupLog.Error(clientErr, "unable to create uncached client")
 			os.Exit(1)
 		}
 
