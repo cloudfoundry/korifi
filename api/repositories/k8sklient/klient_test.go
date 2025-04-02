@@ -18,6 +18,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 )
@@ -317,9 +318,12 @@ var _ = Describe("Klient", func() {
 				Expect(err).NotTo(HaveOccurred())
 				expectedSelector = expectedSelector.Add(spaceGuidsReqs...)
 
+				expectedFieldSelector, err := fields.ParseSelector("field=fieldValue")
+				Expect(err).NotTo(HaveOccurred())
 				Expect(actualOpts).To(ConsistOf(PointTo(Equal(client.ListOptions{
 					LabelSelector: expectedSelector,
 					Namespace:     "in-ns",
+					FieldSelector: expectedFieldSelector,
 				}))))
 			})
 		})
@@ -407,9 +411,12 @@ var _ = Describe("Klient", func() {
 				Expect(err).NotTo(HaveOccurred())
 				expectedSelector = expectedSelector.Add(spaceGuidsReqs...)
 
+				expectedFieldSelector, err := fields.ParseSelector("field=fieldValue")
+				Expect(err).NotTo(HaveOccurred())
 				Expect(actualOpts).To(ConsistOf(PointTo(Equal(client.ListOptions{
 					LabelSelector: expectedSelector,
 					Namespace:     "in-ns",
+					FieldSelector: expectedFieldSelector,
 				}))))
 			})
 		})

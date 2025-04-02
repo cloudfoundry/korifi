@@ -48,15 +48,11 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
-	ctx       context.Context
-	testEnv   *envtest.Environment
-	k8sClient client.WithWatch
-	// TODO: remove
-	namespaceRetriever repositories.NamespaceRetriever
-	// TODO: remove
-	userClientFactory     authorization.UnprivilegedClientFactory
+	ctx                   context.Context
+	testEnv               *envtest.Environment
+	k8sClient             client.WithWatch
 	klient                repositories.Klient
-	userClientsetFactory  authorization.UnprivilegedClientsetFactory
+	klientUnfiltered      repositories.Klient
 	userName              string
 	authInfo              authorization.Info
 	rootNamespace         string
@@ -97,12 +93,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	dynamicClient, err := dynamic.NewForConfig(testEnv.Config)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(dynamicClient).NotTo(BeNil())
-	namespaceRetriever = repositories.NewNamespaceRetriever(dynamicClient)
-	Expect(namespaceRetriever).NotTo(BeNil())
-
 	adminRole = createClusterRole(context.Background(), "cf_admin")
 	orgManagerRole = createClusterRole(context.Background(), "cf_org_manager")
 	orgUserRole = createClusterRole(context.Background(), "cf_org_user")
@@ -139,17 +129,24 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	mapper, err := apiutil.NewDynamicRESTMapper(testEnv.Config, httpClient)
 	Expect(err).NotTo(HaveOccurred())
-	userClientFactory = authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper).
+
+	dynamicClient, err := dynamic.NewForConfig(testEnv.Config)
+	Expect(err).NotTo(HaveOccurred())
+	namespaceRetriever := repositories.NewNamespaceRetriever(dynamicClient)
+
+	userClientFactoryUnfiltered := authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper).
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
+	klientUnfiltered = k8sklient.NewK8sKlient(namespaceRetriever, userClientFactoryUnfiltered)
 
-	userClientsetFactory = authorization.NewUnprivilegedClientsetFactory(testEnv.Config)
+	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+		return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
+	})
+	klient = k8sklient.NewK8sKlient(namespaceRetriever, userClientFactory)
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)
-
-	klient = k8sklient.NewK8sKlient(namespaceRetriever, userClientFactory)
 })
 
 var _ = AfterEach(func() {

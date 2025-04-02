@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
@@ -59,9 +58,6 @@ var _ = Describe("AppRepository", func() {
 		sorter.SortStub = func(records []repositories.AppRecord, _ string) []repositories.AppRecord {
 			return records
 		}
-		userClientFactory = userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-			return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-		})
 		appRepo = repositories.NewAppRepo(klient, appAwaiter, sorter)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
@@ -144,7 +140,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("returns an error", func() {
 				Expect(getErr).To(HaveOccurred())
-				Expect(getErr).To(MatchError("get-app duplicate records exist"))
+				Expect(getErr).To(MatchError(ContainSubstring("get-app duplicate records exist")))
 			})
 		})
 

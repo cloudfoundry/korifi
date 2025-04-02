@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
@@ -116,6 +117,7 @@ var _ = Describe("LogRepository", func() {
 			return nil, nil
 		}
 
+		userClientsetFactory := authorization.NewUnprivilegedClientsetFactory(testEnv.Config)
 		logRepo = repositories.NewLogRepo(klient, userClientsetFactory, logStreamer.Spy)
 
 		message = repositories.GetLogsMessage{
