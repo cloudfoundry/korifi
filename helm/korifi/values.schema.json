@@ -621,6 +621,15 @@
           },
           "type": "object"
         },
+        "securityGroups": {
+          "properties": {
+            "enabled": {
+              "description": "Enable security groups support",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "uaa": {
           "properties": {
             "enabled": {
