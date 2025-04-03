@@ -22,6 +22,7 @@ var _ = Describe("Space", func() {
 	var (
 		apiHandler       *handlers.Space
 		spaceRepo        *fake.CFSpaceRepository
+		routeRepo        *fake.CFRouteRepository
 		requestValidator *fake.RequestValidator
 		requestMethod    string
 		requestPath      string
@@ -32,6 +33,7 @@ var _ = Describe("Space", func() {
 
 		requestValidator = new(fake.RequestValidator)
 		spaceRepo = new(fake.CFSpaceRepository)
+		routeRepo = new(fake.CFRouteRepository)
 		spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
 			Name:             "the-space",
 			GUID:             "the-space-guid",
@@ -41,6 +43,7 @@ var _ = Describe("Space", func() {
 		apiHandler = handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
+			routeRepo,
 			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
@@ -354,6 +357,84 @@ var _ = Describe("Space", func() {
 			})
 
 			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("Delete Routes for Space", func() {
+		BeforeEach(func() {
+			requestMethod = http.MethodDelete
+			requestPath += "/the-space-guid/routes?unmapped=true"
+
+			spaceRepo.GetSpaceReturns(repositories.SpaceRecord{
+				Name: "space-name",
+				GUID: "the-space-guid",
+			}, nil)
+
+			routeRepo.ListRoutesReturns([]repositories.RouteRecord{{
+				GUID:      "the-route-guid",
+				SpaceGUID: "the-space-guid",
+			}}, nil)
+		})
+
+		It("deletes the unmapped routes", func() {
+			Expect(spaceRepo.GetSpaceCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualSpaceGUID := spaceRepo.GetSpaceArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualSpaceGUID).To(Equal("the-space-guid"))
+
+			Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+			_, _, listRoutesMessage := routeRepo.ListRoutesArgsForCall(0)
+			Expect(listRoutesMessage).To(Equal(repositories.ListRoutesMessage{
+				SpaceGUIDs: []string{"the-space-guid"},
+				IsUnmapped: true,
+			}))
+
+			Expect(routeRepo.DeleteRouteCallCount()).To(Equal(1))
+			_, _, deleteMessage := routeRepo.DeleteRouteArgsForCall(0)
+			Expect(deleteMessage.GUID).To(Equal("the-route-guid"))
+			Expect(deleteMessage.SpaceGUID).To(Equal("the-space-guid"))
+
+			Expect(rr).Should(HaveHTTPStatus(http.StatusAccepted))
+		})
+
+		When("fething the space is forbidden", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, apierrors.NewForbiddenError(nil, repositories.SpaceResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.SpaceResourceType)
+			})
+		})
+
+		When("fetching the space fails", func() {
+			BeforeEach(func() {
+				spaceRepo.GetSpaceReturns(repositories.SpaceRecord{}, errors.New("boom"))
+			})
+
+			It("returns an unknown error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("there is a failure when listing routes", func() {
+			BeforeEach(func() {
+				routeRepo.ListRoutesReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("there is a failure when deleting the routes", func() {
+			BeforeEach(func() {
+				routeRepo.DeleteRouteReturns(errors.New("boom"))
+			})
+
+			It("returns an error", func() {
 				expectUnknownError()
 			})
 		})
