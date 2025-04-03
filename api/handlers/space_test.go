@@ -22,6 +22,7 @@ var _ = Describe("Space", func() {
 	var (
 		apiHandler       *handlers.Space
 		spaceRepo        *fake.CFSpaceRepository
+		orgRepo          *fake.CFOrgRepository
 		requestValidator *fake.RequestValidator
 		requestMethod    string
 		requestPath      string
@@ -38,9 +39,12 @@ var _ = Describe("Space", func() {
 			OrganizationGUID: "the-org-guid",
 		}, nil)
 
+		orgRepo = new(fake.CFOrgRepository)
+
 		apiHandler = handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
+			orgRepo,
 			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
@@ -163,6 +167,33 @@ var _ = Describe("Space", func() {
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/spaces/test-space-1-guid"),
 				MatchJSONPath("$.resources[1].guid", "test-space-2-guid"),
 			)))
+		})
+
+		When("orgs are included", func() {
+			BeforeEach(func() {
+				requestPath += "&include=organization"
+				orgRepo.ListOrgsReturns([]repositories.OrgRecord{
+					{
+						Name: "test-org-1",
+						GUID: "test-org-1-guid",
+					},
+					{
+						Name: "test-org-2",
+						GUID: "test-org-2-guid",
+					},
+				}, nil)
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{Include: "organization"})
+			})
+
+			It("returns the included orgs", func() {
+
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.included.organizations[0].name", "test-org-1"),
+					MatchJSONPath("$.included.organizations[0].guid", "test-org-1-guid"),
+					MatchJSONPath("$.included.organizations[1].name", "test-org-2"),
+					MatchJSONPath("$.included.organizations[1].guid", "test-org-2-guid"),
+				)))
+			})
 		})
 
 		When("fetching the spaces fails", func() {
@@ -355,6 +386,25 @@ var _ = Describe("Space", func() {
 
 			It("returns an unknown error", func() {
 				expectUnknownError()
+			})
+		})
+
+		When("org is included", func() {
+			BeforeEach(func() {
+				requestPath += "?include=organization"
+				orgRepo.GetOrgReturns(repositories.OrgRecord{
+					Name: "test-org-1",
+					GUID: "test-org-1-guid",
+				}, nil)
+
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceGet{Include: "organization"})
+			})
+
+			It("returns the included orgs", func() {
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.included.organizations[0].name", "test-org-1"),
+					MatchJSONPath("$.included.organizations[0].guid", "test-org-1-guid"),
+				)))
 			})
 		})
 	})
