@@ -28,7 +28,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/domains"
-	"code.cloudfoundry.org/korifi/controllers/controllers/networking/routes"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	managed_bindings "code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/managed"
 	upsi_bindings "code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/upsi"
@@ -340,18 +339,6 @@ func main() {
 			setupLog.Error(err, "unable to setup index on manager")
 			os.Exit(1)
 		}
-
-		if !controllerConfig.DisableRouteController {
-			if err = routes.NewReconciler(
-				controllersClient,
-				mgr.GetScheme(),
-				controllersLog,
-				controllerConfig,
-			).SetupWithManager(mgr); err != nil {
-				setupLog.Error(err, "unable to create controller", "controller", "CFRoute")
-				os.Exit(1)
-			}
-		}
 	}
 
 	// Setup webhooks with manager
@@ -382,11 +369,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		uncachedClient, err := client.New(mgr.GetConfig(), client.Options{
+		uncachedClient, clientErr := client.New(mgr.GetConfig(), client.Options{
 			Scheme: scheme,
 		})
-		if err != nil {
-			setupLog.Error(err, "unable to create uncached client")
+		if clientErr != nil {
+			setupLog.Error(clientErr, "unable to create uncached client")
 			os.Exit(1)
 		}
 
