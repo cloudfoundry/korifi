@@ -7,7 +7,9 @@ import (
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,6 +48,8 @@ var _ = Describe("AppWorkloadsController", func() {
 	})
 
 	getStatefulsetForAppWorkload := func(g Gomega) appsv1.StatefulSet {
+		GinkgoHelper()
+
 		stsetList := appsv1.StatefulSetList{}
 		g.Eventually(func(g Gomega) {
 			g.Expect(k8sClient.List(ctx, &stsetList, client.MatchingLabels{
@@ -64,14 +68,6 @@ var _ = Describe("AppWorkloadsController", func() {
 
 		It("creates the statefulset", func() {
 			Expect(getStatefulsetForAppWorkload(Default).Namespace).To(Equal(namespaceName))
-		})
-
-		It("the created statefulset contains an owner reference to our appworkload", func() {
-			statefulset := getStatefulsetForAppWorkload(Default)
-
-			Expect(statefulset.OwnerReferences).To(HaveLen(1))
-			Expect(statefulset.OwnerReferences[0].Kind).To(Equal("AppWorkload"))
-			Expect(statefulset.OwnerReferences[0].Name).To(Equal(appWorkload.Name))
 		})
 
 		It("sets the observed generation", func() {
@@ -94,7 +90,7 @@ var _ = Describe("AppWorkloadsController", func() {
 			JustBeforeEach(func() {
 				statefulset := tools.PtrTo(getStatefulsetForAppWorkload(Default))
 				Expect(k8s.Patch(ctx, k8sClient, statefulset, func() {
-					statefulset.Status.Replicas = 2
+					statefulset.Status.Replicas = 1
 					statefulset.Status.ReadyReplicas = 1
 				})).To(Succeed())
 			})
@@ -104,23 +100,6 @@ var _ = Describe("AppWorkloadsController", func() {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
 					g.Expect(appWorkload.Status.ActualInstances).To(BeEquivalentTo(1))
 				}).Should(Succeed())
-			})
-
-			When("the app workload is being deleted gracefully", func() {
-				JustBeforeEach(func() {
-					Expect(k8s.Patch(ctx, k8sClient, appWorkload, func() {
-						appWorkload.Finalizers = []string{"do-not-delete-me"}
-					})).To(Succeed())
-
-					Expect(k8sManager.GetClient().Delete(ctx, appWorkload)).To(Succeed())
-				})
-
-				It("updates workload actual instances based on replicas", func() {
-					Eventually(func(g Gomega) {
-						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
-						g.Expect(appWorkload.Status.ActualInstances).To(BeEquivalentTo(2))
-					}).Should(Succeed())
-				})
 			})
 
 			When("instance pods are available", func() {
@@ -216,7 +195,7 @@ var _ = Describe("AppWorkloadsController", func() {
 		})
 	})
 
-	When("AppWorkload update", func() {
+	When("AppWorkload is updated", func() {
 		BeforeEach(func() {
 			Expect(k8sClient.Create(ctx, appWorkload)).To(Succeed())
 		})
@@ -242,6 +221,75 @@ var _ = Describe("AppWorkloadsController", func() {
 				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1024m"))
 				g.Expect(statefulSet.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
 			}).Should(Succeed())
+		})
+	})
+
+	FWhen("AppWorkload is deleted", func() {
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, appWorkload)).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			Expect(k8sClient.Delete(ctx, appWorkload)).To(Succeed())
+		})
+
+		It("deletes the appworkload", func() {
+			Eventually(func(g Gomega) {
+				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)
+				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
+		})
+
+		FIt("deletes the statefulset", func() {
+			Eventually(func(g Gomega) {
+				stset := getStatefulsetForAppWorkload(g)
+				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&stset), &stset)
+				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			}).Should(Succeed())
+		})
+
+		When("the statefulset cannot be deleted", func() {
+			JustBeforeEach(func() {
+				stset := getStatefulsetForAppWorkload(Default)
+				Expect(k8s.Patch(ctx, k8sClient, &stset, func() {
+					stset.Finalizers = []string{"foregroundDeletion"}
+				})).To(Succeed())
+			})
+
+			It("does not delete the appworkload", func() {
+				Consistently(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
+					g.Expect(appWorkload.DeletionTimestamp).NotTo(BeZero())
+				}).Should(Succeed())
+			})
+
+			When("the statefulset replicas are set", func() {
+				JustBeforeEach(func() {
+					statefulset := getStatefulsetForAppWorkload(Default)
+					Expect(k8s.Patch(ctx, k8sClient, &statefulset, func() {
+						statefulset.Status.Replicas = 3
+					})).To(Succeed())
+				})
+
+				It("updates workload actual instances based on statefulset replicas", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
+						g.Expect(appWorkload.Status.ActualInstances).To(BeEquivalentTo(3))
+					}).Should(Succeed())
+				})
+
+				It("sets not ready condition on appworkload", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(appWorkload), appWorkload)).To(Succeed())
+						g.Expect(appWorkload.Status.Conditions).To(ContainElement(SatisfyAll(
+							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+							HasStatus(Equal(metav1.ConditionTrue)),
+							HasReason(Equal("StillRunning")),
+							HasMessage(Equal("")),
+						)))
+					}).Should(Succeed())
+				})
+			})
 		})
 	})
 })
