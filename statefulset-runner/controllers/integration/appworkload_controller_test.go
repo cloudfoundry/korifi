@@ -5,6 +5,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +34,9 @@ var _ = Describe("AppWorkloadsController", func() {
 				Name:       uuid.NewString(),
 				Namespace:  namespaceName,
 				Generation: 1,
+				Finalizers: []string{
+					finalizer.AppWorkloadFinalizerName,
+				},
 			},
 			Spec: korifiv1alpha1.AppWorkloadSpec{
 				GUID:    uuid.NewString(),
@@ -240,11 +244,13 @@ var _ = Describe("AppWorkloadsController", func() {
 			}).Should(Succeed())
 		})
 
-		FIt("deletes the statefulset", func() {
+		It("deletes the statefulset", func() {
+			stsetList := appsv1.StatefulSetList{}
 			Eventually(func(g Gomega) {
-				stset := getStatefulsetForAppWorkload(g)
-				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&stset), &stset)
-				g.Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+				g.Expect(k8sClient.List(ctx, &stsetList, client.MatchingLabels{
+					controllers.LabelGUID: appWorkload.Spec.GUID,
+				})).To(Succeed())
+				g.Expect(stsetList.Items).To(BeEmpty())
 			}).Should(Succeed())
 		})
 

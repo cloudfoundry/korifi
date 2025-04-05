@@ -149,7 +149,7 @@ func filterAppWorkloads(object client.Object) bool {
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads/status,verbs=get;patch
 
-//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=create;patch;get;list;watch
+//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=create;patch;get;list;watch;deletecollection
 //+kubebuilder:rbac:groups=apps,resources=statefulsets/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch

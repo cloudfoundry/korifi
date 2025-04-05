@@ -26,7 +26,6 @@ import (
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/runnerinfo"
-	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"go.uber.org/zap/zapcore"
 
@@ -101,8 +100,6 @@ var _ = BeforeEach(func() {
 	)
 	err = runnerInfoReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
-
-	finalizer.NewWebhook().SetupWebhookWithManager(k8sManager)
 
 	ctx = context.Background()
 
