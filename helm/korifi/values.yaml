@@ -69,8 +69,8 @@ api:
     host: ""
     caCert: ""
 
-route-controller:
-  image: cloudfoundry/korifi-route-controller:latest
+gateway-api-router:
+  image: cloudfoundry/korifi-gateway-api-router:latest
 
   replicas: 1
   nodeSelector: {}
