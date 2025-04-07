@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"code.cloudfoundry.org/korifi/route-controller/controllers"
+	"code.cloudfoundry.org/korifi/gateway-api-router/controllers"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
@@ -61,7 +61,7 @@ var _ = BeforeSuite(func() {
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(gatewayv1beta1.Install(scheme.Scheme)).To(Succeed())
 
-	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "route-controller", "role.yaml"))
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "gateway-api-router", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
@@ -69,7 +69,7 @@ var _ = BeforeSuite(func() {
 	Expect(controllers.NewReconciler(
 		k8sManager.GetClient(),
 		k8sManager.GetScheme(),
-		ctrl.Log.WithName("route-controller").WithName("CFRoute"),
+		ctrl.Log.WithName("gateway-api-router").WithName("CFRoute"),
 		&config.ControllerConfig{
 			CFProcessDefaults: config.CFProcessDefaults{
 				MemoryMB:    500,

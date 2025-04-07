@@ -1,15 +1,15 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: korifi-route-controller-config
+  name: korifi-gateway-api-router-config
   namespace: {{ .Releases.Namespace }}
 data:
   config.yaml: |-
     builderName: {{ .Values.reconcilers.build }}
     runnerName: {{ .Values.reconcilers.run }}
     cfProcessDefaults:
-      memoryMB: {{ .Values.route-controller.processDefaults.memoryMB }}
-      diskQuotaMB: {{ .Values.route-controller.processDefaults.diskQuotaMB }}
+      memoryMB: {{ .Values.gateway-api-router.processDefaults.memoryMB }}
+      diskQuotaMB: {{ .Values.gateway-api-router.processDefaults.diskQuotaMB }}
     cfRootNamespace: {{ .Values.rootNamespace }}
     {{ - if not .Values.eksContainerRegistryRoleARN }}
     {{ - if .Values.containerRegistrySecrets }}
@@ -22,9 +22,9 @@ data:
     - {{ .Values.containerRegistrySecret | quote }}
     {{ - end }}
     {{ - end }}
-    taskTTL: {{ .Values.route-controller.taskTTL }}
+    taskTTL: {{ .Values.gateway-api-router.taskTTL }}
     namespaceLabels:
-    {{ - range $key, $value := .Values.route-controller.namespaceLabels }}
+    {{ - range $key, $value := .Values.gateway-api-router.namespaceLabels }}
       {{ $key }}: {{ $value }}
     {{ - end }}
     logLevel: { { .Values.logLevel } }

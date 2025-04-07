@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: korifi-route-controller
+  name: korifi-gateway-api-router
   namespace: {{ .Release.Namespace }}
 spec:
   ports:
@@ -13,6 +13,6 @@ spec:
       protocol: TCP
       targetPort: 40000
   selector:
-    app: korifi-route-controller
+    app: korifi-gateway-api-router
   type: NodePort
   {{- end }}

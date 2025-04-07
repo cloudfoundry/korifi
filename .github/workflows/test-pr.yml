@@ -70,7 +70,7 @@ jobs:
     - name: Run Controllers tests
       run: make -C controllers test
       
-  route-controller-tests:
+  gateway-api-router-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -89,8 +89,8 @@ jobs:
         with:
           go-version: 'stable'
 
-      - name: Run route-controller tests
-        run: make -C route-controller test
+      - name: Run gateway-api-router tests
+        run: make -C gateway-api-router test
         
   job-task-runner-tests:
     runs-on: ubuntu-latest

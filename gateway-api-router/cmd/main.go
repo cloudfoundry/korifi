@@ -23,7 +23,7 @@ import (
 	"log"
 	"os"
 
-	routeControllers "code.cloudfoundry.org/korifi/route-controller/controllers"
+	routeControllers "code.cloudfoundry.org/korifi/gateway-api-router/controllers"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
@@ -130,7 +130,7 @@ func main() {
 			controllersLog,
 			controllerConfig,
 		).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create route-controller", "route-controller", "CFRoute")
+			setupLog.Error(err, "unable to create gateway-api-router", "gateway-api-router", "CFRoute")
 			os.Exit(1)
 		}
 

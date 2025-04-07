@@ -31,16 +31,16 @@ help: ## Display this help.
 export GOBIN = $(shell pwd)/bin
 export PATH := $(shell pwd)/bin:$(PATH)
 
-webhooks-file = ../helm/korifi/route-controller/manifests.yaml
+webhooks-file = ../helm/korifi/gateway-api-router/manifests.yaml
 manifests: bin/controller-gen bin/yq
 	controller-gen \
 		paths="./..." \
-		rbac:roleName=korifi-route-controller-manager-role \
+		rbac:roleName=korifi-gateway-api-router-manager-role \
 		webhook \
-		output:rbac:artifacts:config=../helm/korifi/route-controller \
-		output:webhook:artifacts:config=../helm/korifi/route-controller
+		output:rbac:artifacts:config=../helm/korifi/gateway-api-router \
+		output:webhook:artifacts:config=../helm/korifi/gateway-api-router
 
-	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-route-controller-serving-cert")' $(webhooks-file)
+	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-gateway-api-router-serving-cert")' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
 
 generate: bin/controller-gen
