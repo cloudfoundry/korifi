@@ -231,7 +231,7 @@ func (r *buildpackBuildReconciler) createBuildWorkload(ctx context.Context, cfBu
 			},
 			BuilderName: r.controllerConfig.BuilderName,
 			Buildpacks:  cfBuild.Spec.Lifecycle.Data.Buildpacks,
-			Services: slices.Collect(it.Map(slices.Values(cfApp.Status.ServiceBindings),
+			Services: slices.Collect(it.Map(slices.Values(cfApp.Spec.ServiceBindings),
 				func(binding korifiv1alpha1.ServiceBinding) corev1.ObjectReference {
 					return corev1.ObjectReference{
 						Kind:       "Secret",

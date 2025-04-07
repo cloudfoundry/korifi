@@ -215,7 +215,7 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 	When("the referenced app has a ServiceBinding", func() {
 		BeforeEach(func() {
 			Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
-				cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+				cfApp.Spec.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
 					Secret: "service-secret",
 				}}
 			})).To(Succeed())

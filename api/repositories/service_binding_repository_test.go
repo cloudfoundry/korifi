@@ -303,7 +303,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
 					cfApp.Status.ObservedGeneration = cfApp.Generation
-					cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+					cfApp.Spec.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
 						GUID: bindingGUID,
 					}}
 				})).To(Succeed())
@@ -372,30 +372,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 				))
 			})
 
-			It("awaits the binding to become ready", func() {
-				Expect(createErr).NotTo(HaveOccurred())
-
-				cfServiceBinding := new(korifiv1alpha1.CFServiceBinding)
-				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: space.Name, Name: serviceBindingRecord.GUID}, cfServiceBinding)).To(Succeed())
-
-				Expect(bindingConditionAwaiter.AwaitConditionCallCount()).To(Equal(1))
-				obj, conditionType := bindingConditionAwaiter.AwaitConditionArgsForCall(0)
-				Expect(obj.GetName()).To(Equal(cfServiceBinding.Name))
-				Expect(obj.GetNamespace()).To(Equal(space.Name))
-				Expect(conditionType).To(Equal(korifiv1alpha1.StatusConditionReady))
-			})
-
-			It("awaits the binding to become available in the app status", func() {
-				Expect(createErr).NotTo(HaveOccurred())
-
-				cfServiceBinding := new(korifiv1alpha1.CFServiceBinding)
-				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: space.Name, Name: serviceBindingRecord.GUID}, cfServiceBinding)).To(Succeed())
-
-				Expect(appConditionAwaiter.AwaitStateCallCount()).To(Equal(1))
-				actualObj, _ := appConditionAwaiter.AwaitStateArgsForCall(0)
-				Expect(actualObj.GetName()).To(Equal(appGUID))
-			})
-
 			When("the binding never becomes ready", func() {
 				BeforeEach(func() {
 					bindingConditionAwaiter.AwaitConditionReturns(&korifiv1alpha1.CFServiceBinding{}, errors.New("time-out-err"))
@@ -403,40 +379,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				It("errors", func() {
 					Expect(createErr).To(MatchError(ContainSubstring("time-out-err")))
-				})
-			})
-
-			When("the binding never makes it to the app status", func() {
-				BeforeEach(func() {
-					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
-						return nil, errors.New("time-out-err")
-					}
-				})
-
-				It("errors", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("time-out-err")))
-				})
-			})
-
-			When("the app status is outdated", func() {
-				BeforeEach(func() {
-					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
-						cfApp, ok := object.(*korifiv1alpha1.CFApp)
-						Expect(ok).To(BeTrue())
-
-						Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-							cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
-								GUID: bindingGUID,
-							}}
-						})).To(Succeed())
-
-						err := checkState(cfApp)
-						return cfApp, err
-					}
-				})
-
-				It("errors", func() {
-					Expect(createErr).To(MatchError(ContainSubstring("outdated")))
 				})
 			})
 
@@ -829,7 +771,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
 					cfApp.Status.ObservedGeneration = cfApp.Generation
-					cfApp.Status.ServiceBindings = slices.Collect(it.Exclude(slices.Values(cfApp.Status.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) bool {
+					cfApp.Spec.ServiceBindings = slices.Collect(it.Exclude(slices.Values(cfApp.Spec.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) bool {
 						return b.GUID == serviceBindingGUID
 					}))
 				})).To(Succeed())
@@ -903,7 +845,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 						Expect(ok).To(BeTrue())
 
 						Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-							cfApp.Status.ServiceBindings = slices.Collect(it.Exclude(slices.Values(cfApp.Status.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) bool {
+							cfApp.Spec.ServiceBindings = slices.Collect(it.Exclude(slices.Values(cfApp.Spec.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) bool {
 								return b.GUID == serviceBindingGUID
 							}))
 						})).To(Succeed())

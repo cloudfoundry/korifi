@@ -264,33 +264,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 		})
 
-		When("the CFApp status is outdated", func() {
-			BeforeEach(func() {
-				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
-					cfApp.Status.ObservedGeneration = 0
-				})).To(Succeed())
-			})
-
-			It("does not reconcile to app workload", func() {
-				Consistently(func(g Gomega) {
-					var appWorkloads korifiv1alpha1.AppWorkloadList
-					g.Expect(adminClient.List(ctx, &appWorkloads, client.InNamespace(testNamespace))).To(Succeed())
-					g.Expect(appWorkloads.Items).To(BeEmpty())
-				}).Should(Succeed())
-			})
-
-			It("sets the CFProcess ready status to false", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfProcess), cfProcess)).To(Succeed())
-					g.Expect(cfProcess.Status.Conditions).To(ContainElement(SatisfyAll(
-						matchers.HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-						matchers.HasStatus(Equal(metav1.ConditionFalse)),
-						matchers.HasReason(Equal("OutdatedCFAppStatus")),
-					)))
-				}).Should(Succeed())
-			})
-		})
-
 		When("the CFProcess has an http health check", func() {
 			BeforeEach(func() {
 				cfProcess.Spec.HealthCheck = korifiv1alpha1.HealthCheck{
@@ -411,7 +384,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 		When("the app has service bindings", func() {
 			BeforeEach(func() {
 				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
-					cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+					cfApp.Spec.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
 						Secret: "binding-secret",
 						Name:   "binding-name",
 					}}
@@ -435,7 +408,7 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				})
 
 				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
-					cfApp.Status.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
+					cfApp.Spec.ServiceBindings = []korifiv1alpha1.ServiceBinding{{
 						Secret: "binding-secret",
 					}}
 				})).To(Succeed())

@@ -208,10 +208,6 @@ func needsAppWorkload(cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFP
 func (r *Reconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1alpha1.CFProcess) error {
 	log := logr.FromContextOrDiscard(ctx).WithName("createOrPatchAppWorkload")
 
-	if cfApp.Generation != cfApp.Status.ObservedGeneration {
-		return k8s.NewNotReadyError().WithReason("OutdatedCFAppStatus").WithRequeue()
-	}
-
 	cfBuild := new(korifiv1alpha1.CFBuild)
 	err := r.k8sClient.Get(ctx, types.NamespacedName{Name: cfApp.Spec.CurrentDropletRef.Name, Namespace: cfProcess.Namespace}, cfBuild)
 	if err != nil {
@@ -285,7 +281,7 @@ func (r *Reconciler) createOrPatchAppWorkload(ctx context.Context, cfApp *korifi
 		appWorkload.Spec.RunnerName = r.controllerConfig.RunnerName
 
 		if appWorkload.CreationTimestamp.IsZero() {
-			appWorkload.Spec.Services = cfApp.Status.ServiceBindings
+			appWorkload.Spec.Services = cfApp.Spec.ServiceBindings
 		}
 
 		return controllerutil.SetControllerReference(cfProcess, appWorkload, r.scheme)

@@ -21,6 +21,7 @@ import (
 
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
+	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -69,6 +70,7 @@ type ServiceBindingRecord struct {
 	AppGUID             string
 	ServiceInstanceGUID string
 	SpaceGUID           string
+	SecretName          string
 	Labels              map[string]string
 	Annotations         map[string]string
 	CreatedAt           time.Time
@@ -191,18 +193,22 @@ func (r *ServiceBindingRepo) createAppServiceBinding(ctx context.Context, userCl
 		return ServiceBindingRecord{}, err
 	}
 
-	_, err = r.appConditionAwaiter.AwaitState(ctx, userClient, cfApp, func(a *korifiv1alpha1.CFApp) error {
-		if a.Generation != a.Status.ObservedGeneration {
-			return fmt.Errorf("app status is outdated")
+	err = k8s.PatchResource(ctx, userClient, cfApp, func() {
+		bindingName := bindingRecord.SecretName
+		if bindingRecord.Name != nil {
+			bindingName = *bindingRecord.Name
 		}
 
-		if !slices.Contains(actualBindingGUIDs(a), bindingRecord.GUID) {
-			return fmt.Errorf("binding %q not available in cf app status", bindingRecord.GUID)
-		}
-
-		return nil
+		cfApp.Spec.ServiceBindings = append(cfApp.Spec.ServiceBindings, korifiv1alpha1.ServiceBinding{
+			GUID:   bindingRecord.GUID,
+			Name:   bindingName,
+			Secret: bindingRecord.SecretName,
+		})
 	})
 	if err != nil {
+
+		log := logr.FromContextOrDiscard(ctx)
+		log.Error(err, "failed to patch resource")
 		return ServiceBindingRecord{}, err
 	}
 
@@ -252,7 +258,7 @@ func (r *ServiceBindingRepo) createServiceBinding(ctx context.Context, userClien
 }
 
 func actualBindingGUIDs(cfApp *korifiv1alpha1.CFApp) []string {
-	return slices.Collect(it.Map(slices.Values(cfApp.Status.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) string {
+	return slices.Collect(it.Map(slices.Values(cfApp.Spec.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) string {
 		return b.GUID
 	}))
 }
@@ -389,6 +395,7 @@ func serviceBindingToRecord(binding korifiv1alpha1.CFServiceBinding) ServiceBind
 		AppGUID:             binding.Spec.AppRef.Name,
 		ServiceInstanceGUID: binding.Spec.Service.Name,
 		SpaceGUID:           binding.Namespace,
+		SecretName:          binding.Status.MountSecretRef.Name,
 		Labels:              binding.Labels,
 		Annotations:         binding.Annotations,
 		CreatedAt:           binding.CreationTimestamp.Time,

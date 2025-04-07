@@ -15,7 +15,6 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -119,18 +118,8 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 		cfApp.Annotations = tools.SetMapValue(cfApp.Annotations, korifiv1alpha1.CFAppLastStopRevisionKey, cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey])
 	}
 
-	bindings, err := r.getServiceBindings(ctx, cfApp)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	cfApp.Status.ServiceBindings = bindingObjectRefs(bindings)
-
-	if !bindingsReady(bindings) {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingNotReady")
-	}
-
 	secretName := cfApp.Name + "-vcap-application"
-	err = r.reconcileVCAPSecret(ctx, cfApp, secretName, r.vcapApplicationEnvBuilder)
+	err := r.reconcileVCAPSecret(ctx, cfApp, secretName, r.vcapApplicationEnvBuilder)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -166,25 +155,19 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) getServiceBindings(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]korifiv1alpha1.CFServiceBinding, error) {
-	bindings := &korifiv1alpha1.CFServiceBindingList{}
-	if err := r.k8sClient.List(ctx, bindings,
-		client.InNamespace(cfApp.Namespace),
-		client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name},
-	); err != nil {
-		return nil, err
-	}
+// func (r *Reconciler) getServiceBindings(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]korifiv1alpha1.CFServiceBinding, error) {
+// 	bindings := &korifiv1alpha1.CFServiceBindingList{}
+// 	if err := r.k8sClient.List(ctx, bindings,
+// 		client.InNamespace(cfApp.Namespace),
+// 		client.MatchingFields{shared.IndexServiceBindingAppGUID: cfApp.Name},
+// 	); err != nil {
+// 		return nil, err
+// 	}
 
-	return slices.Collect(it.Exclude(slices.Values(bindings.Items), func(b korifiv1alpha1.CFServiceBinding) bool {
-		return b.DeletionTimestamp != nil
-	})), nil
-}
-
-func bindingsReady(bindings []korifiv1alpha1.CFServiceBinding) bool {
-	return it.All(it.Map(slices.Values(bindings), func(binding korifiv1alpha1.CFServiceBinding) bool {
-		return meta.IsStatusConditionTrue(binding.Status.Conditions, korifiv1alpha1.StatusConditionReady)
-	}))
-}
+// 	return slices.Collect(it.Exclude(slices.Values(bindings.Items), func(b korifiv1alpha1.CFServiceBinding) bool {
+// 		return b.DeletionTimestamp != nil
+// 	})), nil
+// }
 
 func bindingObjectRefs(bindings []korifiv1alpha1.CFServiceBinding) []korifiv1alpha1.ServiceBinding {
 	return slices.Collect(it.Map(slices.Values(bindings), func(binding korifiv1alpha1.CFServiceBinding) korifiv1alpha1.ServiceBinding {
@@ -248,7 +231,7 @@ func (r *Reconciler) reconcileProcesses(ctx context.Context, cfApp *korifiv1alph
 		}
 
 		if existingProcess != nil {
-			err = r.updateCFProcess(ctx, existingProcess, dropletProcess.Command, cfApp.Status.ServiceBindings)
+			err = r.updateCFProcess(ctx, existingProcess, dropletProcess.Command)
 			if err != nil {
 				loopLog.Info("error updating CFProcess", "reason", err)
 				return nil, err
@@ -277,7 +260,7 @@ func addWebIfMissing(processTypes []korifiv1alpha1.ProcessType) []korifiv1alpha1
 	return append([]korifiv1alpha1.ProcessType{{Type: korifiv1alpha1.ProcessTypeWeb}}, processTypes...)
 }
 
-func (r *Reconciler) updateCFProcess(ctx context.Context, process *korifiv1alpha1.CFProcess, command string, bindings []korifiv1alpha1.ServiceBinding) error {
+func (r *Reconciler) updateCFProcess(ctx context.Context, process *korifiv1alpha1.CFProcess, command string) error {
 	return k8s.Patch(ctx, r.k8sClient, process, func() {
 		process.Spec.DetectedCommand = command
 	})
