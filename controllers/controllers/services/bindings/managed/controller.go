@@ -41,6 +41,10 @@ func NewReconciler(k8sClient client.Client, brokerClientFactory osbapi.BrokerCli
 func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("reconcile-managed-service-binding")
 
+	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
+		return r.finalize(ctx, cfServiceBinding)
+	}
+
 	assets, err := r.assets.GetServiceBindingAssets(ctx, cfServiceBinding)
 	if err != nil {
 		log.Error(err, "failed to get service binding assets")
@@ -51,10 +55,6 @@ func (r *ManagedBindingsReconciler) ReconcileResource(ctx context.Context, cfSer
 	if err != nil {
 		log.Error(err, "failed to create broker client", "broker", assets.ServiceBroker.Name)
 		return ctrl.Result{}, err
-	}
-
-	if !cfServiceBinding.GetDeletionTimestamp().IsZero() {
-		return r.finalizeCFServiceBinding(ctx, cfServiceBinding, assets, osbapiClient)
 	}
 
 	if isReconciled(cfServiceBinding) {
@@ -246,32 +246,71 @@ func (r *ManagedBindingsReconciler) createMountSecret(ctx context.Context, cfSer
 	return mountSecret, nil
 }
 
-func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
+func (r *ManagedBindingsReconciler) finalize(
 	ctx context.Context,
 	serviceBinding *korifiv1alpha1.CFServiceBinding,
-	assets osbapi.ServiceBindingAssets,
-	osbapiClient osbapi.BrokerClient,
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx).WithName("finalize-managed-service-binding")
 
-	unbindResponse, err := r.deleteServiceBinding(ctx, serviceBinding, assets, osbapiClient)
+	if !controllerutil.ContainsFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
+		return ctrl.Result{}, nil
+	}
+
+	err := r.finalizeCFServiceBinding(ctx, serviceBinding)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-	if unbindResponse.IsAsync {
-		lastOpresponse, err := r.pollLastOperation(ctx, serviceBinding, assets, osbapiClient, unbindResponse.Operation)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		return r.processUnbindLastOperation(serviceBinding, lastOpresponse)
 	}
 
 	if controllerutil.RemoveFinalizer(serviceBinding, korifiv1alpha1.CFServiceBindingFinalizerName) {
 		log.V(1).Info("finalizer removed")
 	}
-
 	return ctrl.Result{}, nil
+}
+
+func (r *ManagedBindingsReconciler) finalizeCFServiceBinding(
+	ctx context.Context,
+	serviceBinding *korifiv1alpha1.CFServiceBinding,
+) error {
+	serviceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: serviceBinding.Namespace,
+			Name:      serviceBinding.Spec.Service.Name,
+		},
+	}
+
+	err := r.k8sClient.Get(ctx, client.ObjectKeyFromObject(serviceInstance), serviceInstance)
+	if err != nil {
+		return fmt.Errorf("failed to get service instance: %w", err)
+	}
+
+	if serviceInstance.Annotations[korifiv1alpha1.DeprovisionWithoutBrokerAnnotation] == "true" {
+		return nil
+	}
+
+	assets, err := r.assets.GetServiceBindingAssets(ctx, serviceBinding)
+	if err != nil {
+		return fmt.Errorf("failed to get service binding assets: %w", err)
+	}
+
+	osbapiClient, err := r.osbapiClientFactory.CreateClient(ctx, assets.ServiceBroker)
+	if err != nil {
+		return fmt.Errorf("failed to client for broker %q: %w", assets.ServiceBroker.Name, err)
+	}
+
+	unbindResponse, err := r.deleteServiceBinding(ctx, serviceBinding, assets, osbapiClient)
+	if err != nil {
+		return err
+	}
+	if unbindResponse.IsAsync {
+		lastOpresponse, err := r.pollLastOperation(ctx, serviceBinding, assets, osbapiClient, unbindResponse.Operation)
+		if err != nil {
+			return err
+		}
+
+		return r.processUnbindLastOperation(serviceBinding, lastOpresponse)
+	}
+
+	return nil
 }
 
 func (r *ManagedBindingsReconciler) pollLastOperation(
@@ -303,10 +342,11 @@ func (r *ManagedBindingsReconciler) pollLastOperation(
 func (r *ManagedBindingsReconciler) processUnbindLastOperation(
 	serviceBinding *korifiv1alpha1.CFServiceBinding,
 	lastOpResponse osbapi.LastOperationResponse,
-) (ctrl.Result, error) {
-	if lastOpResponse.State == "in progress" {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindingInProgress").WithRequeue()
+) error {
+	if lastOpResponse.State == "succeeded" {
+		return nil
 	}
+
 	if lastOpResponse.State == "failed" {
 		meta.SetStatusCondition(&serviceBinding.Status.Conditions, metav1.Condition{
 			Type:               korifiv1alpha1.UnbindingFailedCondition,
@@ -316,11 +356,10 @@ func (r *ManagedBindingsReconciler) processUnbindLastOperation(
 			Reason:             "UnbindingFailed",
 			Message:            lastOpResponse.Description,
 		})
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UnbindFailed")
+		return k8s.NewNotReadyError().WithReason("UnbindFailed")
 
 	}
-
-	return ctrl.Result{Requeue: true}, nil
+	return k8s.NewNotReadyError().WithReason("UnbindingInProgress").WithRequeue()
 }
 
 func (r *ManagedBindingsReconciler) deleteServiceBinding(

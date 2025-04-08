@@ -869,6 +869,38 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				})
 			})
 
+			When("the type filter is set", func() {
+				When("filtering for managed type", func() {
+					BeforeEach(func() {
+						filters = repositories.ListServiceInstanceMessage{
+							Type: korifiv1alpha1.ManagedType,
+						}
+					})
+
+					It("returns no records for the ServiceInstances since all are user-provided", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(serviceInstanceList).To(BeEmpty())
+					})
+				})
+
+				When("filtering for user-provided type", func() {
+					BeforeEach(func() {
+						filters = repositories.ListServiceInstanceMessage{
+							Type: korifiv1alpha1.UserProvidedType,
+						}
+					})
+
+					It("returns all the ServiceInstances records that are user-provided", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(serviceInstanceList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
+						))
+					})
+				})
+			})
+
 			When("the serviceGUID filter is set", func() {
 				BeforeEach(func() {
 					filters = repositories.ListServiceInstanceMessage{
@@ -1196,73 +1228,34 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					Expect(errors.As(deleteErr, &apierrors.NotFoundError{})).To(BeTrue())
 				})
 			})
+
+			When("purge parameter is set", func() {
+				BeforeEach(func() {
+					deleteMessage.Purge = true
+
+					Expect(k8s.Patch(ctx, k8sClient, serviceInstance, func() {
+						serviceInstance.Finalizers = []string{"do-not-delete-me"}
+					})).To(Succeed())
+				})
+
+				It("requests deprovisioning without broker", func() {
+					actualServiceInstance := &korifiv1alpha1.CFServiceInstance{}
+					Expect(k8sClient.Get(ctx, types.NamespacedName{Name: serviceInstance.Name, Namespace: space.Name}, actualServiceInstance)).To(Succeed())
+					Expect(actualServiceInstance.Annotations).To(HaveKeyWithValue(korifiv1alpha1.DeprovisionWithoutBrokerAnnotation, "true"))
+				})
+
+				It("deletes the instance", func() {
+					actualServiceInstance := &korifiv1alpha1.CFServiceInstance{}
+					Expect(k8sClient.Get(ctx, types.NamespacedName{Name: serviceInstance.Name, Namespace: space.Name}, actualServiceInstance)).To(Succeed())
+					Expect(actualServiceInstance.DeletionTimestamp).NotTo(BeZero())
+				})
+			})
 		})
 
 		When("there are no permissions on service instances", func() {
 			It("returns a forbidden error", func() {
 				Expect(errors.As(deleteErr, &apierrors.ForbiddenError{})).To(BeTrue())
 			})
-		})
-	})
-
-	Describe("PurgeServiceInstance", func() {
-		var (
-			serviceInstance *korifiv1alpha1.CFServiceInstance
-			serviceBinding  *korifiv1alpha1.CFServiceBinding
-			deleteMessage   repositories.DeleteServiceInstanceMessage
-			deleteErr       error
-		)
-
-		BeforeEach(func() {
-			serviceInstance = createServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
-
-			serviceInstance.Finalizers = append(serviceInstance.Finalizers, korifiv1alpha1.CFServiceInstanceFinalizerName)
-			Expect(k8sClient.Update(ctx, serviceInstance)).To(Succeed())
-
-			serviceBinding = &korifiv1alpha1.CFServiceBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.NewString(),
-					Namespace: space.Name,
-					Finalizers: []string{
-						korifiv1alpha1.CFServiceBindingFinalizerName,
-					},
-				},
-				Spec: korifiv1alpha1.CFServiceBindingSpec{
-					Service: corev1.ObjectReference{
-						Kind:       "CFServiceInstance",
-						APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
-						Name:       serviceInstance.Name,
-					},
-					AppRef: corev1.LocalObjectReference{
-						Name: "some-app-guid",
-					},
-					Type: korifiv1alpha1.CFServiceBindingTypeApp,
-				},
-			}
-			Expect(k8sClient.Create(ctx, serviceBinding)).To(Succeed())
-
-			deleteMessage = repositories.DeleteServiceInstanceMessage{
-				GUID:  serviceInstance.Name,
-				Purge: true,
-			}
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-		})
-
-		JustBeforeEach(func() {
-			_, deleteErr = serviceInstanceRepo.DeleteServiceInstance(ctx, authInfo, deleteMessage)
-		})
-
-		It("purges the service instance", func() {
-			Expect(deleteErr).ToNot(HaveOccurred())
-
-			err := k8sClient.Get(ctx, types.NamespacedName{Name: serviceInstance.Name, Namespace: space.Name}, &korifiv1alpha1.CFServiceInstance{})
-			Expect(k8serrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("error: %+v", err))
-
-			binding := new(korifiv1alpha1.CFServiceBinding)
-			err = k8sClient.Get(ctx, types.NamespacedName{Name: serviceBinding.Name, Namespace: space.Name}, binding)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(binding.Finalizers).To(BeEmpty())
 		})
 	})
 })

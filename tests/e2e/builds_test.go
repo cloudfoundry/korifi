@@ -6,6 +6,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("Builds", func() {
@@ -82,6 +83,30 @@ var _ = Describe("Builds", func() {
 		It("throws an unprocessable entity error", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
 			Expect(resp).To(HaveRestyBody(ContainSubstring("Labels and annotations are not supported for builds")))
+		})
+	})
+
+	Describe("list", func() {
+		var result resourceList[resource]
+		var buildGUID string
+
+		BeforeEach(func() {
+			buildGUID = createBuild(pkgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().
+				SetResult(&result).
+				Get("/v3/builds/")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns a list of builds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Resources).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"GUID": Equal(buildGUID),
+			})))
 		})
 	})
 })

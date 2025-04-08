@@ -24,6 +24,8 @@ var _ = Describe("ServicePlan", func() {
 		servicePlanRepo     *fake.CFServicePlanRepository
 		serviceOfferingRepo *fake.CFServiceOfferingRepository
 		serviceBrokerRepo   *fake.CFServiceBrokerRepository
+		spaceRepo           *fake.CFSpaceRepository
+		orgRepo             *fake.CFOrgRepository
 		requestValidator    *fake.RequestValidator
 	)
 
@@ -32,6 +34,8 @@ var _ = Describe("ServicePlan", func() {
 		servicePlanRepo = new(fake.CFServicePlanRepository)
 		serviceOfferingRepo = new(fake.CFServiceOfferingRepository)
 		serviceBrokerRepo = new(fake.CFServiceBrokerRepository)
+		spaceRepo = new(fake.CFSpaceRepository)
+		orgRepo = new(fake.CFOrgRepository)
 
 		apiHandler := NewServicePlan(
 			*serverURL,
@@ -41,6 +45,8 @@ var _ = Describe("ServicePlan", func() {
 				serviceOfferingRepo,
 				serviceBrokerRepo,
 				servicePlanRepo,
+				spaceRepo,
+				orgRepo,
 			),
 		)
 		routerBuilder.LoadRoutes(apiHandler)

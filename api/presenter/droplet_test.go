@@ -59,7 +59,9 @@ var _ = Describe("Droplet", func() {
 			"error": null,
 			"lifecycle": {
 				"type": "buildpack",
-				"data": {}
+				"data": {
+					"buildpacks": []
+				}
 			},
 			"execution_metadata": "",
 			"process_types": {
@@ -122,7 +124,9 @@ var _ = Describe("Droplet", func() {
 			"error": null,
 			"lifecycle": {
 				"type": "docker",
-				"data": {}
+				"data": {
+					"buildpacks": []
+				}
 			},
 			"execution_metadata": "",
 			"process_types": {

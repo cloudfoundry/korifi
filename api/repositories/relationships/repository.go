@@ -26,6 +26,16 @@ type ServicePlanRepository interface {
 	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
 }
 
+//counterfeiter:generate -o fake -fake-name SpaceRepository . SpaceRepository
+type SpaceRepository interface {
+	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
+}
+
+//counterfeiter:generate -o fake -fake-name OrgRepository . OrgRepository
+type OrgRepository interface {
+	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
+}
+
 //counterfeiter:generate -o fake -fake-name Resource . Resource
 type Resource interface {
 	Relationships() map[string]string
@@ -35,17 +45,23 @@ type ResourceRelationshipsRepo struct {
 	serviceOfferingRepo ServiceOfferingRepository
 	serviceBrokerRepo   ServiceBrokerRepository
 	servicePlanRepo     ServicePlanRepository
+	spaceRepo           SpaceRepository
+	orgRepo             OrgRepository
 }
 
 func NewResourseRelationshipsRepo(
 	serviceOfferingRepo ServiceOfferingRepository,
 	serviceBrokerRepo ServiceBrokerRepository,
 	servicePlanRepo ServicePlanRepository,
+	spaceRepo SpaceRepository,
+	orgRepo OrgRepository,
 ) *ResourceRelationshipsRepo {
 	return &ResourceRelationshipsRepo{
 		serviceOfferingRepo: serviceOfferingRepo,
 		serviceBrokerRepo:   serviceBrokerRepo,
 		servicePlanRepo:     servicePlanRepo,
+		spaceRepo:           spaceRepo,
+		orgRepo:             orgRepo,
 	}
 }
 
@@ -80,8 +96,19 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 			authInfo,
 			repositories.ListServicePlanMessage{GUIDs: relatedResourceGUIDs},
 		))
-	case "space", "organization":
-		return []Resource{}, nil
+	case "space":
+		return asResources(r.spaceRepo.ListSpaces(
+			ctx,
+			authInfo,
+			repositories.ListSpacesMessage{GUIDs: relatedResourceGUIDs},
+		))
+
+	case "organization":
+		return asResources(r.orgRepo.ListOrgs(
+			ctx,
+			authInfo,
+			repositories.ListOrgsMessage{GUIDs: relatedResourceGUIDs},
+		))
 	}
 
 	return nil, fmt.Errorf("no repository for type %q", relatedResourceType)

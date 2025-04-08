@@ -43,10 +43,3 @@
 {{ tpl ($.Files.Get $path) $ctx }}
 {{- end }}
 {{- end }}
-
-{{- if not .Values.disableMigrations }}
-{{- range $path, $_ := .Files.Glob "migrations/*.yaml" }}
----
-{{ tpl ($.Files.Get $path) $ctx }}
-{{- end }}
-{{- end }}

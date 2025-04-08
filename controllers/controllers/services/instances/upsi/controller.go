@@ -22,6 +22,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/controllers/services/instances"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -111,10 +112,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *k
 	log.V(1).Info("set observed generation", "generation", cfServiceInstance.Status.ObservedGeneration)
 
 	if !cfServiceInstance.GetDeletionTimestamp().IsZero() {
-		controllerutil.RemoveFinalizer(cfServiceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
-		log.V(1).Info("finalizer removed")
-
-		return ctrl.Result{}, nil
+		return r.finalizeCFServiceInstance(ctx, cfServiceInstance)
 	}
 
 	credentialsSecret := &corev1.Secret{
@@ -146,6 +144,26 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfServiceInstance *k
 	cfServiceInstance.Status.LastOperation = reconcileLastOperation(cfServiceInstance, credentialsSecret)
 
 	cfServiceInstance.Status.CredentialsObservedVersion = credentialsSecret.ResourceVersion
+
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) finalizeCFServiceInstance(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("finalizeCFServiceInstance")
+
+	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
+		return ctrl.Result{}, nil
+	}
+
+	if err := instances.EnsureNoServiceBindings(ctx, r.k8sClient, serviceInstance); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	controllerutil.RemoveFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName)
+	log.V(1).Info("finalizer removed")
 
 	return ctrl.Result{}, nil
 }

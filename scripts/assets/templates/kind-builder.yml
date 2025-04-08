@@ -8,8 +8,8 @@ metadata:
   name: kind-store
 spec:
   sources:
-  - image: gcr.io/paketo-buildpacks/procfile
-  - image: gcr.io/paketo-buildpacks/go
+  - image: paketobuildpacks/procfile
+  - image: paketobuildpacks/go
 ---
 apiVersion: kpack.io/v1alpha2
 kind: ClusterStack

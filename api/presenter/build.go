@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 )
 
@@ -29,7 +30,7 @@ type BuildResponse struct {
 	Links           map[string]Link              `json:"links"`
 }
 
-func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL) BuildResponse {
+func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL, includes ...include.Resource) BuildResponse {
 	toReturn := BuildResponse{
 		GUID:            buildRecord.GUID,
 		CreatedAt:       tools.ZeroIfNil(formatTimestamp(&buildRecord.CreatedAt)),

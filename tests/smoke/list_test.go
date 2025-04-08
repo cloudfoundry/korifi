@@ -1,6 +1,8 @@
 package smoke_test
 
 import (
+	"fmt"
+
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
@@ -14,7 +16,7 @@ var _ = Describe("list", func() {
 	listResources := func(resourceType string, resourcesMatch types.GomegaMatcher) {
 		cfCurlOutput, err := sessionOutput(helpers.Cf("curl", "/v3/"+resourceType))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(cfCurlOutput).To(MatchJSONPath("$.resources", resourcesMatch))
+		Expect(cfCurlOutput).To(MatchJSONPath("$.resources", resourcesMatch), fmt.Sprintf("JSON output: %s", cfCurlOutput))
 	}
 
 	BeforeEach(func() {
@@ -31,6 +33,7 @@ var _ = Describe("list", func() {
 	DescribeTable("authorised users get the resources",
 		listResources,
 		Entry("apps", "apps", Not(BeEmpty())),
+		Entry("builds", "builds", Not(BeEmpty())),
 		Entry("packages", "packages", Not(BeEmpty())),
 		Entry("processes", "processes", Not(BeEmpty())),
 		Entry("routes", "routes", Not(BeEmpty())),
@@ -61,6 +64,7 @@ var _ = Describe("list", func() {
 		DescribeTable("unauthorised users get empty resources list",
 			listResources,
 			Entry("apps", "apps", BeEmpty()),
+			Entry("builds", "builds", BeEmpty()),
 			Entry("packages", "packages", BeEmpty()),
 			Entry("processes", "processes", BeEmpty()),
 			Entry("routes", "routes", BeEmpty()),

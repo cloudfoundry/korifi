@@ -299,6 +299,8 @@ func main() {
 		serviceOfferingRepo,
 		serviceBrokerRepo,
 		servicePlanRepo,
+		spaceRepo,
+		orgRepo,
 	)
 
 	instancesStateCollector := stats.NewProcessInstanceStateCollector(processRepo)

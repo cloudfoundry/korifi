@@ -464,6 +464,7 @@ func deleteOrg(guid string) *resty.Response {
 		Delete("/v3/organizations/" + guid)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+	expectJobCompletes(resp)
 
 	return resp
 }
@@ -540,6 +541,7 @@ func deleteSpace(guid string) {
 		Delete("/v3/spaces/" + guid)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(resp).To(HaveRestyStatusCode(http.StatusAccepted))
+	expectJobCompletes(resp)
 }
 
 func createSpace(spaceName, orgGUID string) string {
@@ -944,11 +946,6 @@ func appAction(appGUID, action string) {
 	Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 }
 
-func startApp(appGUID string) {
-	GinkgoHelper()
-	appAction(appGUID, "start")
-}
-
 func restartApp(appGUID string) {
 	GinkgoHelper()
 	appAction(appGUID, "restart")
@@ -1014,7 +1011,7 @@ func pushTestAppWithName(spaceGUID, appBitsFile string, appName string) string {
 	waitForDroplet(buildGUID)
 	setCurrentDroplet(appGUID, buildGUID)
 	waitAppStaged(appGUID)
-	startApp(appGUID)
+	restartApp(appGUID)
 
 	return appGUID
 }

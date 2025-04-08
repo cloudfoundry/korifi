@@ -6,6 +6,7 @@ import (
 	"os"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/k8s"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/runnerinfo"
@@ -95,19 +96,21 @@ func main() {
 
 func setupControllers(mgr manager.Manager) error {
 	controllersLog := ctrl.Log.WithName("controllers")
+	controllersClient := k8s.IgnoreEmptyPatches(mgr.GetClient())
+
 	if err := appworkload.NewAppWorkloadReconciler(
-		mgr.GetClient(),
+		controllersClient,
 		mgr.GetScheme(),
 		appworkload.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme()),
-		appworkload.NewPDBUpdater(mgr.GetClient()),
+		appworkload.NewPDBUpdater(controllersClient),
 		controllersLog,
-		state.NewAppWorkloadStateCollector(mgr.GetClient()),
+		state.NewAppWorkloadStateCollector(controllersClient),
 	).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create AppWorkload controller: %w", err)
 	}
 
 	if err := runnerinfo.NewRunnerInfoReconciler(
-		mgr.GetClient(),
+		controllersClient,
 		mgr.GetScheme(),
 		controllersLog,
 	).SetupWithManager(mgr); err != nil {

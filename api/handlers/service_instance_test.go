@@ -24,6 +24,7 @@ var _ = Describe("ServiceInstance", func() {
 	var (
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
 		spaceRepo           *fake.CFSpaceRepository
+		orgRepo             *fake.CFOrgRepository
 		serviceOfferingRepo *fake.CFServiceOfferingRepository
 		servicePlanRepo     *fake.CFServicePlanRepository
 		serviceBrokerRepo   *fake.CFServiceBrokerRepository
@@ -42,6 +43,7 @@ var _ = Describe("ServiceInstance", func() {
 		}, nil)
 
 		spaceRepo = new(fake.CFSpaceRepository)
+		orgRepo = new(fake.CFOrgRepository)
 		serviceBrokerRepo = new(fake.CFServiceBrokerRepository)
 		serviceOfferingRepo = new(fake.CFServiceOfferingRepository)
 		servicePlanRepo = new(fake.CFServicePlanRepository)
@@ -57,6 +59,8 @@ var _ = Describe("ServiceInstance", func() {
 				serviceOfferingRepo,
 				serviceBrokerRepo,
 				servicePlanRepo,
+				spaceRepo,
+				orgRepo,
 			),
 		)
 		routerBuilder.LoadRoutes(apiHandler)
@@ -74,8 +78,9 @@ var _ = Describe("ServiceInstance", func() {
 	Describe("GET /v3/service_instances/:guid", func() {
 		BeforeEach(func() {
 			serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
-				GUID: "service-instance-guid",
-				Type: korifiv1alpha1.UserProvidedType,
+				GUID:      "service-instance-guid",
+				Type:      korifiv1alpha1.UserProvidedType,
+				SpaceGUID: "space-guid",
 			}, nil)
 
 			reqPath += "/service-instance-guid"
@@ -145,6 +150,17 @@ var _ = Describe("ServiceInstance", func() {
 				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
 					Name: "service-broker-name",
 					GUID: "service-broker-guid",
+				}}, nil)
+
+				orgRepo.ListOrgsReturns([]repositories.OrgRecord{{
+					Name: "org-name",
+					GUID: "org-guid",
+				}}, nil)
+
+				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{{
+					Name:             "space-name",
+					OrganizationGUID: "org-guid",
+					GUID:             "space-guid",
 				}}, nil)
 			})
 
@@ -242,6 +258,44 @@ var _ = Describe("ServiceInstance", func() {
 							MatchJSONPath("$.included.service_brokers[0].name", "service-broker-name"),
 						)))
 					})
+				})
+			})
+
+			When("params to inlude fields[space]", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceGet{
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"space"},
+							Fields:           []string{"name", "guid"},
+						}},
+					})
+				})
+
+				It("includes space in the response", func() {
+					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.included.spaces[0].guid", "space-guid"),
+						MatchJSONPath("$.included.spaces[0].name", "space-name"),
+					)))
+				})
+			})
+
+			When("params to inlude fields[space.organization]", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceGet{
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"space", "organization"},
+							Fields:           []string{"name", "guid"},
+						}},
+					})
+				})
+
+				It("includes space in the response", func() {
+					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.included.organizations[0].guid", "org-guid"),
+						MatchJSONPath("$.included.organizations[0].name", "org-name"),
+					)))
 				})
 			})
 		})
@@ -492,8 +546,8 @@ var _ = Describe("ServiceInstance", func() {
 	Describe("GET /v3/service_instances", func() {
 		BeforeEach(func() {
 			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
-				{GUID: "service-inst-guid-1"},
-				{GUID: "service-inst-guid-2"},
+				{GUID: "service-inst-guid-1", SpaceGUID: "space-guid"},
+				{GUID: "service-inst-guid-2", SpaceGUID: "space-guid"},
 			}, nil)
 
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{})
@@ -567,6 +621,17 @@ var _ = Describe("ServiceInstance", func() {
 					Name: "service-broker-name",
 					GUID: "service-broker-guid",
 				}}, nil)
+
+				orgRepo.ListOrgsReturns([]repositories.OrgRecord{{
+					Name: "org-name",
+					GUID: "org-guid",
+				}}, nil)
+
+				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{{
+					Name:             "space-name",
+					OrganizationGUID: "org-guid",
+					GUID:             "space-guid",
+				}}, nil)
 			})
 
 			When("params to inlude fields[service_plan.service_offering]", func() {
@@ -633,6 +698,45 @@ var _ = Describe("ServiceInstance", func() {
 							MatchJSONPath("$.included.service_brokers[0].name", "service-broker-name"),
 						)))
 					})
+				})
+			})
+
+			When("params to inlude fields[space]", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"space"},
+							Fields:           []string{"name", "guid", "relationships.organization"},
+						}},
+					})
+				})
+
+				It("includes space in the response", func() {
+					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.included.spaces[0].guid", "space-guid"),
+						MatchJSONPath("$.included.spaces[0].name", "space-name"),
+						MatchJSONPath("$.included.spaces[0].relationships.organization.data.guid", "org-guid"),
+					)))
+				})
+			})
+
+			When("params to inlude fields[space.organization]", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{
+						IncludeResourceRules: []params.IncludeResourceRule{{
+							RelationshipPath: []string{"space", "organization"},
+							Fields:           []string{"name", "guid"},
+						}},
+					})
+				})
+
+				It("includes space in the response", func() {
+					Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+					Expect(rr).To(HaveHTTPBody(SatisfyAll(
+						MatchJSONPath("$.included.organizations[0].guid", "org-guid"),
+						MatchJSONPath("$.included.organizations[0].name", "org-name"),
+					)))
 				})
 			})
 		})
