@@ -114,11 +114,6 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Entry("Version", appworkload.AnnotationVersion, "version_1234"),
 	)
 
-	It("should be owned by the AppWorkload", func() {
-		Expect(statefulSet.OwnerReferences).To(HaveLen(1))
-		Expect(statefulSet.OwnerReferences[0].Kind).To(Equal("AppWorkload"))
-	})
-
 	It("should base the name and namspace on the appworkload", func() {
 		Expect(statefulSet.Namespace).To(Equal(appWorkload.Namespace))
 		Expect(statefulSet.Name).To(ContainSubstring("premium-app-guid-1234"))

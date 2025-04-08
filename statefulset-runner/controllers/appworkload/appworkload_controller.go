@@ -18,10 +18,12 @@ package appworkload
 
 import (
 	"context"
+	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -147,7 +149,7 @@ func filterAppWorkloads(object client.Object) bool {
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads/status,verbs=get;patch
 
-//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=create;patch;get;list;watch
+//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=create;patch;get;list;watch;deletecollection
 //+kubebuilder:rbac:groups=apps,resources=statefulsets/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch
@@ -161,7 +163,7 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 	log.V(1).Info("set observed generation", "generation", appWorkload.Status.ObservedGeneration)
 
 	if !appWorkload.GetDeletionTimestamp().IsZero() {
-		return r.reconcileDeletedAppWorkloadStatus(ctx, appWorkload)
+		return r.finalize(ctx, appWorkload)
 	}
 
 	statefulSet, err := r.workloadsToStSet.Convert(appWorkload)
@@ -179,7 +181,6 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 	_, err = controllerutil.CreateOrPatch(ctx, r.k8sClient, createdStSet, func() error {
 		createdStSet.Labels = statefulSet.Labels
 		createdStSet.Annotations = statefulSet.Annotations
-		createdStSet.OwnerReferences = statefulSet.OwnerReferences
 		createdStSet.Spec = statefulSet.Spec
 
 		return nil
@@ -207,19 +208,35 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 	return ctrl.Result{}, nil
 }
 
-func (r *AppWorkloadReconciler) reconcileDeletedAppWorkloadStatus(ctx context.Context, appWorkload *korifiv1alpha1.AppWorkload) (ctrl.Result, error) {
+func (r *AppWorkloadReconciler) finalize(ctx context.Context, appWorkload *korifiv1alpha1.AppWorkload) (ctrl.Result, error) {
+	if err := r.k8sClient.DeleteAllOf(ctx, &appsv1.StatefulSet{}, client.InNamespace(appWorkload.Namespace), client.MatchingLabels{
+		LabelAppWorkloadGUID: appWorkload.Name,
+	}); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	workloadStSets := &appsv1.StatefulSetList{}
 	err := r.k8sClient.List(ctx, workloadStSets, client.InNamespace(appWorkload.Namespace), client.MatchingLabels{
 		LabelAppWorkloadGUID: appWorkload.Name,
 	})
 	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if len(workloadStSets.Items) == 0 {
+		if controllerutil.RemoveFinalizer(appWorkload, finalizer.AppWorkloadFinalizerName) {
+			r.log.V(1).Info("removing finalizer from AppWorkload", "appWorkload", appWorkload.Name)
+		}
 		return ctrl.Result{}, nil
 	}
 
 	appWorkload.Status.ActualInstances = 0
-	if len(workloadStSets.Items) != 0 {
-		appWorkload.Status.ActualInstances = workloadStSets.Items[0].Status.Replicas
+	for _, stSet := range workloadStSets.Items {
+		appWorkload.Status.ActualInstances += stSet.Status.Replicas
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, k8s.NewNotReadyError().
+		WithMessage(fmt.Sprintf("%d instances still running", appWorkload.Status.ActualInstances)).
+		WithReason("StillRunning").
+		WithRequeue()
 }

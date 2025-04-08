@@ -176,7 +176,7 @@ var _ = Describe("AppWorkload Reconcile", func() {
 		})
 	})
 
-	When("the appworkload is being deleted gracefully", func() {
+	When("the appworkload is being deleted", func() {
 		BeforeEach(func() {
 			appWorkload.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 		})
