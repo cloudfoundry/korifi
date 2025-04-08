@@ -9,10 +9,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func PatchResource[T any, PT k8s.ObjectWithDeepCopy[T]](
+func PatchResource[T client.Object](
 	ctx context.Context,
 	k8sClient client.Client,
-	obj PT,
+	obj T,
 	modify func(),
 ) error {
 	err := k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)

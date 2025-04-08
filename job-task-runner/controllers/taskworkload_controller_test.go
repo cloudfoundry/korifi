@@ -27,7 +27,7 @@ var _ = Describe("TaskworkloadController", func() {
 	var (
 		statusGetter *fake.TaskStatusGetter
 
-		reconciler           *k8s.PatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload]
+		reconciler           *k8s.PatchingReconciler[korifiv1alpha1.TaskWorkload]
 		reconcileResult      ctrl.Result
 		reconcileErr         error
 		req                  ctrl.Request

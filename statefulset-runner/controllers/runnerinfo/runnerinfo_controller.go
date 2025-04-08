@@ -42,13 +42,13 @@ func NewRunnerInfoReconciler(
 	c client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-) *k8s.PatchingReconciler[korifiv1alpha1.RunnerInfo, *korifiv1alpha1.RunnerInfo] {
+) *k8s.PatchingReconciler[korifiv1alpha1.RunnerInfo] {
 	runnerInfoReconciler := RunnerInfoReconciler{
 		k8sClient: c,
 		scheme:    scheme,
 		log:       log,
 	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.RunnerInfo, *korifiv1alpha1.RunnerInfo](log, c, &runnerInfoReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.RunnerInfo](log, c, &runnerInfoReconciler)
 }
 
 func (r *RunnerInfoReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {

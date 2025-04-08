@@ -56,7 +56,7 @@ var _ = Describe("Reconcile", func() {
 		ctx                context.Context
 		fakeClient         *fake.Client
 		fakeStatusWriter   *fake.StatusWriter
-		patchingReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg]
+		patchingReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFOrg]
 		objectReconciler   *fakeObjectReconciler
 		org                *korifiv1alpha1.CFOrg
 		result             ctrl.Result
@@ -92,7 +92,7 @@ var _ = Describe("Reconcile", func() {
 			return nil
 		}
 
-		patchingReconciler = k8s.NewPatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](ctrl.Log, fakeClient, objectReconciler)
+		patchingReconciler = k8s.NewPatchingReconciler[korifiv1alpha1.CFOrg](ctrl.Log, fakeClient, objectReconciler)
 	})
 
 	JustBeforeEach(func() {

@@ -119,7 +119,7 @@ var _ = BeforeSuite(func() {
 		return nil
 	}
 
-	Expect(k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild](
+	Expect(k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild](
 		ctrl.Log.WithName("controllers").WithName("CFBuild"),
 		k8sManager.GetClient(),
 		build.NewReconciler(

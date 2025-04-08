@@ -52,7 +52,7 @@ func NewReconciler(
 	log logr.Logger,
 	upsiCredentialsReconciler DelegateReconciler,
 	managedCredentialsReconciler DelegateReconciler,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBinding, *korifiv1alpha1.CFServiceBinding] {
+) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBinding] {
 	cfBindingReconciler := &Reconciler{
 		k8sClient:         k8sClient,
 		scheme:            scheme,

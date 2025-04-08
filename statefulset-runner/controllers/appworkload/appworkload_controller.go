@@ -93,7 +93,7 @@ func NewAppWorkloadReconciler(
 	pdb PDB,
 	log logr.Logger,
 	stateCollector *state.AppWorkloadStateCollector,
-) *k8s.PatchingReconciler[korifiv1alpha1.AppWorkload, *korifiv1alpha1.AppWorkload] {
+) *k8s.PatchingReconciler[korifiv1alpha1.AppWorkload] {
 	appWorkloadReconciler := AppWorkloadReconciler{
 		k8sClient:        c,
 		scheme:           scheme,
@@ -102,7 +102,7 @@ func NewAppWorkloadReconciler(
 		log:              log,
 		stateCollector:   stateCollector,
 	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.AppWorkload, *korifiv1alpha1.AppWorkload](log, c, &appWorkloadReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.AppWorkload](log, c, &appWorkloadReconciler)
 }
 
 func (r *AppWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {

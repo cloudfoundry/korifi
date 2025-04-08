@@ -60,7 +60,7 @@ func NewReconciler(
 	scheme *runtime.Scheme,
 	rootNamespace string,
 	log logr.Logger,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance] {
+) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance] {
 	return k8s.NewPatchingReconciler(log, client, &Reconciler{
 		k8sClient:           client,
 		osbapiClientFactory: brokerClientFactory,

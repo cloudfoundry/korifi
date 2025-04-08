@@ -28,7 +28,6 @@ var _ = Describe("TaskRepository", func() {
 	var (
 		conditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFTask,
-			korifiv1alpha1.CFTask,
 			korifiv1alpha1.CFTaskList,
 			*korifiv1alpha1.CFTaskList,
 		]
@@ -41,7 +40,6 @@ var _ = Describe("TaskRepository", func() {
 	BeforeEach(func() {
 		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFTask,
-			korifiv1alpha1.CFTask,
 			korifiv1alpha1.CFTaskList,
 			*korifiv1alpha1.CFTaskList,
 		]{}

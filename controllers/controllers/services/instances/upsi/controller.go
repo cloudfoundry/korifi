@@ -53,7 +53,7 @@ func NewReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance, *korifiv1alpha1.CFServiceInstance] {
+) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceInstance] {
 	serviceInstanceReconciler := Reconciler{k8sClient: client, scheme: scheme, log: log}
 	return k8s.NewPatchingReconciler(log, client, &serviceInstanceReconciler)
 }

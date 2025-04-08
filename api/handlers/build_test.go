@@ -119,9 +119,7 @@ var _ = Describe("Build", func() {
 	})
 
 	Describe("the GET /v3/builds endpoint", func() {
-		var (
-			buildGUID string
-		)
+		var buildGUID string
 
 		BeforeEach(func() {
 			buildGUID = uuid.NewString()

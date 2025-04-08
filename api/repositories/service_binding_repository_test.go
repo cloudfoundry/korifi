@@ -39,13 +39,11 @@ var _ = Describe("ServiceBindingRepo", func() {
 		bindingName             *string
 		bindingConditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
-			korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
 		]
 		appConditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
-			korifiv1alpha1.CFApp,
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]
@@ -55,13 +53,11 @@ var _ = Describe("ServiceBindingRepo", func() {
 	BeforeEach(func() {
 		bindingConditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
-			korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
 		]{}
 		appConditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
-			korifiv1alpha1.CFApp,
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]{}

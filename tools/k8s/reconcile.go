@@ -18,43 +18,44 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type RuntimeObjectWithStatusConditions[T any] interface {
-	ObjectWithDeepCopy[T]
+type RuntimeObjectWithStatusConditions interface {
+	client.Object
 	StatusConditions() *[]metav1.Condition
 }
 
-type ObjectReconciler[T any, PT RuntimeObjectWithStatusConditions[T]] interface {
-	ReconcileResource(ctx context.Context, obj PT) (ctrl.Result, error)
+type ObjectReconciler[T any] interface {
+	ReconcileResource(ctx context.Context, obj T) (ctrl.Result, error)
 	SetupWithManager(mgr ctrl.Manager) *builder.Builder
 }
 
-type PatchingReconciler[T any, PT RuntimeObjectWithStatusConditions[T]] struct {
+type PatchingReconciler[T any] struct {
 	log              logr.Logger
 	k8sClient        client.Client
-	objectReconciler ObjectReconciler[T, PT]
+	objectReconciler ObjectReconciler[*T]
 }
 
-func NewPatchingReconciler[T any, PT RuntimeObjectWithStatusConditions[T]](log logr.Logger, k8sClient client.Client, objectReconciler ObjectReconciler[T, PT]) *PatchingReconciler[T, PT] {
-	return &PatchingReconciler[T, PT]{
+func NewPatchingReconciler[T any](log logr.Logger, k8sClient client.Client, objectReconciler ObjectReconciler[*T]) *PatchingReconciler[T] {
+	return &PatchingReconciler[T]{
 		log:              log,
 		k8sClient:        k8sClient,
 		objectReconciler: objectReconciler,
 	}
 }
 
-func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *PatchingReconciler[T]) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.log.
 		WithName(reflect.TypeFor[T]().Name()).
 		WithValues("namespace", req.Namespace, "name", req.Name, "logID", uuid.NewString())
 	ctx = logr.NewContext(ctx, log)
 
-	obj := PT(new(T))
-	err := r.k8sClient.Get(ctx, req.NamespacedName, obj)
+	runtimeObj := any(new(T)).(RuntimeObjectWithStatusConditions)
+
+	err := r.k8sClient.Get(ctx, req.NamespacedName, runtimeObj)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		log.Info(fmt.Sprintf("unable to fetch %T", obj), "reason", err)
+		log.Info(fmt.Sprintf("unable to fetch %T", runtimeObj), "reason", err)
 		return ctrl.Result{}, err
 	}
 
@@ -63,13 +64,13 @@ func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Requ
 		delegateErr error
 	)
 
-	err = Patch(ctx, r.k8sClient, obj, func() {
-		readyConditionBuilder := NewReadyConditionBuilder(obj)
+	err = Patch(ctx, r.k8sClient, runtimeObj, func() {
+		readyConditionBuilder := NewReadyConditionBuilder(runtimeObj)
 		defer func() {
-			meta.SetStatusCondition(obj.StatusConditions(), readyConditionBuilder.WithError(delegateErr).Build())
+			meta.SetStatusCondition(runtimeObj.StatusConditions(), readyConditionBuilder.WithError(delegateErr).Build())
 		}()
 
-		result, delegateErr = r.objectReconciler.ReconcileResource(ctx, obj)
+		result, delegateErr = r.objectReconciler.ReconcileResource(ctx, any(runtimeObj).(*T))
 		if delegateErr == nil {
 			readyConditionBuilder.Ready()
 			return
@@ -108,7 +109,7 @@ func (r *PatchingReconciler[T, PT]) Reconcile(ctx context.Context, req ctrl.Requ
 	return result, delegateErr
 }
 
-func (r *PatchingReconciler[T, PT]) SetupWithManager(mgr ctrl.Manager) error {
+func (r *PatchingReconciler[T]) SetupWithManager(mgr ctrl.Manager) error {
 	return r.objectReconciler.SetupWithManager(mgr).Complete(r)
 }
 

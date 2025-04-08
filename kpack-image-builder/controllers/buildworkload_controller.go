@@ -81,7 +81,7 @@ func NewBuildWorkloadReconciler(
 	config *config.Config,
 	imageConfigGetter ImageConfigGetter,
 	imageRepoCreator RepositoryCreator,
-) *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload] {
+) *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload] {
 	buildWorkloadReconciler := BuildWorkloadReconciler{
 		k8sClient:         c,
 		scheme:            scheme,
@@ -90,7 +90,7 @@ func NewBuildWorkloadReconciler(
 		imageConfigGetter: imageConfigGetter,
 		imageRepoCreator:  imageRepoCreator,
 	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload](log, c, &buildWorkloadReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.BuildWorkload](log, c, &buildWorkloadReconciler)
 }
 
 // BuildWorkloadReconciler reconciles a BuildWorkload object

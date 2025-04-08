@@ -54,8 +54,8 @@ func NewReconciler(
 	rootNamespace string,
 	appDeletionTimeout int32,
 	labelCompiler labels.Compiler,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace] {
-	namespaceController := k8sns.NewReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](
+) *k8s.PatchingReconciler[korifiv1alpha1.CFSpace] {
+	namespaceController := k8sns.NewReconciler[korifiv1alpha1.CFSpace](
 		client,
 		k8sns.NewNamespaceFinalizer[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](
 			client,
@@ -68,7 +68,7 @@ func NewReconciler(
 		containerRegistrySecretNames,
 	)
 
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFSpace, *korifiv1alpha1.CFSpace](log, client, &Reconciler{
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFSpace](log, client, &Reconciler{
 		client:                       client,
 		namespaceReconciler:          namespaceController,
 		rootNamespace:                rootNamespace,

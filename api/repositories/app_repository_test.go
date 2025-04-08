@@ -37,7 +37,6 @@ var _ = Describe("AppRepository", func() {
 	var (
 		appAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
-			korifiv1alpha1.CFApp,
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]
@@ -51,7 +50,6 @@ var _ = Describe("AppRepository", func() {
 	BeforeEach(func() {
 		appAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
-			korifiv1alpha1.CFApp,
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]{}

@@ -16,23 +16,23 @@ type ObjectList[L any] interface {
 	client.ObjectList
 }
 
-type Awaiter[T k8s.RuntimeObjectWithStatusConditions[TT], TT any, L any, PL ObjectList[L]] struct {
+type Awaiter[T k8s.RuntimeObjectWithStatusConditions, L any, PL ObjectList[L]] struct {
 	timeout time.Duration
 }
 
-func NewConditionAwaiter[T k8s.RuntimeObjectWithStatusConditions[TT], TT any, L any, PL ObjectList[L]](timeout time.Duration) *Awaiter[T, TT, L, PL] {
-	return &Awaiter[T, TT, L, PL]{
+func NewConditionAwaiter[T k8s.RuntimeObjectWithStatusConditions, L any, PL ObjectList[L]](timeout time.Duration) *Awaiter[T, L, PL] {
+	return &Awaiter[T, L, PL]{
 		timeout: timeout,
 	}
 }
 
-func (a *Awaiter[T, TT, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
+func (a *Awaiter[T, L, PL]) AwaitCondition(ctx context.Context, k8sClient client.WithWatch, object client.Object, conditionType string) (T, error) {
 	return a.AwaitState(ctx, k8sClient, object, func(o T) error {
-		return checkConditionIsTrue(o, conditionType)
+		return checkConditionIsTrue[T, L](o, conditionType)
 	})
 }
 
-func (a *Awaiter[T, TT, L, PL]) AwaitState(ctx context.Context, k8sClient client.WithWatch, object client.Object, checkState func(T) error) (T, error) {
+func (a *Awaiter[T, L, PL]) AwaitState(ctx context.Context, k8sClient client.WithWatch, object client.Object, checkState func(T) error) (T, error) {
 	var empty T
 	objList := PL(new(L))
 
@@ -67,7 +67,7 @@ func (a *Awaiter[T, TT, L, PL]) AwaitState(ctx context.Context, k8sClient client
 	)
 }
 
-func checkConditionIsTrue[T k8s.RuntimeObjectWithStatusConditions[L], L any](obj T, conditionType string) error {
+func checkConditionIsTrue[T k8s.RuntimeObjectWithStatusConditions, L any](obj T, conditionType string) error {
 	condition := meta.FindStatusCondition(*obj.StatusConditions(), conditionType)
 
 	if condition == nil {
