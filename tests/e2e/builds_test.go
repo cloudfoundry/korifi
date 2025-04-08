@@ -88,6 +88,12 @@ var _ = Describe("Builds", func() {
 
 	Describe("list", func() {
 		var result resourceList[resource]
+		var buildGUID string
+
+		BeforeEach(func() {
+			buildGUID = createBuild(pkgGUID)
+		})
+
 		JustBeforeEach(func() {
 			var err error
 			resp, err = adminClient.R().
@@ -99,8 +105,7 @@ var _ = Describe("Builds", func() {
 		It("returns a list of builds", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.Resources).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-				"PackageGUID": Equal(pkgGUID),
-				"AppGUID":     Equal(appGUID),
+				"GUID": Equal(buildGUID),
 			})))
 		})
 	})
