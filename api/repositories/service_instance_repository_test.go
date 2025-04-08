@@ -869,6 +869,38 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				})
 			})
 
+			When("the type filter is set", func() {
+				When("filtering for managed type", func() {
+					BeforeEach(func() {
+						filters = repositories.ListServiceInstanceMessage{
+							Type: korifiv1alpha1.ManagedType,
+						}
+					})
+
+					It("returns no records for the ServiceInstances since all are user-provided", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(serviceInstanceList).To(BeEmpty())
+					})
+				})
+
+				When("filtering for user-provided type", func() {
+					BeforeEach(func() {
+						filters = repositories.ListServiceInstanceMessage{
+							Type: korifiv1alpha1.UserProvidedType,
+						}
+					})
+
+					It("returns all the ServiceInstances records that are user-provided", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(serviceInstanceList).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
+						))
+					})
+				})
+			})
+
 			When("the serviceGUID filter is set", func() {
 				BeforeEach(func() {
 					filters = repositories.ListServiceInstanceMessage{
