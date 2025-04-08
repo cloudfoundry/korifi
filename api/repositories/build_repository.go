@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -183,6 +185,21 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 	}
 
 	return b.cfBuildToBuildRecord(cfBuild), nil
+}
+
+func (b *BuildRepo) ListBuilds(ctx context.Context, authInfo authorization.Info) ([]BuildRecord, error) {
+	userClient, err := b.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return []BuildRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	buildList := &korifiv1alpha1.CFBuildList{}
+	err = userClient.List(ctx, buildList)
+	if err != nil {
+		return []BuildRecord{}, fmt.Errorf("failed to list builds: %w", apierrors.FromK8sError(err, BuildResourceType))
+	}
+
+	return slices.Collect(it.Map(slices.Values(buildList.Items), b.cfBuildToBuildRecord)), nil
 }
 
 type CreateBuildMessage struct {
