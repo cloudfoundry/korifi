@@ -40,7 +40,7 @@ type Reconciler struct {
 	vcapApplicationEnvBuilder EnvValueBuilder
 }
 
-func NewReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, vcapServicesBuilder, vcapApplicationBuilder EnvValueBuilder) *k8s.PatchingReconciler[korifiv1alpha1.CFApp, *korifiv1alpha1.CFApp] {
+func NewReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, vcapServicesBuilder, vcapApplicationBuilder EnvValueBuilder) *k8s.PatchingReconciler[korifiv1alpha1.CFApp] {
 	appReconciler := Reconciler{
 		log:                       log,
 		k8sClient:                 k8sClient,

@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("RunnerInfo Reconcile", func() {
 	var (
-		reconciler      *k8s.PatchingReconciler[korifiv1alpha1.RunnerInfo, *korifiv1alpha1.RunnerInfo]
+		reconciler      *k8s.PatchingReconciler[korifiv1alpha1.RunnerInfo]
 		reconcileResult ctrl.Result
 		reconcileErr    error
 		req             ctrl.Request

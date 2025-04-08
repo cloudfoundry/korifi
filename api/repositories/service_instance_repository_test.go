@@ -35,7 +35,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		serviceInstanceRepo *repositories.ServiceInstanceRepo
 		conditionAwaiter    *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceInstance,
-			korifiv1alpha1.CFServiceInstance,
 			korifiv1alpha1.CFServiceInstanceList,
 			*korifiv1alpha1.CFServiceInstanceList,
 		]
@@ -49,7 +48,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 	BeforeEach(func() {
 		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceInstance,
-			korifiv1alpha1.CFServiceInstance,
 			korifiv1alpha1.CFServiceInstanceList,
 			*korifiv1alpha1.CFServiceInstanceList,
 		]{}

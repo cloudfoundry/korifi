@@ -53,7 +53,7 @@ func NewReconciler(
 	osbapiClientFactory osbapi.BrokerClientFactory,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBroker, *korifiv1alpha1.CFServiceBroker] {
+) *k8s.PatchingReconciler[korifiv1alpha1.CFServiceBroker] {
 	return k8s.NewPatchingReconciler(
 		log,
 		client,

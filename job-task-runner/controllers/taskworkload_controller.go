@@ -64,7 +64,7 @@ func NewTaskWorkloadReconciler(
 	scheme *runtime.Scheme,
 	statusGetter TaskStatusGetter,
 	jobTTL time.Duration,
-) *k8s.PatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload] {
+) *k8s.PatchingReconciler[korifiv1alpha1.TaskWorkload] {
 	taskReconciler := TaskWorkloadReconciler{
 		k8sClient:    k8sClient,
 		logger:       logger,
@@ -73,7 +73,7 @@ func NewTaskWorkloadReconciler(
 		jobTTL:       jobTTL,
 	}
 
-	return k8s.NewPatchingReconciler[korifiv1alpha1.TaskWorkload, *korifiv1alpha1.TaskWorkload](logger, k8sClient, &taskReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.TaskWorkload](logger, k8sClient, &taskReconciler)
 }
 
 func (r *TaskWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {

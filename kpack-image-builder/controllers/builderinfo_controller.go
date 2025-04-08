@@ -47,7 +47,7 @@ func NewBuilderInfoReconciler(
 	log logr.Logger,
 	clusterBuilderName string,
 	rootNamespaceName string,
-) *k8s.PatchingReconciler[korifiv1alpha1.BuilderInfo, *korifiv1alpha1.BuilderInfo] {
+) *k8s.PatchingReconciler[korifiv1alpha1.BuilderInfo] {
 	builderInfoReconciler := BuilderInfoReconciler{
 		k8sClient:          c,
 		scheme:             scheme,
@@ -55,7 +55,7 @@ func NewBuilderInfoReconciler(
 		clusterBuilderName: clusterBuilderName,
 		rootNamespaceName:  rootNamespaceName,
 	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.BuilderInfo, *korifiv1alpha1.BuilderInfo](log, c, &builderInfoReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.BuilderInfo](log, c, &builderInfoReconciler)
 }
 
 type BuilderInfoReconciler struct {

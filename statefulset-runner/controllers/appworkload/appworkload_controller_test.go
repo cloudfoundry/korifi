@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("AppWorkload Reconcile", func() {
 	var (
-		reconciler             *k8s.PatchingReconciler[korifiv1alpha1.AppWorkload, *korifiv1alpha1.AppWorkload]
+		reconciler             *k8s.PatchingReconciler[korifiv1alpha1.AppWorkload]
 		reconcileResult        ctrl.Result
 		reconcileErr           error
 		ctx                    context.Context

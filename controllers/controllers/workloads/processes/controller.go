@@ -63,9 +63,9 @@ func NewReconciler(
 	log logr.Logger,
 	controllerConfig *config.ControllerConfig,
 	envBuilder ProcessEnvBuilder,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFProcess, *korifiv1alpha1.CFProcess] {
+) *k8s.PatchingReconciler[korifiv1alpha1.CFProcess] {
 	processReconciler := Reconciler{k8sClient: client, scheme: scheme, log: log, controllerConfig: controllerConfig, envBuilder: envBuilder}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFProcess, *korifiv1alpha1.CFProcess](log, client, &processReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFProcess](log, client, &processReconciler)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {

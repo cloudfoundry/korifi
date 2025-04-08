@@ -8,13 +8,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ObjectWithDeepCopy[T any] interface {
-	*T
-
-	client.Object
-	DeepCopy() *T
-}
-
 // Patch updates k8s objects by subsequently calling k8s client `Patch()` and
 // `Status().Patch()` The `modify` lambda is expected to mutate the `obj` but
 // does not take the object as an argument as the object should be visible in
@@ -30,13 +23,13 @@ type ObjectWithDeepCopy[T any] interface {
 //
 // Note that this function should be used when current user has permissions to
 // patch both object's spec and status, e.g. in controllers context
-func Patch[T any, PT ObjectWithDeepCopy[T]](
+func Patch(
 	ctx context.Context,
 	k8sClient client.Client,
-	obj PT,
+	obj client.Object,
 	modify func(),
 ) error {
-	objCopy := PT(obj.DeepCopy())
+	objCopy := DeepCopy(obj)
 
 	modify()
 
@@ -44,7 +37,7 @@ func Patch[T any, PT ObjectWithDeepCopy[T]](
 	// that we capture status modifications We need to do that because the
 	// object patch below modifies the obj parameter to reflect the state in
 	// etcd, i.e. clears all modifications on the status
-	modifiedObj := PT(obj.DeepCopy())
+	modifiedObj := DeepCopy(obj)
 
 	objHasStatus, err := hasStatus(obj)
 	if err != nil {
@@ -85,10 +78,10 @@ func Patch[T any, PT ObjectWithDeepCopy[T]](
 //
 // Note that this function should be used when current user has permissions to
 // patch both object's spec and status, e.g. in controllers context
-func PatchResource[T any, PT ObjectWithDeepCopy[T]](
+func PatchResource(
 	ctx context.Context,
 	k8sClient client.Client,
-	obj PT,
+	obj client.Object,
 	modify func(),
 ) error {
 	return TryPatchResource(ctx, k8sClient, obj, func() error {
@@ -99,13 +92,13 @@ func PatchResource[T any, PT ObjectWithDeepCopy[T]](
 
 // TryPatchResource has the same behaviour as PatchResource, but it
 // allows the modify func to return an error, which is then propagated.
-func TryPatchResource[T any, PT ObjectWithDeepCopy[T]](
+func TryPatchResource(
 	ctx context.Context,
 	k8sClient client.Client,
-	obj PT,
+	obj client.Object,
 	modify func() error,
 ) error {
-	originalObj := PT(obj.DeepCopy())
+	originalObj := DeepCopy(obj)
 
 	if err := modify(); err != nil {
 		return err
@@ -131,4 +124,8 @@ func copyInto(sourceObj, targetObj runtime.Object) error {
 	}
 
 	return runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredSource, targetObj)
+}
+
+func DeepCopy[T client.Object](o T) T {
+	return o.DeepCopyObject().(T)
 }

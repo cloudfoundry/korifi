@@ -153,7 +153,7 @@ func (d *Deleter) cleanupInsances(planName string) error {
 	return fmt.Errorf("failed to clean up service bindings for plan %q", planName)
 }
 
-func forceDelete[T any, PT k8s.ObjectWithDeepCopy[T]](ctx context.Context, k8sClient client.Client, obj PT) {
+func forceDelete[T client.Object](ctx context.Context, k8sClient client.Client, obj T) {
 	Expect(client.IgnoreNotFound(k8s.PatchResource(ctx, k8sClient, obj, func() {
 		obj.SetFinalizers(nil)
 	}))).To(Succeed())

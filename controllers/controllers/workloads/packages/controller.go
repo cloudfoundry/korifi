@@ -66,8 +66,8 @@ func NewReconciler(
 	imageDeleter ImageDeleter,
 	packageCleaner PackageCleaner,
 	packageRepoSecretNames []string,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage] {
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFPackage, *korifiv1alpha1.CFPackage](log, client, &Reconciler{
+) *k8s.PatchingReconciler[korifiv1alpha1.CFPackage] {
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFPackage](log, client, &Reconciler{
 		k8sClient:              client,
 		scheme:                 scheme,
 		log:                    log,
