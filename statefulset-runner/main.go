@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/runnerinfo"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/version"
 	"go.uber.org/zap/zapcore"
@@ -81,6 +82,8 @@ func main() {
 		setupLog.Error(err, "unable to set up controllers")
 		os.Exit(1)
 	}
+
+	finalizer.NewWebhook().SetupWebhookWithManager(mgr)
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

@@ -1,0 +1,28 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: korifi-statefulset-runner-mutating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/korifi-statefulset-runner-serving-cert'
+webhooks:
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-statefulset-runner-webhook-service
+        namespace: '{{ .Release.Namespace }}'
+        path: /mutate-korifi-cloudfoundry-org-v1alpha1-appworkload
+    failurePolicy: Fail
+    name: mappworkload.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+        resources:
+          - appworkloads
+    sideEffects: None
