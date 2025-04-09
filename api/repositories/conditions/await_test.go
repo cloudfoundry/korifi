@@ -59,7 +59,7 @@ var _ = Describe("ConditionAwaiter", func() {
 
 	Describe("AwaitCondition", func() {
 		JustBeforeEach(func() {
-			awaitedTask, awaitErr = awaiter.AwaitCondition(ctx, k8sClient, task, korifiv1alpha1.StatusConditionReady)
+			awaitedTask, awaitErr = awaiter.AwaitCondition(ctx, klient, task, korifiv1alpha1.StatusConditionReady)
 		})
 
 		It("returns an error", func() {
@@ -137,7 +137,7 @@ var _ = Describe("ConditionAwaiter", func() {
 		})
 
 		JustBeforeEach(func() {
-			awaitedTask, awaitErr = awaiter.AwaitState(ctx, k8sClient, task, checkState)
+			awaitedTask, awaitErr = awaiter.AwaitState(ctx, klient, task, checkState)
 		})
 
 		It("returns an error", func() {

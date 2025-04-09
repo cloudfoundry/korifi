@@ -14,7 +14,7 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -22,10 +22,10 @@ const (
 )
 
 type BuildpackRepository struct {
-	builderName       string
-	userClientFactory authorization.UserClientFactory
-	rootNamespace     string
-	sorter            BuildpackSorter
+	builderName   string
+	klient        Klient
+	rootNamespace string
+	sorter        BuildpackSorter
 }
 
 type BuildpackRecord struct {
@@ -81,35 +81,28 @@ type ListBuildpacksMessage struct {
 }
 
 func NewBuildpackRepository(
+	klient Klient,
 	builderName string,
-	userClientFactory authorization.UserClientFactory,
 	rootNamespace string,
 	sorter BuildpackSorter,
 ) *BuildpackRepository {
 	return &BuildpackRepository{
-		builderName:       builderName,
-		userClientFactory: userClientFactory,
-		rootNamespace:     rootNamespace,
-		sorter:            sorter,
+		klient:        klient,
+		builderName:   builderName,
+		rootNamespace: rootNamespace,
+		sorter:        sorter,
 	}
 }
 
 func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo authorization.Info, message ListBuildpacksMessage) ([]BuildpackRecord, error) {
-	var builderInfo korifiv1alpha1.BuilderInfo
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	err = userClient.Get(
-		ctx,
-		types.NamespacedName{
+	builderInfo := &korifiv1alpha1.BuilderInfo{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
 			Name:      r.builderName,
 		},
-		&builderInfo,
-	)
+	}
+
+	err := r.klient.Get(ctx, builderInfo)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, apierrors.NewResourceNotReadyError(fmt.Errorf("BuilderInfo %q not found in namespace %q", r.builderName, r.rootNamespace))
@@ -133,7 +126,7 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 		return nil, apierrors.NewResourceNotReadyError(fmt.Errorf("BuilderInfo %q not ready: %s", r.builderName, conditionNotReadyMessage))
 	}
 
-	return r.sorter.Sort(builderInfoToBuildpackRecords(builderInfo), message.OrderBy), nil
+	return r.sorter.Sort(builderInfoToBuildpackRecords(*builderInfo), message.OrderBy), nil
 }
 
 func builderInfoToBuildpackRecords(info korifiv1alpha1.BuilderInfo) []BuildpackRecord {

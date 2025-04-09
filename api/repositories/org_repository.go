@@ -10,14 +10,12 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -75,35 +73,27 @@ func (r OrgRecord) Relationships() map[string]string {
 }
 
 type OrgRepo struct {
-	rootNamespace     string
-	privilegedClient  client.WithWatch
-	userClientFactory authorization.UserClientFactory
-	nsPerms           *authorization.NamespacePermissions
-	conditionAwaiter  Awaiter[*korifiv1alpha1.CFOrg]
+	rootNamespace    string
+	klient           Klient
+	nsPerms          *authorization.NamespacePermissions
+	conditionAwaiter Awaiter[*korifiv1alpha1.CFOrg]
 }
 
 func NewOrgRepo(
+	klient Klient,
 	rootNamespace string,
-	privilegedClient client.WithWatch,
-	userClientFactory authorization.UserClientFactory,
 	nsPerms *authorization.NamespacePermissions,
 	conditionAwaiter Awaiter[*korifiv1alpha1.CFOrg],
 ) *OrgRepo {
 	return &OrgRepo{
-		rootNamespace:     rootNamespace,
-		privilegedClient:  privilegedClient,
-		userClientFactory: userClientFactory,
-		nsPerms:           nsPerms,
-		conditionAwaiter:  conditionAwaiter,
+		klient:           klient,
+		rootNamespace:    rootNamespace,
+		nsPerms:          nsPerms,
+		conditionAwaiter: conditionAwaiter,
 	}
 }
 
 func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, message CreateOrgMessage) (OrgRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(info)
-	if err != nil {
-		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfOrg := &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        uuid.NewString(),
@@ -116,12 +106,12 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 		},
 	}
 
-	err = userClient.Create(ctx, cfOrg)
+	err := r.klient.Create(ctx, cfOrg)
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to create cf org: %w", apierrors.FromK8sError(err, OrgResourceType))
 	}
 
-	cfOrg, err = r.conditionAwaiter.AwaitCondition(ctx, userClient, cfOrg, korifiv1alpha1.StatusConditionReady)
+	cfOrg, err = r.conditionAwaiter.AwaitCondition(ctx, r.klient, cfOrg, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return OrgRecord{}, apierrors.FromK8sError(err, OrgResourceType)
 	}
@@ -135,13 +125,8 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, message
 		return nil, err
 	}
 
-	userClient, err := r.userClientFactory.BuildClient(info)
-	if err != nil {
-		return []OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfOrgList := new(korifiv1alpha1.CFOrgList)
-	err = userClient.List(ctx, cfOrgList, client.InNamespace(r.rootNamespace))
+	err = r.klient.List(ctx, cfOrgList, InNamespace(r.rootNamespace))
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, OrgResourceType)
 	}
@@ -166,11 +151,7 @@ func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID s
 }
 
 func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, message DeleteOrgMessage) error {
-	userClient, err := r.userClientFactory.BuildClient(info)
-	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
-	}
-	err = userClient.Delete(ctx, &korifiv1alpha1.CFOrg{
+	err := r.klient.Delete(ctx, &korifiv1alpha1.CFOrg{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
 			Namespace: r.rootNamespace,
@@ -181,19 +162,20 @@ func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, messag
 }
 
 func (r *OrgRepo) PatchOrg(ctx context.Context, authInfo authorization.Info, message PatchOrgMessage) (OrgRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return OrgRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	cfOrg := &korifiv1alpha1.CFOrg{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      message.GUID,
+		},
 	}
-
-	cfOrg := new(korifiv1alpha1.CFOrg)
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: message.GUID}, cfOrg)
+	err := r.klient.Get(ctx, cfOrg)
 	if err != nil {
 		return OrgRecord{}, fmt.Errorf("failed to get org: %w", apierrors.FromK8sError(err, OrgResourceType))
 	}
 
-	err = k8s.PatchResource(ctx, userClient, cfOrg, func() {
+	err = r.klient.Patch(ctx, cfOrg, func() error {
 		message.Apply(cfOrg)
+		return nil
 	})
 	if err != nil {
 		return OrgRecord{}, apierrors.FromK8sError(err, OrgResourceType)
@@ -203,13 +185,13 @@ func (r *OrgRepo) PatchOrg(ctx context.Context, authInfo authorization.Info, mes
 }
 
 func (r *OrgRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, orgGUID string) (*time.Time, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("get-deleted-at failed to build user client: %w", err)
+	cfOrg := &korifiv1alpha1.CFOrg{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      orgGUID,
+		},
 	}
-
-	cfOrg := new(korifiv1alpha1.CFOrg)
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: r.rootNamespace, Name: orgGUID}, cfOrg)
+	err := r.klient.Get(ctx, cfOrg)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, OrgResourceType)
 	}

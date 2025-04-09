@@ -10,7 +10,6 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
@@ -18,7 +17,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -75,26 +73,23 @@ func (r SpaceRecord) Relationships() map[string]string {
 }
 
 type SpaceRepo struct {
-	orgRepo            *OrgRepo
-	namespaceRetriever NamespaceRetriever
-	userClientFactory  authorization.UserClientFactory
-	nsPerms            *authorization.NamespacePermissions
-	conditionAwaiter   Awaiter[*korifiv1alpha1.CFSpace]
+	klient           Klient
+	orgRepo          *OrgRepo
+	nsPerms          *authorization.NamespacePermissions
+	conditionAwaiter Awaiter[*korifiv1alpha1.CFSpace]
 }
 
 func NewSpaceRepo(
-	namespaceRetriever NamespaceRetriever,
+	klient Klient,
 	orgRepo *OrgRepo,
-	userClientFactory authorization.UserClientFactory,
 	nsPerms *authorization.NamespacePermissions,
 	conditionAwaiter Awaiter[*korifiv1alpha1.CFSpace],
 ) *SpaceRepo {
 	return &SpaceRepo{
-		orgRepo:            orgRepo,
-		namespaceRetriever: namespaceRetriever,
-		userClientFactory:  userClientFactory,
-		nsPerms:            nsPerms,
-		conditionAwaiter:   conditionAwaiter,
+		klient:           klient,
+		orgRepo:          orgRepo,
+		nsPerms:          nsPerms,
+		conditionAwaiter: conditionAwaiter,
 	}
 }
 
@@ -102,11 +97,6 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 	_, err := r.orgRepo.GetOrg(ctx, info, message.OrganizationGUID)
 	if err != nil {
 		return SpaceRecord{}, fmt.Errorf("failed to get parent organization: %w", err)
-	}
-
-	userClient, err := r.userClientFactory.BuildClient(info)
-	if err != nil {
-		return SpaceRecord{}, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	cfSpace := &korifiv1alpha1.CFSpace{
@@ -118,12 +108,12 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 			DisplayName: message.Name,
 		},
 	}
-	err = userClient.Create(ctx, cfSpace)
+	err = r.klient.Create(ctx, cfSpace)
 	if err != nil {
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
 
-	cfSpace, err = r.conditionAwaiter.AwaitCondition(ctx, userClient, cfSpace, korifiv1alpha1.StatusConditionReady)
+	cfSpace, err = r.conditionAwaiter.AwaitCondition(ctx, r.klient, cfSpace, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)
 	}
@@ -132,11 +122,6 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 }
 
 func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info, message ListSpacesMessage) ([]SpaceRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []SpaceRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	authorizedOrgNamespaces, err := authorizedOrgNamespaces(ctx, authInfo, r.nsPerms)
 	if err != nil {
 		return nil, err
@@ -151,7 +136,7 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info,
 	cfSpaces := []korifiv1alpha1.CFSpace{}
 	for _, org := range orgNsList {
 		cfSpaceList := new(korifiv1alpha1.CFSpaceList)
-		err = userClient.List(ctx, cfSpaceList, client.InNamespace(org))
+		err = r.klient.List(ctx, cfSpaceList, InNamespace(org))
 		if k8serrors.IsForbidden(err) {
 			continue
 		}
@@ -170,18 +155,12 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info,
 }
 
 func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGUID string) (SpaceRecord, error) {
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, spaceGUID, SpaceResourceType)
-	if err != nil {
-		return SpaceRecord{}, err
+	cfSpace := &korifiv1alpha1.CFSpace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: spaceGUID,
+		},
 	}
-
-	userClient, err := r.userClientFactory.BuildClient(info)
-	if err != nil {
-		return SpaceRecord{}, fmt.Errorf("get-space failed to build user client: %w", err)
-	}
-
-	cfSpace := &korifiv1alpha1.CFSpace{}
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: spaceGUID}, cfSpace)
+	err := r.klient.Get(ctx, cfSpace)
 	if err != nil {
 		return SpaceRecord{}, fmt.Errorf("failed to get space: %w", apierrors.FromK8sError(err, SpaceResourceType))
 	}
@@ -203,12 +182,7 @@ func cfSpaceToSpaceRecord(cfSpace korifiv1alpha1.CFSpace) SpaceRecord {
 }
 
 func (r *SpaceRepo) DeleteSpace(ctx context.Context, info authorization.Info, message DeleteSpaceMessage) error {
-	userClient, err := r.userClientFactory.BuildClient(info)
-	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	err = userClient.Delete(ctx, &korifiv1alpha1.CFSpace{
+	err := r.klient.Delete(ctx, &korifiv1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
 			Namespace: message.OrganizationGUID,
@@ -219,19 +193,20 @@ func (r *SpaceRepo) DeleteSpace(ctx context.Context, info authorization.Info, me
 }
 
 func (r *SpaceRepo) PatchSpaceMetadata(ctx context.Context, authInfo authorization.Info, message PatchSpaceMetadataMessage) (SpaceRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return SpaceRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	cfSpace := &korifiv1alpha1.CFSpace{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: message.OrgGUID,
+			Name:      message.GUID,
+		},
 	}
-
-	cfSpace := new(korifiv1alpha1.CFSpace)
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: message.OrgGUID, Name: message.GUID}, cfSpace)
+	err := r.klient.Get(ctx, cfSpace)
 	if err != nil {
 		return SpaceRecord{}, fmt.Errorf("failed to get space: %w", apierrors.FromK8sError(err, SpaceResourceType))
 	}
 
-	err = k8s.PatchResource(ctx, userClient, cfSpace, func() {
+	err = r.klient.Patch(ctx, cfSpace, func() error {
 		message.Apply(cfSpace)
+		return nil
 	})
 	if err != nil {
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)

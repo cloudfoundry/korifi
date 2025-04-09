@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -66,8 +65,8 @@ func (m UpdateServiceBrokerMessage) apply(broker *korifiv1alpha1.CFServiceBroker
 }
 
 type ServiceBrokerRepo struct {
-	userClientFactory authorization.UserClientFactory
-	rootNamespace     string
+	klient        Klient
+	rootNamespace string
 }
 
 type ServiceBrokerRecord struct {
@@ -84,21 +83,16 @@ func (r ServiceBrokerRecord) Relationships() map[string]string {
 }
 
 func NewServiceBrokerRepo(
-	userClientFactory authorization.UserClientFactory,
+	klient Klient,
 	rootNamespace string,
 ) *ServiceBrokerRepo {
 	return &ServiceBrokerRepo{
-		userClientFactory: userClientFactory,
-		rootNamespace:     rootNamespace,
+		klient:        klient,
+		rootNamespace: rootNamespace,
 	}
 }
 
 func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo authorization.Info, message CreateServiceBrokerMessage) (ServiceBrokerRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceBrokerRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	credsSecretData, err := tools.ToCredentialsSecretData(map[string]string{
 		"username": message.Credentials.Username,
 		"password": message.Credentials.Password,
@@ -123,7 +117,7 @@ func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo au
 			},
 		},
 	}
-	if err = userClient.Create(ctx, cfServiceBroker); err != nil {
+	if err = r.klient.Create(ctx, cfServiceBroker); err != nil {
 		return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
@@ -139,7 +133,7 @@ func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo au
 		return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
-	if err = userClient.Create(ctx, credentialsSecret); err != nil {
+	if err = r.klient.Create(ctx, credentialsSecret); err != nil {
 		return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
@@ -160,11 +154,6 @@ func toServiceBrokerRecord(cfServiceBroker korifiv1alpha1.CFServiceBroker) Servi
 }
 
 func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization.Info, brokerGUID string) (ResourceState, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ResourceStateUnknown, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfServiceBroker := &korifiv1alpha1.CFServiceBroker{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
@@ -172,7 +161,7 @@ func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization
 		},
 	}
 
-	if err = userClient.Get(ctx, client.ObjectKeyFromObject(cfServiceBroker), cfServiceBroker); err != nil {
+	if err := r.klient.Get(ctx, cfServiceBroker); err != nil {
 		return ResourceStateUnknown, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
@@ -188,13 +177,8 @@ func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization
 }
 
 func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info, message ListServiceBrokerMessage) ([]ServiceBrokerRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	brokersList := &korifiv1alpha1.CFServiceBrokerList{}
-	err = userClient.List(ctx, brokersList, client.InNamespace(r.rootNamespace))
+	err := r.klient.List(ctx, brokersList, InNamespace(r.rootNamespace))
 	if err != nil {
 		// All authenticated users are allowed to list brokers. Therefore, the
 		// usual pattern of checking for forbidden error and return an empty
@@ -216,11 +200,6 @@ func (r *ServiceBrokerRepo) GetServiceBroker(ctx context.Context, authInfo autho
 }
 
 func (r *ServiceBrokerRepo) getServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) (*korifiv1alpha1.CFServiceBroker, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	serviceBroker := &korifiv1alpha1.CFServiceBroker{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
@@ -228,7 +207,7 @@ func (r *ServiceBrokerRepo) getServiceBroker(ctx context.Context, authInfo autho
 		},
 	}
 
-	if err := userClient.Get(ctx, client.ObjectKeyFromObject(serviceBroker), serviceBroker); err != nil {
+	if err := r.klient.Get(ctx, serviceBroker); err != nil {
 		return nil, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
 
@@ -236,11 +215,6 @@ func (r *ServiceBrokerRepo) getServiceBroker(ctx context.Context, authInfo autho
 }
 
 func (r *ServiceBrokerRepo) UpdateServiceBroker(ctx context.Context, authInfo authorization.Info, message UpdateServiceBrokerMessage) (ServiceBrokerRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceBrokerRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfServiceBroker := &korifiv1alpha1.CFServiceBroker{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
@@ -248,8 +222,9 @@ func (r *ServiceBrokerRepo) UpdateServiceBroker(ctx context.Context, authInfo au
 		},
 	}
 
-	if err = PatchResource(ctx, userClient, cfServiceBroker, func() {
+	if err := GetAndPatch(ctx, r.klient, cfServiceBroker, func() error {
 		message.apply(cfServiceBroker)
+		return nil
 	}); err != nil {
 		return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}
@@ -270,8 +245,9 @@ func (r *ServiceBrokerRepo) UpdateServiceBroker(ctx context.Context, authInfo au
 			},
 		}
 
-		if err := PatchResource(ctx, userClient, credentialsSecret, func() {
+		if err := GetAndPatch(ctx, r.klient, credentialsSecret, func() error {
 			credentialsSecret.Data = credsSecretData
+			return nil
 		}); err != nil {
 			return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 		}
@@ -281,11 +257,6 @@ func (r *ServiceBrokerRepo) UpdateServiceBroker(ctx context.Context, authInfo au
 }
 
 func (r *ServiceBrokerRepo) DeleteServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) error {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	serviceBroker := &korifiv1alpha1.CFServiceBroker{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
@@ -294,7 +265,7 @@ func (r *ServiceBrokerRepo) DeleteServiceBroker(ctx context.Context, authInfo au
 	}
 
 	return apierrors.FromK8sError(
-		userClient.Delete(ctx, serviceBroker),
+		r.klient.Delete(ctx, serviceBroker),
 		ServiceBrokerResourceType,
 	)
 }

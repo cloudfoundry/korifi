@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
@@ -57,10 +56,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		}
 
 		serviceInstanceRepo = repositories.NewServiceInstanceRepo(
-			namespaceRetriever,
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
+			klient,
 			conditionAwaiter,
 			sorter,
 			rootNamespace,
@@ -208,6 +204,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		When("user has permissions to create ServiceInstances", func() {
 			BeforeEach(func() {
+				createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 

@@ -8,11 +8,11 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -20,9 +20,9 @@ const (
 )
 
 type StackRepository struct {
-	builderName       string
-	userClientFactory authorization.UserClientFactory
-	rootNamespace     string
+	klient        Klient
+	builderName   string
+	rootNamespace string
 }
 
 type StackRecord struct {
@@ -34,33 +34,26 @@ type StackRecord struct {
 }
 
 func NewStackRepository(
+	klient Klient,
 	builderName string,
-	userClientFactory authorization.UserClientFactory,
 	rootNamespace string,
 ) *StackRepository {
 	return &StackRepository{
-		builderName:       builderName,
-		userClientFactory: userClientFactory,
-		rootNamespace:     rootNamespace,
+		klient:        klient,
+		builderName:   builderName,
+		rootNamespace: rootNamespace,
 	}
 }
 
 func (r *StackRepository) ListStacks(ctx context.Context, authInfo authorization.Info) ([]StackRecord, error) {
-	var builderInfo korifiv1alpha1.BuilderInfo
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	err = userClient.Get(
-		ctx,
-		types.NamespacedName{
+	builderInfo := &korifiv1alpha1.BuilderInfo{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
 			Name:      r.builderName,
 		},
-		&builderInfo,
-	)
+	}
+
+	err := r.klient.Get(ctx, builderInfo)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, StackResourceType)
 	}
@@ -69,7 +62,7 @@ func (r *StackRepository) ListStacks(ctx context.Context, authInfo authorization
 		return nil, apierrors.NewResourceNotReadyError(fmt.Errorf("BuilderInfo %q not ready", r.builderName))
 	}
 
-	return builderInfoToStackRecords(builderInfo), nil
+	return builderInfoToStackRecords(*builderInfo), nil
 }
 
 func builderInfoToStackRecords(info korifiv1alpha1.BuilderInfo) []StackRecord {

@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/packages"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/dockercfg"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
@@ -24,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -43,29 +41,26 @@ var packageTypeToLifecycleType = map[korifiv1alpha1.PackageType]korifiv1alpha1.L
 }
 
 type PackageRepo struct {
-	userClientFactory  authorization.UserClientFactory
-	namespaceRetriever NamespaceRetriever
-	repositoryCreator  RepositoryCreator
-	repositoryPrefix   string
-	awaiter            Awaiter[*korifiv1alpha1.CFPackage]
-	sorter             PackageSorter
+	klient            Klient
+	repositoryCreator RepositoryCreator
+	repositoryPrefix  string
+	awaiter           Awaiter[*korifiv1alpha1.CFPackage]
+	sorter            PackageSorter
 }
 
 func NewPackageRepo(
-	userClientFactory authorization.UserClientFactory,
-	namespaceRetriever NamespaceRetriever,
+	klient Klient,
 	repositoryCreator RepositoryCreator,
 	repositoryPrefix string,
 	awaiter Awaiter[*korifiv1alpha1.CFPackage],
 	sorter PackageSorter,
 ) *PackageRepo {
 	return &PackageRepo{
-		userClientFactory:  userClientFactory,
-		namespaceRetriever: namespaceRetriever,
-		repositoryCreator:  repositoryCreator,
-		repositoryPrefix:   repositoryPrefix,
-		awaiter:            awaiter,
-		sorter:             sorter,
+		klient:            klient,
+		repositoryCreator: repositoryCreator,
+		repositoryPrefix:  repositoryPrefix,
+		awaiter:           awaiter,
+		sorter:            sorter,
 	}
 }
 
@@ -207,11 +202,6 @@ type UpdatePackageSourceMessage struct {
 }
 
 func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.Info, message CreatePackageMessage) (PackageRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: message.SpaceGUID,
@@ -219,7 +209,7 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 		},
 	}
 
-	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)
+	err := r.klient.Get(ctx, cfApp)
 	if err != nil {
 		return PackageRecord{},
 			apierrors.AsUnprocessableEntity(
@@ -231,7 +221,7 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 	}
 
 	cfPackage := message.toCFPackage()
-	err = userClient.Create(ctx, cfPackage)
+	err = r.klient.Create(ctx, cfPackage)
 	if err != nil {
 		return PackageRecord{}, apierrors.FromK8sError(err, PackageResourceType)
 	}
@@ -248,13 +238,13 @@ func (r *PackageRepo) CreatePackage(ctx context.Context, authInfo authorization.
 	}
 
 	if isPrivateDockerImage(message) {
-		err = createImagePullSecret(ctx, userClient, cfPackage, message)
+		err = r.createImagePullSecret(ctx, cfPackage, message)
 		if err != nil {
 			return PackageRecord{}, fmt.Errorf("failed to build docker image pull secret: %w", err)
 		}
 	}
 
-	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, packages.InitializedConditionType)
+	cfPackage, err = r.awaiter.AwaitCondition(ctx, r.klient, cfPackage, packages.InitializedConditionType)
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed waiting for Initialized condition: %w", err)
 	}
@@ -268,7 +258,7 @@ func isPrivateDockerImage(message CreatePackageMessage) bool {
 		message.Data.Password != nil
 }
 
-func createImagePullSecret(ctx context.Context, userClient client.Client, cfPackage *korifiv1alpha1.CFPackage, message CreatePackageMessage) error {
+func (r *PackageRepo) createImagePullSecret(ctx context.Context, cfPackage *korifiv1alpha1.CFPackage, message CreatePackageMessage) error {
 	ref, err := name.ParseReference(message.Data.Image)
 	if err != nil {
 		return fmt.Errorf("failed to parse image ref: %w", err)
@@ -292,13 +282,15 @@ func createImagePullSecret(ctx context.Context, userClient client.Client, cfPack
 		return fmt.Errorf("failed to set ownership from the package to the image pull secret: %w", err)
 	}
 
-	err = userClient.Create(ctx, imgPullSecret)
+	err = r.klient.Create(ctx, imgPullSecret)
 	if err != nil {
 		return fmt.Errorf("failed create the image pull secret: %w", err)
 	}
 
-	err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
+	err = r.klient.Patch(ctx, cfPackage, func() error {
 		cfPackage.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{{Name: imgPullSecret.Name}}
+
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed set the package image pull secret: %w", err)
@@ -308,25 +300,21 @@ func createImagePullSecret(ctx context.Context, userClient client.Client, cfPack
 }
 
 func (r *PackageRepo) UpdatePackage(ctx context.Context, authInfo authorization.Info, updateMessage UpdatePackageMessage) (PackageRecord, error) {
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, updateMessage.GUID, PackageResourceType)
-	if err != nil {
-		return PackageRecord{}, err
+	cfPackage := &korifiv1alpha1.CFPackage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: updateMessage.GUID,
+		},
 	}
 
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	cfPackage := &korifiv1alpha1.CFPackage{}
-
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: updateMessage.GUID}, cfPackage)
+	err := r.klient.Get(ctx, cfPackage)
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to get package: %w", apierrors.ForbiddenAsNotFound(apierrors.FromK8sError(err, PackageResourceType)))
 	}
 
-	err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
+	err = r.klient.Patch(ctx, cfPackage, func() error {
 		updateMessage.MetadataPatch.Apply(cfPackage)
+
+		return nil
 	})
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to patch package metadata: %w", apierrors.FromK8sError(err, PackageResourceType))
@@ -336,18 +324,12 @@ func (r *PackageRepo) UpdatePackage(ctx context.Context, authInfo authorization.
 }
 
 func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Info, guid string) (PackageRecord, error) {
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, guid, PackageResourceType)
-	if err != nil {
-		return PackageRecord{}, err
+	cfPackage := &korifiv1alpha1.CFPackage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: guid,
+		},
 	}
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
-	}
-
-	cfPackage := new(korifiv1alpha1.CFPackage)
-	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: guid}, cfPackage); err != nil {
+	if err := r.klient.Get(ctx, cfPackage); err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to get package %q: %w", guid, apierrors.FromK8sError(err, PackageResourceType))
 	}
 
@@ -355,13 +337,8 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 }
 
 func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []PackageRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	packageList := &korifiv1alpha1.CFPackageList{}
-	err = userClient.List(ctx, packageList)
+	err := r.klient.List(ctx, packageList)
 	if err != nil {
 		return []PackageRecord{}, fmt.Errorf("failed to list packages: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
@@ -371,28 +348,30 @@ func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.I
 }
 
 func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message UpdatePackageSourceMessage) (PackageRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return PackageRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
+	cfPackage := &korifiv1alpha1.CFPackage{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: message.SpaceGUID,
+			Name:      message.GUID,
+		},
 	}
-
-	cfPackage := &korifiv1alpha1.CFPackage{}
-	if err = userClient.Get(ctx, client.ObjectKey{Name: message.GUID, Namespace: message.SpaceGUID}, cfPackage); err != nil {
+	if err := r.klient.Get(ctx, cfPackage); err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to get cf package: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	if err = k8s.PatchResource(ctx, userClient, cfPackage, func() {
+	err := r.klient.Patch(ctx, cfPackage, func() error {
 		cfPackage.Spec.Source.Registry.Image = message.ImageRef
 		cfPackage.Spec.Source.Registry.ImagePullSecrets = slices.Collect(
 			it.Map(slices.Values(message.RegistrySecretNames), func(secret string) corev1.LocalObjectReference {
 				return corev1.LocalObjectReference{Name: secret}
 			}),
 		)
-	}); err != nil {
+		return nil
+	})
+	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed to update package source: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	cfPackage, err = r.awaiter.AwaitCondition(ctx, userClient, cfPackage, korifiv1alpha1.StatusConditionReady)
+	cfPackage, err = r.awaiter.AwaitCondition(ctx, r.klient, cfPackage, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return PackageRecord{}, fmt.Errorf("failed awaiting Ready status condition: %w", err)
 	}

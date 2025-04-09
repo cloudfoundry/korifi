@@ -50,24 +50,23 @@ var _ = Describe("RoleRepository", func() {
 		sorter.SortStub = func(records []repositories.RoleRecord, _ string) []repositories.RoleRecord {
 			return records
 		}
-		orgRepo := repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &fakeawaiter.FakeAwaiter[
+		orgRepo := repositories.NewOrgRepo(klient, rootNamespace, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]{})
-		spaceRepo := repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, &fakeawaiter.FakeAwaiter[
+		spaceRepo := repositories.NewSpaceRepo(klient, orgRepo, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFSpace,
 			korifiv1alpha1.CFSpaceList,
 			*korifiv1alpha1.CFSpaceList,
 		]{})
 		roleRepo = repositories.NewRoleRepo(
-			userClientFactory,
+			klient,
 			spaceRepo,
 			authorizedInChecker,
 			nsPerms,
 			rootNamespace,
 			roleMappings,
-			namespaceRetriever,
 			sorter,
 		)
 

@@ -34,7 +34,7 @@ var _ = Describe("SpaceRepository", func() {
 	)
 
 	BeforeEach(func() {
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, &fakeawaiter.FakeAwaiter[
+		orgRepo = repositories.NewOrgRepo(klient, rootNamespace, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
@@ -45,7 +45,7 @@ var _ = Describe("SpaceRepository", func() {
 			korifiv1alpha1.CFSpaceList,
 			*korifiv1alpha1.CFSpaceList,
 		]{}
-		spaceRepo = repositories.NewSpaceRepo(namespaceRetriever, orgRepo, userClientFactory, nsPerms, conditionAwaiter)
+		spaceRepo = repositories.NewSpaceRepo(klient, orgRepo, nsPerms, conditionAwaiter)
 	})
 
 	Describe("CreateSpace", func() {
@@ -59,7 +59,7 @@ var _ = Describe("SpaceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFSpace, error) {
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ repositories.Klient, object client.Object, _ string) (*korifiv1alpha1.CFSpace, error) {
 				cfSpace, ok := object.(*korifiv1alpha1.CFSpace)
 				Expect(ok).To(BeTrue())
 
@@ -180,8 +180,6 @@ var _ = Describe("SpaceRepository", func() {
 		var space11, space12, space21, space22 *korifiv1alpha1.CFSpace
 
 		BeforeEach(func() {
-			ctx = context.Background()
-
 			cfOrg1 = createOrgWithCleanup(ctx, prefixedGUID("org1"))
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg1.Name)
 			cfOrg2 = createOrgWithCleanup(ctx, prefixedGUID("org2"))
@@ -425,8 +423,7 @@ var _ = Describe("SpaceRepository", func() {
 
 		When("the user has permission to delete spaces", func() {
 			BeforeEach(func() {
-				beforeCtx := context.Background()
-				createRoleBinding(beforeCtx, userName, adminRole.Name, cfSpace.Namespace)
+				createRoleBinding(ctx, userName, adminRole.Name, cfSpace.Namespace)
 			})
 
 			It("deletes the space resource", func() {
