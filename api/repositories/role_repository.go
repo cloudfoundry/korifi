@@ -15,7 +15,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
@@ -87,13 +87,12 @@ func (r RoleRecord) GetResourceType() string {
 }
 
 type RoleRepo struct {
+	klient               Klient
 	rootNamespace        string
 	roleMappings         map[string]config.Role
 	authorizedInChecker  AuthorizedInChecker
 	namespacePermissions *authorization.NamespacePermissions
-	userClientFactory    authorization.UserClientFactory
 	spaceRepo            *SpaceRepo
-	namespaceRetriever   NamespaceRetriever
 	sorter               RoleSorter
 }
 
@@ -137,33 +136,26 @@ type ListRolesMessage struct {
 }
 
 func NewRoleRepo(
-	userClientFactory authorization.UserClientFactory,
+	klient Klient,
 	spaceRepo *SpaceRepo,
 	authorizedInChecker AuthorizedInChecker,
 	namespacePermissions *authorization.NamespacePermissions,
 	rootNamespace string,
 	roleMappings map[string]config.Role,
-	namespaceRetriever NamespaceRetriever,
 	sorter RoleSorter,
 ) *RoleRepo {
 	return &RoleRepo{
+		klient:               klient,
 		rootNamespace:        rootNamespace,
 		roleMappings:         roleMappings,
 		authorizedInChecker:  authorizedInChecker,
 		namespacePermissions: namespacePermissions,
-		userClientFactory:    userClientFactory,
 		spaceRepo:            spaceRepo,
-		namespaceRetriever:   namespaceRetriever,
 		sorter:               sorter,
 	}
 }
 
 func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, role CreateRoleMessage) (RoleRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return RoleRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	k8sRoleConfig, ok := r.roleMappings[role.Type]
 	if !ok {
 		return RoleRecord{}, fmt.Errorf("invalid role type: %q", role.Type)
@@ -179,7 +171,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 	}
 
 	if role.Space != "" {
-		if err = r.validateOrgRequirements(ctx, role, userIdentity, authInfo); err != nil {
+		if err := r.validateOrgRequirements(ctx, role, userIdentity, authInfo); err != nil {
 			return RoleRecord{}, err
 		}
 	}
@@ -191,7 +183,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 
 	roleBinding := createRoleBinding(ns, role.Type, role.Kind, role.User, role.ServiceAccountNamespace, role.GUID, k8sRoleConfig.Name, k8sRoleConfig.Propagate)
 
-	err = userClient.Create(ctx, &roleBinding)
+	err := r.klient.Create(ctx, &roleBinding)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
 			errorDetail := fmt.Sprintf("User '%s' already has '%s' role", role.User, role.Type)
@@ -209,7 +201,7 @@ func (r *RoleRepo) CreateRole(ctx context.Context, authInfo authorization.Info, 
 	}
 
 	cfUserRoleBinding := createRoleBinding(r.rootNamespace, cfUserRoleType, role.Kind, role.User, role.ServiceAccountNamespace, uuid.NewString(), cfUserk8sRoleConfig.Name, false)
-	err = userClient.Create(ctx, &cfUserRoleBinding)
+	err = r.klient.Create(ctx, &cfUserRoleBinding)
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
 			return RoleRecord{}, fmt.Errorf("failed to assign user %q to role %q: %w", role.User, role.Type, err)
@@ -289,11 +281,6 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleServiceAccou
 }
 
 func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info, message ListRolesMessage) ([]RoleRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	authorisedSpaceNamespaces, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
@@ -307,7 +294,7 @@ func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info, m
 	roleBindings := []rbacv1.RoleBinding{}
 	for _, ns := range nsList {
 		roleBindingsList := &rbacv1.RoleBindingList{}
-		err := userClient.List(ctx, roleBindingsList, client.InNamespace(ns))
+		err := r.klient.List(ctx, roleBindingsList, InNamespace(ns))
 		if err != nil {
 			if k8serrors.IsForbidden(err) {
 				continue
@@ -379,20 +366,15 @@ func (r *RoleRepo) GetRole(ctx context.Context, authInfo authorization.Info, rol
 }
 
 func (r *RoleRepo) DeleteRole(ctx context.Context, authInfo authorization.Info, deleteMsg DeleteRoleMessage) error {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	ns := deleteMsg.Org
 	if ns == "" {
 		ns = deleteMsg.Space
 	}
 
 	roleBindings := &rbacv1.RoleBindingList{}
-	err = userClient.List(ctx, roleBindings, client.InNamespace(ns), client.MatchingLabels{
+	err := r.klient.List(ctx, roleBindings, InNamespace(ns), WithLabels{Selector: labels.SelectorFromValidatedSet(map[string]string{
 		RoleGuidLabel: deleteMsg.GUID,
-	})
+	})})
 	if err != nil {
 		return fmt.Errorf("failed to list roles with guid %q in namespace %q: %w", deleteMsg.GUID, ns, apierrors.FromK8sError(err, RoleResourceType))
 	}
@@ -402,7 +384,7 @@ func (r *RoleRepo) DeleteRole(ctx context.Context, authInfo authorization.Info, 
 		return apierrors.NewNotFoundError(nil, RoleResourceType)
 	case 1:
 		rb := &roleBindings.Items[0]
-		err := userClient.Delete(ctx, rb)
+		err := r.klient.Delete(ctx, rb)
 		if err != nil {
 			return fmt.Errorf("failed to delete role binding %s/%s: %w", rb.Namespace, rb.Name, apierrors.FromK8sError(err, RoleResourceType))
 		}

@@ -12,22 +12,22 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 	"code.cloudfoundry.org/korifi/version"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 )
 
 const DeploymentResourceType = "Deployment"
 
 type DeploymentRepo struct {
-	userClientFactory  authorization.UserClientFactory
-	namespaceRetriever NamespaceRetriever
-	sorter             DeploymentSorter
+	klient Klient
+	sorter DeploymentSorter
 }
 
 type DeploymentRecord struct {
@@ -114,30 +114,22 @@ func (m ListDeploymentsMessage) matchesStatusValue(deployment DeploymentRecord) 
 }
 
 func NewDeploymentRepo(
-	userClientFactory authorization.UserClientFactory,
-	namespaceRetriever NamespaceRetriever,
+	klient Klient,
 	sorter DeploymentSorter,
 ) *DeploymentRepo {
 	return &DeploymentRepo{
-		userClientFactory:  userClientFactory,
-		namespaceRetriever: namespaceRetriever,
-		sorter:             sorter,
+		klient: klient,
+		sorter: sorter,
 	}
 }
 
 func (r *DeploymentRepo) GetDeployment(ctx context.Context, authInfo authorization.Info, deploymentGUID string) (DeploymentRecord, error) {
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, deploymentGUID, AppResourceType)
-	if err != nil {
-		return DeploymentRecord{}, err
+	app := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: deploymentGUID,
+		},
 	}
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return DeploymentRecord{}, fmt.Errorf("get-deployment failed to create user client: %w", err)
-	}
-
-	app := &korifiv1alpha1.CFApp{}
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: deploymentGUID}, app)
+	err := r.klient.Get(ctx, app)
 	if err != nil {
 		return DeploymentRecord{}, apierrors.FromK8sError(err, DeploymentResourceType)
 	}
@@ -146,23 +138,17 @@ func (r *DeploymentRepo) GetDeployment(ctx context.Context, authInfo authorizati
 }
 
 func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authorization.Info, message CreateDeploymentMessage) (DeploymentRecord, error) {
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, message.AppGUID, AppResourceType)
-	if err != nil {
-		return DeploymentRecord{}, err
+	app := &korifiv1alpha1.CFApp{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: message.AppGUID,
+		},
 	}
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return DeploymentRecord{}, fmt.Errorf("create-deployment failed to create user client: %w", err)
-	}
-
-	app := &korifiv1alpha1.CFApp{}
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: message.AppGUID}, app)
+	err := r.klient.Get(ctx, app)
 	if err != nil {
 		return DeploymentRecord{}, apierrors.FromK8sError(err, DeploymentResourceType)
 	}
 
-	if err = ensureSupport(ctx, userClient, app); err != nil {
+	if err = r.ensureSupport(ctx, app); err != nil {
 		return DeploymentRecord{}, err
 	}
 
@@ -177,13 +163,15 @@ func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authoriz
 		return DeploymentRecord{}, fmt.Errorf("expected app-rev to be an integer: %w", err)
 	}
 
-	err = k8s.PatchResource(ctx, userClient, app, func() {
+	err = r.klient.Patch(ctx, app, func() error {
 		app.Spec.CurrentDropletRef.Name = dropletGUID
 		if app.Annotations == nil {
 			app.Annotations = map[string]string{}
 		}
 		app.Annotations[korifiv1alpha1.CFAppRevisionKey] = newRev
 		app.Spec.DesiredState = korifiv1alpha1.StartedState
+
+		return nil
 	})
 	if err != nil {
 		return DeploymentRecord{}, apierrors.FromK8sError(err, DeploymentResourceType)
@@ -193,13 +181,8 @@ func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authoriz
 }
 
 func (r *DeploymentRepo) ListDeployments(ctx context.Context, authInfo authorization.Info, message ListDeploymentsMessage) ([]DeploymentRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create user client: %w", err)
-	}
-
 	appList := &korifiv1alpha1.CFAppList{}
-	err = userClient.List(ctx, appList)
+	err := r.klient.List(ctx, appList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
@@ -241,13 +224,16 @@ func appToDeploymentRecord(cfApp korifiv1alpha1.CFApp) DeploymentRecord {
 	return deploymentRecord
 }
 
-func ensureSupport(ctx context.Context, userClient client.Client, app *korifiv1alpha1.CFApp) error {
+func (r *DeploymentRepo) ensureSupport(ctx context.Context, app *korifiv1alpha1.CFApp) error {
 	log := logr.FromContextOrDiscard(ctx).WithName("repo.deployment.ensureSupport")
 
+	appGuidReq, err := labels.NewRequirement(korifiv1alpha1.CFAppGUIDLabelKey, selection.Equals, []string{app.Name})
+	if err != nil {
+		return err
+	}
+
 	var appWorkloadsList korifiv1alpha1.AppWorkloadList
-	err := userClient.List(ctx, &appWorkloadsList, client.InNamespace(app.Namespace), client.MatchingLabels{
-		korifiv1alpha1.CFAppGUIDLabelKey: app.Name,
-	})
+	err = r.klient.List(ctx, &appWorkloadsList, InNamespace(app.Namespace), WithLabels{Selector: labels.NewSelector().Add(*appGuidReq)})
 	if err != nil {
 		return apierrors.FromK8sError(err, DeploymentResourceType)
 	}

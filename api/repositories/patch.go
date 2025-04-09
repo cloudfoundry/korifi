@@ -25,3 +25,20 @@ func PatchResource[T client.Object](
 		"failed to patch %T %v", obj, client.ObjectKeyFromObject(obj),
 	)
 }
+
+func GetAndPatch(
+	ctx context.Context,
+	klient Klient,
+	obj client.Object,
+	modify func() error,
+) error {
+	err := klient.Get(ctx, obj)
+	if err != nil {
+		return fmt.Errorf("failed to get %T %v: %w", obj, client.ObjectKeyFromObject(obj), err)
+	}
+
+	return errors.Wrapf(
+		klient.Patch(ctx, obj, modify),
+		"failed to patch %T %v", obj, client.ObjectKeyFromObject(obj),
+	)
+}

@@ -7,7 +7,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -15,9 +15,9 @@ const (
 )
 
 type RunnerInfoRepository struct {
-	runnerName        string
-	namespace         string
-	userClientFactory authorization.UserClientFactory
+	klient     Klient
+	runnerName string
+	namespace  string
 }
 
 type RunnerInfoRecord struct {
@@ -27,26 +27,26 @@ type RunnerInfoRecord struct {
 	Capabilities korifiv1alpha1.RunnerInfoCapabilities
 }
 
-func NewRunnerInfoRepository(userClientFactory authorization.UserClientFactory, runnerName string, namespace string) *RunnerInfoRepository {
+func NewRunnerInfoRepository(klient Klient, runnerName string, namespace string) *RunnerInfoRepository {
 	return &RunnerInfoRepository{
-		runnerName:        runnerName,
-		namespace:         namespace,
-		userClientFactory: userClientFactory,
+		klient:     klient,
+		runnerName: runnerName,
+		namespace:  namespace,
 	}
 }
 
 func (r *RunnerInfoRepository) GetRunnerInfo(ctx context.Context, authInfo authorization.Info, runnerName string) (RunnerInfoRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return RunnerInfoRecord{}, err
+	runnerInfo := &korifiv1alpha1.RunnerInfo{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.namespace,
+			Name:      r.runnerName,
+		},
 	}
-
-	runnerInfo := korifiv1alpha1.RunnerInfo{}
-	if err = userClient.Get(ctx, client.ObjectKey{Namespace: r.namespace, Name: r.runnerName}, &runnerInfo); err != nil {
+	if err := r.klient.Get(ctx, runnerInfo); err != nil {
 		return RunnerInfoRecord{}, fmt.Errorf("failed to get runner info: %w", apierrors.FromK8sError(err, RunnerInfoResourceType))
 	}
 
-	return r.runnerInfoToRunnerInfoRecord(runnerInfo), nil
+	return r.runnerInfoToRunnerInfoRecord(*runnerInfo), nil
 }
 
 func (r *RunnerInfoRepository) runnerInfoToRunnerInfoRecord(info korifiv1alpha1.RunnerInfo) RunnerInfoRecord {

@@ -22,6 +22,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -117,13 +118,17 @@ func main() {
 	identityProvider := wireIdentityProvider(privilegedClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
 	nsPermissions := authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider)
+
 	userClientFactoryUnfiltered := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper).
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
+	klientUnfiltered := k8sklient.NewK8sKlient(namespaceRetriever, userClientFactoryUnfiltered)
+
 	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewSpaceFilteringClient(client, privilegedClient, nsPermissions)
 	})
+	klient := k8sklient.NewK8sKlient(namespaceRetriever, userClientFactory)
 
 	serverURL, err := url.Parse(cfg.ServerURL)
 	if err != nil {
@@ -137,121 +142,99 @@ func main() {
 	)
 
 	orgRepo := repositories.NewOrgRepo(
+		klient,
 		cfg.RootNamespace,
-		privilegedClient,
-		userClientFactoryUnfiltered,
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFOrg, korifiv1alpha1.CFOrgList](conditionTimeout),
 	)
 	spaceRepo := repositories.NewSpaceRepo(
-		namespaceRetriever,
+		klient,
 		orgRepo,
-		userClientFactoryUnfiltered,
 		nsPermissions,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFSpace, korifiv1alpha1.CFSpaceList](conditionTimeout),
 	)
-	processRepo := repositories.NewProcessRepo(
-		namespaceRetriever,
-		userClientFactory,
-	)
-	podRepo := repositories.NewPodRepo(
-		userClientFactoryUnfiltered,
-	)
+	processRepo := repositories.NewProcessRepo(klient)
+	podRepo := repositories.NewPodRepo(klientUnfiltered)
 	appRepo := repositories.NewAppRepo(
-		namespaceRetriever,
-		userClientFactory,
+		klient,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
 		repositories.NewAppSorter(),
 	)
-	dropletRepo := repositories.NewDropletRepo(
-		userClientFactory,
-		namespaceRetriever,
-	)
-	routeRepo := repositories.NewRouteRepo(
-		namespaceRetriever,
-		userClientFactory,
-	)
+	dropletRepo := repositories.NewDropletRepo(klient)
+	routeRepo := repositories.NewRouteRepo(klient)
 	domainRepo := repositories.NewDomainRepo(
-		userClientFactoryUnfiltered,
-		namespaceRetriever,
+		klientUnfiltered,
 		cfg.RootNamespace,
 	)
 	deploymentRepo := repositories.NewDeploymentRepo(
-		userClientFactory,
-		namespaceRetriever,
+		klient,
 		repositories.NewDeploymentSorter(),
 	)
-	buildRepo := repositories.NewBuildRepo(
-		namespaceRetriever,
-		userClientFactory,
-	)
+	buildRepo := repositories.NewBuildRepo(klient)
 	logRepo := repositories.NewLogRepo(
-		userClientFactoryUnfiltered,
+		klientUnfiltered,
 		authorization.NewUnprivilegedClientsetFactory(k8sClientConfig),
 		repositories.DefaultLogStreamer,
 	)
 	runnerInfoRepo := repositories.NewRunnerInfoRepository(
-		userClientFactoryUnfiltered,
+		klientUnfiltered,
 		cfg.RunnerName,
 		cfg.RootNamespace,
 	)
 	packageRepo := repositories.NewPackageRepo(
-		userClientFactory,
-		namespaceRetriever,
+		klient,
 		toolsregistry.NewRepositoryCreator(cfg.ContainerRegistryType),
 		cfg.ContainerRepositoryPrefix,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFPackage, korifiv1alpha1.CFPackageList](conditionTimeout),
 		repositories.NewPackageSorter(),
 	)
 	serviceInstanceRepo := repositories.NewServiceInstanceRepo(
-		namespaceRetriever,
-		userClientFactory,
+		klient,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceInstance, korifiv1alpha1.CFServiceInstanceList](conditionTimeout),
 		repositories.NewServiceInstanceSorter(),
 		cfg.RootNamespace,
 	)
 	serviceBindingRepo := repositories.NewServiceBindingRepo(
-		namespaceRetriever,
-		userClientFactory,
+		klient,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFServiceBinding, korifiv1alpha1.CFServiceBindingList](conditionTimeout),
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
 		paramsClient,
 	)
-	stackRepo := repositories.NewStackRepository(cfg.BuilderName,
-		userClientFactoryUnfiltered,
+	stackRepo := repositories.NewStackRepository(
+		klientUnfiltered,
+		cfg.BuilderName,
 		cfg.RootNamespace,
 	)
-	buildpackRepo := repositories.NewBuildpackRepository(cfg.BuilderName,
-		userClientFactoryUnfiltered,
+	buildpackRepo := repositories.NewBuildpackRepository(
+		klientUnfiltered,
+		cfg.BuilderName,
 		cfg.RootNamespace,
 		repositories.NewBuildpackSorter(),
 	)
 	roleRepo := repositories.NewRoleRepo(
-		userClientFactory,
+		klient,
 		spaceRepo,
 		authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider),
 		authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider),
 		cfg.RootNamespace,
 		cfg.RoleMappings,
-		namespaceRetriever,
 		repositories.NewRoleSorter(),
 	)
 	imageClient := image.NewClient(privilegedClientset)
 	imageRepo := repositories.NewImageRepository(
-		userClientFactoryUnfiltered,
+		klientUnfiltered,
 		imageClient,
 		cfg.PackageRegistrySecretNames,
 		cfg.RootNamespace,
 	)
 	taskRepo := repositories.NewTaskRepo(
-		userClientFactory,
-		namespaceRetriever,
+		klient,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](conditionTimeout),
 	)
-	metricsRepo := repositories.NewMetricsRepo(userClientFactoryUnfiltered)
-	serviceBrokerRepo := repositories.NewServiceBrokerRepo(userClientFactory, cfg.RootNamespace)
-	serviceOfferingRepo := repositories.NewServiceOfferingRepo(userClientFactory, cfg.RootNamespace, serviceBrokerRepo, nsPermissions)
-	servicePlanRepo := repositories.NewServicePlanRepo(userClientFactory, cfg.RootNamespace, orgRepo)
+	metricsRepo := repositories.NewMetricsRepo(klientUnfiltered)
+	serviceBrokerRepo := repositories.NewServiceBrokerRepo(klient, cfg.RootNamespace)
+	serviceOfferingRepo := repositories.NewServiceOfferingRepo(klient, cfg.RootNamespace, serviceBrokerRepo, nsPermissions)
+	servicePlanRepo := repositories.NewServicePlanRepo(klient, cfg.RootNamespace, orgRepo)
 
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(

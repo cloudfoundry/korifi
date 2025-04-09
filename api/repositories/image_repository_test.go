@@ -2,7 +2,6 @@ package repositories_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"io"
 
@@ -44,7 +43,7 @@ var _ = Describe("ImageRepository", func() {
 		tags = []string{"foo", "bar"}
 
 		imageRepo = repositories.NewImageRepository(
-			userClientFactory,
+			klientUnfiltered,
 			imagePusher,
 			[]string{"push-secret-name"},
 			rootNamespace,
@@ -52,7 +51,7 @@ var _ = Describe("ImageRepository", func() {
 	})
 
 	JustBeforeEach(func() {
-		imageRef, uploadErr = imageRepo.UploadSourceImage(context.Background(), authInfo, imageName, imageSource, space.Name, tags...)
+		imageRef, uploadErr = imageRepo.UploadSourceImage(ctx, authInfo, imageName, imageSource, space.Name, tags...)
 	})
 
 	It("fails with unauthorized error without a valid role in the space", func() {
@@ -61,7 +60,7 @@ var _ = Describe("ImageRepository", func() {
 
 	When("user has role SpaceDeveloper", func() {
 		BeforeEach(func() {
-			createRoleBinding(context.Background(), userName, spaceDeveloperRole.Name, space.Name)
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 		})
 
 		It("succeeds", func() {

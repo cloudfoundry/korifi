@@ -13,7 +13,6 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -87,9 +86,9 @@ type VisibilityOrganization struct {
 }
 
 type ServicePlanRepo struct {
-	userClientFactory authorization.UserClientFactory
-	rootNamespace     string
-	orgRepo           *OrgRepo
+	klient        Klient
+	rootNamespace string
+	orgRepo       *OrgRepo
 }
 
 type ListServicePlanMessage struct {
@@ -158,25 +157,20 @@ func (m *DeleteServicePlanVisibilityMessage) apply(cfServicePlan *korifiv1alpha1
 }
 
 func NewServicePlanRepo(
-	userClientFactory authorization.UserClientFactory,
+	klient Klient,
 	rootNamespace string,
 	orgRepo *OrgRepo,
 ) *ServicePlanRepo {
 	return &ServicePlanRepo{
-		userClientFactory: userClientFactory,
-		rootNamespace:     rootNamespace,
-		orgRepo:           orgRepo,
+		klient:        klient,
+		rootNamespace: rootNamespace,
+		orgRepo:       orgRepo,
 	}
 }
 
 func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]ServicePlanRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfServicePlans := &korifiv1alpha1.CFServicePlanList{}
-	if err := userClient.List(ctx, cfServicePlans, client.InNamespace(r.rootNamespace)); err != nil {
+	if err := r.klient.List(ctx, cfServicePlans, InNamespace(r.rootNamespace)); err != nil {
 		return nil, apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
@@ -186,11 +180,6 @@ func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.
 }
 
 func (r *ServicePlanRepo) GetPlan(ctx context.Context, authInfo authorization.Info, planGUID string) (ServicePlanRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServicePlanRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfServicePlan := &korifiv1alpha1.CFServicePlan{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
@@ -198,7 +187,7 @@ func (r *ServicePlanRepo) GetPlan(ctx context.Context, authInfo authorization.In
 		},
 	}
 
-	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfServicePlan), cfServicePlan)
+	err := r.klient.Get(ctx, cfServicePlan)
 	if err != nil {
 		return ServicePlanRecord{}, apierrors.FromK8sError(err, ServicePlanVisibilityResourceType)
 	}
@@ -222,11 +211,6 @@ func (r *ServicePlanRepo) DeletePlanVisibility(ctx context.Context, authInfo aut
 }
 
 func (r *ServicePlanRepo) DeletePlan(ctx context.Context, authInfo authorization.Info, planGUID string) error {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfServicePlan := &korifiv1alpha1.CFServicePlan{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
@@ -234,7 +218,7 @@ func (r *ServicePlanRepo) DeletePlan(ctx context.Context, authInfo authorization
 		},
 	}
 
-	if err := userClient.Delete(ctx, cfServicePlan); err != nil {
+	if err := r.klient.Delete(ctx, cfServicePlan); err != nil {
 		return apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
@@ -247,11 +231,6 @@ func (r *ServicePlanRepo) patchServicePlan(
 	planGUID string,
 	patchFunc func(*korifiv1alpha1.CFServicePlan),
 ) (ServicePlanRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServicePlanRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfServicePlan := &korifiv1alpha1.CFServicePlan{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
@@ -259,8 +238,9 @@ func (r *ServicePlanRepo) patchServicePlan(
 		},
 	}
 
-	if err := PatchResource(ctx, userClient, cfServicePlan, func() {
+	if err := GetAndPatch(ctx, r.klient, cfServicePlan, func() error {
 		patchFunc(cfServicePlan)
+		return nil
 	}); err != nil {
 		return ServicePlanRecord{}, apierrors.FromK8sError(err, ServicePlanVisibilityResourceType)
 	}

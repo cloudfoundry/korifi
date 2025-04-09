@@ -21,7 +21,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -67,18 +66,18 @@ var descendingOrder logRecordSortOrder = func(r1, r2 LogRecord) int {
 }
 
 type LogRepo struct {
-	userClientFactory    authorization.UserClientFactory
+	klient               Klient
 	userClientsetFactory authorization.UserClientsetFactory
 	logStreamer          LogStreamer
 }
 
 func NewLogRepo(
-	userClientFactory authorization.UserClientFactory,
+	klient Klient,
 	userClientsetFactory authorization.UserClientsetFactory,
 	logStreamer LogStreamer,
 ) *LogRepo {
 	return &LogRepo{
-		userClientFactory:    userClientFactory,
+		klient:               klient,
 		userClientsetFactory: userClientsetFactory,
 		logStreamer:          logStreamer,
 	}
@@ -143,12 +142,10 @@ func (r *LogRepo) getBuildLogs(
 	logs, err := r.getLogs(
 		ctx,
 		authInfo,
-		&client.ListOptions{
-			Namespace:     build.SpaceGUID,
-			LabelSelector: labelSelector,
-		},
 		startTime,
 		limit,
+		InNamespace(build.SpaceGUID),
+		WithLabels{Selector: labelSelector},
 	)
 	if err != nil {
 		return nil, err
@@ -180,12 +177,10 @@ func (r *LogRepo) getAppLogs(
 	logs, err := r.getLogs(
 		ctx,
 		authInfo,
-		&client.ListOptions{
-			Namespace:     app.SpaceGUID,
-			LabelSelector: labelSelector,
-		},
 		startTime,
 		limit,
+		InNamespace(app.SpaceGUID),
+		WithLabels{Selector: labelSelector},
 	)
 	if err != nil {
 		return nil, err
@@ -202,22 +197,17 @@ func (r *LogRepo) getAppLogs(
 func (r *LogRepo) getLogs(
 	ctx context.Context,
 	authInfo authorization.Info,
-	podListOptions *client.ListOptions,
 	startTime *int64,
 	limit *int64,
+	podListOpts ...ListOption,
 ) (iter.Seq[LogRecord], error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	logClient, err := r.userClientsetFactory.BuildClientset(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	podList := corev1.PodList{}
-	err = userClient.List(ctx, &podList, podListOptions)
+	err = r.klient.List(ctx, &podList, podListOpts...)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, PodResourceType)
 	}
