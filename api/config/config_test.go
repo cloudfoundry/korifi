@@ -59,6 +59,9 @@ var _ = Describe("Config", func() {
 					"qps":   1.0,
 					"burst": 2,
 				},
+				"securityGroups": map[string]any{
+					"enabled": true,
+				},
 			},
 		}
 	})
@@ -103,6 +106,7 @@ var _ = Describe("Config", func() {
 		}))
 		Expect(cfg.ContainerRegistryType).To(BeEmpty())
 		Expect(cfg.Experimental.ManagedServices.Enabled).To(BeTrue())
+		Expect(cfg.Experimental.SecurityGroups.Enabled).To(BeTrue())
 		Expect(cfg.Experimental.ExternalLogCache).To(Equal(config.ExtenalLogCache{
 			Enabled:               true,
 			URL:                   "https://my-logcache.com",

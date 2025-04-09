@@ -165,6 +165,13 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
+  - cfsecuritygroups
+  verbs:
+  - create
+
+- apiGroups:
+  - korifi.cloudfoundry.org
+  resources:
   - appworkloads
   verbs:
   - list
