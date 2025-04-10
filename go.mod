@@ -1,8 +1,6 @@
 module code.cloudfoundry.org/korifi
 
-go 1.23.7
-
-toolchain go1.24.1
+go 1.24.2
 
 require (
 	code.cloudfoundry.org/bytefmt v0.36.0
