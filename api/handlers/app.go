@@ -16,7 +16,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
 	"code.cloudfoundry.org/korifi/api/tools/singleton"
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	"github.com/go-logr/logr"
 )
@@ -145,15 +144,6 @@ func (h *App) create(r *http.Request) (*routing.Response, error) {
 	appRecord, err := h.appRepo.CreateApp(r.Context(), authInfo, payload.ToAppCreateMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to create app", "App Name", payload.Name)
-	}
-
-	err = h.processRepo.CreateProcess(r.Context(), authInfo, repositories.CreateProcessMessage{
-		AppGUID:   appRecord.GUID,
-		SpaceGUID: spaceGUID,
-		Type:      korifiv1alpha1.ProcessTypeWeb,
-	})
-	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "Failed to create web process", "App Name", payload.Name)
 	}
 
 	return routing.NewResponse(http.StatusCreated).WithBody(presenter.ForApp(appRecord, h.serverURL)), nil
