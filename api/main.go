@@ -417,6 +417,7 @@ func main() {
 		handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
+			routeRepo,
 			requestValidator,
 		),
 		handlers.NewSpaceManifest(

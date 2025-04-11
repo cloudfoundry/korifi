@@ -1,6 +1,8 @@
 package payloads_test
 
 import (
+	"net/http"
+
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
@@ -166,6 +168,88 @@ var _ = Describe("Space", func() {
 					GUIDs:             []string{"g1", "g2"},
 					OrganizationGUIDs: []string{"org1", "org2"},
 				}))
+			})
+		})
+	})
+
+	Describe("SpaceDeleteRoutes", func() {
+		var (
+			req            *http.Request
+			err            error
+			decodedPayload payloads.SpaceDeleteRoutes
+			validationErr  error
+		)
+
+		BeforeEach(func() {
+			decodedPayload = payloads.SpaceDeleteRoutes{}
+			req, err = http.NewRequest("GET", "http://foo.com/bar?unmapped=true", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			validationErr = validator.DecodeAndValidateURLValues(req, &decodedPayload)
+		})
+
+		It("succeeds", func() {
+			Expect(validationErr).ToNot(HaveOccurred())
+			Expect(decodedPayload).To(Equal(payloads.SpaceDeleteRoutes{
+				Unmapped: "true",
+			}))
+		})
+
+		When("unmapped is set to false", func() {
+			BeforeEach(func() {
+				req, err = http.NewRequest("GET", "http://foo.com/bar?unmapped=false", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(
+					validationErr,
+					"unmapped mass delete not supported for mapped routes. Use 'unmapped=true' parameter to delete all unmapped routes",
+				)
+			})
+		})
+
+		When("unmapped is not a bool", func() {
+			BeforeEach(func() {
+				req, err = http.NewRequest("GET", "http://foo.com/bar?unmapped=1", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(
+					validationErr,
+					"unmapped must be a boolean",
+				)
+			})
+		})
+
+		When("unmapped is blank", func() {
+			BeforeEach(func() {
+				req, err = http.NewRequest("GET", "http://foo.com/bar?unmapped=", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(
+					validationErr,
+					"unmapped cannot be blank",
+				)
+			})
+		})
+
+		When("unmapped is not set", func() {
+			BeforeEach(func() {
+				req, err = http.NewRequest("GET", "http://foo.com/bar", nil)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns an error", func() {
+				expectUnprocessableEntityError(
+					validationErr,
+					"unmapped cannot be blank",
+				)
 			})
 		})
 	})

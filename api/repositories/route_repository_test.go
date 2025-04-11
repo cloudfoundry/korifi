@@ -423,6 +423,20 @@ var _ = Describe("RouteRepository", func() {
 					Expect(routeRecords).To(BeEmpty())
 				})
 			})
+
+			When("is-unmapped filter is provided", func() {
+				BeforeEach(func() {
+					message = ListRoutesMessage{IsUnmapped: true}
+				})
+
+				It("returns a list of routeRecords that are unmapped to a app", func() {
+					Expect(routeRecords).To(HaveLen(2))
+					Expect(routeRecords).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute2A.Name)}),
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute1B.Name)}),
+					))
+				})
+			})
 		})
 	})
 
