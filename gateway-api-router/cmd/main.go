@@ -80,9 +80,9 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 
-	configPath, found := os.LookupEnv("CONTROLLERSCONFIG")
+	configPath, found := os.LookupEnv("GATEWAYAPIROUTERCONFIG")
 	if !found {
-		panic("CONTROLLERSCONFIG must be set")
+		panic("GATEWAYAPIROUTERCONFIG must be set")
 	}
 
 	controllerConfig, err := config.LoadFromPath(configPath)
@@ -100,7 +100,7 @@ func main() {
 
 	log.SetOutput(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"})
 
-	ctrl.Log.Info("starting Korifi controllers", "version", version.Version)
+	ctrl.Log.Info("starting gateway api router ", "version", version.Version)
 
 	conf := ctrl.GetConfigOrDie()
 
