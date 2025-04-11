@@ -1,9 +1,12 @@
 package payloads
 
 import (
-	payload_validation "code.cloudfoundry.org/korifi/api/payloads/validation"
+	"net/url"
+
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
+	validation "code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/jellydator/validation"
+	jellidation "github.com/jellydator/validation"
 )
 
 type BuildCreate struct {
@@ -15,10 +18,10 @@ type BuildCreate struct {
 }
 
 func (b BuildCreate) Validate() error {
-	return validation.ValidateStruct(&b,
-		validation.Field(&b.Package, payload_validation.StrictlyRequired),
-		validation.Field(&b.Metadata),
-		validation.Field(&b.Lifecycle),
+	return jellidation.ValidateStruct(&b,
+		jellidation.Field(&b.Package, jellidation.Required),
+		jellidation.Field(&b.Metadata),
+		jellidation.Field(&b.Lifecycle),
 	)
 }
 
@@ -45,4 +48,43 @@ func (c *BuildCreate) ToMessage(appRecord repositories.AppRecord) repositories.C
 	}
 
 	return toReturn
+}
+
+type BuildList struct {
+	PackageGUIDs string
+	AppGUIDs     string
+	States       string
+	OrderBy      string
+}
+
+func (b *BuildList) ToMessage() repositories.ListBuildsMessage {
+	return repositories.ListBuildsMessage{
+		PackageGUIDs: parse.ArrayParam(b.PackageGUIDs),
+		AppGUIDs:     parse.ArrayParam(b.AppGUIDs),
+		States:       parse.ArrayParam(b.States),
+		OrderBy:      b.OrderBy,
+	}
+}
+
+func (p *BuildList) SupportedKeys() []string {
+	return []string{"package_guids", "app_guids", "states", "order_by", "per_page", "page"}
+}
+
+func (p *BuildList) DecodeFromURLValues(values url.Values) error {
+	p.PackageGUIDs = values.Get("package_guids")
+	p.AppGUIDs = values.Get("app_guids")
+	p.States = values.Get("states")
+	p.OrderBy = values.Get("order_by")
+	return nil
+}
+
+func (p BuildList) Validate() error {
+	validOrderBys := []string{"created_at", "updated_at"}
+	var allowed []any
+	for _, a := range validOrderBys {
+		allowed = append(allowed, a, "-"+a)
+	}
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.OrderBy, validation.OneOf(allowed...)),
+	)
 }

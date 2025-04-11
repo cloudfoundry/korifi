@@ -147,7 +147,7 @@ var _ = Describe("Build", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 
 			Expect(buildRepo.ListBuildsCallCount()).To(Equal(1))
-			_, actualAuthInfo := buildRepo.ListBuildsArgsForCall(0)
+			_, actualAuthInfo, _ := buildRepo.ListBuildsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))

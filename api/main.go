@@ -170,7 +170,10 @@ func main() {
 		klient,
 		repositories.NewDeploymentSorter(),
 	)
-	buildRepo := repositories.NewBuildRepo(klient)
+	buildRepo := repositories.NewBuildRepo(
+		klient,
+		repositories.NewBuildSorter(),
+	)
 	logRepo := repositories.NewLogRepo(
 		klientUnfiltered,
 		authorization.NewUnprivilegedClientsetFactory(k8sClientConfig),
