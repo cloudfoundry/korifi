@@ -71,6 +71,7 @@ api:
 
 gatewayApiRouter:
   image: cloudfoundry/korifi-gateway-api-router:latest
+  include: true
 
   replicas: 1
   nodeSelector: {}
