@@ -83,12 +83,6 @@ gatewayApiRouter:
     requests:
       cpu: 50m
       memory: 100Mi
-  processDefaults:
-    memoryMB: 1024
-    diskQuotaMB: 1024
-  taskTTL: 30d
-  workloadsTLSSecret: korifi-workloads-ingress-cert
-
   namespaceLabels: {}
 
 controllers:
