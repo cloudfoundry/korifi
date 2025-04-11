@@ -1,4 +1,4 @@
-package k8s_test
+package conditions_test
 
 import (
 	"errors"
@@ -9,17 +9,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools/k8s"
+	"code.cloudfoundry.org/korifi/tools/k8s/conditions"
 )
 
 var _ = Describe("ReadyConditionBuilder", func() {
 	var (
-		builder   *k8s.ReadyConditionBuilder
+		builder   *conditions.ReadyConditionBuilder
 		condition metav1.Condition
 	)
 
 	BeforeEach(func() {
-		builder = k8s.NewReadyConditionBuilder(&corev1.Secret{
+		builder = conditions.NewReadyConditionBuilder(&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Generation: 4,
 			},
