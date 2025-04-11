@@ -5,31 +5,11 @@ metadata:
   namespace: {{ .Releases.Namespace }}
 data:
   config.yaml: |-
-    builderName: {{ .Values.reconcilers.build }}
-    runnerName: {{ .Values.reconcilers.run }}
-    cfProcessDefaults:
-      memoryMB: {{ .Values.gateway-api-router.processDefaults.memoryMB }}
-      diskQuotaMB: {{ .Values.gateway-api-router.processDefaults.diskQuotaMB }}
+    builderName: {{ .Values.gatewayApiRouter.builderName | default "cf-gateway-api-router-builder" }}
+    runnerName: {{ .Values.gatewayApiRouter.runnerName | default "cf-gateway-api-router-runner" }}
     cfRootNamespace: {{ .Values.rootNamespace }}
-    {{ - if not .Values.eksContainerRegistryRoleARN }}
-    {{ - if .Values.containerRegistrySecrets }}
-    containerRegistrySecretNames:
-    {{ - range .Values.containerRegistrySecrets }}
-    - {{ . | quote }}
-    {{ - end }}
-    {{ - else }}
-    containerRegistrySecretNames:
-    - {{ .Values.containerRegistrySecret | quote }}
-    {{ - end }}
-    {{ - end }}
-    taskTTL: {{ .Values.gateway-api-router.taskTTL }}
     namespaceLabels:
     {{ - range $key, $value := .Values.gateway-api-router.namespaceLabels }}
       {{ $key }}: {{ $value }}
     {{ - end }}
     logLevel: { { .Values.logLevel } }
-    networking:
-      gatewayNamespace: { { .Release.Namespace } }-gateway
-        gatewayName: korifi
-    experimentalManagedServicesEnabled: { { .Values.experimental.managedServices.enabled } }
-    trustInsecureServiceBrokers: { { .Values.experimental.managedServices.trustInsecureBrokers } }
