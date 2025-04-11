@@ -69,7 +69,7 @@ api:
     host: ""
     caCert: ""
 
-gateway-api-router:
+gatewayApiRouter:
   image: cloudfoundry/korifi-gateway-api-router:latest
 
   replicas: 1
