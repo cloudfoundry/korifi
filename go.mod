@@ -5,6 +5,7 @@ go 1.23.7
 toolchain go1.24.1
 
 require (
+	code.cloudfoundry.org/bytefmt v0.34.0
 	code.cloudfoundry.org/bytefmt v0.35.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.1.0
 	code.cloudfoundry.org/go-loggregator/v10 v10.1.0
@@ -13,11 +14,14 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
+	github.com/aws/aws-sdk-go-v2/config v1.29.10
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.43.0
 	github.com/aws/aws-sdk-go-v2/config v1.29.12
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.43.1
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.37.0
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
+	github.com/distribution/distribution/v3 v3.0.0-rc.4
 	github.com/distribution/distribution/v3 v3.0.0
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/go-chi/chi v4.1.2+incompatible
