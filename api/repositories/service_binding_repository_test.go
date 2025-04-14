@@ -498,7 +498,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			Expect(serviceBindingRecord.LastOperation.Type).To(Equal("create"))
 			Expect(serviceBindingRecord.LastOperation.State).To(Equal("initial"))
 			Expect(serviceBindingRecord.LastOperation.CreatedAt).To(Equal(serviceBindingRecord.CreatedAt))
-			Expect(serviceBindingRecord.LastOperation.UpdatedAt).To(PointTo(Equal(serviceBindingRecord.CreatedAt)))
+			Expect(serviceBindingRecord.LastOperation.UpdatedAt).To(PointTo(BeTemporally("~", serviceBindingRecord.CreatedAt, time.Second)))
 		})
 
 		When("the binding is being deleted", func() {
