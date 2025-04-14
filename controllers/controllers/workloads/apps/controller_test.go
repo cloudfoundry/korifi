@@ -19,8 +19,9 @@ import (
 
 var _ = Describe("CFAppReconciler Integration Tests", func() {
 	var (
-		cfBuild *korifiv1alpha1.CFBuild
-		cfApp   *korifiv1alpha1.CFApp
+		cfBuild           *korifiv1alpha1.CFBuild
+		cfApp             *korifiv1alpha1.CFApp
+		defaultWebProcess *korifiv1alpha1.CFProcess
 	)
 
 	BeforeEach(func() {
@@ -62,11 +63,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				StagingDiskMB:   1024,
 				Lifecycle: korifiv1alpha1.Lifecycle{
 					Type: "buildpack",
-					// TODO: no need for Data as it empty
-					Data: korifiv1alpha1.LifecycleData{
-						Buildpacks: nil,
-						Stack:      "",
-					},
 				},
 			},
 		}
@@ -108,6 +104,30 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 		Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
 			cfApp.Status.ActualState = korifiv1alpha1.StoppedState
+		})).To(Succeed())
+
+		defaultWebProcess = &korifiv1alpha1.CFProcess{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      tools.NamespacedUUID(cfApp.Name, "web"),
+				Namespace: cfApp.Namespace,
+				Labels: map[string]string{
+					korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
+					korifiv1alpha1.CFProcessTypeLabelKey: "web",
+				},
+			},
+			Spec: korifiv1alpha1.CFProcessSpec{
+				ProcessType: "web",
+			},
+		}
+		Expect(adminClient.Create(ctx, defaultWebProcess)).To(Succeed())
+		Expect(k8s.Patch(ctx, adminClient, defaultWebProcess, func() {
+			defaultWebProcess.Status.Conditions = []metav1.Condition{{
+				Type:               korifiv1alpha1.StatusConditionReady,
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "Ready",
+				ObservedGeneration: defaultWebProcess.Generation,
+			}}
 		})).To(Succeed())
 	})
 
@@ -185,30 +205,36 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 		}).Should(Succeed())
 	})
 
-	It("creates a default web CFProcess", func() {
-		Eventually(func(g Gomega) {
-			cfProcessList := &korifiv1alpha1.CFProcessList{}
-			g.Expect(
-				adminClient.List(ctx, cfProcessList, &client.ListOptions{
-					Namespace: cfApp.Namespace,
-				}),
-			).To(Succeed())
-			g.Expect(cfProcessList.Items).To(ConsistOf(
-				MatchFields(IgnoreExtras, Fields{
-					"Spec": MatchFields(IgnoreExtras, Fields{
-						"ProcessType":     Equal("web"),
-						"DetectedCommand": BeEmpty(),
-						"Command":         BeEmpty(),
-						"AppRef":          Equal(corev1.LocalObjectReference{Name: cfApp.Name}),
+	When("the there are no processes", func() {
+		BeforeEach(func() {
+			Expect(adminClient.DeleteAllOf(ctx, &korifiv1alpha1.CFProcess{}, client.InNamespace(cfApp.Namespace))).To(Succeed())
+		})
+
+		It("creates a default web CFProcess", func() {
+			Eventually(func(g Gomega) {
+				cfProcessList := &korifiv1alpha1.CFProcessList{}
+				g.Expect(
+					adminClient.List(ctx, cfProcessList, &client.ListOptions{
+						Namespace: cfApp.Namespace,
 					}),
-					"ObjectMeta": MatchFields(IgnoreExtras, Fields{
-						"OwnerReferences": ConsistOf(MatchFields(IgnoreExtras, Fields{
-							"Name": Equal(cfApp.Name),
-						})),
+				).To(Succeed())
+				g.Expect(cfProcessList.Items).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Spec": MatchFields(IgnoreExtras, Fields{
+							"ProcessType":     Equal("web"),
+							"DetectedCommand": BeEmpty(),
+							"Command":         BeEmpty(),
+							"AppRef":          Equal(corev1.LocalObjectReference{Name: cfApp.Name}),
+						}),
+						"ObjectMeta": MatchFields(IgnoreExtras, Fields{
+							"OwnerReferences": ConsistOf(MatchFields(IgnoreExtras, Fields{
+								"Name": Equal(cfApp.Name),
+							})),
+						}),
 					}),
-				}),
-			))
-		}).Should(Succeed())
+				))
+			}).Should(Succeed())
+		})
 	})
 
 	When("the droplet specifies processes", func() {
@@ -264,26 +290,36 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				))
 			}).Should(Succeed())
 		})
+
+		When("the process is not ready", func() {
+			BeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, defaultWebProcess, func() {
+					defaultWebProcess.Status.Conditions = []metav1.Condition{{
+						Type:               korifiv1alpha1.StatusConditionReady,
+						Status:             metav1.ConditionFalse,
+						LastTransitionTime: metav1.Now(),
+						Reason:             "IAmNotReady",
+					}}
+				})).To(Succeed())
+			})
+
+			It("sets the ready condition to false", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					g.Expect(cfApp.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("ProcessesNotReady")),
+					)))
+				}).Should(Succeed())
+			})
+		})
 	})
 
 	When("the app desired state does not match the actual state", func() {
 		BeforeEach(func() {
-			cfProcess := &korifiv1alpha1.CFProcess{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: cfApp.Namespace,
-					Name:      tools.NamespacedUUID(cfApp.Name, "web"),
-					Labels: map[string]string{
-						korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
-						korifiv1alpha1.CFProcessTypeLabelKey: "web",
-					},
-				},
-				Spec: korifiv1alpha1.CFProcessSpec{
-					ProcessType: "web",
-				},
-			}
-			Expect(adminClient.Create(ctx, cfProcess)).To(Succeed())
-			Expect(k8s.Patch(ctx, adminClient, cfProcess, func() {
-				cfProcess.Status.ActualInstances = 1
+			Expect(k8s.Patch(ctx, adminClient, defaultWebProcess, func() {
+				defaultWebProcess.Status.ActualInstances = 1
 			})).To(Succeed())
 
 			Expect(k8s.Patch(ctx, adminClient, cfApp, func() {

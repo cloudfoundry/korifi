@@ -408,6 +408,32 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 			})
 		})
 
+		When("the app workload is not ready", func() {
+			JustBeforeEach(func() {
+				withAppWorkload(func(g Gomega, appWorkload korifiv1alpha1.AppWorkload) {
+					g.Expect(k8s.Patch(ctx, adminClient, &appWorkload, func() {
+						appWorkload.Status.Conditions = []metav1.Condition{{
+							Type:               korifiv1alpha1.StatusConditionReady,
+							Status:             metav1.ConditionFalse,
+							Reason:             "IAmNotReady",
+							LastTransitionTime: metav1.Now(),
+						}}
+					})).To(Succeed())
+				})
+			})
+
+			It("sets the CFProcess ready status to false", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfProcess), cfProcess)).To(Succeed())
+					g.Expect(cfProcess.Status.Conditions).To(ContainElement(SatisfyAll(
+						matchers.HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						matchers.HasStatus(Equal(metav1.ConditionFalse)),
+						matchers.HasReason(Equal("AppWorkloadsNotReady")),
+					)))
+				}).Should(Succeed())
+			})
+		})
+
 		When("the app has service bindings", func() {
 			BeforeEach(func() {
 				Expect(k8s.Patch(ctx, adminClient, cfApp, func() {

@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/api/repositories/conditions"
-	"code.cloudfoundry.org/korifi/tools/k8s"
+	repoconditions "code.cloudfoundry.org/korifi/api/repositories/conditions"
+	"code.cloudfoundry.org/korifi/tools/k8s/conditions"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type FakeAwaiter[T k8s.RuntimeObjectWithStatusConditions, L any, PL conditions.ObjectList[L]] struct {
+type FakeAwaiter[T conditions.RuntimeObjectWithStatusConditions, L any, PL repoconditions.ObjectList[L]] struct {
 	awaitConditionCalls []struct {
 		obj           client.Object
 		conditionType string

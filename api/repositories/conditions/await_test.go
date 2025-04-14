@@ -79,7 +79,7 @@ var _ = Describe("ConditionAwaiter", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(awaitErr).To(MatchError(ContainSubstring("expected the Ready condition to be true")))
+				Expect(awaitErr).To(MatchError(ContainSubstring("Ready condition is not true")))
 			})
 		})
 
