@@ -3,6 +3,7 @@ package tasks_test
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"code.cloudfoundry.org/korifi/tools/k8s/conditions"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -150,7 +151,7 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 		Expect(k8s.Patch(ctx, adminClient, cfApp, func() {
 			cfApp.Status.VCAPApplicationSecretName = vcapApplicationSecret.Name
 			cfApp.Status.VCAPServicesSecretName = vcapServicesSecret.Name
-			meta.SetStatusCondition(&cfApp.Status.Conditions, k8s.NewReadyConditionBuilder(cfApp).Ready().Build())
+			meta.SetStatusCondition(&cfApp.Status.Conditions, conditions.NewReadyConditionBuilder(cfApp).Ready().Build())
 		})).To(Succeed())
 
 		cfTask = &korifiv1alpha1.CFTask{

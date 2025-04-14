@@ -8,20 +8,15 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
+	"code.cloudfoundry.org/korifi/tools/k8s/conditions"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type RuntimeObjectWithStatusConditions interface {
-	client.Object
-	StatusConditions() *[]metav1.Condition
-}
 
 type ObjectReconciler[T any] interface {
 	ReconcileResource(ctx context.Context, obj T) (ctrl.Result, error)
@@ -48,7 +43,7 @@ func (r *PatchingReconciler[T]) Reconcile(ctx context.Context, req ctrl.Request)
 		WithValues("namespace", req.Namespace, "name", req.Name, "logID", uuid.NewString())
 	ctx = logr.NewContext(ctx, log)
 
-	runtimeObj := any(new(T)).(RuntimeObjectWithStatusConditions)
+	runtimeObj := any(new(T)).(conditions.RuntimeObjectWithStatusConditions)
 
 	err := r.k8sClient.Get(ctx, req.NamespacedName, runtimeObj)
 	if err != nil {
@@ -65,7 +60,7 @@ func (r *PatchingReconciler[T]) Reconcile(ctx context.Context, req ctrl.Request)
 	)
 
 	err = Patch(ctx, r.k8sClient, runtimeObj, func() {
-		readyConditionBuilder := NewReadyConditionBuilder(runtimeObj)
+		readyConditionBuilder := conditions.NewReadyConditionBuilder(runtimeObj)
 		defer func() {
 			meta.SetStatusCondition(runtimeObj.StatusConditions(), readyConditionBuilder.WithError(delegateErr).Build())
 		}()
