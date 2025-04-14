@@ -5,7 +5,7 @@ go 1.24.1
 require (
 	code.cloudfoundry.org/bytefmt v0.36.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.1.0
-	code.cloudfoundry.org/go-loggregator/v10 v10.1.0
+	code.cloudfoundry.org/go-loggregator/v10 v10.2.0
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
 	github.com/BooleanCat/go-functional/v2 v2.5.1
 	github.com/Masterminds/semver v1.5.0
@@ -70,7 +70,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/bridges/prometheus v0.57.0 // indirect
 	go.opentelemetry.io/contrib/exporters/autoexport v0.57.0 // indirect
-	go.opentelemetry.io/otel v1.33.0 // indirect
+	go.opentelemetry.io/otel v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.8.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.8.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.32.0 // indirect
@@ -83,11 +83,11 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.32.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.32.0 // indirect
 	go.opentelemetry.io/otel/log v0.8.0 // indirect
-	go.opentelemetry.io/otel/metric v1.33.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.33.0 // indirect
+	go.opentelemetry.io/otel/metric v1.34.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
 	go.opentelemetry.io/otel/sdk/log v0.8.0 // indirect
-	go.opentelemetry.io/otel/sdk/metric v1.32.0 // indirect
-	go.opentelemetry.io/otel/trace v1.33.0 // indirect
+	go.opentelemetry.io/otel/sdk/metric v1.34.0 // indirect
+	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
@@ -191,8 +191,8 @@ require (
 	golang.org/x/tools v0.31.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250303144028-a0af3efb3deb // indirect
-	google.golang.org/grpc v1.70.0 // indirect
-	google.golang.org/protobuf v1.36.5 // indirect
+	google.golang.org/grpc v1.71.1 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apiextensions-apiserver v0.32.2 // indirect
