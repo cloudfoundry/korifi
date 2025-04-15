@@ -3,6 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$SCRIPT_DIR/.."
 TEST_DIR="$SCRIPT_DIR/../tests"
 DEP_DIR="$TEST_DIR/dependencies"
 VENDOR_DIR="$TEST_DIR/vendor"
@@ -45,23 +46,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo "**************************"
-echo " Creating 'cf-admin' user"
-echo "**************************"
-
-if [[ "${CLUSTER_TYPE:-}" != "EKS" ]]; then
-  "$SCRIPT_DIR/create-new-user.sh" cf-admin
-fi
-
-echo "*************************"
-echo " Installing Cert Manager"
-echo "*************************"
-
-kubectl apply -f "$VENDOR_DIR/cert-manager"
-
-kubectl -n cert-manager rollout status deployment/cert-manager --watch=true
-kubectl -n cert-manager rollout status deployment/cert-manager-webhook --watch=true
-kubectl -n cert-manager rollout status deployment/cert-manager-cainjector --watch=true
+echo "******************"
+echo " Installing K8S Gateway API"
+echo "******************"
+kubectl apply -f "$ROOT_DIR/tests/vendor/gateway-api"
 
 echo "******************"
 echo " Installing Kpack"
@@ -72,21 +60,6 @@ retry kubectl apply -f "$VENDOR_DIR/kpack"
 # become ready on M1 Macs. With this change the ClusterBuilder becomes ready in the time it takes this script to run.
 kubectl patch -n kpack deployment kpack-controller -p \
   '{"spec": {"template": {"spec": {"containers": [{"name": "controller", "resources": {"limits": {"cpu": "500m"}}}]}}}}'
-
-echo "********************"
-echo " Installing Contour"
-echo "********************"
-
-kubectl apply -f "$VENDOR_DIR/contour/contour-gateway-provisioner.yaml"
-
-kubectl apply -f - <<EOF
-kind: GatewayClass
-apiVersion: gateway.networking.k8s.io/v1beta1
-metadata:
-  name: contour
-spec:
-  controllerName: projectcontour.io/gateway-controller
-EOF
 
 if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
   if [[ "${INSECURE_TLS_METRICS_SERVER:-}" == "true" ]]; then

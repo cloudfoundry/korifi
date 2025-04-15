@@ -45,6 +45,7 @@ manifests: bin/controller-gen bin/yq
 	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-controllers-serving-cert")' $(webhooks-file)
 	yq -i 'with(.metadata; .name="korifi-controllers-" + .name)' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
+	yq -i 'with(.webhooks[]; .clientConfig.caBundle="{{ .Values.controllers.webhookCaBundle }}")' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-controllers-" + .clientConfig.service.name)' $(webhooks-file)
 
 generate: bin/controller-gen

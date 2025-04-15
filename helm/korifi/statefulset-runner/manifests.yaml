@@ -14,6 +14,7 @@ webhooks:
         name: korifi-statefulset-runner-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-appworkload
+      caBundle: '{{ .Values.jobTaskRunner.webhookCaBundle }}'
     failurePolicy: Fail
     name: mappworkload.korifi.cloudfoundry.org
     rules:

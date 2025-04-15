@@ -1,0 +1,5 @@
+spec:
+  experimental:
+    pilot:
+      enableAlphaGatewayAPI: true
+
