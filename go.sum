@@ -1,8 +1,8 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go/compute/metadata v0.6.0 h1:A6hENjEsCDtC1k8byVsgwvVcioamEHvZ4j01OwKxG9I=
 cloud.google.com/go/compute/metadata v0.6.0/go.mod h1:FjyFAW1MW0C203CEOMDTu3Dk1FlqW3Rga40jzHL4hfg=
-code.cloudfoundry.org/bytefmt v0.36.0 h1:rvL+GU2G2WqJSTe+mkYrR585ggp+kcaGSvWTFHfbnAA=
-code.cloudfoundry.org/bytefmt v0.36.0/go.mod h1:SiQ6Ydfa3M0Kq44uIMMK4DZkFwAHr2ebVTp0FzkYDLo=
+code.cloudfoundry.org/bytefmt v0.37.0 h1:GR5rZgr/6QLV/U2/xgORHUY4lu4EEBgN4/cz7SD3GqM=
+code.cloudfoundry.org/bytefmt v0.37.0/go.mod h1:u3/LRyPLBYFtn8h9CnzTeupRMD+76qCovDU0vND81lU=
 code.cloudfoundry.org/go-diodes v0.0.0-20180905200951-72629b5276e3/go.mod h1:Jzi+ccHgo/V/PLQUaQ6hnZcC1c4BS790gx21LRRui4g=
 code.cloudfoundry.org/go-log-cache/v3 v3.1.0 h1:/7Fn9ID9wCzLSbqaw6JBJbVo5481xn7L/gI/ysZAaBE=
 code.cloudfoundry.org/go-log-cache/v3 v3.1.0/go.mod h1:3kRhDyPZhjBUxUFT0ysMM8Sh27ZtKaPuKzI5x9AmmuE=
@@ -605,8 +605,8 @@ golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e/go.mod h1:b+2E5dAYhXwXZwtn
 golang.org/x/tools v0.0.0-20200619180055-7c47624df98f/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
 golang.org/x/tools v0.0.0-20210106214847-113979e3529a/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
 golang.org/x/tools v0.1.12/go.mod h1:hNGJHUnrk76NpqgfD5Aqm5Crs+Hm0VOH/i9J2+nxYbc=
-golang.org/x/tools v0.31.0 h1:0EedkvKDbh+qistFTd0Bcwe/YLh4vHwWEkiI0toFIBU=
-golang.org/x/tools v0.31.0/go.mod h1:naFTU+Cev749tSJRXJlna0T3WxKvb1kWEx15xA4SdmQ=
+golang.org/x/tools v0.32.0 h1:Q7N1vhpkQv7ybVzLFtTjvQya2ewbwNDZzUgfXGqtMWU=
+golang.org/x/tools v0.32.0/go.mod h1:ZxrU41P/wAbZD8EDa6dDCa6XfpkhJ7HFMjHJXfBDu8s=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
