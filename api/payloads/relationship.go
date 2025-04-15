@@ -23,3 +23,7 @@ func (r RelationshipData) Validate() error {
 		validation.Field(&r.GUID, validation.Required),
 	)
 }
+
+type ToManyRelationship struct {
+	Data []RelationshipData `json:"data"`
+}

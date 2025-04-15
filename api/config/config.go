@@ -56,6 +56,7 @@ type (
 		UAA              UAA             `yaml:"uaa"`
 		ExternalLogCache ExtenalLogCache `yaml:"externalLogCache"`
 		K8SClient        K8SClientConfig `yaml:"k8sClient"`
+		SecurityGroups   SecurityGroups  `yaml:"securityGroups"`
 	}
 
 	ManagedServices struct {
@@ -76,6 +77,10 @@ type (
 	K8SClientConfig struct {
 		QPS   float32 `yaml:"qps"`
 		Burst int     `yaml:"burst"`
+	}
+
+	SecurityGroups struct {
+		Enabled bool `yaml:"enabled"`
 	}
 
 	RoleLevel string

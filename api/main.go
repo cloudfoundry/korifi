@@ -235,6 +235,7 @@ func main() {
 	serviceBrokerRepo := repositories.NewServiceBrokerRepo(klient, cfg.RootNamespace)
 	serviceOfferingRepo := repositories.NewServiceOfferingRepo(klient, cfg.RootNamespace, serviceBrokerRepo, nsPermissions)
 	servicePlanRepo := repositories.NewServicePlanRepo(klient, cfg.RootNamespace, orgRepo)
+	securityGroupRepo := repositories.NewSecurityGroupRepo(klient, cfg.RootNamespace)
 
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(
@@ -257,6 +258,10 @@ func main() {
 
 	if !cfg.Experimental.ManagedServices.Enabled {
 		routerBuilder.UseMiddleware(middleware.DisableManagedServices)
+	}
+
+	if !cfg.Experimental.SecurityGroups.Enabled {
+		routerBuilder.UseMiddleware(middleware.DisableSecurityGroups)
 	}
 
 	authInfoParser := authorization.NewInfoParser()
@@ -477,6 +482,12 @@ func main() {
 			requestValidator,
 			servicePlanRepo,
 			relationshipsRepo,
+		),
+		handlers.NewSecurityGroup(
+			*serverURL,
+			securityGroupRepo,
+			spaceRepo,
+			requestValidator,
 		),
 	}
 
