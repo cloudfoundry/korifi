@@ -1,10 +1,13 @@
 package payloads
 
 import (
+	"fmt"
 	"net/url"
 
+	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
+
 	"github.com/jellydator/validation"
 )
 
@@ -60,10 +63,67 @@ func (p SpacePatch) ToMessage(spaceGUID, orgGUID string) repositories.PatchSpace
 	}
 }
 
+type SpaceGet struct {
+	IncludeResourceRules []params.IncludeResourceRule
+}
+
+func (g SpaceGet) Validate() error {
+	return validation.ValidateStruct(&g,
+		validation.Field(&g.IncludeResourceRules, validation.Each(validation.By(func(value any) error {
+			rule, ok := value.(params.IncludeResourceRule)
+			if !ok {
+				return fmt.Errorf("%T is not supported, IncludeResourceRule is expected", value)
+			}
+
+			if rule.RelationshipPath[0] != "organization" {
+				return validation.NewError("invalid_fields_param", "must be organization")
+			}
+
+			return nil
+		}))),
+	)
+}
+
+func (s *SpaceGet) SupportedKeys() []string {
+	return []string{"include"}
+}
+func (s *SpaceGet) DecodeFromURLValues(values url.Values) error {
+	includeVal := values.Get("include")
+	s.IncludeResourceRules = []params.IncludeResourceRule{
+		params.IncludeResourceRule{
+			RelationshipPath: []string{includeVal},
+		},
+	}
+	return nil
+}
+
 type SpaceList struct {
-	Names             string
-	GUIDs             string
-	OrganizationGUIDs string
+	Names                string
+	GUIDs                string
+	Include              string
+	OrganizationGUIDs    string
+	IncludeResourceRules []params.IncludeResourceRule
+}
+
+func (s SpaceList) Validate() error {
+	return validation.ValidateStruct(&s,
+		validation.Field(&s.Include,
+			validation.Required.When(s.Include != ""),
+			validation.In("organization"),
+		),
+		validation.Field(&s.IncludeResourceRules, validation.Each(validation.By(func(value any) error {
+			rule, ok := value.(params.IncludeResourceRule)
+			if !ok {
+				return fmt.Errorf("%T is not supported, IncludeResourceRule is expected", value)
+			}
+
+			if rule.RelationshipPath[0] != "organization" {
+				return validation.NewError("invalid_fields_param", "must be organization")
+			}
+
+			return nil
+		}))),
+	)
 }
 
 func (l *SpaceList) ToMessage() repositories.ListSpacesMessage {
@@ -75,12 +135,13 @@ func (l *SpaceList) ToMessage() repositories.ListSpacesMessage {
 }
 
 func (l *SpaceList) SupportedKeys() []string {
-	return []string{"names", "guids", "organization_guids", "order_by", "per_page", "page"}
+	return []string{"names", "guids", "organization_guids", "order_by", "per_page", "page", "include"}
 }
 
 func (l *SpaceList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
 	l.GUIDs = values.Get("guids")
 	l.OrganizationGUIDs = values.Get("organization_guids")
+	l.Include = values.Get("include")
 	return nil
 }

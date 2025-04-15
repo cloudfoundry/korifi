@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/api/routing"
 
 	"github.com/go-logr/logr"
@@ -34,15 +35,22 @@ type CFSpaceRepository interface {
 
 type Space struct {
 	spaceRepo        CFSpaceRepository
+	orgRepo          CFOrgRepository
 	apiBaseURL       url.URL
 	requestValidator RequestValidator
+	includeResolver  *include.IncludeResolver[
+		[]repositories.SpaceRecord,
+		repositories.SpaceRecord,
+	]
 }
 
-func NewSpace(apiBaseURL url.URL, spaceRepo CFSpaceRepository, requestValidator RequestValidator) *Space {
+func NewSpace(apiBaseURL url.URL, spaceRepo CFSpaceRepository, orgRepo CFOrgRepository, requestValidator RequestValidator, relationshipRepo include.ResourceRelationshipRepository) *Space {
 	return &Space{
 		apiBaseURL:       apiBaseURL,
 		spaceRepo:        spaceRepo,
+		orgRepo:          orgRepo,
 		requestValidator: requestValidator,
+		includeResolver:  include.NewIncludeResolver[[]repositories.SpaceRecord](relationshipRepo, presenter.NewResource(apiBaseURL)),
 	}
 }
 
@@ -73,17 +81,22 @@ func (h *Space) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.list")
 
-	spaceList := new(payloads.SpaceList)
-	if err := h.requestValidator.DecodeAndValidateURLValues(r, spaceList); err != nil {
+	payload := new(payloads.SpaceList)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to decode and validate request values")
 	}
 
-	spaces, err := h.spaceRepo.ListSpaces(r.Context(), authInfo, spaceList.ToMessage())
+	spaces, err := h.spaceRepo.ListSpaces(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch spaces")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL)), nil
+	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, spaces, payload.IncludeResourceRules)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL, includedResources...)), nil
 }
 
 //nolint:dupl
@@ -140,12 +153,22 @@ func (h *Space) get(r *http.Request) (*routing.Response, error) {
 
 	spaceGUID := routing.URLParam(r, "guid")
 
+	payload := new(payloads.SpaceGet)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
 	space, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch space", "spaceGUID", spaceGUID)
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForSpace(space, h.apiBaseURL)), nil
+	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, []repositories.SpaceRecord{space}, payload.IncludeResourceRules)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForSpace(space, h.apiBaseURL, includedResources...)), nil
 }
 
 func (h *Space) UnauthenticatedRoutes() []routing.Route {

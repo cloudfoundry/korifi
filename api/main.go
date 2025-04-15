@@ -422,7 +422,9 @@ func main() {
 		handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
+			orgRepo,
 			requestValidator,
+			relationshipsRepo,
 		),
 		handlers.NewSpaceManifest(
 			*serverURL,
