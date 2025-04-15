@@ -3,7 +3,6 @@ rootNamespace: cf
 debug: false
 logLevel: info
 defaultAppDomainName:
-generateIngressCertificates: false
 containerRegistrySecrets:
 - image-registry-credentials
 eksContainerRegistryRoleARN: ""
@@ -69,6 +68,7 @@ api:
 
 controllers:
   image: cloudfoundry/korifi-controllers:latest
+  webhookCaBundle: ""
 
   nodeSelector: {}
   tolerations: []
@@ -95,6 +95,7 @@ controllers:
 kpackImageBuilder:
   include: true
   image: cloudfoundry/korifi-kpack-image-builder:latest
+  webhookCaBundle: ""
   replicas: 1
   resources:
     limits:
@@ -111,6 +112,7 @@ kpackImageBuilder:
 statefulsetRunner:
   include: true
   image: cloudfoundry/korifi-statefulset-runner:latest
+  webhookCaBundle: ""
   replicas: 1
   resources:
     limits:
@@ -144,6 +146,12 @@ networking:
   gatewayInfrastructure:
   gatewayClass:
 
+certManager:
+  enabled: true
+  generateIngressCertificates: false
+  ingressCertsIssuer: selfsigned-issuer
+  webhookCertsIssuer: selfsigned-issuer
+
 experimental:
   routing:
     disableRouteController: false
@@ -161,5 +169,5 @@ experimental:
     k8sclient:
       qps: 0
       burst: 0
-  securityGroups: 
+  securityGroups:
     enabled: false
