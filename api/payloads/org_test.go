@@ -64,7 +64,8 @@ var _ = Describe("Org", func() {
 
 		BeforeEach(func() {
 			payload = payloads.OrgPatch{
-				Name: tools.PtrTo("new-org-name"),
+				Name:      tools.PtrTo("new-org-name"),
+				Suspended: tools.PtrTo(true),
 				Metadata: payloads.MetadataPatch{
 					Annotations: map[string]*string{
 						"foo": tools.PtrTo("bar"),
