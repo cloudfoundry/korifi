@@ -1,8 +1,8 @@
-{{- if .Values.certManager.include }}
+{{- if or (eq .Values.generateIngressCertificates true) (eq .Values.generateWebhookCertificates true) }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: {{ .Values.certManager.webhookCertsIssuer }}
+  name: selfsigned-issuer
   namespace: {{ .Release.Namespace }}
 spec:
   selfSigned: {}

@@ -8,6 +8,8 @@ containerRegistrySecrets:
 eksContainerRegistryRoleARN: ""
 containerRegistryCACertSecret:
 systemImagePullSecrets: []
+generateIngressCertificates: false
+generateWebhookCertificates: false
 
 reconcilers:
   build: kpack-image-builder
@@ -146,12 +148,6 @@ networking:
     https: 443
   gatewayInfrastructure:
   gatewayClass:
-
-certManager:
-  enabled: true
-  generateIngressCertificates: false
-  ingressCertsIssuer: selfsigned-issuer
-  webhookCertsIssuer: selfsigned-issuer
 
 experimental:
   routing:
