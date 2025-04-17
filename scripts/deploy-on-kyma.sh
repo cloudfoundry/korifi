@@ -42,7 +42,7 @@ function validate_registry_params() {
 function install_dependencies() {
   pushd "${ROOT_DIR}" >/dev/null
   {
-    "${SCRIPT_DIR}/install-dependencies.sh" -i
+    "${SCRIPT_DIR}/install-dependencies-kyma.sh" -i
   }
   popd >/dev/null
 }
