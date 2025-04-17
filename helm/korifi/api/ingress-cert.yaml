@@ -12,6 +12,6 @@ spec:
   issuerRef:
     kind: Issuer
     name: {{ .Values.certManager.ingressCertsIssuer }}
-  secretName: korifi-api-ingress-cert
+  secretName: {{ .Values.api.apiServer.ingressCertSecret }}
 {{- end }}
 {{- end }}

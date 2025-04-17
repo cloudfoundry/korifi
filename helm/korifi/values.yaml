@@ -42,6 +42,7 @@ api:
     # To override default port, set port to a non-zero value
     port: 0
     internalPort: 9000
+    ingressCertSecret: korifi-api-ingress-cert
     timeouts:
       read: 900
       write: 900
@@ -68,7 +69,7 @@ api:
 
 controllers:
   image: cloudfoundry/korifi-controllers:latest
-  webhookCaBundle: ""
+  webhookCertSecret: "korifi-controllers-webhook-cert"
 
   nodeSelector: {}
   tolerations: []
@@ -95,7 +96,7 @@ controllers:
 kpackImageBuilder:
   include: true
   image: cloudfoundry/korifi-kpack-image-builder:latest
-  webhookCaBundle: ""
+  webhookCertSecret: "korifi-kpack-image-builder-webhook-cert"
   replicas: 1
   resources:
     limits:
@@ -112,7 +113,7 @@ kpackImageBuilder:
 statefulsetRunner:
   include: true
   image: cloudfoundry/korifi-statefulset-runner:latest
-  webhookCaBundle: ""
+  webhookCertSecret: "korifi-statefulset-runner-webhook-cert"
   replicas: 1
   resources:
     limits:

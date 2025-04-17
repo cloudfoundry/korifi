@@ -89,7 +89,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: korifi-kpack-image-builder-webhook-cert
+          secretName: {{ .Values.kpackImageBuilder.webhookCertSecret }}
       - configMap:
           name: korifi-kpack-image-builder-config
         name: korifi-kpack-image-builder-config
