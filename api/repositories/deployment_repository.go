@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/version"
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -103,8 +102,10 @@ type ListDeploymentsMessage struct {
 	OrderBy      string
 }
 
-func (m ListDeploymentsMessage) matchesApp(app korifiv1alpha1.CFApp) bool {
-	return tools.EmptyOrContains(m.AppGUIDs, app.Name)
+func (m ListDeploymentsMessage) toListOptions() []ListOption {
+	return []ListOption{
+		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.AppGUIDs),
+	}
 }
 
 func (m ListDeploymentsMessage) matchesStatusValue(deployment DeploymentRecord) bool {
@@ -180,14 +181,12 @@ func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authoriz
 
 func (r *DeploymentRepo) ListDeployments(ctx context.Context, authInfo authorization.Info, message ListDeploymentsMessage) ([]DeploymentRecord, error) {
 	appList := &korifiv1alpha1.CFAppList{}
-	err := r.klient.List(ctx, appList)
+	err := r.klient.List(ctx, appList, message.toListOptions()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	deploymentRecords := it.Map(itx.FromSlice(appList.Items).Filter(message.matchesApp), appToDeploymentRecord)
-	deploymentRecords = it.Filter(deploymentRecords, message.matchesStatusValue)
-
+	deploymentRecords := it.Filter(it.Map(slices.Values(appList.Items), appToDeploymentRecord), message.matchesStatusValue)
 	return r.sorter.Sort(slices.Collect(deploymentRecords), message.OrderBy), nil
 }
 

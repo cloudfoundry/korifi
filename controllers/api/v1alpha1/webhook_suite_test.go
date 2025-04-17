@@ -118,6 +118,7 @@ var _ = BeforeSuite(func() {
 		SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect(korifiv1alpha1.NewCFBuildDefaulter().SetupWebhookWithManager(k8sManager)).To(Succeed())
+	Expect(korifiv1alpha1.NewCFDomainDefaulter().SetupWebhookWithManager(k8sManager)).To(Succeed())
 
 	Expect(adminClient.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

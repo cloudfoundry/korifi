@@ -21,6 +21,7 @@ const (
 	CFProcessGUIDLabelKey    = "korifi.cloudfoundry.org/process-guid"
 	CFProcessTypeLabelKey    = "korifi.cloudfoundry.org/process-type"
 	CFDomainGUIDLabelKey     = "korifi.cloudfoundry.org/domain-guid"
+	CFDomainNameLabelKey     = "korifi.cloudfoundry.org/domain-name"
 	CFRouteGUIDLabelKey      = "korifi.cloudfoundry.org/route-guid"
 	CFTaskGUIDLabelKey       = "korifi.cloudfoundry.org/task-guid"
 

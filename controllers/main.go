@@ -373,6 +373,10 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFBuild")
 			os.Exit(1)
 		}
+		if err = korifiv1alpha1.NewCFDomainDefaulter().SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFDomain")
+			os.Exit(1)
+		}
 
 		if err = korifiv1alpha1.NewCFProcessDefaulter(
 			controllerConfig.CFProcessDefaults.MemoryMB,
