@@ -272,18 +272,17 @@ func (r *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 }
 
 func (r *RouteRepo) DeleteUnmappedRoutes(ctx context.Context, authInfo authorization.Info, spaceGUID string) error {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	routes, err := r.ListRoutes(ctx, authInfo, ListRoutesMessage{
 		SpaceGUIDs: []string{spaceGUID},
 		IsUnmapped: true,
 	})
 
+	if err != nil {
+		return apierrors.FromK8sError(err, RouteResourceType)
+	}
+
 	for _, route := range routes {
-		if err = userClient.Delete(ctx, &korifiv1alpha1.CFRoute{
+		if err = r.klient.Delete(ctx, &korifiv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      route.GUID,
 				Namespace: spaceGUID,

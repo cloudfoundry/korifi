@@ -8,7 +8,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
@@ -1475,7 +1474,7 @@ var _ = Describe("RouteRepository", func() {
 	Describe("GetState", func() {
 		var (
 			cfRoute  *korifiv1alpha1.CFRoute
-			state    repositories.ResourceState
+			state    ResourceState
 			stateErr error
 		)
 
@@ -1513,7 +1512,7 @@ var _ = Describe("RouteRepository", func() {
 		When("there are stil unmapped routes", func() {
 			It("returns unknown state", func() {
 				Expect(stateErr).NotTo(HaveOccurred())
-				Expect(state).To(Equal(repositories.ResourceStateUnknown))
+				Expect(state).To(Equal(ResourceStateUnknown))
 			})
 		})
 
@@ -1524,7 +1523,7 @@ var _ = Describe("RouteRepository", func() {
 
 			It("return ready state", func() {
 				Expect(stateErr).NotTo(HaveOccurred())
-				Expect(state).To(Equal(repositories.ResourceStateReady))
+				Expect(state).To(Equal(ResourceStateReady))
 			})
 		})
 	})
