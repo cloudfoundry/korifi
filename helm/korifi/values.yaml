@@ -157,6 +157,26 @@ jobTaskRunner:
 
   jobTTL: 24h
 
+gatewayApiRouter:
+  include: true
+  image: cloudfoundry/korifi-gateway-api-router:latest
+  replicas: 1
+  nodeSelector: {}
+  tolerations: []
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+  processDefaults:
+    memoryMB: 1024
+    diskQuotaMB: 1024
+  taskTTL: 30d
+  workloadsTLSSecret: korifi-workloads-ingress-cert
+  namespaceLabels: {}
+
 helm:
   hooksImage: alpine/k8s:1.25.2
 

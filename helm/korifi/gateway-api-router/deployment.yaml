@@ -4,9 +4,13 @@ metadata:
   name: korifi-gateway-api-router-manager
   labels:
     app: korifi-gateway-api-router
-  namespace: { { .Release.Namespace } }
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    meta.helm.sh/release-name: gateway-api-router
+    meta.helm.sh/release-namespace: controllers
 spec:
-  replicas: { { .Values.controllers.replicas | default 1 } }
+  replicas: {{ .Values.controllers.replicas | default 1 }}
   selector:
     matchLabels:
       app: korifi-gateway-api-router
@@ -17,7 +21,7 @@ spec:
         prometheus.io/path: /metrics
         prometheus.io/port: "8080"
         prometheus.io/scrape: "true"
-        checksum/config: { { tpl ($.Files.Get "gateway-api-router/configmap.yaml") $ | sha256sum } }
+        checksum/config: {{ tpl ($.Files.Get "gateway-api-router/configmap.yaml") $ | sha256sum }}
       labels:
         app: korifi-gateway-api-router
     spec:
@@ -26,9 +30,9 @@ spec:
           env:
             - name: ROUTECONTROLCONFIG
               value: /etc/korifi-gateway-api-router-config
-          image: { { .Values.gateway-api-router.image } }
+          image: {{ .Values.gatewayApiRouter.image }}
           imagePullPolicy: IfNotPresent
-          { { - if .Values.debug } }
+{{- if .Values.debug }}
           command:
             - "/dlv"
           args:
@@ -42,11 +46,11 @@ spec:
             - "--"
             - "--health-probe-bind-address=:8081"
             - "--leader-elect"
-          { { - else } }
+{{- else }}
           args:
             - "--health-probe-bind-address=:8081"
             - "--leader-elect"
-          { { - end } }
+{{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -66,8 +70,8 @@ spec:
               port: 8081
             initialDelaySeconds: 5
             periodSeconds: 10
-            { { - include "korifi.resources" . | indent 8 } }
-            { { - include "korifi.securityContext" . | indent 8 } }
+          {{- include "korifi.resources" . | indent 10 }}
+          {{- include "korifi.securityContext" . | indent 10 }}
           volumeMounts:
             - mountPath: /tmp/k8s-webhook-server/serving-certs
               name: cert
@@ -75,16 +79,16 @@ spec:
             - mountPath: /etc/korifi-gateway-api-router-config
               name: korifi-gateway-api-router-config
               readOnly: true
-            { { - include "korifi.podSecurityContext" . | indent 6 } }
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-gateway-api-router-manager
-        { {- if .Values.gateway-api-router.nodeSelector }}
+{{- if .Values.gatewayApiRouter.nodeSelector }}
       nodeSelector:
-        { { toYaml .Values.gateway-api-router.nodeSelector | indent 8 } }
-        { { - end } }
-        { { - if .Values.gateway-api-router.tolerations } }
+      {{ toYaml .Values.gatewayApiRouter.nodeSelector | indent 8 }}
+{{- end }}
+{{- if .Values.gatewayApiRouter.tolerations }}
       tolerations:
-        { { - toYaml .Values.gateway-api-router.tolerations | nindent 8 } }
-        { { - end } }
+      {{- toYaml .Values.gatewayApiRouter.tolerations | nindent 8 }}
+{{- end }}
       terminationGracePeriodSeconds: 10
       volumes:
         - name: cert
