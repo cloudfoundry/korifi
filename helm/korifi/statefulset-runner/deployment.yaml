@@ -74,4 +74,4 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: korifi-statefulset-runner-webhook-server-cert
+          secretName: {{ .Values.statefulsetRunner.webhookCertSecret }}

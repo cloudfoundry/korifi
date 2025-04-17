@@ -89,7 +89,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: controllers-webhook-server-cert
+          secretName: {{ .Values.controllers.webhookCertSecret }}
       - configMap:
           name: korifi-controllers-config
         name: korifi-controllers-config

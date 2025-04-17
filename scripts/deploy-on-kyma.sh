@@ -80,7 +80,6 @@ function deploy_korifi() {
       --set=stagingRequirements.buildCacheMB="1024" \
       --set=api.apiServer.url="$KORIFI_API" \
       --set=controllers.taskTTL="5s" \
-      --set=controllers.webhookCaBundle="$(ca_from_secret controllers-webhook-server-cert)" \
       --set=jobTaskRunner.jobTTL="5s" \
       --set=containerRepositoryPrefix="$docker_server/kpack-builder" \
       --set=kpackImageBuilder.clusterBuilderName="kind-builder" \
@@ -94,9 +93,7 @@ function deploy_korifi() {
       --set=api.image="$docker_server/korifi/api:$version" \
       --set=controllers.image="$docker_server/korifi/controllers:$version" \
       --set=kpackImageBuilder.image="$docker_server/korifi/kpack-image-builder:$version" \
-      --set=kpackImageBuilder.webhookCaBundle="$(ca_from_secret korifi-kpack-image-builder-webhook-cert)" \
       --set=statefulsetRunner.image="$docker_server/korifi/statefulset-runner:$version" \
-      --set=statefulsetRunner.webhookCaBundle="$(ca_from_secret korifi-statefulset-runner-webhook-server-cert)" \
       --set=jobTaskRunner.image="$docker_server/korifi/job-task-runner:$version" \
       --wait
   }
@@ -226,7 +223,7 @@ spec:
 apiVersion: cert.gardener.cloud/v1alpha1
 kind: Certificate
 metadata:
-  name: controllers-webhook-server-cert
+  name: korifi-controllers-webhook-cert
   namespace: korifi
 spec:
   commonName: korifi-controllers-webhook-service.korifi
@@ -234,7 +231,7 @@ spec:
   - korifi-controllers-webhook-service.korifi.svc
   - korifi-controllers-webhook-service.korifi.svc.cluster.local
   secretRef:
-    name: controllers-webhook-server-cert
+    name: korifi-controllers-webhook-cert
     namespace: korifi
   isCA: true
   issuerRef:
@@ -262,7 +259,7 @@ spec:
 apiVersion: cert.gardener.cloud/v1alpha1
 kind: Certificate
 metadata:
-  name: korifi-statefulset-runner-webhook-server-cert
+  name: korifi-statefulset-runner-webhook-cert
   namespace: korifi
 spec:
   commonName: korifi-statefulset-runner-webhook-service.korifi
@@ -270,7 +267,7 @@ spec:
   - korifi-statefulset-runner-webhook-service.korifi.svc
   - korifi-statefulset-runner-webhook-service.korifi.svc.cluster.local
   secretRef:
-    name: korifi-statefulset-runner-webhook-server-cert
+    name: korifi-statefulset-runner-webhook-cert
     namespace: korifi
   isCA: true
   issuerRef:
@@ -281,9 +278,9 @@ EOF
   echo "Waiting for korifi certificates..."
   retry kubectl get --namespace korifi secret korifi-api-ingress-cert
   retry kubectl get --namespace korifi secret korifi-workloads-ingress-cert
-  retry kubectl get --namespace korifi secret controllers-webhook-server-cert
+  retry kubectl get --namespace korifi secret korifi-controllers-webhook-cert
   retry kubectl get --namespace korifi secret korifi-kpack-image-builder-webhook-cert
-  retry kubectl get --namespace korifi secret korifi-statefulset-runner-webhook-server-cert
+  retry kubectl get --namespace korifi secret korifi-statefulset-runner-webhook-cert
 }
 
 set_dns_entries() {
