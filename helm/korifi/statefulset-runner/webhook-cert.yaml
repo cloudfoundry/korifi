@@ -1,4 +1,4 @@
-{{- if .Values.certManager.include }}
+{{- if .Values.generateWebhookCertificates }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -10,6 +10,6 @@ spec:
   - korifi-statefulset-runner-webhook-service.{{ .Release.Namespace }}.svc.cluster.local
   issuerRef:
     kind: Issuer
-    name: {{ .Values.certManager.webhookCertsIssuer }}
+    name: selfsigned-issuer
   secretName: {{ .Values.statefulsetRunner.webhookCertSecret }}
 {{- end}}

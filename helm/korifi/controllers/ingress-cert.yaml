@@ -1,5 +1,4 @@
-{{- if .Values.certManager.include }}
-{{- if .Values.certManager.generateIngressCertificates }}
+{{- if .Values.generateIngressCertificates }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -11,7 +10,6 @@ spec:
   - \*.{{ .Values.defaultAppDomainName }}
   issuerRef:
     kind: Issuer
-    name: {{ .Values.certManager.ingressCertsIssuer }}
+    name: selfsigned-issuer
   secretName: {{ .Values.controllers.workloadsTLSSecret }}
-{{- end}}
 {{- end}}

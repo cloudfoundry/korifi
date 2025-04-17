@@ -192,6 +192,7 @@ function deploy_korifi() {
       --set=adminUserName="cf-admin" \
       --set=defaultAppDomainName="apps-127-0-0-1.nip.io" \
       --set=generateIngressCertificates="true" \
+      --set=generateWebhookCertificates="true" \
       --set=logLevel="debug" \
       --set=debug="$DEBUG" \
       --set=stagingRequirements.buildCacheMB="1024" \
