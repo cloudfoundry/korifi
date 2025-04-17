@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -10,12 +11,12 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -54,33 +55,24 @@ func (r BuildRecord) Relationships() map[string]string {
 }
 
 type BuildRepo struct {
-	namespaceRetriever NamespaceRetriever
-	userClientFactory  authorization.UserClientFactory
+	klient Klient
 }
 
 func NewBuildRepo(
-	namespaceRetriever NamespaceRetriever,
-	userClientFactory authorization.UserClientFactory,
+	klient Klient,
 ) *BuildRepo {
 	return &BuildRepo{
-		namespaceRetriever: namespaceRetriever,
-		userClientFactory:  userClientFactory,
+		klient: klient,
 	}
 }
 
 func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, buildGUID string) (BuildRecord, error) {
-	ns, err := b.namespaceRetriever.NamespaceFor(ctx, buildGUID, BuildResourceType)
-	if err != nil {
-		return BuildRecord{}, err
+	build := korifiv1alpha1.CFBuild{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: buildGUID,
+		},
 	}
-
-	userClient, err := b.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return BuildRecord{}, fmt.Errorf("get-build failed to build user client: %w", err)
-	}
-
-	build := korifiv1alpha1.CFBuild{}
-	if err := userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: buildGUID}, &build); err != nil {
+	if err := b.klient.Get(ctx, &build); err != nil {
 		return BuildRecord{}, fmt.Errorf("failed to get build: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}
 
@@ -88,10 +80,6 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 }
 
 func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
-	userClient, err := b.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return BuildRecord{}, err
-	}
 	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
 		korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
 	})
@@ -99,10 +87,8 @@ func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo author
 		return BuildRecord{}, err
 	}
 
-	listOpts := &client.ListOptions{Namespace: spaceGUID, LabelSelector: labelSelector}
 	buildList := &korifiv1alpha1.CFBuildList{}
-
-	err = userClient.List(ctx, buildList, listOpts)
+	err = b.klient.List(ctx, buildList, InNamespace(spaceGUID), WithLabels{Selector: labelSelector})
 	if err != nil {
 		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
@@ -173,16 +159,21 @@ func (b *BuildRepo) cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRe
 
 func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info, message CreateBuildMessage) (BuildRecord, error) {
 	cfBuild := message.toCFBuild()
-	userClient, err := b.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return BuildRecord{}, fmt.Errorf("failed to build user k8s client: %w", err)
-	}
-
-	if err := userClient.Create(ctx, &cfBuild); err != nil {
+	if err := b.klient.Create(ctx, &cfBuild); err != nil {
 		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 
 	return b.cfBuildToBuildRecord(cfBuild), nil
+}
+
+func (b *BuildRepo) ListBuilds(ctx context.Context, authInfo authorization.Info) ([]BuildRecord, error) {
+	buildList := &korifiv1alpha1.CFBuildList{}
+	err := b.klient.List(ctx, buildList)
+	if err != nil {
+		return []BuildRecord{}, fmt.Errorf("failed to list builds: %w", apierrors.FromK8sError(err, BuildResourceType))
+	}
+
+	return slices.Collect(it.Map(slices.Values(buildList.Items), b.cfBuildToBuildRecord)), nil
 }
 
 type CreateBuildMessage struct {

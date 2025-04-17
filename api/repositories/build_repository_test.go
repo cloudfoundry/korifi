@@ -12,9 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -25,12 +23,7 @@ var _ = Describe("BuildRepository", func() {
 	var buildRepo *repositories.BuildRepo
 
 	BeforeEach(func() {
-		buildRepo = repositories.NewBuildRepo(
-			namespaceRetriever,
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
-		)
+		buildRepo = repositories.NewBuildRepo(klient)
 	})
 
 	Describe("GetBuild", func() {
@@ -260,7 +253,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns an error", func() {
 				_, err := buildRepo.GetBuild(ctx, authInfo, buildGUID)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError("get-build duplicate records exist"))
+				Expect(err).To(MatchError(ContainSubstring("get-build duplicate records exist")))
 			})
 		})
 
@@ -508,6 +501,104 @@ var _ = Describe("BuildRepository", func() {
 				_, err := buildRepo.CreateBuild(ctx, authInfo, buildCreateMsg)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+			})
+		})
+	})
+
+	Describe("ListBuilds", func() {
+		var (
+			app1GUID     string
+			app2GUID     string
+			package1GUID string
+			package2GUID string
+			namespace1   *korifiv1alpha1.CFSpace
+			namespace2   *korifiv1alpha1.CFSpace
+			cfOrg        *korifiv1alpha1.CFOrg
+			build1GUID   string
+			build2GUID   string
+			build1       *korifiv1alpha1.CFBuild
+			build2       *korifiv1alpha1.CFBuild
+			buildRecords []repositories.BuildRecord
+			fetchError   error
+		)
+
+		BeforeEach(func() {
+			build1GUID = uuid.NewString()
+			build2GUID = uuid.NewString()
+			app1GUID = uuid.NewString()
+			app2GUID = uuid.NewString()
+			package1GUID = uuid.NewString()
+			package2GUID = uuid.NewString()
+			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
+			namespace1 = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space2"))
+			namespace2 = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space3"))
+			build1 = &korifiv1alpha1.CFBuild{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      build1GUID,
+					Namespace: namespace1.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: namespace1.Name,
+					},
+				},
+				Spec: korifiv1alpha1.CFBuildSpec{
+					PackageRef: corev1.LocalObjectReference{
+						Name: package1GUID,
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: app1GUID,
+					},
+					Lifecycle: korifiv1alpha1.Lifecycle{
+						Type: "buildpack",
+						Data: korifiv1alpha1.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, build1)).To(Succeed())
+			build2 = &korifiv1alpha1.CFBuild{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      build2GUID,
+					Namespace: namespace2.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: namespace2.Name,
+					},
+				},
+				Spec: korifiv1alpha1.CFBuildSpec{
+					PackageRef: corev1.LocalObjectReference{
+						Name: package2GUID,
+					},
+					AppRef: corev1.LocalObjectReference{
+						Name: app2GUID,
+					},
+					Lifecycle: korifiv1alpha1.Lifecycle{
+						Type: "buildpack",
+						Data: korifiv1alpha1.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, build2)).To(Succeed())
+		})
+
+		It("returns an empty array (as no roles assigned)", func() {
+			buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo)
+			Expect(fetchError).NotTo(HaveOccurred())
+			Expect(buildRecords).To(BeEmpty())
+		})
+
+		When("the user is a space developer", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace1.Name)
+			})
+			It("if user is a Space Developer it returns a list with one element", func() {
+				buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo)
+				Expect(fetchError).NotTo(HaveOccurred())
+				Expect(buildRecords).To(HaveLen(1))
+				Expect(buildRecords[0].GUID).To(Equal(build1GUID))
 			})
 		})
 	})

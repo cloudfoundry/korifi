@@ -24,6 +24,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFBuildRepository . CFBuildRepository
 type CFBuildRepository interface {
 	GetBuild(context.Context, authorization.Info, string) (repositories.BuildRecord, error)
+	ListBuilds(context.Context, authorization.Info) ([]repositories.BuildRecord, error)
 	GetLatestBuildByAppGUID(context.Context, authorization.Info, string, string) (repositories.BuildRecord, error)
 	CreateBuild(context.Context, authorization.Info, repositories.CreateBuildMessage) (repositories.BuildRecord, error)
 }
@@ -114,6 +115,18 @@ func (h *Build) update(r *http.Request) (*routing.Response, error) { //nolint:du
 	return nil, apierrors.NewUnprocessableEntityError(errors.New("update build failed"), "Labels and annotations are not supported for builds.")
 }
 
+func (h *Build) list(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.build.list")
+
+	buildList, err := h.buildRepo.ListBuilds(r.Context(), authInfo)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch builds from Kubernetes")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForBuild, buildList, h.serverURL, *r.URL)), nil
+}
+
 func (h *Build) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -121,6 +134,7 @@ func (h *Build) UnauthenticatedRoutes() []routing.Route {
 func (h *Build) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: BuildPath, Handler: h.get},
+		{Method: "GET", Pattern: BuildsPath, Handler: h.list},
 		{Method: "POST", Pattern: BuildsPath, Handler: h.create},
 		{Method: "PATCH", Pattern: BuildPath, Handler: h.update},
 	}

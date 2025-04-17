@@ -3,7 +3,6 @@ package repositories_test
 import (
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
@@ -54,13 +53,7 @@ var _ = Describe("DeploymentRepository", func() {
 			},
 		})).To(Succeed())
 
-		deploymentRepo = repositories.NewDeploymentRepo(
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
-			namespaceRetriever,
-			sorter,
-		)
+		deploymentRepo = repositories.NewDeploymentRepo(klient, sorter)
 	})
 
 	Describe("GetDeployment", func() {

@@ -54,8 +54,8 @@ func NewReconciler(
 	log logr.Logger,
 	controllerConfig *config.ControllerConfig,
 	envBuilder BuildpackEnvBuilder,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild] {
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild, *korifiv1alpha1.CFBuild](
+) *k8s.PatchingReconciler[korifiv1alpha1.CFBuild] {
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFBuild](
 		log,
 		k8sClient,
 		build.NewReconciler(

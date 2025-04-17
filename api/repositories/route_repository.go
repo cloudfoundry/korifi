@@ -10,14 +10,12 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -25,14 +23,12 @@ const (
 )
 
 type RouteRepo struct {
-	namespaceRetriever NamespaceRetriever
-	userClientFactory  authorization.UserClientFactory
+	klient Klient
 }
 
-func NewRouteRepo(namespaceRetriever NamespaceRetriever, userClientFactory authorization.UserClientFactory) *RouteRepo {
+func NewRouteRepo(klient Klient) *RouteRepo {
 	return &RouteRepo{
-		namespaceRetriever: namespaceRetriever,
-		userClientFactory:  userClientFactory,
+		klient: klient,
 	}
 }
 
@@ -171,33 +167,22 @@ func (m CreateRouteMessage) toCFRoute() korifiv1alpha1.CFRoute {
 }
 
 func (r *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, routeGUID string) (RouteRecord, error) {
-	ns, err := r.namespaceRetriever.NamespaceFor(ctx, routeGUID, RouteResourceType)
-	if err != nil {
-		return RouteRecord{}, fmt.Errorf("failed to get namespace for route: %w", err)
+	route := &korifiv1alpha1.CFRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: routeGUID,
+		},
 	}
-
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	var route korifiv1alpha1.CFRoute
-	err = userClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: routeGUID}, &route)
+	err := r.klient.Get(ctx, route)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to get route %q: %w", routeGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	return cfRouteToRouteRecord(route), nil
+	return cfRouteToRouteRecord(*route), nil
 }
 
 func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info, message ListRoutesMessage) ([]RouteRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfRouteList := &korifiv1alpha1.CFRouteList{}
-	err = userClient.List(ctx, cfRouteList)
+	err := r.klient.List(ctx, cfRouteList)
 	if err != nil {
 		return []RouteRecord{}, fmt.Errorf("failed to list routes: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
@@ -266,12 +251,8 @@ func findEffectiveDestination(destGUID string, effectiveDestinations []korifiv1a
 
 func (r *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
 	cfRoute := message.toCFRoute()
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
 
-	err = userClient.Create(ctx, &cfRoute)
+	err := r.klient.Create(ctx, &cfRoute)
 	if err != nil {
 		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
@@ -280,11 +261,7 @@ func (r *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 }
 
 func (r *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info, message DeleteRouteMessage) error {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
-	}
-	err = userClient.Delete(ctx, &korifiv1alpha1.CFRoute{
+	err := r.klient.Delete(ctx, &korifiv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.GUID,
 			Namespace: message.SpaceGUID,
@@ -333,19 +310,15 @@ func (r *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization
 }
 
 func (r *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authorization.Info, message AddDestinationsMessage) (RouteRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfRoute := &korifiv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.RouteGUID,
 			Namespace: message.SpaceGUID,
 		},
 	}
-	err = k8s.PatchResource(ctx, userClient, cfRoute, func() {
+	err := GetAndPatch(ctx, r.klient, cfRoute, func() error {
 		cfRoute.Spec.Destinations = mergeDestinations(message.ExistingDestinations, message.NewDestinations)
+		return nil
 	})
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to add destination to route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
@@ -355,18 +328,13 @@ func (r *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 }
 
 func (r *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message RemoveDestinationMessage) (RouteRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfRoute := &korifiv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      message.RouteGUID,
 			Namespace: message.SpaceGUID,
 		},
 	}
-	err = userClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), cfRoute)
+	err := r.klient.Get(ctx, cfRoute)
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to get route: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
@@ -376,8 +344,9 @@ func (r *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 		return RouteRecord{}, apierrors.NewUnprocessableEntityError(nil, "Unable to unmap route from destination. Ensure the route has a destination with this guid.")
 	}
 
-	err = k8s.PatchResource(ctx, userClient, cfRoute, func() {
+	err = r.klient.Patch(ctx, cfRoute, func() error {
 		cfRoute.Spec.Destinations = updatedDestinations
+		return nil
 	})
 	if err != nil {
 		return RouteRecord{}, fmt.Errorf("failed to remove destination from route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
@@ -468,24 +437,17 @@ func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) 
 }
 
 func (r *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorization.Info, message PatchRouteMetadataMessage) (RouteRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return RouteRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	route := &korifiv1alpha1.CFRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: message.SpaceGUID,
 			Name:      message.RouteGUID,
 		},
 	}
-	err = userClient.Get(ctx, client.ObjectKeyFromObject(route), route)
-	if err != nil {
-		return RouteRecord{}, fmt.Errorf("failed to get route: %w", apierrors.FromK8sError(err, RouteResourceType))
-	}
 
-	err = k8s.PatchResource(ctx, userClient, route, func() {
+	err := GetAndPatch(ctx, r.klient, route, func() error {
 		message.Apply(route)
+
+		return nil
 	})
 	if err != nil {
 		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)

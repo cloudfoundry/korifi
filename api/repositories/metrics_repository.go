@@ -9,6 +9,8 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"github.com/BooleanCat/go-functional/v2/it"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -19,12 +21,12 @@ const (
 )
 
 type MetricsRepo struct {
-	userClientFactory authorization.UserClientFactory
+	klient Klient
 }
 
-func NewMetricsRepo(userClientFactory authorization.UserClientFactory) *MetricsRepo {
+func NewMetricsRepo(klient Klient) *MetricsRepo {
 	return &MetricsRepo{
-		userClientFactory: userClientFactory,
+		klient: klient,
 	}
 }
 
@@ -34,20 +36,20 @@ type PodMetrics struct {
 }
 
 func (r *MetricsRepo) GetMetrics(ctx context.Context, authInfo authorization.Info, namespace string, podSelector client.MatchingLabels) ([]PodMetrics, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	podList := &corev1.PodList{}
-	err = userClient.List(ctx, podList, client.InNamespace(namespace), podSelector)
+	err := r.klient.List(ctx, podList, InNamespace(namespace), WithLabels{Selector: labels.SelectorFromValidatedSet(map[string]string(podSelector))})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
 	}
 
 	return slices.Collect(it.Map(slices.Values(podList.Items), func(pod corev1.Pod) PodMetrics {
-		metrics := metricsv1beta1.PodMetrics{}
-		_ = userClient.Get(ctx, client.ObjectKeyFromObject(&pod), &metrics)
-		return PodMetrics{Pod: pod, Metrics: metrics}
+		metrics := &metricsv1beta1.PodMetrics{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: pod.Namespace,
+				Name:      pod.Name,
+			},
+		}
+		_ = r.klient.Get(ctx, metrics)
+		return PodMetrics{Pod: pod, Metrics: *metrics}
 	})), nil
 }

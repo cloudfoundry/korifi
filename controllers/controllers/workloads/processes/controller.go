@@ -21,6 +21,7 @@ import (
 	"crypto/sha1"
 	"errors"
 	"fmt"
+	"slices"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
@@ -28,7 +29,9 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/ports"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"code.cloudfoundry.org/korifi/tools/k8s/conditions"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 
@@ -63,9 +66,9 @@ func NewReconciler(
 	log logr.Logger,
 	controllerConfig *config.ControllerConfig,
 	envBuilder ProcessEnvBuilder,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFProcess, *korifiv1alpha1.CFProcess] {
+) *k8s.PatchingReconciler[korifiv1alpha1.CFProcess] {
 	processReconciler := Reconciler{k8sClient: client, scheme: scheme, log: log, controllerConfig: controllerConfig, envBuilder: envBuilder}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFProcess, *korifiv1alpha1.CFProcess](log, client, &processReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFProcess](log, client, &processReconciler)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
@@ -167,7 +170,17 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfProcess *korifiv1a
 	cfProcess.Status.ActualInstances = getActualInstances(appWorkloads)
 	cfProcess.Status.InstancesStatus = getCurrentInstancesStatus(getDesiredAppWorkloadName(cfApp, cfProcess), appWorkloads)
 
+	if !allReady(appWorkloads) {
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("AppWorkloadsNotReady").WithRequeue()
+	}
+
 	return ctrl.Result{}, nil
+}
+
+func allReady(appWorkloads []korifiv1alpha1.AppWorkload) bool {
+	return it.All(it.Map(slices.Values(appWorkloads), func(w korifiv1alpha1.AppWorkload) bool {
+		return conditions.CheckConditionIsTrue(&w, korifiv1alpha1.StatusConditionReady) == nil
+	}))
 }
 
 func getRevision(app *korifiv1alpha1.CFApp) string {
@@ -349,20 +362,15 @@ func getDesiredAppWorkloadName(cfApp *korifiv1alpha1.CFApp, cfProcess *korifiv1a
 }
 
 func (r *Reconciler) fetchAppWorkloadsForProcess(ctx context.Context, cfProcess *korifiv1alpha1.CFProcess) ([]korifiv1alpha1.AppWorkload, error) {
-	allAppWorkloads := &korifiv1alpha1.AppWorkloadList{}
-	err := r.k8sClient.List(ctx, allAppWorkloads, client.InNamespace(cfProcess.Namespace))
+	appWorkloadsForProcess := &korifiv1alpha1.AppWorkloadList{}
+	err := r.k8sClient.List(ctx, appWorkloadsForProcess, client.InNamespace(cfProcess.Namespace), client.MatchingLabels{
+		korifiv1alpha1.CFProcessGUIDLabelKey: cfProcess.Name,
+	})
 	if err != nil {
 		return []korifiv1alpha1.AppWorkload{}, err
 	}
 
-	var appWorkloadsForProcess []korifiv1alpha1.AppWorkload
-	for _, currentAppWorkload := range allAppWorkloads.Items {
-		if processGUID, has := currentAppWorkload.Labels[korifiv1alpha1.CFProcessGUIDLabelKey]; has && processGUID == cfProcess.Name {
-			appWorkloadsForProcess = append(appWorkloadsForProcess, currentAppWorkload)
-		}
-	}
-
-	return appWorkloadsForProcess, err
+	return appWorkloadsForProcess.Items, err
 }
 
 func commandForProcess(process *korifiv1alpha1.CFProcess, app *korifiv1alpha1.CFApp) []string {

@@ -8,6 +8,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/config"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -51,6 +52,12 @@ var _ = Describe("CFApp", func() {
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(process), process)).To(Succeed())
 			g.Expect(process.Status.ActualInstances).To(BeEquivalentTo(0))
 		}).Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			workloadList := &korifiv1alpha1.AppWorkloadList{}
+			g.Expect(k8sClient.List(ctx, workloadList, client.InNamespace(testSpace.Status.GUID))).To(Succeed())
+			g.Expect(workloadList.Items).To(BeEmpty())
+		}).Should(Succeed())
 	})
 
 	When("the app is started", func() {
@@ -69,6 +76,15 @@ var _ = Describe("CFApp", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(process), process)).To(Succeed())
 				g.Expect(process.Status.ActualInstances).To(BeEquivalentTo(1))
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				workloadList := &korifiv1alpha1.AppWorkloadList{}
+				g.Expect(k8sClient.List(ctx, workloadList, client.InNamespace(testSpace.Status.GUID))).To(Succeed())
+				g.Expect(workloadList.Items).To(HaveLen(1))
+				workload := workloadList.Items[0]
+				g.Expect(workload.Finalizers).To(ContainElement(finalizer.AppWorkloadFinalizerName))
+				g.Expect(workload.Status.ActualInstances).To(BeEquivalentTo(1))
 			}).Should(Succeed())
 		})
 	})

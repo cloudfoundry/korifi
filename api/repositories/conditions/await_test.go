@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("ConditionAwaiter", func() {
 	var (
-		awaiter     *conditions.Awaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList, *korifiv1alpha1.CFTaskList]
+		awaiter     *conditions.Awaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList, *korifiv1alpha1.CFTaskList]
 		task        *korifiv1alpha1.CFTask
 		awaitedTask *korifiv1alpha1.CFTask
 		awaitErr    error
@@ -43,7 +43,7 @@ var _ = Describe("ConditionAwaiter", func() {
 	}
 
 	BeforeEach(func() {
-		awaiter = conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](time.Second)
+		awaiter = conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](time.Second)
 		awaitedTask = nil
 		awaitErr = nil
 
@@ -59,7 +59,7 @@ var _ = Describe("ConditionAwaiter", func() {
 
 	Describe("AwaitCondition", func() {
 		JustBeforeEach(func() {
-			awaitedTask, awaitErr = awaiter.AwaitCondition(ctx, k8sClient, task, korifiv1alpha1.StatusConditionReady)
+			awaitedTask, awaitErr = awaiter.AwaitCondition(ctx, klient, task, korifiv1alpha1.StatusConditionReady)
 		})
 
 		It("returns an error", func() {
@@ -79,7 +79,7 @@ var _ = Describe("ConditionAwaiter", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(awaitErr).To(MatchError(ContainSubstring("expected the Ready condition to be true")))
+				Expect(awaitErr).To(MatchError(ContainSubstring("Ready condition is not true")))
 			})
 		})
 
@@ -137,7 +137,7 @@ var _ = Describe("ConditionAwaiter", func() {
 		})
 
 		JustBeforeEach(func() {
-			awaitedTask, awaitErr = awaiter.AwaitState(ctx, k8sClient, task, checkState)
+			awaitedTask, awaitErr = awaiter.AwaitState(ctx, klient, task, checkState)
 		})
 
 		It("returns an error", func() {

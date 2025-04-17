@@ -6,7 +6,6 @@ import (
 	"slices"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
@@ -39,13 +38,11 @@ var _ = Describe("ServiceBindingRepo", func() {
 		bindingName             *string
 		bindingConditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
-			korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
 		]
 		appConditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
-			korifiv1alpha1.CFApp,
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]
@@ -55,13 +52,11 @@ var _ = Describe("ServiceBindingRepo", func() {
 	BeforeEach(func() {
 		bindingConditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
-			korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
 			*korifiv1alpha1.CFServiceBindingList,
 		]{}
 		appConditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFApp,
-			korifiv1alpha1.CFApp,
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]{}
@@ -77,10 +72,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		)
 
 		repo = repositories.NewServiceBindingRepo(
-			namespaceRetriever,
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
+			klient,
 			bindingConditionAwaiter,
 			appConditionAwaiter,
 			paramsClient,
@@ -279,7 +271,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				k8sClient.Create(ctx, cfServiceInstance),
 			).To(Succeed())
 
-			bindingConditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFServiceBinding, error) {
+			bindingConditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ repositories.Klient, object client.Object, _ string) (*korifiv1alpha1.CFServiceBinding, error) {
 				cfServiceBinding, ok := object.(*korifiv1alpha1.CFServiceBinding)
 				Expect(ok).To(BeTrue())
 
@@ -297,7 +289,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				return cfServiceBinding, nil
 			}
 
-			appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+			appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ repositories.Klient, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
 				cfApp, ok := object.(*korifiv1alpha1.CFApp)
 				Expect(ok).To(BeTrue())
 
@@ -408,7 +400,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			When("the binding never makes it to the app status", func() {
 				BeforeEach(func() {
-					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ repositories.Klient, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
 						return nil, errors.New("time-out-err")
 					}
 				})
@@ -420,7 +412,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			When("the app status is outdated", func() {
 				BeforeEach(func() {
-					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ repositories.Klient, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
 						cfApp, ok := object.(*korifiv1alpha1.CFApp)
 						Expect(ok).To(BeTrue())
 
@@ -506,7 +498,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 			Expect(serviceBindingRecord.LastOperation.Type).To(Equal("create"))
 			Expect(serviceBindingRecord.LastOperation.State).To(Equal("initial"))
 			Expect(serviceBindingRecord.LastOperation.CreatedAt).To(Equal(serviceBindingRecord.CreatedAt))
-			Expect(serviceBindingRecord.LastOperation.UpdatedAt).To(PointTo(Equal(serviceBindingRecord.CreatedAt)))
+			Expect(serviceBindingRecord.LastOperation.UpdatedAt).To(PointTo(BeTemporally("~", serviceBindingRecord.CreatedAt, time.Second)))
 		})
 
 		When("the binding is being deleted", func() {
@@ -823,7 +815,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				k8sClient.Create(ctx, serviceBinding),
 			).To(Succeed())
 
-			appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+			appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ repositories.Klient, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
 				cfApp, ok := object.(*korifiv1alpha1.CFApp)
 				Expect(ok).To(BeTrue())
 
@@ -886,7 +878,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			When("the binding is not removed from the status", func() {
 				BeforeEach(func() {
-					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ repositories.Klient, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
 						return nil, errors.New("time-out-err")
 					}
 				})
@@ -898,7 +890,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			When("the app status is outdated", func() {
 				BeforeEach(func() {
-					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ client.WithWatch, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
+					appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ repositories.Klient, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
 						cfApp, ok := object.(*korifiv1alpha1.CFApp)
 						Expect(ok).To(BeTrue())
 

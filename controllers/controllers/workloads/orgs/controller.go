@@ -44,7 +44,7 @@ func NewReconciler(
 	log logr.Logger,
 	containerRegistrySecretNames []string,
 	labelCompiler labels.Compiler,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg] {
+) *k8s.PatchingReconciler[korifiv1alpha1.CFOrg] {
 	namespaceController := k8sns.NewReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](
 		client,
 		k8sns.NewNamespaceFinalizer[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](
@@ -58,7 +58,7 @@ func NewReconciler(
 		containerRegistrySecretNames,
 	)
 
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFOrg, *korifiv1alpha1.CFOrg](log, client, &Reconciler{
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFOrg](log, client, &Reconciler{
 		client:              client,
 		namespaceReconciler: namespaceController,
 	})

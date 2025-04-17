@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
@@ -32,7 +31,6 @@ var _ = Describe("PackageRepository", func() {
 		repoCreator      *fake.RepositoryCreator
 		conditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFPackage,
-			korifiv1alpha1.CFPackage,
 			korifiv1alpha1.CFPackageList,
 			*korifiv1alpha1.CFPackageList,
 		]
@@ -48,7 +46,6 @@ var _ = Describe("PackageRepository", func() {
 		repoCreator = new(fake.RepositoryCreator)
 		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFPackage,
-			korifiv1alpha1.CFPackage,
 			korifiv1alpha1.CFPackageList,
 			*korifiv1alpha1.CFPackageList,
 		]{}
@@ -58,10 +55,7 @@ var _ = Describe("PackageRepository", func() {
 		}
 
 		packageRepo = repositories.NewPackageRepo(
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
-			namespaceRetriever,
+			klient,
 			repoCreator,
 			"container.registry/foo/my/prefix-",
 			conditionAwaiter,
@@ -450,7 +444,7 @@ var _ = Describe("PackageRepository", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(getErr).To(MatchError("get-package duplicate records exist"))
+				Expect(getErr).To(MatchError(ContainSubstring("get-package duplicate records exist")))
 			})
 		})
 

@@ -60,7 +60,7 @@ var (
 	testEnv                 *envtest.Environment
 	fakeImageConfigGetter   *fake.ImageConfigGetter
 	fakeImageDeleter        *fake.ImageDeleter
-	buildWorkloadReconciler *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload, *korifiv1alpha1.BuildWorkload]
+	buildWorkloadReconciler *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload]
 	rootNamespace           *v1.Namespace
 	imageRepoCreator        *fake.RepositoryCreator
 	k8sManager              manager.Manager
@@ -182,6 +182,6 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterEach(func() {
-	stopManager()
 	stopClientCache()
+	stopManager()
 })

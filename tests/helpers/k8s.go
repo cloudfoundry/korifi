@@ -60,7 +60,7 @@ func EnsureCreate(k8sClient client.Client, obj client.Object) {
 	}).Should(Succeed())
 }
 
-func EnsurePatch[T any, PT k8s.ObjectWithDeepCopy[T]](k8sClient client.Client, obj PT, modifyFunc func(PT)) {
+func EnsurePatch[T client.Object](k8sClient client.Client, obj T, modifyFunc func(T)) {
 	GinkgoHelper()
 
 	Expect(k8s.Patch(context.Background(), k8sClient, obj, func() {
@@ -68,7 +68,7 @@ func EnsurePatch[T any, PT k8s.ObjectWithDeepCopy[T]](k8sClient client.Client, o
 	})).To(Succeed())
 	Eventually(func(g Gomega) {
 		g.Expect(k8sClient.Get(context.Background(), client.ObjectKeyFromObject(obj), obj)).To(Succeed())
-		objCopy := obj.DeepCopy()
+		objCopy := k8s.DeepCopy(obj)
 		modifyFunc(objCopy)
 		g.Expect(equality.Semantic.DeepEqual(objCopy, obj)).To(BeTrue())
 	}).Should(Succeed())

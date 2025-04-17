@@ -28,7 +28,6 @@ var _ = Describe("OrgRepository", func() {
 	var (
 		conditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
-			korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]
@@ -38,11 +37,10 @@ var _ = Describe("OrgRepository", func() {
 	BeforeEach(func() {
 		conditionAwaiter = &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
-			korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]{}
-		orgRepo = repositories.NewOrgRepo(rootNamespace, k8sClient, userClientFactory, nsPerms, conditionAwaiter)
+		orgRepo = repositories.NewOrgRepo(klient, rootNamespace, nsPerms, conditionAwaiter)
 	})
 
 	Describe("CreateOrg", func() {
@@ -55,7 +53,7 @@ var _ = Describe("OrgRepository", func() {
 		)
 
 		BeforeEach(func() {
-			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ client.WithWatch, object client.Object, _ string) (*korifiv1alpha1.CFOrg, error) {
+			conditionAwaiter.AwaitConditionStub = func(ctx context.Context, _ repositories.Klient, object client.Object, _ string) (*korifiv1alpha1.CFOrg, error) {
 				cfOrg, ok := object.(*korifiv1alpha1.CFOrg)
 				Expect(ok).To(BeTrue())
 
@@ -168,8 +166,6 @@ var _ = Describe("OrgRepository", func() {
 		var cfOrg1, cfOrg2, cfOrg3 *korifiv1alpha1.CFOrg
 
 		BeforeEach(func() {
-			ctx = context.Background()
-
 			cfOrg1 = createOrgWithCleanup(ctx, prefixedGUID("org1"))
 			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg1.Name)
 			cfOrg2 = createOrgWithCleanup(ctx, prefixedGUID("org2"))
@@ -424,10 +420,9 @@ var _ = Describe("OrgRepository", func() {
 
 		When("the user has permission to delete orgs", func() {
 			BeforeEach(func() {
-				beforeCtx := context.Background()
-				createRoleBinding(beforeCtx, userName, adminRole.Name, cfOrg.Namespace)
+				createRoleBinding(ctx, userName, adminRole.Name, cfOrg.Namespace)
 				// Controllers don't exist in env-test environments, we manually copy role bindings to child ns.
-				createRoleBinding(beforeCtx, userName, adminRole.Name, cfOrg.Name)
+				createRoleBinding(ctx, userName, adminRole.Name, cfOrg.Name)
 			})
 
 			When("on the happy path", func() {

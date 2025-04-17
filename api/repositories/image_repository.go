@@ -26,20 +26,20 @@ type ImagePusher interface {
 }
 
 type ImageRepository struct {
-	userClientFactory   authorization.UserClientFactory
+	klient              Klient
 	pusher              ImagePusher
 	pushSecretNames     []string
 	pushSecretNamespace string
 }
 
 func NewImageRepository(
-	userClientFactory authorization.UserClientFactory,
+	klient Klient,
 	pusher ImagePusher,
 	pushSecretNames []string,
 	pushSecretNamespace string,
 ) *ImageRepository {
 	return &ImageRepository{
-		userClientFactory:   userClientFactory,
+		klient:              klient,
 		pusher:              pusher,
 		pushSecretNames:     pushSecretNames,
 		pushSecretNamespace: pushSecretNamespace,
@@ -73,11 +73,6 @@ func (r *ImageRepository) UploadSourceImage(ctx context.Context, authInfo author
 }
 
 func (r *ImageRepository) canIPatchCFPackage(ctx context.Context, authInfo authorization.Info, spaceGUID string) (bool, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return false, fmt.Errorf("canIPatchCFPackage: failed to create user k8s client: %w", err)
-	}
-
 	review := authv1.SelfSubjectAccessReview{
 		Spec: authv1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authv1.ResourceAttributes{
@@ -88,7 +83,7 @@ func (r *ImageRepository) canIPatchCFPackage(ctx context.Context, authInfo autho
 			},
 		},
 	}
-	if err := userClient.Create(ctx, &review); err != nil {
+	if err := r.klient.Create(ctx, &review); err != nil {
 		return false, fmt.Errorf("canIPatchCFPackage: failed to create self subject access review: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 

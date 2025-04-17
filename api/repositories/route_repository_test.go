@@ -7,7 +7,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/api/repositories"
@@ -44,12 +43,7 @@ var _ = Describe("RouteRepository", func() {
 		route1GUID = prefixedGUID("route1")
 		route2GUID = prefixedGUID("route2")
 		domainGUID = prefixedGUID("domain")
-		routeRepo = NewRouteRepo(
-			namespaceRetriever,
-			userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-				return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
-			}),
-		)
+		routeRepo = NewRouteRepo(klient)
 
 		cfDomain := &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{

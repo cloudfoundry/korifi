@@ -65,7 +65,7 @@ func NewReconciler(
 	log logr.Logger,
 	envBuilder TaskEnvBuilder,
 	taskTTLDuration time.Duration,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask] {
+) *k8s.PatchingReconciler[korifiv1alpha1.CFTask] {
 	taskReconciler := Reconciler{
 		k8sClient:       client,
 		scheme:          scheme,
@@ -74,7 +74,7 @@ func NewReconciler(
 		envBuilder:      envBuilder,
 		taskTTLDuration: taskTTLDuration,
 	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFTask, *korifiv1alpha1.CFTask](log, client, &taskReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFTask](log, client, &taskReconciler)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {

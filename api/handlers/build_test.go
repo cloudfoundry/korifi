@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
+	"github.com/google/uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -109,6 +110,59 @@ var _ = Describe("Build", func() {
 		When("there is some other error fetching the build", func() {
 			BeforeEach(func() {
 				buildRepo.GetBuildReturns(repositories.BuildRecord{}, errors.New("unknown!"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
+	Describe("the GET /v3/builds endpoint", func() {
+		var buildGUID string
+
+		BeforeEach(func() {
+			buildGUID = uuid.NewString()
+			buildRepo.ListBuildsReturns([]repositories.BuildRecord{
+				{
+					GUID:      buildGUID,
+					State:     "STAGING",
+					CreatedAt: createdAt,
+					UpdatedAt: updatedAt,
+					Lifecycle: repositories.Lifecycle{
+						Type: "buildpack",
+						Data: repositories.LifecycleData{
+							Buildpacks: []string{},
+							Stack:      "",
+						},
+					},
+				},
+			}, nil)
+			var err error
+			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/builds", nil)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the list of builds", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+
+			Expect(buildRepo.ListBuildsCallCount()).To(Equal(1))
+			_, actualAuthInfo := buildRepo.ListBuildsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
+				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/builds"),
+				MatchJSONPath("$.resources", HaveLen(1)),
+				MatchJSONPath("$.resources[0].state", "STAGING"),
+				MatchJSONPath("$.resources[0].guid", buildGUID),
+			)))
+		})
+
+		When("there is some other error fetching the list of builds", func() {
+			BeforeEach(func() {
+				buildRepo.ListBuildsReturns([]repositories.BuildRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {

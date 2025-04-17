@@ -55,6 +55,10 @@ spec:
         resources:
         {{- .Values.statefulsetRunner.resources | toYaml | nindent 10 }}
         {{- include "korifi.securityContext" . | indent 8 }}
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
       {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-statefulset-runner-controller-manager
 {{- if .Values.statefulsetRunner.nodeSelector }}
@@ -66,3 +70,8 @@ spec:
       {{- toYaml .Values.statefulsetRunner.tolerations | nindent 8 }}
 {{- end }}
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: korifi-statefulset-runner-webhook-server-cert

@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("AppWorkload Reconcile", func() {
 	var (
-		reconciler             *k8s.PatchingReconciler[korifiv1alpha1.AppWorkload, *korifiv1alpha1.AppWorkload]
+		reconciler             *k8s.PatchingReconciler[korifiv1alpha1.AppWorkload]
 		reconcileResult        ctrl.Result
 		reconcileErr           error
 		ctx                    context.Context
@@ -176,7 +176,7 @@ var _ = Describe("AppWorkload Reconcile", func() {
 		})
 	})
 
-	When("the appworkload is being deleted gracefully", func() {
+	When("the appworkload is being deleted", func() {
 		BeforeEach(func() {
 			appWorkload.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 		})

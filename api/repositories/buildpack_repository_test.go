@@ -31,7 +31,7 @@ var _ = Describe("BuildpackRepository", func() {
 			return records
 		}
 
-		buildpackRepo = NewBuildpackRepository(builderName, userClientFactory, rootNamespace, sorter)
+		buildpackRepo = NewBuildpackRepository(klientUnfiltered, builderName, rootNamespace, sorter)
 	})
 
 	Describe("ListBuildpacks", func() {
@@ -52,7 +52,7 @@ var _ = Describe("BuildpackRepository", func() {
 				})
 
 				var err error
-				buildpacks, err = buildpackRepo.ListBuildpacks(context.Background(), authInfo, message)
+				buildpacks, err = buildpackRepo.ListBuildpacks(ctx, authInfo, message)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -99,7 +99,7 @@ var _ = Describe("BuildpackRepository", func() {
 
 		When("no build reconcilers exist", func() {
 			It("errors", func() {
-				_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo, message)
+				_, err := buildpackRepo.ListBuildpacks(ctx, authInfo, message)
 				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not found in namespace %q", builderName, rootNamespace))))
 			})
 		})
@@ -115,7 +115,7 @@ var _ = Describe("BuildpackRepository", func() {
 			})
 
 			It("errors", func() {
-				_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo, message)
+				_, err := buildpackRepo.ListBuildpacks(ctx, authInfo, message)
 				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not found in namespace %q", builderName, rootNamespace))))
 			})
 		})
@@ -143,7 +143,7 @@ var _ = Describe("BuildpackRepository", func() {
 				})
 
 				It("returns an error with the ready condition message", func() {
-					_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo, message)
+					_, err := buildpackRepo.ListBuildpacks(ctx, authInfo, message)
 					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not ready: this is a test", builderName))))
 				})
 			})
@@ -160,7 +160,7 @@ var _ = Describe("BuildpackRepository", func() {
 				})
 
 				It("returns an error with a generic message", func() {
-					_, err := buildpackRepo.ListBuildpacks(context.Background(), authInfo, message)
+					_, err := buildpackRepo.ListBuildpacks(ctx, authInfo, message)
 					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not ready: resource not reconciled", builderName))))
 				})
 			})

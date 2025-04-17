@@ -236,31 +236,10 @@ var _ = Describe("App", func() {
 			})
 		})
 
-		It("creates the `web` process", func() {
-			Expect(processRepo.CreateProcessCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualMsg := processRepo.CreateProcessArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualMsg).To(Equal(repositories.CreateProcessMessage{
-				AppGUID:   appGUID,
-				SpaceGUID: spaceGUID,
-				Type:      "web",
-			}))
-		})
-
 		It("validates the payload", func() {
 			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
-		})
-
-		When("creating the process fails", func() {
-			BeforeEach(func() {
-				processRepo.CreateProcessReturns(errors.New("create-process-err"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
 		})
 
 		When("creating the app fails", func() {

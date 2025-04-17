@@ -3,6 +3,7 @@ package repositories_test
 import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"k8s.io/client-go/dynamic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -10,15 +11,20 @@ import (
 
 var _ = Describe("NamespaceRetriever", func() {
 	var (
-		resourceType string
-		appGUID      string
-		orgGUID      string
-		spaceGUID    string
-		retNS        string
-		retErr       error
+		resourceType       string
+		appGUID            string
+		orgGUID            string
+		spaceGUID          string
+		retNS              string
+		retErr             error
+		namespaceRetriever repositories.NamespaceRetriever
 	)
 
 	BeforeEach(func() {
+		dynamicClient, err := dynamic.NewForConfig(testEnv.Config)
+		Expect(err).NotTo(HaveOccurred())
+		namespaceRetriever = repositories.NewNamespaceRetriever(dynamicClient)
+
 		resourceType = repositories.AppResourceType
 		appGUID = prefixedGUID("app")
 		org := createOrgWithCleanup(ctx, prefixedGUID("org"))

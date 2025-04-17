@@ -18,7 +18,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const bindingRootPath = "/bindings"
@@ -202,11 +201,6 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 				"pod-template-hash",
 			},
 		},
-	}
-
-	err = controllerutil.SetControllerReference(appWorkload, statefulSet, r.scheme)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set OwnerRef on StatefulSet :%w", err)
 	}
 
 	labels := map[string]string{

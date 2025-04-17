@@ -198,7 +198,7 @@ var _ = Describe("Apps", func() {
 		var result resourceList[typedResource]
 
 		BeforeEach(func() {
-			appGUID = createBuildpackApp(space1GUID, generateGUID("app"))
+			appGUID, _ = pushTestApp(space1GUID, defaultAppBitsFile)
 		})
 
 		JustBeforeEach(func() {

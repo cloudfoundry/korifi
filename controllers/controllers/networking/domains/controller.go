@@ -42,9 +42,9 @@ func NewReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-) *k8s.PatchingReconciler[korifiv1alpha1.CFDomain, *korifiv1alpha1.CFDomain] {
+) *k8s.PatchingReconciler[korifiv1alpha1.CFDomain] {
 	routeReconciler := Reconciler{client: client, scheme: scheme, log: log}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.CFDomain, *korifiv1alpha1.CFDomain](log, client, &routeReconciler)
+	return k8s.NewPatchingReconciler[korifiv1alpha1.CFDomain](log, client, &routeReconciler)
 }
 
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {

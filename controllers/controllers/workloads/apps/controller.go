@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"code.cloudfoundry.org/korifi/tools/k8s/conditions"
 
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/go-logr/logr"
@@ -40,7 +41,7 @@ type Reconciler struct {
 	vcapApplicationEnvBuilder EnvValueBuilder
 }
 
-func NewReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, vcapServicesBuilder, vcapApplicationBuilder EnvValueBuilder) *k8s.PatchingReconciler[korifiv1alpha1.CFApp, *korifiv1alpha1.CFApp] {
+func NewReconciler(k8sClient client.Client, scheme *runtime.Scheme, log logr.Logger, vcapServicesBuilder, vcapApplicationBuilder EnvValueBuilder) *k8s.PatchingReconciler[korifiv1alpha1.CFApp] {
 	appReconciler := Reconciler{
 		log:                       log,
 		k8sClient:                 k8sClient,
@@ -163,7 +164,17 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("DesiredStateNotReached")
 	}
 
+	if !allReady(reconciledProcesses) {
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProcessesNotReady").WithRequeue()
+	}
+
 	return ctrl.Result{}, nil
+}
+
+func allReady(processes []*korifiv1alpha1.CFProcess) bool {
+	return it.All(it.Map(slices.Values(processes), func(p *korifiv1alpha1.CFProcess) bool {
+		return conditions.CheckConditionIsTrue(p, korifiv1alpha1.StatusConditionReady) == nil
+	}))
 }
 
 func (r *Reconciler) getServiceBindings(ctx context.Context, cfApp *korifiv1alpha1.CFApp) ([]korifiv1alpha1.CFServiceBinding, error) {

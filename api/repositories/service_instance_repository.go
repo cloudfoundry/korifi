@@ -13,7 +13,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
-	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
@@ -37,11 +36,10 @@ type NamespaceGetter interface {
 }
 
 type ServiceInstanceRepo struct {
-	namespaceRetriever NamespaceRetriever
-	userClientFactory  authorization.UserClientFactory
-	awaiter            Awaiter[*korifiv1alpha1.CFServiceInstance]
-	sorter             ServiceInstanceSorter
-	rootNamespace      string
+	klient        Klient
+	awaiter       Awaiter[*korifiv1alpha1.CFServiceInstance]
+	sorter        ServiceInstanceSorter
+	rootNamespace string
 }
 
 //counterfeiter:generate -o fake -fake-name ServiceInstanceSorter . ServiceInstanceSorter
@@ -84,18 +82,16 @@ func ServiceInstanceComparator(fieldName string) func(ServiceInstanceRecord, Ser
 }
 
 func NewServiceInstanceRepo(
-	namespaceRetriever NamespaceRetriever,
-	userClientFactory authorization.UserClientFactory,
+	klient Klient,
 	awaiter Awaiter[*korifiv1alpha1.CFServiceInstance],
 	sorter ServiceInstanceSorter,
 	rootNamespace string,
 ) *ServiceInstanceRepo {
 	return &ServiceInstanceRepo{
-		namespaceRetriever: namespaceRetriever,
-		userClientFactory:  userClientFactory,
-		awaiter:            awaiter,
-		sorter:             sorter,
-		rootNamespace:      rootNamespace,
+		klient:        klient,
+		awaiter:       awaiter,
+		sorter:        sorter,
+		rootNamespace: rootNamespace,
 	}
 }
 
@@ -190,11 +186,6 @@ func (r ServiceInstanceRecord) Relationships() map[string]string {
 }
 
 func (r *ServiceInstanceRepo) CreateUserProvidedServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateUPSIMessage) (ServiceInstanceRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        uuid.NewString(),
@@ -209,12 +200,12 @@ func (r *ServiceInstanceRepo) CreateUserProvidedServiceInstance(ctx context.Cont
 			Tags:        message.Tags,
 		},
 	}
-	err = userClient.Create(ctx, cfServiceInstance)
+	err := r.klient.Create(ctx, cfServiceInstance)
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
-	err = r.createCredentialsSecret(ctx, userClient, cfServiceInstance, message.Credentials)
+	err = r.createCredentialsSecret(ctx, cfServiceInstance, message.Credentials)
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
@@ -223,12 +214,7 @@ func (r *ServiceInstanceRepo) CreateUserProvidedServiceInstance(ctx context.Cont
 }
 
 func (r *ServiceInstanceRepo) CreateManagedServiceInstance(ctx context.Context, authInfo authorization.Info, message CreateManagedSIMessage) (ServiceInstanceRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	planVisible, err := r.servicePlanVisible(ctx, userClient, message.PlanGUID, message.SpaceGUID)
+	planVisible, err := r.servicePlanVisible(ctx, message.PlanGUID, message.SpaceGUID)
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, "Invalid service plan. Ensure that the service plan exists, is available, and you have access to it.")
 	}
@@ -255,12 +241,12 @@ func (r *ServiceInstanceRepo) CreateManagedServiceInstance(ctx context.Context, 
 		},
 	}
 
-	err = userClient.Create(ctx, cfServiceInstance)
+	err = r.klient.Create(ctx, cfServiceInstance)
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
-	err = r.createParametersSecret(ctx, userClient, cfServiceInstance, message.Parameters)
+	err = r.createParametersSecret(ctx, cfServiceInstance, message.Parameters)
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
@@ -268,7 +254,7 @@ func (r *ServiceInstanceRepo) CreateManagedServiceInstance(ctx context.Context, 
 	return cfServiceInstanceToRecord(*cfServiceInstance), nil
 }
 
-func (r *ServiceInstanceRepo) createParametersSecret(ctx context.Context, userClient client.Client, cfServiceInstance *korifiv1alpha1.CFServiceInstance, parameters map[string]any) error {
+func (r *ServiceInstanceRepo) createParametersSecret(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance, parameters map[string]any) error {
 	parametersData, err := tools.ToParametersSecretData(parameters)
 	if err != nil {
 		return err
@@ -284,17 +270,17 @@ func (r *ServiceInstanceRepo) createParametersSecret(ctx context.Context, userCl
 
 	_ = controllerutil.SetOwnerReference(cfServiceInstance, paramsSecret, scheme.Scheme)
 
-	return userClient.Create(ctx, paramsSecret)
+	return r.klient.Create(ctx, paramsSecret)
 }
 
-func (r *ServiceInstanceRepo) servicePlanVisible(ctx context.Context, userClient client.Client, planGUID string, spaceGUID string) (bool, error) {
+func (r *ServiceInstanceRepo) servicePlanVisible(ctx context.Context, planGUID string, spaceGUID string) (bool, error) {
 	servicePlan := &korifiv1alpha1.CFServicePlan{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      planGUID,
 			Namespace: r.rootNamespace,
 		},
 	}
-	err := userClient.Get(ctx, client.ObjectKeyFromObject(servicePlan), servicePlan)
+	err := r.klient.Get(ctx, servicePlan)
 	if err != nil {
 		return false, err
 	}
@@ -307,40 +293,45 @@ func (r *ServiceInstanceRepo) servicePlanVisible(ctx context.Context, userClient
 		return false, nil
 	}
 
-	orgGUID, err := r.namespaceRetriever.NamespaceFor(ctx, spaceGUID, SpaceResourceType)
+	space := &korifiv1alpha1.CFSpace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: spaceGUID,
+		},
+	}
+
+	err = r.klient.Get(ctx, space)
 	if err != nil {
 		return false, err
 	}
 
-	return slices.Contains(servicePlan.Spec.Visibility.Organizations, orgGUID), nil
+	return slices.Contains(servicePlan.Spec.Visibility.Organizations, space.Namespace), nil
 }
 
 func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo authorization.Info, message PatchServiceInstanceMessage) (ServiceInstanceRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: message.SpaceGUID,
+			Name:      message.GUID,
+		},
 	}
-
-	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{}
-	cfServiceInstance.Namespace = message.SpaceGUID
-	cfServiceInstance.Name = message.GUID
-	if err = userClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), cfServiceInstance); err != nil {
+	if err := r.klient.Get(ctx, cfServiceInstance); err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
-	err = k8s.PatchResource(ctx, userClient, cfServiceInstance, func() {
+	err := r.klient.Patch(ctx, cfServiceInstance, func() error {
 		message.Apply(cfServiceInstance)
+		return nil
 	})
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
 	if message.Credentials != nil {
-		cfServiceInstance, err = r.migrateLegacyCredentials(ctx, userClient, cfServiceInstance)
+		cfServiceInstance, err = r.migrateLegacyCredentials(ctx, cfServiceInstance)
 		if err != nil {
 			return ServiceInstanceRecord{}, err
 		}
-		err = r.patchCredentialsSecret(ctx, userClient, cfServiceInstance, *message.Credentials)
+		err = r.patchCredentialsSecret(ctx, cfServiceInstance, *message.Credentials)
 		if err != nil {
 			return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 		}
@@ -349,13 +340,14 @@ func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo
 	return cfServiceInstanceToRecord(*cfServiceInstance), nil
 }
 
-func (r *ServiceInstanceRepo) migrateLegacyCredentials(ctx context.Context, userClient client.WithWatch, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (*korifiv1alpha1.CFServiceInstance, error) {
-	cfServiceInstance, err := r.awaiter.AwaitCondition(ctx, userClient, cfServiceInstance, korifiv1alpha1.StatusConditionReady)
+func (r *ServiceInstanceRepo) migrateLegacyCredentials(ctx context.Context, cfServiceInstance *korifiv1alpha1.CFServiceInstance) (*korifiv1alpha1.CFServiceInstance, error) {
+	cfServiceInstance, err := r.awaiter.AwaitCondition(ctx, r.klient, cfServiceInstance, korifiv1alpha1.StatusConditionReady)
 	if err != nil {
 		return nil, err
 	}
-	err = k8s.PatchResource(ctx, userClient, cfServiceInstance, func() {
+	err = r.klient.Patch(ctx, cfServiceInstance, func() error {
 		cfServiceInstance.Spec.SecretName = cfServiceInstance.Status.Credentials.Name
+		return nil
 	})
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, ServiceInstanceResourceType)
@@ -366,7 +358,6 @@ func (r *ServiceInstanceRepo) migrateLegacyCredentials(ctx context.Context, user
 
 func (r *ServiceInstanceRepo) patchCredentialsSecret(
 	ctx context.Context,
-	userClient client.Client,
 	cfServiceInstance *korifiv1alpha1.CFServiceInstance,
 	credentials map[string]any,
 ) error {
@@ -381,14 +372,15 @@ func (r *ServiceInstanceRepo) patchCredentialsSecret(
 	if err != nil {
 		return errors.New("failed to marshal credentials for service instance")
 	}
-	return PatchResource(ctx, userClient, credentialsSecret, func() {
+
+	return GetAndPatch(ctx, r.klient, credentialsSecret, func() error {
 		credentialsSecret.Data = credentialsSecretData
+		return nil
 	})
 }
 
 func (r *ServiceInstanceRepo) createCredentialsSecret(
 	ctx context.Context,
-	userClient client.Client,
 	cfServiceInstance *korifiv1alpha1.CFServiceInstance,
 	creds map[string]any,
 ) error {
@@ -409,23 +401,18 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 	}
 	_ = controllerutil.SetOwnerReference(cfServiceInstance, credentialsSecret, scheme.Scheme)
 
-	return userClient.Create(ctx, credentialsSecret)
+	return r.klient.Create(ctx, credentialsSecret)
 }
 
 // nolint:dupl
 func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo authorization.Info, message ListServiceInstanceMessage) ([]ServiceInstanceRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return []ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
 	labelSelector, err := labels.Parse(message.LabelSelector)
 	if err != nil {
 		return []ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
 	}
 
 	serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
-	err = userClient.List(ctx, serviceInstanceList, &client.ListOptions{LabelSelector: labelSelector})
+	err = r.klient.List(ctx, serviceInstanceList, WithLabels{Selector: labelSelector})
 	if err != nil {
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances: %w",
 			apierrors.FromK8sError(err, ServiceInstanceResourceType),
@@ -437,18 +424,12 @@ func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
+	serviceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: guid,
+		},
 	}
-
-	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, guid, ServiceInstanceResourceType)
-	if err != nil {
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
-	}
-
-	serviceInstance := &korifiv1alpha1.CFServiceInstance{}
-	if err := userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: guid}, serviceInstance); err != nil {
+	if err := r.klient.Get(ctx, serviceInstance); err != nil {
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
@@ -456,29 +437,23 @@ func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo a
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstanceCredentials(ctx context.Context, authInfo authorization.Info, instanceGUID string) (map[string]any, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return map[string]any{}, fmt.Errorf("failed to build user client: %w", err)
+	serviceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: instanceGUID,
+		},
 	}
-
-	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, instanceGUID, ServiceInstanceResourceType)
-	if err != nil {
-		return map[string]any{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
-	}
-
-	serviceInstance := &korifiv1alpha1.CFServiceInstance{}
-	if err = userClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: instanceGUID}, serviceInstance); err != nil {
+	if err := r.klient.Get(ctx, serviceInstance); err != nil {
 		return map[string]any{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
 	credentialsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceInstance.Spec.SecretName,
-			Namespace: namespace,
+			Namespace: serviceInstance.Namespace,
 		},
 	}
 
-	if err = userClient.Get(ctx, client.ObjectKeyFromObject(credentialsSecret), credentialsSecret); err != nil {
+	if err := r.klient.Get(ctx, credentialsSecret); err != nil {
 		return map[string]any{}, fmt.Errorf("failed to get credentials secret for service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
@@ -491,36 +466,26 @@ func (r *ServiceInstanceRepo) GetServiceInstanceCredentials(ctx context.Context,
 }
 
 func (r *ServiceInstanceRepo) DeleteServiceInstance(ctx context.Context, authInfo authorization.Info, message DeleteServiceInstanceMessage) (ServiceInstanceRecord, error) {
-	userClient, err := r.userClientFactory.BuildClient(authInfo)
-	if err != nil {
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to build user client: %w", err)
-	}
-
-	namespace, err := r.namespaceRetriever.NamespaceFor(ctx, message.GUID, ServiceInstanceResourceType)
-	if err != nil {
-		return ServiceInstanceRecord{}, fmt.Errorf("failed to get namespace for service instance: %w", err)
-	}
-
 	serviceInstance := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      message.GUID,
+			Name: message.GUID,
 		},
 	}
 
-	if err = userClient.Get(ctx, client.ObjectKeyFromObject(serviceInstance), serviceInstance); err != nil {
+	if err := r.klient.Get(ctx, serviceInstance); err != nil {
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to get service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}
 
 	if message.Purge {
-		if err = k8s.PatchResource(ctx, userClient, serviceInstance, func() {
+		if err := r.klient.Patch(ctx, serviceInstance, func() error {
 			serviceInstance.Annotations = tools.SetMapValue(serviceInstance.Annotations, korifiv1alpha1.DeprovisionWithoutBrokerAnnotation, "true")
+			return nil
 		}); err != nil {
 			return ServiceInstanceRecord{}, fmt.Errorf("failed to remove finalizer for service instance: %s, %w", message.GUID, apierrors.FromK8sError(err, ServiceInstanceResourceType))
 		}
 	}
 
-	err = userClient.Delete(ctx, serviceInstance)
+	err := r.klient.Delete(ctx, serviceInstance)
 	if client.IgnoreNotFound(err) != nil {
 		return ServiceInstanceRecord{}, fmt.Errorf("failed to delete service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 	}

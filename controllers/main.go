@@ -52,6 +52,7 @@ import (
 	controllersfinalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	domainswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
+	securitygroupswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/security_groups"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/relationships"
 	bindingswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
 	brokerswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/brokers"
@@ -447,6 +448,14 @@ func main() {
 			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, brokerswebhook.ServiceBrokerEntityType)),
 		).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBroker")
+			os.Exit(1)
+		}
+
+		if err = securitygroupswebhook.NewValidator(
+			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, securitygroupswebhook.SecurityGroupEntityType)),
+			controllerConfig.CFRootNamespace,
+		).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CFSecurityGroup")
 			os.Exit(1)
 		}
 

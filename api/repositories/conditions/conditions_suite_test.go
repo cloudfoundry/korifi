@@ -2,9 +2,13 @@ package conditions_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -13,6 +17,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,6 +34,7 @@ var (
 	testEnv   *envtest.Environment
 	k8sClient client.WithWatch
 	namespace string
+	klient    repositories.Klient
 )
 
 var _ = BeforeSuite(func() {
@@ -52,7 +58,20 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.NewWithWatch(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	dynamicClient, err := dynamic.NewForConfig(k8sConfig)
+	if err != nil {
+		panic(fmt.Sprintf("could not create dynamic k8s client: %v", err))
+	}
+
+	klient = k8sklient.NewK8sKlient(repositories.NewNamespaceRetriever(dynamicClient), &privilegedClientFactory{})
 })
+
+type privilegedClientFactory struct{}
+
+func (f *privilegedClientFactory) BuildClient(_ authorization.Info) (client.WithWatch, error) {
+	return k8sClient, nil
+}
 
 var _ = AfterSuite(func() {
 	Expect(testEnv.Stop()).To(Succeed())
