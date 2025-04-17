@@ -5,7 +5,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/jellydator/validation"
+	jellidation "github.com/jellydator/validation"
 )
 
 type SpaceCreate struct {
@@ -15,10 +15,10 @@ type SpaceCreate struct {
 }
 
 func (c SpaceCreate) Validate() error {
-	return validation.ValidateStruct(&c,
-		validation.Field(&c.Name, validation.Required),
-		validation.Field(&c.Relationships, validation.NotNil),
-		validation.Field(&c.Metadata),
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Name, jellidation.Required),
+		jellidation.Field(&c.Relationships, jellidation.NotNil),
+		jellidation.Field(&c.Metadata),
 	)
 }
 
@@ -34,8 +34,8 @@ type SpaceRelationships struct {
 }
 
 func (r SpaceRelationships) Validate() error {
-	return validation.ValidateStruct(&r,
-		validation.Field(&r.Org, validation.NotNil),
+	return jellidation.ValidateStruct(&r,
+		jellidation.Field(&r.Org, jellidation.NotNil),
 	)
 }
 
@@ -44,8 +44,8 @@ type SpacePatch struct {
 }
 
 func (p SpacePatch) Validate() error {
-	return validation.ValidateStruct(&p,
-		validation.Field(&p.Metadata),
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Metadata),
 	)
 }
 
@@ -82,5 +82,27 @@ func (l *SpaceList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
 	l.GUIDs = values.Get("guids")
 	l.OrganizationGUIDs = values.Get("organization_guids")
+	return nil
+}
+
+type SpaceDeleteRoutes struct {
+	Unmapped string `json:"unmapped"`
+}
+
+func (d *SpaceDeleteRoutes) SupportedKeys() []string {
+	return []string{"unmapped"}
+}
+
+func (d SpaceDeleteRoutes) Validate() error {
+	return jellidation.ValidateStruct(&d,
+		jellidation.Field(&d.Unmapped,
+			jellidation.Required,
+			jellidation.StringIn(true, "true", "false").Error("must be a boolean"),
+			jellidation.StringIn(true, "true").Error("mass delete not supported for mapped routes. Use 'unmapped=true' parameter to delete all unmapped routes"),
+		),
+	)
+}
+func (d *SpaceDeleteRoutes) DecodeFromURLValues(values url.Values) error {
+	d.Unmapped = values.Get("unmapped")
 	return nil
 }

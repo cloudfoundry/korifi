@@ -30,6 +30,7 @@ type CFRouteRepository interface {
 	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	DeleteRoute(context.Context, authorization.Info, repositories.DeleteRouteMessage) error
+	DeleteUnmappedRoutes(context.Context, authorization.Info, string) error
 	AddDestinationsToRoute(ctx context.Context, c authorization.Info, message repositories.AddDestinationsMessage) (repositories.RouteRecord, error)
 	RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message repositories.RemoveDestinationMessage) (repositories.RouteRecord, error)
 	PatchRouteMetadata(context.Context, authorization.Info, repositories.PatchRouteMetadataMessage) (repositories.RouteRecord, error)

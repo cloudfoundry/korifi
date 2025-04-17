@@ -54,6 +54,19 @@ type CFRouteRepository struct {
 	deleteRouteReturnsOnCall map[int]struct {
 		result1 error
 	}
+	DeleteUnmappedRoutesStub        func(context.Context, authorization.Info, string) error
+	deleteUnmappedRoutesMutex       sync.RWMutex
+	deleteUnmappedRoutesArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}
+	deleteUnmappedRoutesReturns struct {
+		result1 error
+	}
+	deleteUnmappedRoutesReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetRouteStub        func(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
 	getRouteMutex       sync.RWMutex
 	getRouteArgsForCall []struct {
@@ -325,6 +338,69 @@ func (fake *CFRouteRepository) DeleteRouteReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.deleteRouteReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFRouteRepository) DeleteUnmappedRoutes(arg1 context.Context, arg2 authorization.Info, arg3 string) error {
+	fake.deleteUnmappedRoutesMutex.Lock()
+	ret, specificReturn := fake.deleteUnmappedRoutesReturnsOnCall[len(fake.deleteUnmappedRoutesArgsForCall)]
+	fake.deleteUnmappedRoutesArgsForCall = append(fake.deleteUnmappedRoutesArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteUnmappedRoutesStub
+	fakeReturns := fake.deleteUnmappedRoutesReturns
+	fake.recordInvocation("DeleteUnmappedRoutes", []interface{}{arg1, arg2, arg3})
+	fake.deleteUnmappedRoutesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *CFRouteRepository) DeleteUnmappedRoutesCallCount() int {
+	fake.deleteUnmappedRoutesMutex.RLock()
+	defer fake.deleteUnmappedRoutesMutex.RUnlock()
+	return len(fake.deleteUnmappedRoutesArgsForCall)
+}
+
+func (fake *CFRouteRepository) DeleteUnmappedRoutesCalls(stub func(context.Context, authorization.Info, string) error) {
+	fake.deleteUnmappedRoutesMutex.Lock()
+	defer fake.deleteUnmappedRoutesMutex.Unlock()
+	fake.DeleteUnmappedRoutesStub = stub
+}
+
+func (fake *CFRouteRepository) DeleteUnmappedRoutesArgsForCall(i int) (context.Context, authorization.Info, string) {
+	fake.deleteUnmappedRoutesMutex.RLock()
+	defer fake.deleteUnmappedRoutesMutex.RUnlock()
+	argsForCall := fake.deleteUnmappedRoutesArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFRouteRepository) DeleteUnmappedRoutesReturns(result1 error) {
+	fake.deleteUnmappedRoutesMutex.Lock()
+	defer fake.deleteUnmappedRoutesMutex.Unlock()
+	fake.DeleteUnmappedRoutesStub = nil
+	fake.deleteUnmappedRoutesReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *CFRouteRepository) DeleteUnmappedRoutesReturnsOnCall(i int, result1 error) {
+	fake.deleteUnmappedRoutesMutex.Lock()
+	defer fake.deleteUnmappedRoutesMutex.Unlock()
+	fake.DeleteUnmappedRoutesStub = nil
+	if fake.deleteUnmappedRoutesReturnsOnCall == nil {
+		fake.deleteUnmappedRoutesReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteUnmappedRoutesReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -669,6 +745,8 @@ func (fake *CFRouteRepository) Invocations() map[string][][]interface{} {
 	defer fake.createRouteMutex.RUnlock()
 	fake.deleteRouteMutex.RLock()
 	defer fake.deleteRouteMutex.RUnlock()
+	fake.deleteUnmappedRoutesMutex.RLock()
+	defer fake.deleteUnmappedRoutesMutex.RUnlock()
 	fake.getRouteMutex.RLock()
 	defer fake.getRouteMutex.RUnlock()
 	fake.listRoutesMutex.RLock()
