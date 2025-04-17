@@ -3,6 +3,7 @@ package k8sklient_test
 import (
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -17,6 +18,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -267,11 +269,13 @@ var _ = Describe("Klient", func() {
 	Describe("List", func() {
 		var (
 			objectList client.ObjectList
+			listOpt    *fake.ListOption
 			listOpts   []repositories.ListOption
 		)
 
 		BeforeEach(func() {
-			listOpts = []repositories.ListOption{}
+			listOpt = new(fake.ListOption)
+			listOpts = []repositories.ListOption{listOpt}
 			objectList = &korifiv1alpha1.CFAppList{}
 		})
 
@@ -286,53 +290,14 @@ var _ = Describe("Klient", func() {
 			actualAuthInfo := userClientFactory.BuildClientArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
+			Expect(listOpt.ApplyToListCallCount()).To(Equal(1))
+			actualListOpts := listOpt.ApplyToListArgsForCall(0)
+			Expect(actualListOpts).To(PointTo(BeZero()))
+
 			Expect(userClient.ListCallCount()).To(Equal(1))
 			_, actualObjectList, actualOpts := userClient.ListArgsForCall(0)
 			Expect(actualObjectList).To(Equal(objectList))
 			Expect(actualOpts).To(ConsistOf(PointTo(BeZero())))
-		})
-
-		When("listing with options", func() {
-			var (
-				expectedSelector      labels.Selector
-				spaceGuidsReqs        []labels.Requirement
-				expectedFieldSelector fields.Selector
-			)
-
-			BeforeEach(func() {
-				var selector labels.Selector
-				selector, err = labels.Parse("foo==bar")
-				Expect(err).NotTo(HaveOccurred())
-
-				listOpts = []repositories.ListOption{
-					repositories.WithSpaceGUIDs([]string{"s1", "s2"}),
-					repositories.WithLabels{Selector: selector},
-					repositories.InNamespace("in-ns"),
-					repositories.MatchingFields{"field": "fieldValue"},
-				}
-			})
-
-			It("uses a label selector", func() {
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(userClient.ListCallCount()).To(Equal(1))
-				_, _, actualOpts := userClient.ListArgsForCall(0)
-
-				expectedSelector, err = labels.Parse("foo==bar")
-				Expect(err).NotTo(HaveOccurred())
-
-				spaceGuidsReqs, err = labels.ParseToRequirements(fmt.Sprintf("%s in (s1,s2)", korifiv1alpha1.SpaceGUIDKey))
-				Expect(err).NotTo(HaveOccurred())
-				expectedSelector = expectedSelector.Add(spaceGuidsReqs...)
-
-				expectedFieldSelector, err = fields.ParseSelector("field=fieldValue")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(actualOpts).To(ConsistOf(PointTo(Equal(client.ListOptions{
-					LabelSelector: expectedSelector,
-					Namespace:     "in-ns",
-					FieldSelector: expectedFieldSelector,
-				}))))
-			})
 		})
 
 		When("creating the user client fails", func() {
@@ -342,6 +307,27 @@ var _ = Describe("Klient", func() {
 
 			It("returns the error", func() {
 				Expect(err).To(MatchError(ContainSubstring("err-build-client")))
+			})
+		})
+
+		When("a list option errors", func() {
+			BeforeEach(func() {
+				listOpt.ApplyToListReturns(errors.New("list-opt-err"))
+			})
+
+			It("returns the error", func() {
+				Expect(err).To(MatchError(&k8serrors.StatusError{
+					ErrStatus: metav1.Status{
+						Message: "list-opt-err",
+						Status:  metav1.StatusFailure,
+						Code:    http.StatusUnprocessableEntity,
+						Reason:  metav1.StatusReasonInvalid,
+					},
+				}))
+			})
+
+			It("does not delegate to the user client", func() {
+				Expect(userClient.ListCallCount()).To(Equal(0))
 			})
 		})
 
@@ -399,13 +385,9 @@ var _ = Describe("Klient", func() {
 			)
 
 			BeforeEach(func() {
-				var selector labels.Selector
-				selector, err = labels.Parse("foo==bar")
-				Expect(err).NotTo(HaveOccurred())
-
 				listOpts = []repositories.ListOption{
-					repositories.WithSpaceGUIDs([]string{"s1", "s2"}),
-					repositories.WithLabels{Selector: selector},
+					repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"s1", "s2"}),
+					repositories.WithLabelSelector("foo==bar"),
 					repositories.InNamespace("in-ns"),
 					repositories.MatchingFields{"field": "fieldValue"},
 				}

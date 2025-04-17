@@ -7,7 +7,6 @@ import (
 	"slices"
 	"time"
 
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -486,13 +485,8 @@ func (r *ServiceBindingRepo) GetDeletedAt(ctx context.Context, authInfo authoriz
 
 // nolint:dupl
 func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo authorization.Info, message ListServiceBindingsMessage) ([]ServiceBindingRecord, error) {
-	labelSelector, err := labels.Parse(message.LabelSelector)
-	if err != nil {
-		return []ServiceBindingRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
-	}
-
 	serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
-	err = r.klient.List(ctx, serviceBindingList, WithLabels{Selector: labelSelector})
+	err := r.klient.List(ctx, serviceBindingList, WithLabelSelector(message.LabelSelector))
 	if err != nil {
 		return []ServiceBindingRecord{}, fmt.Errorf("failed to list service instances: %w",
 			apierrors.FromK8sError(err, ServiceBindingResourceType),

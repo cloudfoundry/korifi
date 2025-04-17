@@ -2,9 +2,11 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -20,39 +22,87 @@ type Klient interface {
 }
 
 type ListOptions struct {
-	SpaceGUIDs    []string
-	LabelSelector labels.Selector
 	Namespace     string
 	FieldSelector fields.Selector
+	Requrements   []labels.Requirement
 }
 
 type ListOption interface {
-	ApplyToList(*ListOptions)
+	ApplyToList(*ListOptions) error
 }
 
-type WithSpaceGUIDs []string
+type LabelOpt struct {
+	Key   string
+	Value string
+}
 
-func (o WithSpaceGUIDs) ApplyToList(opts *ListOptions) {
-	opts.SpaceGUIDs = []string(o)
+func WithLabel(key, value string) ListOption {
+	return LabelOpt{
+		Key:   key,
+		Value: value,
+	}
+}
+
+func (o LabelOpt) ApplyToList(opts *ListOptions) error {
+	req, err := labels.NewRequirement(o.Key, selection.Equals, []string{o.Value})
+	if err != nil {
+		return fmt.Errorf("invalid label selector: %w", err)
+	}
+
+	opts.Requrements = append(opts.Requrements, *req)
+	return nil
+}
+
+type LabelIn struct {
+	Key    string
+	Values []string
+}
+
+func WithLabelIn(key string, values []string) ListOption {
+	return LabelIn{
+		Key:    key,
+		Values: values,
+	}
+}
+
+func (o LabelIn) ApplyToList(opts *ListOptions) error {
+	if len(o.Values) == 0 {
+		return nil
+	}
+
+	req, err := labels.NewRequirement(o.Key, selection.In, o.Values)
+	if err != nil {
+		return fmt.Errorf("invalid label selector: %w", err)
+	}
+
+	opts.Requrements = append(opts.Requrements, *req)
+	return nil
+}
+
+type WithLabelSelector string
+
+func (o WithLabelSelector) ApplyToList(opts *ListOptions) error {
+	selector, err := labels.Parse(string(o))
+	if err != nil {
+		return fmt.Errorf("invalid label selector: %w", err)
+	}
+	reqs, _ := selector.Requirements()
+
+	opts.Requrements = append(opts.Requrements, reqs...)
+	return nil
 }
 
 type InNamespace string
 
-func (o InNamespace) ApplyToList(opts *ListOptions) {
+func (o InNamespace) ApplyToList(opts *ListOptions) error {
 	opts.Namespace = string(o)
-}
-
-type WithLabels struct {
-	labels.Selector
-}
-
-func (o WithLabels) ApplyToList(opts *ListOptions) {
-	opts.LabelSelector = labels.Selector(o)
+	return nil
 }
 
 type MatchingFields fields.Set
 
-func (m MatchingFields) ApplyToList(opts *ListOptions) {
+func (m MatchingFields) ApplyToList(opts *ListOptions) error {
 	sel := fields.Set(m).AsSelector()
 	opts.FieldSelector = sel
+	return nil
 }

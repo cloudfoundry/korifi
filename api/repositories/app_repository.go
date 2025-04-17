@@ -22,7 +22,6 @@ import (
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -227,10 +226,13 @@ type ListAppsMessage struct {
 	OrderBy       string
 }
 
-func (m *ListAppsMessage) matches(cfApp korifiv1alpha1.CFApp) bool {
-	return tools.EmptyOrContains(m.Names, cfApp.Spec.DisplayName) &&
-		tools.EmptyOrContains(m.Guids, cfApp.Name) &&
-		tools.EmptyOrContains(m.SpaceGUIDs, cfApp.Namespace)
+func (l *ListAppsMessage) toListOptions() []ListOption {
+	return []ListOption{
+		WithLabelSelector(l.LabelSelector),
+		WithLabelIn(korifiv1alpha1.GUIDLabelKey, l.Guids),
+		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, l.SpaceGUIDs),
+		WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, l.Names),
+	}
 }
 
 func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGUID string) (AppRecord, error) {
@@ -318,18 +320,13 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
-	labelSelector, err := labels.Parse(message.LabelSelector)
-	if err != nil {
-		return []AppRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
-	}
-
 	appList := &korifiv1alpha1.CFAppList{}
-	err = f.klient.List(ctx, appList, WithLabels{Selector: labelSelector})
+	err := f.klient.List(ctx, appList, message.toListOptions()...)
 	if err != nil {
 		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	appRecords := it.Map(itx.FromSlice(appList.Items).Filter(message.matches), cfAppToAppRecord)
+	appRecords := it.Map(itx.FromSlice(appList.Items), cfAppToAppRecord)
 
 	return f.sorter.Sort(slices.Collect(appRecords), message.OrderBy), nil
 }
