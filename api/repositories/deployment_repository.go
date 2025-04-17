@@ -19,8 +19,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 )
 
 const DeploymentResourceType = "Deployment"
@@ -227,13 +225,8 @@ func appToDeploymentRecord(cfApp korifiv1alpha1.CFApp) DeploymentRecord {
 func (r *DeploymentRepo) ensureSupport(ctx context.Context, app *korifiv1alpha1.CFApp) error {
 	log := logr.FromContextOrDiscard(ctx).WithName("repo.deployment.ensureSupport")
 
-	appGuidReq, err := labels.NewRequirement(korifiv1alpha1.CFAppGUIDLabelKey, selection.Equals, []string{app.Name})
-	if err != nil {
-		return err
-	}
-
 	var appWorkloadsList korifiv1alpha1.AppWorkloadList
-	err = r.klient.List(ctx, &appWorkloadsList, InNamespace(app.Namespace), WithLabels{Selector: labels.NewSelector().Add(*appGuidReq)})
+	err := r.klient.List(ctx, &appWorkloadsList, InNamespace(app.Namespace), WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, app.Name))
 	if err != nil {
 		return apierrors.FromK8sError(err, DeploymentResourceType)
 	}

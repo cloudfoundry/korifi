@@ -10,7 +10,6 @@ import (
 
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	corev1 "k8s.io/api/core/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
 )
 
 type PodRepo struct {
@@ -24,17 +23,13 @@ func NewPodRepo(klient Klient) *PodRepo {
 }
 
 func (r *PodRepo) DeletePod(ctx context.Context, authInfo authorization.Info, appRevision string, process ProcessRecord, instanceID string) error {
-	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		"korifi.cloudfoundry.org/app-guid":     process.AppGUID,
-		"korifi.cloudfoundry.org/version":      appRevision,
-		"korifi.cloudfoundry.org/process-type": process.Type,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to build labelSelector: %w", apierrors.FromK8sError(err, PodResourceType))
-	}
-
 	podList := corev1.PodList{}
-	err = r.klient.List(ctx, &podList, InNamespace(process.SpaceGUID), WithLabels{Selector: labelSelector})
+	err := r.klient.List(ctx, &podList,
+		InNamespace(process.SpaceGUID),
+		WithLabel("korifi.cloudfoundry.org/app-guid", process.AppGUID),
+		WithLabel("korifi.cloudfoundry.org/version", appRevision),
+		WithLabel("korifi.cloudfoundry.org/process-type", process.Type),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
 	}

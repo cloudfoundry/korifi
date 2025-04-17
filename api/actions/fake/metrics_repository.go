@@ -8,17 +8,16 @@ import (
 	"code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MetricsRepository struct {
-	GetMetricsStub        func(context.Context, authorization.Info, string, client.MatchingLabels) ([]repositories.PodMetrics, error)
+	GetMetricsStub        func(context.Context, authorization.Info, repositories.AppRecord, string) ([]repositories.PodMetrics, error)
 	getMetricsMutex       sync.RWMutex
 	getMetricsArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
-		arg4 client.MatchingLabels
+		arg3 repositories.AppRecord
+		arg4 string
 	}
 	getMetricsReturns struct {
 		result1 []repositories.PodMetrics
@@ -32,14 +31,14 @@ type MetricsRepository struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *MetricsRepository) GetMetrics(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 client.MatchingLabels) ([]repositories.PodMetrics, error) {
+func (fake *MetricsRepository) GetMetrics(arg1 context.Context, arg2 authorization.Info, arg3 repositories.AppRecord, arg4 string) ([]repositories.PodMetrics, error) {
 	fake.getMetricsMutex.Lock()
 	ret, specificReturn := fake.getMetricsReturnsOnCall[len(fake.getMetricsArgsForCall)]
 	fake.getMetricsArgsForCall = append(fake.getMetricsArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
-		arg4 client.MatchingLabels
+		arg3 repositories.AppRecord
+		arg4 string
 	}{arg1, arg2, arg3, arg4})
 	stub := fake.GetMetricsStub
 	fakeReturns := fake.getMetricsReturns
@@ -60,13 +59,13 @@ func (fake *MetricsRepository) GetMetricsCallCount() int {
 	return len(fake.getMetricsArgsForCall)
 }
 
-func (fake *MetricsRepository) GetMetricsCalls(stub func(context.Context, authorization.Info, string, client.MatchingLabels) ([]repositories.PodMetrics, error)) {
+func (fake *MetricsRepository) GetMetricsCalls(stub func(context.Context, authorization.Info, repositories.AppRecord, string) ([]repositories.PodMetrics, error)) {
 	fake.getMetricsMutex.Lock()
 	defer fake.getMetricsMutex.Unlock()
 	fake.GetMetricsStub = stub
 }
 
-func (fake *MetricsRepository) GetMetricsArgsForCall(i int) (context.Context, authorization.Info, string, client.MatchingLabels) {
+func (fake *MetricsRepository) GetMetricsArgsForCall(i int) (context.Context, authorization.Info, repositories.AppRecord, string) {
 	fake.getMetricsMutex.RLock()
 	defer fake.getMetricsMutex.RUnlock()
 	argsForCall := fake.getMetricsArgsForCall[i]

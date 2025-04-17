@@ -59,7 +59,11 @@ func (r *CFAppDefaulter) Default(ctx context.Context, obj runtime.Object) error 
 }
 
 func (r *CFAppDefaulter) defaultLabels(cfApp *CFApp) {
-	cfApp.SetLabels(tools.SetMapValue(cfApp.GetLabels(), CFAppGUIDLabelKey, cfApp.Name))
+	labels := cfApp.GetLabels()
+	labels = tools.SetMapValue(labels, CFAppGUIDLabelKey, cfApp.Name)
+	labels = tools.SetMapValue(labels, GUIDLabelKey, cfApp.Name)
+	labels = tools.SetMapValue(labels, CFAppDisplayNameKey, cfApp.Spec.DisplayName)
+	cfApp.SetLabels(labels)
 }
 
 func (r *CFAppDefaulter) defaultAnnotations(cfApp *CFApp) {

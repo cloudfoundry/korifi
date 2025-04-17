@@ -13,7 +13,6 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -227,11 +226,7 @@ func (r *ServiceOfferingRepo) deleteServicePlans(ctx context.Context, offeringGU
 	var planGUIDs []string
 	plans := &korifiv1alpha1.CFServicePlanList{}
 
-	if err := r.klient.List(ctx, plans, InNamespace(r.rootNamespace), WithLabels{
-		Selector: labels.SelectorFromValidatedSet(map[string]string{
-			korifiv1alpha1.RelServiceOfferingGUIDLabel: offeringGUID,
-		}),
-	}); err != nil {
+	if err := r.klient.List(ctx, plans, InNamespace(r.rootNamespace), WithLabel(korifiv1alpha1.RelServiceOfferingGUIDLabel, offeringGUID)); err != nil {
 		return []string{}, fmt.Errorf("failed to list service plans: %w", err)
 	}
 
