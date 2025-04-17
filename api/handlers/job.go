@@ -23,6 +23,7 @@ const (
 	OrgDeleteJobType                    = "org.delete"
 	RouteDeleteJobType                  = "route.delete"
 	SpaceDeleteJobType                  = "space.delete"
+	SpaceDeleteUnmappedRoutesType       = "space.delete_unapped_routes"
 	DomainDeleteJobType                 = "domain.delete"
 	RoleDeleteJobType                   = "role.delete"
 	ServiceBrokerCreateJobType          = "service_broker.create"

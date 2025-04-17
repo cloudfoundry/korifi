@@ -362,7 +362,7 @@ var _ = Describe("Space", func() {
 		})
 	})
 
-	Describe("Delete Routes for Space", func() {
+	Describe("Delete unmapped routes for a space", func() {
 		BeforeEach(func() {
 			requestMethod = http.MethodDelete
 			requestPath += "/the-space-guid/routes?unmapped=true"
@@ -371,11 +371,6 @@ var _ = Describe("Space", func() {
 				Name: "space-name",
 				GUID: "the-space-guid",
 			}, nil)
-
-			routeRepo.ListRoutesReturns([]repositories.RouteRecord{{
-				GUID:      "the-route-guid",
-				SpaceGUID: "the-space-guid",
-			}}, nil)
 		})
 
 		It("deletes the unmapped routes", func() {
@@ -384,17 +379,9 @@ var _ = Describe("Space", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualSpaceGUID).To(Equal("the-space-guid"))
 
-			Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
-			_, _, listRoutesMessage := routeRepo.ListRoutesArgsForCall(0)
-			Expect(listRoutesMessage).To(Equal(repositories.ListRoutesMessage{
-				SpaceGUIDs: []string{"the-space-guid"},
-				IsUnmapped: true,
-			}))
-
-			Expect(routeRepo.DeleteRouteCallCount()).To(Equal(1))
-			_, _, deleteMessage := routeRepo.DeleteRouteArgsForCall(0)
-			Expect(deleteMessage.GUID).To(Equal("the-route-guid"))
-			Expect(deleteMessage.SpaceGUID).To(Equal("the-space-guid"))
+			Expect(routeRepo.DeleteUnmappedRoutesCallCount()).To(Equal(1))
+			_, _, actualSpaceGUID = routeRepo.DeleteUnmappedRoutesArgsForCall(0)
+			Expect(actualSpaceGUID).To(Equal("the-space-guid"))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusAccepted))
 		})
@@ -419,19 +406,9 @@ var _ = Describe("Space", func() {
 			})
 		})
 
-		When("there is a failure when listing routes", func() {
+		When("there is a failure when deleting the unmapped routes", func() {
 			BeforeEach(func() {
-				routeRepo.ListRoutesReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("there is a failure when deleting the routes", func() {
-			BeforeEach(func() {
-				routeRepo.DeleteRouteReturns(errors.New("boom"))
+				routeRepo.DeleteUnmappedRoutesReturns(errors.New("boom"))
 			})
 
 			It("returns an error", func() {

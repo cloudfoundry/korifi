@@ -1,12 +1,11 @@
 package payloads
 
 import (
-	"fmt"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/jellydator/validation"
+	jellidation "github.com/jellydator/validation"
 )
 
 type SpaceCreate struct {
@@ -16,10 +15,10 @@ type SpaceCreate struct {
 }
 
 func (c SpaceCreate) Validate() error {
-	return validation.ValidateStruct(&c,
-		validation.Field(&c.Name, validation.Required),
-		validation.Field(&c.Relationships, validation.NotNil),
-		validation.Field(&c.Metadata),
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Name, jellidation.Required),
+		jellidation.Field(&c.Relationships, jellidation.NotNil),
+		jellidation.Field(&c.Metadata),
 	)
 }
 
@@ -35,8 +34,8 @@ type SpaceRelationships struct {
 }
 
 func (r SpaceRelationships) Validate() error {
-	return validation.ValidateStruct(&r,
-		validation.Field(&r.Org, validation.NotNil),
+	return jellidation.ValidateStruct(&r,
+		jellidation.Field(&r.Org, jellidation.NotNil),
 	)
 }
 
@@ -45,8 +44,8 @@ type SpacePatch struct {
 }
 
 func (p SpacePatch) Validate() error {
-	return validation.ValidateStruct(&p,
-		validation.Field(&p.Metadata),
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Metadata),
 	)
 }
 
@@ -95,22 +94,14 @@ func (d *SpaceDeleteRoutes) SupportedKeys() []string {
 }
 
 func (d SpaceDeleteRoutes) Validate() error {
-	return validation.ValidateStruct(&d,
-		validation.Field(&d.Unmapped, validation.Required, validation.By(func(value any) error {
-			unmappedStr, _ := value.(string)
-
-			switch unmappedStr {
-			case "true":
-				return nil
-			case "false":
-				return fmt.Errorf("mass delete not supported for mapped routes. Use 'unmapped=true' parameter to delete all unmapped routes")
-			default:
-				return fmt.Errorf("must be a boolean")
-			}
-		})),
+	return jellidation.ValidateStruct(&d,
+		jellidation.Field(&d.Unmapped,
+			jellidation.Required,
+			jellidation.StringIn(true, "true", "false").Error("must be a boolean"),
+			jellidation.StringIn(true, "true").Error("mass delete not supported for mapped routes. Use 'unmapped=true' parameter to delete all unmapped routes"),
+		),
 	)
 }
-
 func (d *SpaceDeleteRoutes) DecodeFromURLValues(values url.Values) error {
 	d.Unmapped = values.Get("unmapped")
 	return nil

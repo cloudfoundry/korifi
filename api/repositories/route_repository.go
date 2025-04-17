@@ -294,6 +294,31 @@ func (r *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 	return apierrors.FromK8sError(err, RouteResourceType)
 }
 
+func (r *RouteRepo) DeleteUnmappedRoutes(ctx context.Context, authInfo authorization.Info, spaceGUID string) error {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	routes, err := r.ListRoutes(ctx, authInfo, ListRoutesMessage{
+		SpaceGUIDs: []string{spaceGUID},
+		IsUnmapped: true,
+	})
+
+	for _, route := range routes {
+		if err = userClient.Delete(ctx, &korifiv1alpha1.CFRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      route.GUID,
+				Namespace: spaceGUID,
+			},
+		}); err != nil {
+			return apierrors.FromK8sError(err, RouteResourceType)
+		}
+	}
+
+	return nil
+}
+
 func (r *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {
 	existingRecord, err := r.fetchRouteByFields(ctx, authInfo, message)
 	if err != nil {
@@ -467,6 +492,19 @@ func (r *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorizati
 	}
 
 	return cfRouteToRouteRecord(*route), nil
+}
+
+func (r *RouteRepo) GetState(ctx context.Context, authInfo authorization.Info, spaceGUID string) (ResourceState, error) {
+	unmappedRoutes, err := r.ListRoutes(ctx, authInfo, ListRoutesMessage{SpaceGUIDs: []string{spaceGUID}, IsUnmapped: true})
+	if err != nil {
+		return ResourceStateUnknown, err
+	}
+
+	if len(unmappedRoutes) != 0 {
+		return ResourceStateUnknown, nil
+	}
+
+	return ResourceStateReady, nil
 }
 
 func (r *RouteRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, routeGUID string) (*time.Time, error) {

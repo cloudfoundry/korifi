@@ -151,7 +151,7 @@ func (h *Space) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForSpace(space, h.apiBaseURL)), nil
 }
 
-func (h *Space) deleteRoutes(r *http.Request) (*routing.Response, error) {
+func (h *Space) deleteUnmappedRoutes(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.delete-unmapped-routes")
 
@@ -166,19 +166,12 @@ func (h *Space) deleteRoutes(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch space", "spaceGUID", spaceGUID)
 	}
 
-	routes, err := h.routeRepo.ListRoutes(r.Context(), authInfo, repositories.ListRoutesMessage{SpaceGUIDs: []string{spaceGUID}, IsUnmapped: true})
+	err = h.routeRepo.DeleteUnmappedRoutes(r.Context(), authInfo, spaceGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to delete unmapped routes for space", "SpaceGUID", spaceGUID)
 	}
 
-	for _, route := range routes {
-		err = h.routeRepo.DeleteRoute(r.Context(), authInfo, repositories.DeleteRouteMessage{SpaceGUID: spaceGUID, GUID: route.GUID})
-		if err != nil {
-			return nil, apierrors.LogAndReturn(logger, err, "Failed to delete unmapped route", route.GUID, "for space", "SpaceGUID", spaceGUID)
-		}
-	}
-
-	return routing.NewResponse(http.StatusAccepted), nil
+	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteUnmappedRoutesOperation, h.apiBaseURL)), nil
 }
 
 func (h *Space) UnauthenticatedRoutes() []routing.Route {
@@ -192,6 +185,6 @@ func (h *Space) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: SpacePath, Handler: h.update},
 		{Method: "DELETE", Pattern: SpacePath, Handler: h.delete},
 		{Method: "GET", Pattern: SpacePath, Handler: h.get},
-		{Method: "DELETE", Pattern: RoutesForSpacePath, Handler: h.deleteRoutes},
+		{Method: "DELETE", Pattern: RoutesForSpacePath, Handler: h.deleteUnmappedRoutes},
 	}
 }
