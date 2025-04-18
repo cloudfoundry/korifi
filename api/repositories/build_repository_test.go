@@ -15,15 +15,26 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 )
 
 var _ = Describe("BuildRepository", func() {
-	var buildRepo *repositories.BuildRepo
+	var (
+		buildRepo *repositories.BuildRepo
+		sorter    *fake.BuildSorter
+	)
 
 	BeforeEach(func() {
-		buildRepo = repositories.NewBuildRepo(klient)
+		sorter = new(fake.BuildSorter)
+		sorter.SortStub = func(records []repositories.BuildRecord, _ string) []repositories.BuildRecord {
+			return records
+		}
+		buildRepo = repositories.NewBuildRepo(
+			klient,
+			sorter,
+		)
 	})
 
 	Describe("GetBuild", func() {
@@ -506,6 +517,11 @@ var _ = Describe("BuildRepository", func() {
 	})
 
 	Describe("ListBuilds", func() {
+		const (
+			StagingConditionType   = "Staging"
+			SucceededConditionType = "Succeeded"
+		)
+
 		var (
 			app1GUID     string
 			app2GUID     string
@@ -520,6 +536,7 @@ var _ = Describe("BuildRepository", func() {
 			build2       *korifiv1alpha1.CFBuild
 			buildRecords []repositories.BuildRecord
 			fetchError   error
+			listMessage  repositories.ListBuildsMessage
 		)
 
 		BeforeEach(func() {
@@ -529,6 +546,7 @@ var _ = Describe("BuildRepository", func() {
 			app2GUID = uuid.NewString()
 			package1GUID = uuid.NewString()
 			package2GUID = uuid.NewString()
+			listMessage = repositories.ListBuildsMessage{}
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 			namespace1 = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space2"))
 			namespace2 = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space3"))
@@ -585,7 +603,7 @@ var _ = Describe("BuildRepository", func() {
 		})
 
 		It("returns an empty array (as no roles assigned)", func() {
-			buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo)
+			buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo, listMessage)
 			Expect(fetchError).NotTo(HaveOccurred())
 			Expect(buildRecords).To(BeEmpty())
 		})
@@ -595,10 +613,102 @@ var _ = Describe("BuildRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace1.Name)
 			})
 			It("if user is a Space Developer it returns a list with one element", func() {
-				buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo)
+				buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo, listMessage)
 				Expect(fetchError).NotTo(HaveOccurred())
 				Expect(buildRecords).To(HaveLen(1))
 				Expect(buildRecords[0].GUID).To(Equal(build1GUID))
+			})
+		})
+		When("the app_guids filter is provided", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace1.Name)
+				listMessage = repositories.ListBuildsMessage{AppGUIDs: []string{app1GUID}}
+			})
+			It("fetches all BuildRecords for that app", func() {
+				buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo, listMessage)
+				Expect(fetchError).NotTo(HaveOccurred())
+				Expect(buildRecords).To(HaveLen(1))
+				for _, buildRecord := range buildRecords {
+					Expect(buildRecord).To(
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"AppGUID": Equal(app1GUID),
+						}),
+					)
+				}
+			})
+		})
+
+		When("the package_guids filter is provided", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace1.Name)
+				listMessage = repositories.ListBuildsMessage{PackageGUIDs: []string{package1GUID}}
+			})
+			It("fetches all BuildRecords for that package", func() {
+				buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo, listMessage)
+				Expect(fetchError).NotTo(HaveOccurred())
+				Expect(buildRecords).To(HaveLen(1))
+				for _, buildRecord := range buildRecords {
+					Expect(buildRecord).To(
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"PackageGUID": Equal(package1GUID),
+						}),
+					)
+				}
+			})
+		})
+
+		When("the state filter is provided", func() {
+			When("filtering by State=STAGING", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace1.Name)
+					listMessage = repositories.ListBuildsMessage{States: []string{"STAGING"}}
+				})
+
+				It("filters the builds", func() {
+					buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo, listMessage)
+					Expect(fetchError).NotTo(HaveOccurred())
+					Expect(buildRecords).To(HaveLen(1))
+					for _, buildRecord := range buildRecords {
+						Expect(buildRecord).To(
+							gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+								"State": Equal("STAGING"),
+							}),
+						)
+					}
+				})
+			})
+			When("filtering by State=STAGED", func() {
+				BeforeEach(func() {
+					meta.SetStatusCondition(&build1.Status.Conditions, metav1.Condition{
+						Type:    StagingConditionType,
+						Status:  metav1.ConditionFalse,
+						Reason:  "kpack",
+						Message: "kpack",
+					})
+					meta.SetStatusCondition(&build1.Status.Conditions, metav1.Condition{
+						Type:    SucceededConditionType,
+						Status:  metav1.ConditionTrue,
+						Reason:  "Unknown",
+						Message: "Unknown",
+					})
+					Expect(k8sClient.Status().Update(ctx, build1)).To(Succeed())
+
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, namespace1.Name)
+					listMessage = repositories.ListBuildsMessage{States: []string{"STAGED"}}
+				})
+
+				It("filters the builds", func() {
+					buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo, listMessage)
+					Expect(fetchError).NotTo(HaveOccurred())
+					Expect(buildRecords).To(HaveLen(1))
+					for _, buildRecord := range buildRecords {
+						Expect(buildRecord).To(
+							gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+								"State": Equal("STAGED"),
+							}),
+						)
+					}
+				})
 			})
 		})
 	})
