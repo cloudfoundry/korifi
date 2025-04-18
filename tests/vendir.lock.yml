@@ -2,8 +2,8 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - githubRelease:
-      tag: v0.16.1
-      url: https://api.github.com/repos/buildpacks-community/kpack/releases/195230921
+      tag: v0.17.0
+      url: https://api.github.com/repos/buildpacks-community/kpack/releases/213128352
     path: kpack
   - githubRelease:
       tag: v0.7.2
