@@ -42,9 +42,10 @@ manifests: bin/controller-gen
 		output:rbac:artifacts:config=../helm/korifi/kpack-image-builder \
 		output:webhook:artifacts:config=../helm/korifi/kpack-image-builder
 
-	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-kpack-image-builder-serving-cert")' $(webhooks-file)
+	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/{{ .Values.kpackImageBuilder.webhookCertSecret }}")' $(webhooks-file)
 	yq -i 'with(.metadata; .name="korifi-kpack-image-builder-" + .name)' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
+	yq -i 'with(.webhooks[]; .clientConfig.caBundle="{{ include \"korifi.webhookCaBundle\" (set . \"component\" \"kpackImageBuilder\") }}")' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-kpack-image-builder-" + .clientConfig.service.name)' $(webhooks-file)
 
 

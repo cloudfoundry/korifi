@@ -43,3 +43,13 @@ securityContext:
   seccompProfile:
     type: RuntimeDefault
 {{- end }}
+
+{{- define "korifi.webhookCaBundle" -}}
+{{- $caBundle := "" -}}
+{{- if not .Values.generateWebhookCertificates -}}
+{{- $compValues := index .Values .component -}}
+{{- $webhookCertSecret := $compValues.webhookCertSecret -}}
+{{- $caBundle = index (lookup "v1" "Secret" .Release.Namespace $webhookCertSecret).data "ca.crt" -}}
+{{- end -}}
+{{ $caBundle }}
+{{- end -}}

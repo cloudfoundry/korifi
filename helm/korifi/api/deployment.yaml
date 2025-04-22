@@ -71,7 +71,7 @@ spec:
         name: korifi-api-config
       - name: korifi-tls-config
         secret:
-          secretName: korifi-api-ingress-cert
+          secretName: {{ .Values.api.apiServer.ingressCertSecret }}
 {{- if .Values.containerRegistryCACertSecret }}
       - name: korifi-registry-ca-cert
         secret:

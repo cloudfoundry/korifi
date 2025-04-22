@@ -47,9 +47,9 @@ DockerHub allows only one private repository per free account. In case the Docke
 
 ## Dependencies
 
-### cert-Manager
+### Cert-Manager (optional)
 
-[cert-Manager](https://cert-manager.io) allows us to automatically create internal certificates within the cluster. Follow the [instructions](https://cert-manager.io/docs/installation/) to install the latest version.
+[Cert-Manager](https://cert-manager.io) allows us to automatically generate certificates within the cluster. It is required if you want Korifi to generate self-signed certificates for API and workload ingress or for webhooks. In order to do this you have to set the `generateIngressCertificates` and/or `generateWebhookCertificates` values to `true`. Follow the [instructions](https://cert-manager.io/docs/installation/) to install the latest version.
 
 ### Kpack
 
@@ -80,7 +80,7 @@ This gatewayclass name is a parameter of the helm chart installing korifi. The h
 
 #### Dynamic Provisioning
 
-Follow the dynamic provisioning [instructions](https://projectcontour.io/docs/1.26/config/gateway-api/#dynamic-provisioning) from the Gateway API support guide to install the latest version. 
+Follow the dynamic provisioning [instructions](https://projectcontour.io/docs/1.26/config/gateway-api/#dynamic-provisioning) from the Gateway API support guide to install the latest version.
 
   - Note that as part of the Contour installation you have to create a gatewayclass with name `$GATEWAY_CLASS_NAME`:
     ```bash
@@ -155,12 +155,20 @@ Make sure the value of `--docker-server` is a valid [URI authority](https://data
 
 ### TLS certificates
 
-Self-signed TLS certificates are generated automatically by the installation if `generateIngressCertificates` has been set to `true`.
+Korifi uses two kinds of TLS certificates:
+1. Ingress certificates: if `generateIngressCertificates` is set to `true`, Korifi will generate self-signed certificates and use them for API and workloads ingress.
+1. Webhook certificates: if `generateWebhookCertificates` is set to `true` (the default value), Korifi will generate self-signed certificates and use them for webhooks.
 
-If you want to generate certificates yourself, you should not set the `generateIngressCertificates` value, and instead provide your certificates to Korifi by creating two TLS secrets in `$KORIFI_NAMESPACE`:
+A running cert-manager is a prerequisite for generating self-signed certificates.
 
-1. `korifi-api-ingress-cert`;
-1. `korifi-workloads-ingress-cert`.
+If you want to generate certificates yourself, set `generateIngressCertificates` and `generateWebhookCertificates` to `false` and point to your own certificates using the following values:
+
+1. `api.apiServer.ingressCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the API ingress certificate; defaults to `korifi-api-ingress-cert`.
+1. `controllers.workloadsTLSSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the workload ingress certificate; defaults to `korifi-workloads-ingress-cert`.
+1. `controllers.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the controllers deployment; defaults to `korifi-controllers-webhook-cert`.
+1. `kpackImageBuilder.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the kpackImageBuilder deployment; defaults to `korifi-kpack-image-builder-webhook-cert`.
+1. `statefulsetRunner.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the statefulsetRunner deployment; defaults to `korifi-statefulset-runner-webhook-cert`.
+
 
 ### Container registry Certificate Authority
 
@@ -234,7 +242,7 @@ Create DNS entries for the Korifi API and for the apps running on Korifi. They s
 -   The Korifi API entry should match the `api.apiServer.url` value. In our example, that would be `api.korifi.example.org`.
 -   The apps entry should be a wildcard matching the `defaultAppDomainName` value. In our example, `*.apps.korifi.example.org`.
 
-The DNS entries should point to the load balancer endpoint created by Contour when installed. 
+The DNS entries should point to the load balancer endpoint created by Contour when installed.
 
 If you used static provisioning of a Contour gateway, discover your endpoint with:
 

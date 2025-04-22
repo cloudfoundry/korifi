@@ -18,6 +18,7 @@ package controllers_test
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -82,15 +83,19 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	ctx = context.Background()
 
+	webhookManifestsPath := helpers.GenerateWebhookManifest(
+		"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer",
+	)
+	DeferCleanup(func() {
+		Expect(os.RemoveAll(filepath.Dir(webhookManifestsPath))).To(Succeed())
+	})
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "helm", "korifi", "controllers", "crds"),
 			filepath.Join("..", "..", "tests", "vendor", "kpack"),
 		},
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{
-				filepath.Join("..", "..", "helm", "korifi", "kpack-image-builder", "manifests.yaml"),
-			},
+			Paths: []string{webhookManifestsPath},
 		},
 		ErrorIfCRDPathMissing: true,
 	}
