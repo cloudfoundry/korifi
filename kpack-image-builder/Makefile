@@ -45,8 +45,7 @@ manifests: bin/controller-gen
 	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/{{ .Values.kpackImageBuilder.webhookCertSecret }}")' $(webhooks-file)
 	yq -i 'with(.metadata; .name="korifi-kpack-image-builder-" + .name)' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.caBundle="{{ .Values.kpackImageBuilder.webhookCaBundle }}")' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.caBundle="{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup \"v1\" \"Secret\" .Release.Namespace .Values.kpackImageBuilder.webhookCertSecret).data \"ca.crt\" }}{{end}}")' $(webhooks-file)
+	yq -i 'with(.webhooks[]; .clientConfig.caBundle="{{ include \"korifi.webhookCaBundle\" (set . \"component\" \"kpackImageBuilder\") }}")' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-kpack-image-builder-" + .clientConfig.service.name)' $(webhooks-file)
 
 

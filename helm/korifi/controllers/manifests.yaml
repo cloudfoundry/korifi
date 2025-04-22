@@ -14,7 +14,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcfapp.korifi.cloudfoundry.org
     rules:
@@ -36,7 +36,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfbuild
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcfbuild.korifi.cloudfoundry.org
     rules:
@@ -58,6 +58,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfdomain
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcfdomain.korifi.cloudfoundry.org
     rules:
@@ -79,7 +80,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfpackage
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcfpackage.korifi.cloudfoundry.org
     rules:
@@ -101,7 +102,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfprocess
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcfprocess.korifi.cloudfoundry.org
     rules:
@@ -123,7 +124,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfroute
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcfroute.korifi.cloudfoundry.org
     rules:
@@ -145,7 +146,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-controllers-finalizer
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcffinalizer.korifi.cloudfoundry.org
     rules:
@@ -173,7 +174,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-controllers-space-guid
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcfspaceguid.korifi.cloudfoundry.org
     rules:
@@ -202,7 +203,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-all-version
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcfversion.korifi.cloudfoundry.org
     rules:
@@ -238,7 +239,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp-apprev
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcfapprev.korifi.cloudfoundry.org
     rules:
@@ -259,7 +260,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cftask
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: mcftask.korifi.cloudfoundry.org
     rules:
@@ -288,7 +289,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfdomain
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcfdomain.korifi.cloudfoundry.org
     rules:
@@ -310,7 +311,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfroute
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcfroute.korifi.cloudfoundry.org
     rules:
@@ -333,7 +334,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfsecuritygroup
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcfsecuritygroup.korifi.cloudfoundry.org
     rules:
@@ -356,7 +357,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfservicebinding
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcfservicebinding.korifi.cloudfoundry.org
     rules:
@@ -379,7 +380,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfservicebroker
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcfservicebroker.korifi.cloudfoundry.org
     rules:
@@ -402,7 +403,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcfserviceinstance.korifi.cloudfoundry.org
     rules:
@@ -425,7 +426,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfapp
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcfapp.korifi.cloudfoundry.org
     rules:
@@ -448,7 +449,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cforg
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcforg.korifi.cloudfoundry.org
     rules:
@@ -471,7 +472,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfpackage
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcfpackage.korifi.cloudfoundry.org
     rules:
@@ -492,7 +493,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfspace
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcfspace.korifi.cloudfoundry.org
     rules:
@@ -515,7 +516,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cftask
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
     failurePolicy: Fail
     name: vcftask.korifi.cloudfoundry.org
     rules:

@@ -72,6 +72,7 @@ api:
 controllers:
   image: cloudfoundry/korifi-controllers:latest
   webhookCertSecret: "korifi-controllers-webhook-cert"
+  webhookCaBundleKey: "ca.crt"
 
   nodeSelector: {}
   tolerations: []
@@ -99,6 +100,7 @@ kpackImageBuilder:
   include: true
   image: cloudfoundry/korifi-kpack-image-builder:latest
   webhookCertSecret: "korifi-kpack-image-builder-webhook-cert"
+  webhookCaBundleKey: "ca.crt"
   replicas: 1
   resources:
     limits:
@@ -116,6 +118,7 @@ statefulsetRunner:
   include: true
   image: cloudfoundry/korifi-statefulset-runner:latest
   webhookCertSecret: "korifi-statefulset-runner-webhook-cert"
+  webhookCaBundleKey: "ca.crt"
   replicas: 1
   resources:
     limits:

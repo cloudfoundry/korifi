@@ -75,7 +75,6 @@ function deploy_korifi() {
       --namespace korifi \
       --set=adminUserName="cf-admin" \
       --set=defaultAppDomainName="$APPS_DOMAIN" \
-      --set=certManager.enabled="false" \
       --set=logLevel="debug" \
       --set=stagingRequirements.buildCacheMB="1024" \
       --set=api.apiServer.url="$KORIFI_API" \

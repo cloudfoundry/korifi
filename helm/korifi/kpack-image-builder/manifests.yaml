@@ -14,7 +14,7 @@ webhooks:
         name: korifi-kpack-image-builder-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-kpack-image-builder-finalizer
-      caBundle: '{{ if .Values.generateWebhookCertificates }}Cg=={{else}}{{ index (lookup "v1" "Secret" .Release.Namespace .Values.kpackImageBuilder.webhookCertSecret).data "ca.crt" }}{{end}}'
+      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "kpackImageBuilder") }}'
     failurePolicy: Fail
     name: mcf-kib-finalizer.korifi.cloudfoundry.org
     rules:
