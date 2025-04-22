@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
+	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -147,7 +147,7 @@ var _ = Describe("DropletRepository", func() {
 
 					Expect(dropletRecord.State).To(Equal("STAGED"))
 					Expect(dropletRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-					Expect(dropletRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+					Expect(dropletRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 					Expect(dropletRecord.Stack).To(Equal(build.Status.Droplet.Stack))
 					Expect(dropletRecord.Lifecycle.Type).To(Equal(string(build.Spec.Lifecycle.Type)))
 					Expect(dropletRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
@@ -372,27 +372,35 @@ var _ = Describe("DropletRepository", func() {
 				Expect(dropletRecords).To(HaveLen(2))
 			})
 
-			When("filtering by package guid", func() {
+			Describe("filtering", func() {
 				BeforeEach(func() {
-					message.PackageGUIDs = []string{packageGUID}
+					message = repositories.ListDropletsMessage{
+						PackageGUIDs: []string{packageGUID},
+					}
 				})
 
-				It("returns the matching droplet", func() {
+				It("returns the builds matching the filter parameters", func() {
 					Expect(listErr).NotTo(HaveOccurred())
-					Expect(dropletRecords).To(HaveLen(1))
-					Expect(dropletRecords[0].PackageGUID).To(Equal(packageGUID))
-				})
-			})
-
-			When("filtering by app guid", func() {
-				BeforeEach(func() {
-					message.AppGUIDs = []string{appGUID}
+					Expect(dropletRecords).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+						"PackageGUID": Equal(packageGUID),
+					})))
 				})
 
-				It("returns the matching droplet", func() {
-					Expect(listErr).NotTo(HaveOccurred())
-					Expect(dropletRecords).To(HaveLen(1))
-					Expect(dropletRecords[0].AppGUID).To(Equal(appGUID))
+				Describe("filter parameters to list options", func() {
+					BeforeEach(func() {
+						message = repositories.ListDropletsMessage{
+							PackageGUIDs: []string{"p1", "p2"},
+							AppGUIDs:     []string{"a1", "a2"},
+						}
+					})
+
+					It("translates filter parameters to klient list options", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(klient.GetRecordedListOptions()).To(ConsistOf(
+							repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
+							repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
+						))
+					})
 				})
 			})
 		})
@@ -494,7 +502,7 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					By("returning a record with a UpdatedAt field from the CR", func() {
-						Expect(dropletRecord.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+						Expect(dropletRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 					})
 
 					By("returning a record with stack field matching the CR", func() {
