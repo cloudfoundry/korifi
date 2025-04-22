@@ -2,12 +2,12 @@ package finalizer_test
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/version"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -51,6 +51,12 @@ var _ = BeforeSuite(func() {
 	ctx, cancelFunc := context.WithCancel(context.TODO())
 	stopManager = cancelFunc
 
+	webhookManifestsPath := helpers.GenerateWebhookManifest(
+		"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer",
+	)
+	DeferCleanup(func() {
+		Expect(os.RemoveAll(filepath.Dir(webhookManifestsPath))).To(Succeed())
+	})
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "crds"),
@@ -58,10 +64,7 @@ var _ = BeforeSuite(func() {
 		},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{
-				filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "manifests.yaml"),
-				filepath.Join("..", "..", "..", "..", "helm", "korifi", "kpack-image-builder", "manifests.yaml"),
-			},
+			Paths: []string{webhookManifestsPath},
 		},
 	}
 
@@ -79,7 +82,6 @@ var _ = BeforeSuite(func() {
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
 	finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(k8sManager)
-	version.NewVersionWebhook("some-version").SetupWebhookWithManager(k8sManager)
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 

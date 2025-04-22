@@ -1,7 +1,8 @@
+{{- if .Values.generateWebhookCertificates }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: korifi-kpack-image-builder-serving-cert
+  name: {{ .Values.kpackImageBuilder.webhookCertSecret }}
   namespace: {{ .Release.Namespace }}
 spec:
   dnsNames:
@@ -10,4 +11,5 @@ spec:
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
-  secretName: korifi-kpack-image-builder-webhook-cert
+  secretName: {{ .Values.kpackImageBuilder.webhookCertSecret }}
+{{- end}}

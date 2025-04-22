@@ -3,12 +3,13 @@ rootNamespace: cf
 debug: false
 logLevel: info
 defaultAppDomainName:
-generateIngressCertificates: false
 containerRegistrySecrets:
 - image-registry-credentials
 eksContainerRegistryRoleARN: ""
 containerRegistryCACertSecret:
 systemImagePullSecrets: []
+generateIngressCertificates: false
+generateWebhookCertificates: true
 
 reconcilers:
   build: kpack-image-builder
@@ -43,6 +44,7 @@ api:
     # To override default port, set port to a non-zero value
     port: 0
     internalPort: 9000
+    ingressCertSecret: korifi-api-ingress-cert
     timeouts:
       read: 900
       write: 900
@@ -69,6 +71,7 @@ api:
 
 controllers:
   image: cloudfoundry/korifi-controllers:latest
+  webhookCertSecret: "korifi-controllers-webhook-cert"
 
   nodeSelector: {}
   tolerations: []
@@ -95,6 +98,8 @@ controllers:
 kpackImageBuilder:
   include: true
   image: cloudfoundry/korifi-kpack-image-builder:latest
+  webhookCertSecret: "korifi-kpack-image-builder-webhook-cert"
+
   replicas: 1
   resources:
     limits:
@@ -111,6 +116,8 @@ kpackImageBuilder:
 statefulsetRunner:
   include: true
   image: cloudfoundry/korifi-statefulset-runner:latest
+  webhookCertSecret: "korifi-statefulset-runner-webhook-cert"
+
   replicas: 1
   resources:
     limits:
@@ -161,5 +168,5 @@ experimental:
     k8sclient:
       qps: 0
       burst: 0
-  securityGroups: 
+  securityGroups:
     enabled: false
