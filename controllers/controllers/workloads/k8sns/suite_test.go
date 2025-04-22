@@ -23,12 +23,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
 	ctx               context.Context
 	stopManager       context.CancelFunc
 	testEnv           *envtest.Environment
+	k8sManager        manager.Manager
 	adminClient       client.Client
 	controllersClient client.Client
 	rootNamespace     string
@@ -59,10 +61,17 @@ var _ = BeforeSuite(func() {
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
+})
 
-	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
+var _ = AfterSuite(func() {
+	Expect(testEnv.Stop()).To(Succeed())
+})
+
+var _ = BeforeEach(func() {
+	k8sManager = helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 	Expect(shared.SetupIndexWithManager(k8sManager)).To(Succeed())
 
+	var err error
 	adminClient, err = client.New(testEnv.Config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	adminClient = helpers.NewSyncClient(adminClient)
@@ -72,15 +81,12 @@ var _ = BeforeSuite(func() {
 	controllersClient = helpers.NewSyncClient(controllersClient)
 
 	stopManager = helpers.StartK8sManager(k8sManager)
-})
 
-var _ = BeforeEach(func() {
 	rootNamespace = uuid.NewString()
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterEach(func() {
 	stopManager()
-	Expect(testEnv.Stop()).To(Succeed())
 })
 
 type mockFinalizer[T any, NS k8sns.NamespaceObject[T]] struct {

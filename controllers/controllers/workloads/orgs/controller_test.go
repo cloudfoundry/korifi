@@ -62,4 +62,11 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			g.Expect(meta.IsStatusConditionTrue(cfOrg.Status.Conditions, korifiv1alpha1.StatusConditionReady)).To(BeTrue())
 		}).Should(Succeed())
 	})
+
+	It("sets the ready label on the CFOrg", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), cfOrg)).To(Succeed())
+			g.Expect(cfOrg.Labels).To(HaveKeyWithValue(korifiv1alpha1.OrgReadyKey, "true"))
+		}).Should(Succeed())
+	})
 })

@@ -22,6 +22,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/k8sns"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/labels"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -126,6 +127,8 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfOrg *korifiv1alpha
 	if (nsReconcileResult != ctrl.Result{}) || (err != nil) {
 		return nsReconcileResult, err
 	}
+
+	cfOrg.Labels = tools.SetMapValue(cfOrg.Labels, korifiv1alpha1.OrgReadyKey, "true")
 
 	return ctrl.Result{}, nil
 }

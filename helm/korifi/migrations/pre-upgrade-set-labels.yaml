@@ -58,7 +58,7 @@ spec:
           }
 
           set-guid-label() {
-            local resource_kinds=(cfapps cfdomains)
+            local resource_kinds=(cfapps cfdomains cforgs)
 
             for kind in "${resource_kinds[@]}"; do
               resources="$(kubectl get --all-namespaces "$kind" -o=custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers)"
@@ -100,11 +100,32 @@ spec:
             done <<<"$resources"
           }
 
+          set-org-specific-labels() {
+            resources=$(kubectl get cforgs --all-namespaces -o="custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,READY:.status.conditions[?(@.type=='Ready')].status,DISPLAY_NAME:.spec.displayName" --no-headers)
+            if [[ -z "${resources}" ]]; then
+              echo "No resources of kind $kind. Nothing to do."
+              return
+            fi
+
+            while IFS= read -r line; do
+              read -r namespace name ready displayName <<<$line
+              set-label cforgs $namespace $name "korifi.cloudfoundry.org/org-display-name" "$displayName"
+
+              if [[ "$ready" != "True" ]]; then
+                echo "Skipping setting ready label on cforg $namespace/$name because it is not ready"
+                continue
+              fi
+
+              set-label cforgs $namespace $name "korifi.cloudfoundry.org/org-ready" "true"
+            done <<<"$resources"
+          }
+
           main() {
             set-guid-label
 
             set-app-specific-labels
             set-domain-specific-labels
+            set-org-specific-labels
           }
 
           main

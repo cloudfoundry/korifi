@@ -30,6 +30,8 @@ const (
 	OrgNameKey             = "cloudfoundry.org/org-name"
 	OrgGUIDKey             = "cloudfoundry.org/org-guid"
 	OrgSpaceDeprecatedName = "XXX-deprecated-XXX"
+	OrgReadyKey            = "korifi.cloudfoundry.org/org-ready"
+	OrgDisplayNameKey      = "korifi.cloudfoundry.org/org-display-name"
 )
 
 // CFOrgSpec defines the desired state of CFOrg
