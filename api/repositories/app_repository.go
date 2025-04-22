@@ -226,12 +226,12 @@ type ListAppsMessage struct {
 	OrderBy       string
 }
 
-func (l *ListAppsMessage) toListOptions() []ListOption {
+func (m *ListAppsMessage) toListOptions() []ListOption {
 	return []ListOption{
-		WithLabelSelector(l.LabelSelector),
-		WithLabelIn(korifiv1alpha1.GUIDLabelKey, l.Guids),
-		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, l.SpaceGUIDs),
-		WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, l.Names),
+		WithLabelSelector(m.LabelSelector),
+		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.Guids),
+		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
+		WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, m.Names),
 	}
 }
 

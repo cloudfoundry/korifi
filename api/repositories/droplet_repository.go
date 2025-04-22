@@ -62,6 +62,13 @@ type ListDropletsMessage struct {
 	AppGUIDs     []string
 }
 
+func (m *ListDropletsMessage) toListOptions() []ListOption {
+	return []ListOption{
+		WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, m.PackageGUIDs),
+		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
+	}
+}
+
 func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (DropletRecord, error) {
 	build, err := r.getBuildAssociatedWithDroplet(ctx, authInfo, dropletGUID)
 	if err != nil {
@@ -132,10 +139,7 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 
 func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	err := r.klient.List(ctx, buildList,
-		WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, message.PackageGUIDs),
-		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, message.AppGUIDs),
-	)
+	err := r.klient.List(ctx, buildList, message.toListOptions()...)
 	if err != nil {
 		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
