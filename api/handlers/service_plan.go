@@ -57,6 +57,21 @@ func NewServicePlan(
 	}
 }
 
+func (h *ServicePlan) get(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.get")
+
+	planGUID := routing.URLParam(r, "guid")
+	logger = logger.WithValues("guid", planGUID)
+
+	plan, err := h.servicePlanRepo.GetPlan(r.Context(), authInfo, planGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to get plan")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServicePlan(plan, h.serverURL)), nil
+}
+
 func (h *ServicePlan) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-plan.list")
@@ -170,6 +185,7 @@ func (h *ServicePlan) UnauthenticatedRoutes() []routing.Route {
 
 func (h *ServicePlan) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
+		{Method: "GET", Pattern: ServicePlanPath, Handler: h.get},
 		{Method: "GET", Pattern: ServicePlansPath, Handler: h.list},
 		{Method: "GET", Pattern: ServicePlanVisibilityPath, Handler: h.getPlanVisibility},
 		{Method: "POST", Pattern: ServicePlanVisibilityPath, Handler: h.applyPlanVisibility},

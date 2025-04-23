@@ -190,6 +190,11 @@ type serviceResource struct {
 	BindingName string `yaml:"binding_name"`
 }
 
+type servicePlanResource struct {
+	Name string `yaml:"name"`
+	GUID string `yaml:"guid"`
+}
+
 type manifestApplicationProcessResource struct {
 	Type    string  `yaml:"type"`
 	Command *string `yaml:"command"`

@@ -173,6 +173,41 @@ var _ = Describe("ServicePlan", func() {
 		})
 	})
 
+	Describe("GET /v3/service_plans/{guid}", func() {
+		BeforeEach(func() {
+			servicePlanRepo.GetPlanReturns(repositories.ServicePlanRecord{
+				GUID: "my-service-plan",
+			}, nil)
+		})
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "GET", "/v3/service_plans/my-service-plan", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
+
+		It("returns the plan", func() {
+			Expect(servicePlanRepo.GetPlanCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualPlanID := servicePlanRepo.GetPlanArgsForCall(0)
+			Expect(actualPlanID).To(Equal("my-service-plan"))
+			Expect(actualAuthInfo).To(Equal(authInfo))
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+		})
+
+		When("getting the plan fails", func() {
+			BeforeEach(func() {
+				servicePlanRepo.GetPlanReturns(repositories.ServicePlanRecord{}, errors.New("unkown-err"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("GET /v3/service_plans/{guid}/visibility", func() {
 		BeforeEach(func() {
 			servicePlanRepo.GetPlanReturns(repositories.ServicePlanRecord{

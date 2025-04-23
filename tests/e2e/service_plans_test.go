@@ -46,6 +46,33 @@ var _ = Describe("Service Plans", func() {
 			})))
 		})
 	})
+	Describe("Get", func() {
+		var (
+			planGUID string
+			result   servicePlanResource
+		)
+
+		BeforeEach(func() {
+			plans := resourceList[resource]{}
+			resp, err = adminClient.R().SetResult(&plans).Get("/v3/service_plans")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+
+			brokerPlans := itx.FromSlice(plans.Resources).Filter(func(r resource) bool {
+				return r.Metadata.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] == brokerGUID
+			}).Collect()
+
+			Expect(brokerPlans).NotTo(BeEmpty())
+			planGUID = brokerPlans[0].GUID
+		})
+
+		It("returns the service plan", func() {
+			resp, err = adminClient.R().SetResult(&result).Get(fmt.Sprintf("/v3/service_plans/%s", planGUID))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.GUID).To(Equal(planGUID))
+		})
+	})
 
 	Describe("Visibility", func() {
 		var (
