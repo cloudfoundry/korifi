@@ -11,6 +11,7 @@ import (
 const (
 	serviceInstancesBase     = "/v3/service_instances"
 	serviceRouteBindingsBase = "/v3/service_route_bindings"
+	servicePlanBase          = "/v3/service_plans"
 )
 
 type ServiceInstanceResponse struct {
@@ -44,6 +45,7 @@ type ServiceInstanceLinks struct {
 	Self                      Link `json:"self"`
 	Space                     Link `json:"space"`
 	Credentials               Link `json:"credentials"`
+	ServicePlan               Link `json:"service_plan"`
 	ServiceCredentialBindings Link `json:"service_credential_bindings"`
 	ServiceRouteBindings      Link `json:"service_route_bindings"`
 }
@@ -77,6 +79,9 @@ func ForServiceInstance(serviceInstanceRecord repositories.ServiceInstanceRecord
 			},
 			Credentials: Link{
 				HRef: buildURL(baseURL).appendPath(serviceInstancesBase, serviceInstanceRecord.GUID, "credentials").build(),
+			},
+			ServicePlan: Link{
+				HRef: buildURL(baseURL).appendPath(servicePlanBase, serviceInstanceRecord.PlanGUID).build(),
 			},
 			ServiceCredentialBindings: Link{
 				HRef: buildURL(baseURL).appendPath(serviceCredentialBindingsBase).setQuery("service_instance_guids=" + serviceInstanceRecord.GUID).build(),
