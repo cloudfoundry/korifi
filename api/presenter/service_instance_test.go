@@ -28,6 +28,7 @@ var _ = Describe("Service Instance", func() {
 		record = repositories.ServiceInstanceRecord{
 			Name:      "service-instance-name",
 			GUID:      "service-instance-guid",
+			PlanGUID:  "service-plan-guid",
 			SpaceGUID: "space-guid",
 			Tags:      []string{"foo", "bar"},
 			Type:      "user-provided",
@@ -68,6 +69,9 @@ var _ = Describe("Service Instance", func() {
 				},
 				"service_credential_bindings": {
 					"href": "https://api.example.org/v3/service_credential_bindings?service_instance_guids=service-instance-guid"
+				},
+				"service_plan": {
+					"href": "https://api.example.org/v3/service_plans/service-plan-guid"
 				},
 				"service_route_bindings": {
 					"href": "https://api.example.org/v3/service_route_bindings?service_instance_guids=service-instance-guid"
