@@ -40,7 +40,9 @@ function build_korifi() {
     kbld_file="$SCRIPT_DIR/assets/korifi-kbld.yml"
     values_file="$HELM_CHART_SOURCE/values.yaml"
 
-    yq "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=dev\"])" $kbld_file |
+    export VERSION=$(git describe --tags | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}' | awk '{print substr($1,2)}')
+    yq -i 'with(.; .version=env(VERSION))' "$HELM_CHART_SOURCE/Chart.yaml"
+    yq "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=$VERSION\"])" $kbld_file |
       kbld \
         --images-annotation=false \
         -f "${ROOT_DIR}/helm/korifi/values.yaml" \

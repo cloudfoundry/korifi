@@ -4,20 +4,20 @@ metadata:
   annotations:
     # This is what defines this resource as a hook. Without this line, the
     # job is considered part of the release.
-    "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "-9999"
     "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
   labels:
     app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
     app.kubernetes.io/instance: {{ .Release.Name | quote }}
     app.kubernetes.io/version: {{ .Chart.AppVersion }}
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-  name: set-labels
+  name: post-upgrade-set-migrated-by-label
   namespace: {{ .Release.Namespace }}
 spec:
   template:
     metadata:
-      name: set-labels
+      name: post-upgrade-set-migrated-by-label
       labels:
         app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
         app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -27,7 +27,10 @@ spec:
       restartPolicy: Never
       {{- include "korifi.podSecurityContext" . | indent 6 }}
       containers:
-      - name: pre-upgrade-set-labels
+      - name: post-upgrade-set-migrated-by-label
+        env:
+        - name: KORIFI_VERSION
+          value: "{{ .Chart.Version }}"
         image: {{ .Values.helm.hooksImage }}
         securityContext:
           allowPrivilegeEscalation: false
@@ -57,54 +60,25 @@ spec:
               "$kind" "$name"
           }
 
-          set-guid-label() {
+          set-migrated-by-label() {
             local resource_kinds=(cfapps cfdomains)
 
             for kind in "${resource_kinds[@]}"; do
               resources="$(kubectl get --all-namespaces "$kind" -o=custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers)"
               if [[ -z "${resources}" ]]; then
                 echo "No resources of kind $kind. Nothing to do."
-                return
+                continue
               fi
 
               while IFS= read -r line; do
                 read -r namespace name <<<$line
-                set-label "$kind" $namespace $name "korifi.cloudfoundry.org/guid" "$name"
+                set-label "$kind" "$namespace" "$name" "korifi.cloudfoundry.org/migrated-by" "$KORIFI_VERSION"
               done <<<"$resources"
             done
           }
 
-          set-app-specific-labels() {
-            resources=$(kubectl get --all-namespaces cfapps -o=custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,DISPLAY_NAME:.spec.displayName --no-headers)
-            if [[ -z "${resources}" ]]; then
-              echo "No resources of kind $kind. Nothing to do."
-              return
-            fi
-
-            while IFS= read -r line; do
-              read -r namespace name displayName <<<$line
-              set-label cfapps $namespace $name "korifi.cloudfoundry.org/display-name" "$displayName"
-            done <<<"$resources"
-          }
-
-          set-domain-specific-labels() {
-            resources=$(kubectl get --all-namespaces cfdomains -o=custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,DOMAIN_NAME:.spec.name --no-headers)
-            if [[ -z "${resources}" ]]; then
-              echo "No resources of kind $kind. Nothing to do."
-              return
-            fi
-
-            while IFS= read -r line; do
-              read -r namespace name domainName <<<$line
-              set-label cfdomains $namespace $name "korifi.cloudfoundry.org/domain-name" "$domainName"
-            done <<<"$resources"
-          }
-
           main() {
-            set-guid-label
-
-            set-app-specific-labels
-            set-domain-specific-labels
+            set-migrated-by-label
           }
 
           main
