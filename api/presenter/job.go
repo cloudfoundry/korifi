@@ -91,6 +91,14 @@ func ForManifestApplyJob(job Job, baseURL url.URL) JobResponse {
 	return response
 }
 
+func ForSpaceDeleteUnmappedRoutesJob(job Job, state repositories.ResourceState, baseURL url.URL) JobResponse {
+	response := ForJob(job, []JobResponseError{}, state, baseURL)
+	response.Links.Space = &Link{
+		HRef: buildURL(baseURL).appendPath("/v3/spaces", job.ResourceGUID).build(),
+	}
+	return response
+}
+
 func ForJob(job Job, errors []JobResponseError, state repositories.ResourceState, baseURL url.URL) JobResponse {
 	return JobResponse{
 		GUID:      job.GUID,

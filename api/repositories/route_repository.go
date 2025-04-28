@@ -455,19 +455,6 @@ func (r *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorizati
 	return cfRouteToRouteRecord(*route), nil
 }
 
-func (r *RouteRepo) GetState(ctx context.Context, authInfo authorization.Info, spaceGUID string) (ResourceState, error) {
-	unmappedRoutes, err := r.ListRoutes(ctx, authInfo, ListRoutesMessage{SpaceGUIDs: []string{spaceGUID}, IsUnmapped: true})
-	if err != nil {
-		return ResourceStateUnknown, err
-	}
-
-	if len(unmappedRoutes) != 0 {
-		return ResourceStateUnknown, nil
-	}
-
-	return ResourceStateReady, nil
-}
-
 func (r *RouteRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, routeGUID string) (*time.Time, error) {
 	route, err := r.GetRoute(ctx, authInfo, routeGUID)
 	return route.DeletedAt, err

@@ -430,7 +430,6 @@ var _ = Describe("RouteRepository", func() {
 				})
 
 				It("returns a list of routeRecords that are not mapped to an app", func() {
-					Expect(routeRecords).To(HaveLen(2))
 					Expect(routeRecords).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute2A.Name)}),
 						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute1B.Name)}),
@@ -781,8 +780,12 @@ var _ = Describe("RouteRepository", func() {
 
 		It("deletes only the unmapped route resource", func() {
 			Expect(deleteErr).NotTo(HaveOccurred())
-			Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: space.Name, Name: cfRoute2.Name}, &korifiv1alpha1.CFRoute{})).To(MatchError(ContainSubstring("not found")))
-			Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: space.Name, Name: cfRoute1.Name}, &korifiv1alpha1.CFRoute{})).To(Succeed())
+
+			var routeList korifiv1alpha1.CFRouteList
+			Expect(k8sClient.List(ctx, &routeList, client.InNamespace(space.Name))).To(Succeed())
+
+			Expect(routeList.Items).To(HaveLen(1))
+			Expect(routeList.Items[0].Name).To(Equal(cfRoute1.Name))
 		})
 	})
 
@@ -1467,63 +1470,6 @@ var _ = Describe("RouteRepository", func() {
 				It("fails to get the Route", func() {
 					Expect(patchErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
-			})
-		})
-	})
-
-	Describe("GetState", func() {
-		var (
-			cfRoute  *korifiv1alpha1.CFRoute
-			state    ResourceState
-			stateErr error
-		)
-
-		BeforeEach(func() {
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-
-			cfRoute = &korifiv1alpha1.CFRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.NewString(),
-					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
-				},
-				Spec: korifiv1alpha1.CFRouteSpec{
-					Host:     "my-subdomain-1",
-					Path:     "",
-					Protocol: "http",
-					DomainRef: corev1.ObjectReference{
-						Name:      domainGUID,
-						Namespace: rootNamespace,
-					},
-					Destinations: []korifiv1alpha1.Destination{},
-				},
-			}
-			Expect(
-				k8sClient.Create(ctx, cfRoute),
-			).To(Succeed())
-		})
-
-		JustBeforeEach(func() {
-			state, stateErr = routeRepo.GetState(ctx, authInfo, space.Name)
-		})
-
-		When("there are stil unmapped routes", func() {
-			It("returns unknown state", func() {
-				Expect(stateErr).NotTo(HaveOccurred())
-				Expect(state).To(Equal(ResourceStateUnknown))
-			})
-		})
-
-		When("all the unmapped routes have been deleted", func() {
-			BeforeEach(func() {
-				Expect(k8sClient.Delete(ctx, cfRoute)).To(Succeed())
-			})
-
-			It("return ready state", func() {
-				Expect(stateErr).NotTo(HaveOccurred())
-				Expect(state).To(Equal(ResourceStateReady))
 			})
 		})
 	})

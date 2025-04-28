@@ -19,11 +19,11 @@ import (
 const (
 	JobPath                             = "/v3/jobs/{guid}"
 	syncSpaceJobType                    = "space.apply_manifest"
+	spaceDeleteUnmappedRoutesJobType    = "space.delete_unapped_routes"
 	AppDeleteJobType                    = "app.delete"
 	OrgDeleteJobType                    = "org.delete"
 	RouteDeleteJobType                  = "route.delete"
 	SpaceDeleteJobType                  = "space.delete"
-	SpaceDeleteUnmappedRoutesType       = "space.delete_unapped_routes"
 	DomainDeleteJobType                 = "domain.delete"
 	RoleDeleteJobType                   = "role.delete"
 	ServiceBrokerCreateJobType          = "service_broker.create"
@@ -52,6 +52,7 @@ type Job struct {
 	serverURL            url.URL
 	deletionRepositories map[string]DeletionRepository
 	stateRepositories    map[string]StateRepository
+	routeRepo            CFRouteRepository
 	pollingInterval      time.Duration
 }
 
@@ -59,12 +60,14 @@ func NewJob(
 	serverURL url.URL,
 	deletionRepositories map[string]DeletionRepository,
 	stateRepositories map[string]StateRepository,
+	routeRepo CFRouteRepository,
 	pollingInterval time.Duration,
 ) *Job {
 	return &Job{
 		serverURL:            serverURL,
 		deletionRepositories: deletionRepositories,
 		stateRepositories:    stateRepositories,
+		routeRepo:            routeRepo,
 		pollingInterval:      pollingInterval,
 	}
 }
@@ -86,6 +89,21 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 	switch job.Type {
 	case syncSpaceJobType:
 		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForManifestApplyJob(job, h.serverURL)), nil
+	case spaceDeleteUnmappedRoutesJobType:
+		authInfo, _ := authorization.InfoFromContext(ctx)
+		state := repositories.ResourceStateReady
+
+		unmappedRoutes, err := h.routeRepo.ListRoutes(ctx, authInfo, repositories.ListRoutesMessage{SpaceGUIDs: []string{job.ResourceGUID}, IsUnmapped: true})
+		if err != nil {
+			return nil, err
+		}
+
+		if len(unmappedRoutes) != 0 {
+			state = repositories.ResourceStateUnknown
+		}
+
+		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForSpaceDeleteUnmappedRoutesJob(job, state, h.serverURL)), nil
+
 	default:
 		deletionRepository, ok := h.deletionRepositories[job.Type]
 		if ok {

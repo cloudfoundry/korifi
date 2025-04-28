@@ -408,8 +408,8 @@ func main() {
 				handlers.ServiceBrokerUpdateJobType:          serviceBrokerRepo,
 				handlers.ManagedServiceInstanceCreateJobType: serviceInstanceRepo,
 				handlers.ManagedServiceBindingCreateJobType:  serviceBindingRepo,
-				handlers.SpaceDeleteUnmappedRoutesType:       routeRepo,
 			},
+			routeRepo,
 			500*time.Millisecond,
 		),
 		handlers.NewOrg(
