@@ -57,11 +57,12 @@ type CFBuildRepository struct {
 		result1 repositories.BuildRecord
 		result2 error
 	}
-	ListBuildsStub        func(context.Context, authorization.Info) ([]repositories.BuildRecord, error)
+	ListBuildsStub        func(context.Context, authorization.Info, repositories.ListBuildsMessage) ([]repositories.BuildRecord, error)
 	listBuildsMutex       sync.RWMutex
 	listBuildsArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
+		arg3 repositories.ListBuildsMessage
 	}
 	listBuildsReturns struct {
 		result1 []repositories.BuildRecord
@@ -274,19 +275,20 @@ func (fake *CFBuildRepository) GetLatestBuildByAppGUIDReturnsOnCall(i int, resul
 	}{result1, result2}
 }
 
-func (fake *CFBuildRepository) ListBuilds(arg1 context.Context, arg2 authorization.Info) ([]repositories.BuildRecord, error) {
+func (fake *CFBuildRepository) ListBuilds(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListBuildsMessage) ([]repositories.BuildRecord, error) {
 	fake.listBuildsMutex.Lock()
 	ret, specificReturn := fake.listBuildsReturnsOnCall[len(fake.listBuildsArgsForCall)]
 	fake.listBuildsArgsForCall = append(fake.listBuildsArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-	}{arg1, arg2})
+		arg3 repositories.ListBuildsMessage
+	}{arg1, arg2, arg3})
 	stub := fake.ListBuildsStub
 	fakeReturns := fake.listBuildsReturns
-	fake.recordInvocation("ListBuilds", []interface{}{arg1, arg2})
+	fake.recordInvocation("ListBuilds", []interface{}{arg1, arg2, arg3})
 	fake.listBuildsMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -300,17 +302,17 @@ func (fake *CFBuildRepository) ListBuildsCallCount() int {
 	return len(fake.listBuildsArgsForCall)
 }
 
-func (fake *CFBuildRepository) ListBuildsCalls(stub func(context.Context, authorization.Info) ([]repositories.BuildRecord, error)) {
+func (fake *CFBuildRepository) ListBuildsCalls(stub func(context.Context, authorization.Info, repositories.ListBuildsMessage) ([]repositories.BuildRecord, error)) {
 	fake.listBuildsMutex.Lock()
 	defer fake.listBuildsMutex.Unlock()
 	fake.ListBuildsStub = stub
 }
 
-func (fake *CFBuildRepository) ListBuildsArgsForCall(i int) (context.Context, authorization.Info) {
+func (fake *CFBuildRepository) ListBuildsArgsForCall(i int) (context.Context, authorization.Info, repositories.ListBuildsMessage) {
 	fake.listBuildsMutex.RLock()
 	defer fake.listBuildsMutex.RUnlock()
 	argsForCall := fake.listBuildsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *CFBuildRepository) ListBuildsReturns(result1 []repositories.BuildRecord, result2 error) {
