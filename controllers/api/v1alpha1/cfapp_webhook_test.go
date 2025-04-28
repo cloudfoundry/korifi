@@ -2,6 +2,7 @@ package v1alpha1_test
 
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -46,8 +47,18 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 		Expect(cfApp.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfApp.Name))
 	})
 
-	It("adds the display name label", func() {
-		Expect(cfApp.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppDisplayNameKey, cfApp.Spec.DisplayName))
+	It("adds the encoded display name label", func() {
+		Expect(cfApp.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppDisplayNameKey, tools.EncodeValueToSha224(cfApp.Spec.DisplayName)))
+	})
+
+	When("the app display name is too long", func() {
+		BeforeEach(func() {
+			cfApp.Spec.DisplayName = "a-very-long-display-name-that-is-way-too-long-to-be-encoded-in-a-label"
+		})
+
+		It("adds the encoded display name label", func() {
+			Expect(cfApp.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppDisplayNameKey, tools.EncodeValueToSha224(cfApp.Spec.DisplayName)))
+		})
 	})
 
 	It("adds an app revision annotation", func() {

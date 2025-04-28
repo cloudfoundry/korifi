@@ -48,7 +48,7 @@ func (r *CFDomainDefaulter) Default(ctx context.Context, obj runtime.Object) err
 	cfDomain := obj.(*CFDomain)
 	cfdomainlog.V(1).Info("mutating Webhook for CFDomain", "name", cfDomain.Name)
 
-	cfDomain.SetLabels(tools.SetMapValue(cfDomain.GetLabels(), CFDomainNameLabelKey, cfDomain.Spec.Name))
+	cfDomain.SetLabels(tools.SetMapValue(cfDomain.GetLabels(), CFEncodedDomainNameLabelKey, tools.EncodeValueToSha224(cfDomain.Spec.Name)))
 
 	return nil
 }
