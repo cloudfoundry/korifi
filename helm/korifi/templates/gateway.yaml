@@ -6,7 +6,7 @@ metadata:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
-  name: korifi-workloads-ingress-cert
+  name: {{ .Values.controllers.workloadsTLSSecret }}
   namespace: {{ .Release.Namespace }}
 spec:
   from:
@@ -16,7 +16,7 @@ spec:
   to:
   - group: ""
     kind: Secret
-    name: korifi-workloads-ingress-cert
+    name: {{ .Values.controllers.workloadsTLSSecret }}
 ---
 kind: Gateway
 apiVersion: gateway.networking.k8s.io/v1beta1
@@ -56,6 +56,6 @@ spec:
       certificateRefs:
       - group: ""
         kind: Secret
-        name: korifi-workloads-ingress-cert
+        name: {{ .Values.controllers.workloadsTLSSecret }}
         namespace: {{ .Release.Namespace }}
       mode: Terminate

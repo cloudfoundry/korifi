@@ -3,12 +3,14 @@ package k8sklient
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -91,10 +93,21 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 
 	k8sListOpts, err := toK8sListOptions(opts...)
 	if err != nil {
-		return err
+		return toStatusError(list, err)
 	}
 
 	return userClient.List(ctx, list, &k8sListOpts)
+}
+
+func toStatusError(list client.ObjectList, err error) *k8serrors.StatusError {
+	return &k8serrors.StatusError{
+		ErrStatus: metav1.Status{
+			Message: err.Error(),
+			Status:  metav1.StatusFailure,
+			Code:    http.StatusUnprocessableEntity,
+			Reason:  metav1.StatusReasonInvalid,
+		},
+	}
 }
 
 func (k *K8sKlient) Watch(ctx context.Context, obj client.ObjectList, opts ...repositories.ListOption) (watch.Interface, error) {
@@ -162,51 +175,24 @@ func getResourceType(obj client.Object) (string, error) {
 }
 
 func toK8sListOptions(opts ...repositories.ListOption) (client.ListOptions, error) {
-	if len(opts) == 0 {
-		return client.ListOptions{}, nil
-	}
-
 	listOpts := repositories.ListOptions{}
 	for _, o := range opts {
-		o.ApplyToList(&listOpts)
+		if err := o.ApplyToList(&listOpts); err != nil {
+			return client.ListOptions{}, err
+		}
 	}
 
-	k8sListOptions := client.ListOptions{
+	return client.ListOptions{
+		LabelSelector: newLabelSelector(listOpts.Requrements),
 		FieldSelector: listOpts.FieldSelector,
-	}
-
-	if listOpts.Namespace != "" {
-		k8sListOptions.Namespace = listOpts.Namespace
-	}
-
-	labelSelector, err := toLabelSelector(listOpts)
-	if err != nil {
-		return client.ListOptions{}, err
-	}
-	k8sListOptions.LabelSelector = labelSelector
-
-	return k8sListOptions, nil
+		Namespace:     listOpts.Namespace,
+	}, nil
 }
 
-func toLabelSelector(listOpts repositories.ListOptions) (labels.Selector, error) {
-	labelSelectorReqs := labels.Requirements{}
-	if listOpts.LabelSelector != nil {
-		reqs, _ := listOpts.LabelSelector.Requirements()
-		labelSelectorReqs = append(labelSelectorReqs, reqs...)
+func newLabelSelector(requrements []labels.Requirement) labels.Selector {
+	if len(requrements) == 0 {
+		return nil
 	}
 
-	if len(listOpts.SpaceGUIDs) > 0 {
-		spaceGuidsReq, err := labels.NewRequirement(korifiv1alpha1.SpaceGUIDKey, selection.In, listOpts.SpaceGUIDs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create space guids label selector: %w", err)
-		}
-
-		labelSelectorReqs = append(labelSelectorReqs, *spaceGuidsReq)
-	}
-
-	if len(labelSelectorReqs) == 0 {
-		return nil, nil
-	}
-
-	return labels.NewSelector().Add(labelSelectorReqs...), nil
+	return labels.NewSelector().Add(requrements...)
 }

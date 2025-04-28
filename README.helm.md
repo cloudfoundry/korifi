@@ -13,6 +13,7 @@ Here are all the values that can be set for the chart:
 - `adminUserName` (_String_): Name of the admin user that will be bound to the Cloud Foundry Admin role.
 - `api`:
   - `apiServer`:
+    - `ingressCertSecret` (_String_): The name of the secret containing the TLS certificate for the API ingress.
     - `internalPort` (_Integer_): Port used internally by the API container.
     - `port` (_Integer_): API external port. Defaults to `443`.
     - `timeouts`: HTTP timeouts.
@@ -70,6 +71,7 @@ Here are all the values that can be set for the chart:
       - `memory` (_String_): Memory request.
   - `taskTTL` (_String_): How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
   - `tolerations` (_Array_): Korifi-controllers pod tolerations for taints.
+  - `webhookCertSecret` (_String_): A secert containing the CA bundle and the certificate for the webhook server.
   - `workloadsTLSSecret` (_String_): TLS secret used when setting up an app routes.
 - `crds`:
   - `include` (_Boolean_): Install CRDs as part of the Helm installation.
@@ -93,6 +95,7 @@ Here are all the values that can be set for the chart:
     - `enabled` (_Boolean_): Enable UAA support
     - `url` (_String_): The url of a UAA instance
 - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
+- `generateWebhookCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the webhooks.
 - `helm`:
   - `hooksImage` (_String_): Image for the helm hooks containing kubectl
 - `jobTaskRunner`:
@@ -119,6 +122,7 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
+  - `webhookCertSecret` (_String_): A secert containing the CA bundle and the certificate for the webhook server.
 - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
 - `networking`: Networking configuration
   - `gatewayClass` (_String_): The name of the GatewayClass Korifi Gateway references
@@ -144,4 +148,5 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
+  - `webhookCertSecret` (_String_): A secert containing the CA bundle and the certificate for the webhook server.
 - `systemImagePullSecrets` (_Array_): List of `Secret` names to be used when pulling Korifi system images from private registries

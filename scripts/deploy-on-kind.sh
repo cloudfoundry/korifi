@@ -168,10 +168,15 @@ function deploy_korifi() {
         kbld_file="scripts/assets/korifi-debug-kbld.yml"
       fi
 
-      VERSION=$(git describe --tags | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}')
+      export VERSION=$(git describe --tags | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}' | awk '{print substr($1,2)}')
 
-      values_file="$(mktemp)"
-      trap "rm -f $values_file" RETURN
+      chart_dir=$(mktemp -d)
+      trap "rm -rf $chart_dir" RETURN
+
+      cp -a helm/korifi/* "$chart_dir"
+      values_file="$chart_dir/values.yaml"
+
+      yq -i 'with(.; .version=env(VERSION))' "$chart_dir/Chart.yaml"
       "${ROOT_DIR}/bin/yq" "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=$VERSION\"])" $kbld_file |
         kbld \
           --images-annotation=false \
@@ -186,7 +191,7 @@ function deploy_korifi() {
     echo "Deploying korifi..."
     helm dependency update helm/korifi
 
-    helm upgrade --install korifi helm/korifi \
+    helm upgrade --install korifi "$chart_dir" \
       --namespace korifi \
       --values="$values_file" \
       --set=adminUserName="cf-admin" \

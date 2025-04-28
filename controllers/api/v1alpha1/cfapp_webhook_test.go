@@ -9,11 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	cfAppLabelKey    = "korifi.cloudfoundry.org/app-guid"
-	cfAppRevisionKey = "korifi.cloudfoundry.org/app-rev"
-)
-
 var _ = Describe("CFAppMutatingWebhook", func() {
 	var cfApp *korifiv1alpha1.CFApp
 
@@ -43,12 +38,20 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 		Expect(adminClient.Create(ctx, cfApp)).To(Succeed())
 	})
 
-	It("adds a label matching metadata.name", func() {
-		Expect(cfApp.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfApp.Name))
+	It("adds the guid label", func() {
+		Expect(cfApp.Labels).To(HaveKeyWithValue(korifiv1alpha1.GUIDLabelKey, cfApp.Name))
+	})
+
+	It("adds the app-guid label", func() {
+		Expect(cfApp.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfApp.Name))
+	})
+
+	It("adds the display name label", func() {
+		Expect(cfApp.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppDisplayNameKey, cfApp.Spec.DisplayName))
 	})
 
 	It("adds an app revision annotation", func() {
-		Expect(cfApp.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "0"))
+		Expect(cfApp.Annotations).To(HaveKeyWithValue(korifiv1alpha1.CFAppRevisionKey, "0"))
 	})
 
 	It("preserves all other app labels and annotations", func() {
@@ -56,23 +59,13 @@ var _ = Describe("CFAppMutatingWebhook", func() {
 		Expect(cfApp.Annotations).To(HaveKeyWithValue("someAnnotation", "blah"))
 	})
 
-	When("the app does not have any labels", func() {
-		BeforeEach(func() {
-			cfApp.Labels = nil
-		})
-
-		It("adds a label mathching metadata.name", func() {
-			Expect(cfApp.Labels).To(HaveKeyWithValue(cfAppLabelKey, cfApp.Name))
-		})
-	})
-
 	When("the app does not have any annotations", func() {
 		BeforeEach(func() {
 			cfApp.Annotations = nil
 		})
 
-		It("adds an app revision annotation", func() {
-			Expect(cfApp.Annotations).To(HaveKeyWithValue(cfAppRevisionKey, "0"))
+		It("adds an app revision annotation with a default value", func() {
+			Expect(cfApp.Annotations).To(HaveKeyWithValue(korifiv1alpha1.CFAppRevisionKey, "0"))
 		})
 	})
 })

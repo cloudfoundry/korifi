@@ -28,8 +28,10 @@ import (
 )
 
 const (
-	CFAppRevisionKey   = "korifi.cloudfoundry.org/app-rev"
-	CFAppRevisionValue = "1"
+	CFAppRevisionKey = "korifi.cloudfoundry.org/app-rev"
+
+	CFAppDisplayNameLabel = "korifi.cloudfoundry.org/display-name"
+	CFAppRevisionValue    = "1"
 )
 
 var _ = Describe("AppRepository", func() {
@@ -220,174 +222,37 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		Describe("filtering", func() {
-			var cfApp12 *korifiv1alpha1.CFApp
-
 			BeforeEach(func() {
-				cfApp12 = createAppWithGUID(cfSpace.Name, testutils.PrefixedGUID("cfapp12-"))
+				message = repositories.ListAppsMessage{
+					Guids: []string{cfApp2.Name},
+				}
 			})
 
-			Describe("filtering by name", func() {
-				When("no Apps exist that match the filter", func() {
-					BeforeEach(func() {
-						message = repositories.ListAppsMessage{Names: []string{"some-other-app"}}
-					})
-
-					It("returns an empty list of apps", func() {
-						Expect(appList).To(BeEmpty())
-					})
-				})
-
-				When("some Apps match the filter", func() {
-					BeforeEach(func() {
-						message = repositories.ListAppsMessage{Names: []string{cfApp2.Spec.DisplayName, cfApp12.Spec.DisplayName}}
-					})
-
-					It("returns the matching apps", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(appList).To(ConsistOf(
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp12.Name)}),
-						))
-					})
-				})
+			It("returns the apps matching the filter paramters", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(appList).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					"GUID": Equal(cfApp2.Name),
+				})))
 			})
 
-			Describe("filtering by guid", func() {
-				When("no Apps exist that match the filter", func() {
-					BeforeEach(func() {
-						message = repositories.ListAppsMessage{Guids: []string{"some-other-app-guid"}}
-					})
-
-					It("returns an empty list of apps", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(appList).To(BeEmpty())
-					})
-				})
-
-				When("some Apps match the filter", func() {
-					BeforeEach(func() {
-						message = repositories.ListAppsMessage{Guids: []string{cfApp.Name, cfApp2.Name}}
-					})
-
-					It("returns the matching apps", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(appList).To(ConsistOf(
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
-						))
-					})
-				})
-			})
-
-			Describe("filtering by space", func() {
-				When("no Apps exist that match the filter", func() {
-					BeforeEach(func() {
-						message = repositories.ListAppsMessage{SpaceGUIDs: []string{"some-other-space-guid"}}
-					})
-
-					It("returns an empty list of apps", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(appList).To(BeEmpty())
-					})
-				})
-
-				When("some Apps match the filter", func() {
-					BeforeEach(func() {
-						message = repositories.ListAppsMessage{SpaceGUIDs: []string{cfSpace.Name}}
-					})
-
-					It("returns the matching apps", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(appList).To(ConsistOf(
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp12.Name)}),
-						))
-					})
-				})
-			})
-
-			Describe("filtering by both name and space", func() {
-				When("no Apps exist that match the union of the filters", func() {
-					BeforeEach(func() {
-						message = repositories.ListAppsMessage{Names: []string{cfApp.Spec.DisplayName}, SpaceGUIDs: []string{"some-other-space-guid"}}
-					})
-
-					When("an App matches by Name but not by Space", func() {
-						It("returns an empty list of apps", func() {
-							Expect(listErr).NotTo(HaveOccurred())
-							Expect(appList).To(BeEmpty())
-						})
-					})
-
-					When("an App matches by Space but not by Name", func() {
-						BeforeEach(func() {
-							message = repositories.ListAppsMessage{Names: []string{"fake-app-name"}, SpaceGUIDs: []string{cfSpace.Name}}
-						})
-
-						It("returns an empty list of apps", func() {
-							Expect(listErr).NotTo(HaveOccurred())
-							Expect(appList).To(BeEmpty())
-						})
-					})
-				})
-
-				When("some Apps match the union of the filters", func() {
-					BeforeEach(func() {
-						message = repositories.ListAppsMessage{Names: []string{cfApp12.Spec.DisplayName}, SpaceGUIDs: []string{cfSpace.Name}}
-					})
-
-					It("returns the matching apps", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(appList).To(HaveLen(1))
-						Expect(appList[0].GUID).To(Equal(cfApp12.Name))
-					})
-				})
-			})
-
-			Describe("filtering by label selector", func() {
+			Describe("filter parameters to list options", func() {
 				BeforeEach(func() {
-					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-						cfApp.Labels["foo"] = "FOO1"
-					})).To(Succeed())
-					Expect(k8s.PatchResource(ctx, k8sClient, cfApp2, func() {
-						cfApp2.Labels["foo"] = "FOO2"
-					})).To(Succeed())
-					Expect(k8s.PatchResource(ctx, k8sClient, cfApp12, func() {
-						cfApp12.Labels["not_foo"] = "NOT_FOO"
-					})).To(Succeed())
+					message = repositories.ListAppsMessage{
+						Names:         []string{"n1", "n2"},
+						Guids:         []string{"g1", "g2"},
+						SpaceGUIDs:    []string{"sg1", "sg2"},
+						LabelSelector: "foo=bar",
+					}
 				})
 
-				DescribeTable("valid label selectors",
-					func(selector string, appGUIDPrefixes ...string) {
-						serviceBindings, err := appRepo.ListApps(ctx, authInfo, repositories.ListAppsMessage{
-							LabelSelector: selector,
-						})
-						Expect(err).NotTo(HaveOccurred())
-
-						matchers := []any{}
-						for _, prefix := range appGUIDPrefixes {
-							matchers = append(matchers, MatchFields(IgnoreExtras, Fields{"GUID": HavePrefix(prefix)}))
-						}
-
-						Expect(serviceBindings).To(ConsistOf(matchers...))
-					},
-					Entry("key", "foo", "cfapp1-", "cfapp2-"),
-					Entry("!key", "!foo", "cfapp12-"),
-					Entry("key=value", "foo=FOO1", "cfapp1-"),
-					Entry("key==value", "foo==FOO2", "cfapp2-"),
-					Entry("key!=value", "foo!=FOO1", "cfapp2-", "cfapp12-"),
-					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "cfapp1-", "cfapp2-"),
-					Entry("key notin (value1,value2)", "foo notin (FOO2)", "cfapp1-", "cfapp12-"),
-				)
-
-				When("the label selector is invalid", func() {
-					BeforeEach(func() {
-						message = repositories.ListAppsMessage{LabelSelector: "~"}
-					})
-
-					It("returns an error", func() {
-						Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-					})
+				It("translates filter parameters to klient list options", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(klient.GetRecordedListOptions()).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, []string{"n1", "n2"}),
+						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
+						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"sg1", "sg2"}),
+						repositories.WithLabelSelector("foo=bar"),
+					))
 				})
 			})
 		})

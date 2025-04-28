@@ -10,7 +10,6 @@ import (
 	sfake "code.cloudfoundry.org/korifi/api/actions/shared/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -89,24 +88,22 @@ var _ = Describe("ProcessStats", func() {
 			Expect(responseErr).NotTo(HaveOccurred())
 
 			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
-			_, actualAuthInfo, processGUID := processRepo.GetProcessArgsForCall(0)
+			_, actualAuthInfo, actualProcessGUID := processRepo.GetProcessArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(processGUID).To(Equal("the-process-guid"))
+			Expect(actualProcessGUID).To(Equal("the-process-guid"))
 
 			Expect(processRepo.GetProcessCallCount()).To(Equal(1))
-			_, actualAuthInfo, appGUID := appRepo.GetAppArgsForCall(0)
+			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(appGUID).To(Equal("the-app-guid"))
+			Expect(actualAppGUID).To(Equal("the-app-guid"))
 
 			Expect(metricsRepo.GetMetricsCallCount()).To(Equal(1))
-			_, actualAuthInfo, spaceGUID, labelMatcher := metricsRepo.GetMetricsArgsForCall(0)
+			_, actualAuthInfo, actualAppRecord, actualProcessGUID := metricsRepo.GetMetricsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(spaceGUID).To(Equal("the-space-guid"))
-			Expect(labelMatcher).To(Equal(client.MatchingLabels{
-				korifiv1alpha1.CFAppGUIDLabelKey: "the-app-guid",
-				korifiv1alpha1.VersionLabelKey:   "1",
-				LabelGUID:                        "the-process-guid",
+			Expect(actualAppRecord).To(MatchFields(IgnoreExtras, Fields{
+				"GUID": Equal("the-app-guid"),
 			}))
+			Expect(actualProcessGUID).To(Equal("the-process-guid"))
 
 			Expect(responseRecords).To(HaveLen(2))
 

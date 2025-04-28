@@ -20,7 +20,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -132,20 +131,13 @@ func (r *LogRepo) getBuildLogs(
 	startTime *int64,
 	limit *int64,
 ) (iter.Seq[LogRecord], error) {
-	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		BuildWorkloadLabelKey: build.GUID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	logs, err := r.getLogs(
 		ctx,
 		authInfo,
 		startTime,
 		limit,
 		InNamespace(build.SpaceGUID),
-		WithLabels{Selector: labelSelector},
+		WithLabel(BuildWorkloadLabelKey, build.GUID),
 	)
 	if err != nil {
 		return nil, err
@@ -166,21 +158,14 @@ func (r *LogRepo) getAppLogs(
 	startTime *int64,
 	limit *int64,
 ) (iter.Seq[LogRecord], error) {
-	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		korifiv1alpha1.CFAppGUIDLabelKey: app.GUID,
-		korifiv1alpha1.VersionLabelKey:   app.Revision,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	logs, err := r.getLogs(
 		ctx,
 		authInfo,
 		startTime,
 		limit,
 		InNamespace(app.SpaceGUID),
-		WithLabels{Selector: labelSelector},
+		WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, app.GUID),
+		WithLabel(korifiv1alpha1.VersionLabelKey, app.Revision),
 	)
 	if err != nil {
 		return nil, err

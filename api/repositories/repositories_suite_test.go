@@ -51,8 +51,8 @@ var (
 	ctx                   context.Context
 	testEnv               *envtest.Environment
 	k8sClient             client.WithWatch
-	klient                repositories.Klient
-	klientUnfiltered      repositories.Klient
+	klient                *ListOptionsRecordingKlient
+	klientUnfiltered      *ListOptionsRecordingKlient
 	userName              string
 	authInfo              authorization.Info
 	rootNamespace         string
@@ -138,12 +138,12 @@ var _ = BeforeEach(func() {
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
-	klientUnfiltered = k8sklient.NewK8sKlient(namespaceRetriever, userClientFactoryUnfiltered)
+	klientUnfiltered = NewListOptionsRecordingKlient(k8sklient.NewK8sKlient(namespaceRetriever, userClientFactoryUnfiltered))
 
 	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
 	})
-	klient = k8sklient.NewK8sKlient(namespaceRetriever, userClientFactory)
+	klient = NewListOptionsRecordingKlient(k8sklient.NewK8sKlient(namespaceRetriever, userClientFactory))
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)
@@ -386,6 +386,7 @@ func createApp(space string) *korifiv1alpha1.CFApp {
 }
 
 func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
+	displayName := uuid.NewString()
 	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
@@ -394,11 +395,13 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 				CFAppRevisionKey: CFAppRevisionValue,
 			},
 			Labels: map[string]string{
-				korifiv1alpha1.SpaceGUIDKey: space,
+				korifiv1alpha1.SpaceGUIDKey:        space,
+				korifiv1alpha1.GUIDLabelKey:        guid,
+				korifiv1alpha1.CFAppDisplayNameKey: displayName,
 			},
 		},
 		Spec: korifiv1alpha1.CFAppSpec{
-			DisplayName:  uuid.NewString(),
+			DisplayName:  displayName,
 			DesiredState: "STOPPED",
 			Lifecycle: korifiv1alpha1.Lifecycle{
 				Type: "buildpack",
@@ -415,4 +418,24 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
 
 	return cfApp
+}
+
+type ListOptionsRecordingKlient struct {
+	repositories.Klient
+	listOpts []repositories.ListOption
+}
+
+func NewListOptionsRecordingKlient(klient repositories.Klient) *ListOptionsRecordingKlient {
+	return &ListOptionsRecordingKlient{
+		Klient: klient,
+	}
+}
+
+func (k *ListOptionsRecordingKlient) List(ctx context.Context, list client.ObjectList, opts ...repositories.ListOption) error {
+	k.listOpts = opts
+	return k.Klient.List(ctx, list, opts...)
+}
+
+func (k *ListOptionsRecordingKlient) GetRecordedListOptions() []repositories.ListOption {
+	return k.listOpts
 }

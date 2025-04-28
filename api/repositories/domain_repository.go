@@ -10,9 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -67,8 +65,11 @@ type ListDomainsMessage struct {
 	Names []string
 }
 
-func (m *ListDomainsMessage) matches(d korifiv1alpha1.CFDomain) bool {
-	return tools.EmptyOrContains(m.Names, d.Spec.Name)
+func (m *ListDomainsMessage) toListOptions(rootNamespace string) []ListOption {
+	return []ListOption{
+		WithLabelIn(korifiv1alpha1.CFDomainNameLabelKey, m.Names),
+		InNamespace(rootNamespace),
+	}
 }
 
 func (r *DomainRepo) GetDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) (DomainRecord, error) {
@@ -132,7 +133,7 @@ func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.In
 
 func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) ([]DomainRecord, error) {
 	cfdomainList := &korifiv1alpha1.CFDomainList{}
-	err := r.klient.List(ctx, cfdomainList, InNamespace(r.rootNamespace))
+	err := r.klient.List(ctx, cfdomainList, message.toListOptions(r.rootNamespace)...)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return []DomainRecord{}, nil
@@ -140,10 +141,7 @@ func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Inf
 		return []DomainRecord{}, fmt.Errorf("failed to list domains in namespace %s: %w", r.rootNamespace, apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	domainRecords := slices.Collect(it.Map(
-		itx.FromSlice(cfdomainList.Items).Filter(message.matches),
-		cfDomainToDomainRecord,
-	))
+	domainRecords := slices.Collect(it.Map(slices.Values(cfdomainList.Items), cfDomainToDomainRecord))
 	sort.Slice(domainRecords, func(i, j int) bool {
 		return domainRecords[i].CreatedAt.Before(domainRecords[j].CreatedAt)
 	})

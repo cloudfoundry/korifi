@@ -22,6 +22,14 @@ EOF
   exit 1
 }
 
+retry() {
+  until $@; do
+    echo -n .
+    sleep 1
+  done
+  echo
+}
+
 while [[ $# -gt 0 ]]; do
   i=$1
   case $i in
@@ -59,7 +67,7 @@ echo "******************"
 echo " Installing Kpack"
 echo "******************"
 
-kubectl apply -f "$VENDOR_DIR/kpack"
+retry kubectl apply -f "$VENDOR_DIR/kpack"
 # Increase the CPU limit on the kpack-controller. Without this change the ClusterBuilder takes 10+ minutes to
 # become ready on M1 Macs. With this change the ClusterBuilder becomes ready in the time it takes this script to run.
 kubectl patch -n kpack deployment kpack-controller -p \

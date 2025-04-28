@@ -16,7 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -80,15 +79,8 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 }
 
 func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
-	labelSelector, err := labels.ValidatedSelectorFromSet(map[string]string{
-		korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
-	})
-	if err != nil {
-		return BuildRecord{}, err
-	}
-
 	buildList := &korifiv1alpha1.CFBuildList{}
-	err = b.klient.List(ctx, buildList, InNamespace(spaceGUID), WithLabels{Selector: labelSelector})
+	err := b.klient.List(ctx, buildList, InNamespace(spaceGUID), WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, appGUID))
 	if err != nil {
 		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}

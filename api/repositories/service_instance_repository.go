@@ -20,7 +20,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -406,13 +405,8 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 
 // nolint:dupl
 func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo authorization.Info, message ListServiceInstanceMessage) ([]ServiceInstanceRecord, error) {
-	labelSelector, err := labels.Parse(message.LabelSelector)
-	if err != nil {
-		return []ServiceInstanceRecord{}, apierrors.NewUnprocessableEntityError(err, "invalid label selector")
-	}
-
 	serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
-	err = r.klient.List(ctx, serviceInstanceList, WithLabels{Selector: labelSelector})
+	err := r.klient.List(ctx, serviceInstanceList, WithLabelSelector(message.LabelSelector))
 	if err != nil {
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances: %w",
 			apierrors.FromK8sError(err, ServiceInstanceResourceType),

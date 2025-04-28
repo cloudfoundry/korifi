@@ -26,6 +26,10 @@
       "description": "Use `cert-manager` to generate self-signed certificates for the API and app endpoints.",
       "type": "boolean"
     },
+    "generateWebhookCertificates": {
+      "description": "Use `cert-manager` to generate self-signed certificates for the webhooks.",
+      "type": "boolean"
+    },
     "containerRepositoryPrefix": {
       "description": "The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.",
       "type": "string",
@@ -174,6 +178,10 @@
               "description": "Port used internally by the API container.",
               "type": "integer"
             },
+            "ingressCertSecret": {
+              "description": "The name of the secret containing the TLS certificate for the API ingress.",
+              "type": "string"
+            },
             "timeouts": {
               "type": "object",
               "description": "HTTP timeouts.",
@@ -198,7 +206,7 @@
               "required": ["read", "write", "idle", "readHeader"]
             }
           },
-          "required": ["url", "port", "internalPort", "timeouts"]
+          "required": ["url", "port", "internalPort", "ingressCertSecret", "timeouts"]
         },
         "image": {
           "description": "Reference to the API container image.",
@@ -350,6 +358,10 @@
           "description": "Reference to the controllers container image.",
           "type": "string"
         },
+        "webhookCertSecret": {
+          "description": "A secert containing the CA bundle and the certificate for the webhook server.",
+          "type": "string"
+        },
         "processDefaults": {
           "type": "object",
           "properties": {
@@ -393,7 +405,7 @@
           "minimum": 1
         }
       },
-      "required": ["image", "taskTTL", "workloadsTLSSecret"],
+      "required": ["image", "taskTTL", "workloadsTLSSecret", "webhookCertSecret"],
       "type": "object"
     },
     "kpackImageBuilder": {
@@ -452,9 +464,13 @@
           "description": "Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.",
           "type": "string",
           "pattern": "^([a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*)?$"
+        },
+        "webhookCertSecret": {
+          "description": "A secert containing the CA bundle and the certificate for the webhook server.",
+          "type": "string"
         }
       },
-      "required": ["include", "builderReadinessTimeout"],
+      "required": ["include", "builderReadinessTimeout", "webhookCertSecret"],
       "type": "object"
     },
     "statefulsetRunner": {
@@ -466,6 +482,10 @@
         "replicas": {
           "description": "Number of replicas.",
           "type": "integer"
+        },
+        "webhookCertSecret": {
+          "description": "A secert containing the CA bundle and the certificate for the webhook server.",
+          "type": "string"
         },
         "resources": {
           "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
@@ -502,7 +522,7 @@
           }
         }
       },
-      "required": ["include"],
+      "required": ["include", "webhookCertSecret"],
       "type": "object"
     },
     "jobTaskRunner": {

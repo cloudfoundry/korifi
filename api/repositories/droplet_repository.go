@@ -14,7 +14,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 // No kubebuilder RBAC tags required, because Build and Droplet are the same CR
@@ -63,15 +62,11 @@ type ListDropletsMessage struct {
 	AppGUIDs     []string
 }
 
-func (m *ListDropletsMessage) createSelector() map[string]string {
-	newSelector := make(map[string]string)
-	if len(m.PackageGUIDs) > 0 {
-		newSelector[korifiv1alpha1.CFPackageGUIDLabelKey] = m.PackageGUIDs[0]
+func (m *ListDropletsMessage) toListOptions() []ListOption {
+	return []ListOption{
+		WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, m.PackageGUIDs),
+		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 	}
-	if len(m.AppGUIDs) > 0 {
-		newSelector[korifiv1alpha1.CFAppGUIDLabelKey] = m.AppGUIDs[0]
-	}
-	return newSelector
 }
 
 func (r *DropletRepo) GetDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (DropletRecord, error) {
@@ -144,7 +139,7 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 
 func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	err := r.klient.List(ctx, buildList, WithLabels{Selector: labels.SelectorFromValidatedSet(message.createSelector())})
+	err := r.klient.List(ctx, buildList, message.toListOptions()...)
 	if err != nil {
 		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}

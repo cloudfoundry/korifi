@@ -14,12 +14,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
 	ApplicationContainerName = "application"
-	LabelGUID                = "korifi.cloudfoundry.org/guid"
 	stateStarting            = "STARTING"
 	stateRunning             = "RUNNING"
 	stateDown                = "DOWN"
@@ -29,7 +27,7 @@ const (
 //counterfeiter:generate -o fake -fake-name MetricsRepository . MetricsRepository
 
 type MetricsRepository interface {
-	GetMetrics(ctx context.Context, authInfo authorization.Info, namespace string, podSelector client.MatchingLabels) ([]repositories.PodMetrics, error)
+	GetMetrics(ctx context.Context, authInfo authorization.Info, app repositories.AppRecord, processGUID string) ([]repositories.PodMetrics, error)
 }
 
 type Usage struct {
@@ -85,11 +83,7 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 		}, nil
 	}
 
-	metrics, err := a.metricsRepo.GetMetrics(ctx, authInfo, appRecord.SpaceGUID, client.MatchingLabels{
-		korifiv1alpha1.CFAppGUIDLabelKey: appRecord.GUID,
-		korifiv1alpha1.VersionLabelKey:   appRecord.Revision,
-		LabelGUID:                        processGUID,
-	})
+	metrics, err := a.metricsRepo.GetMetrics(ctx, authInfo, appRecord, processGUID)
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/config"
@@ -372,9 +371,10 @@ func (r *RoleRepo) DeleteRole(ctx context.Context, authInfo authorization.Info, 
 	}
 
 	roleBindings := &rbacv1.RoleBindingList{}
-	err := r.klient.List(ctx, roleBindings, InNamespace(ns), WithLabels{Selector: labels.SelectorFromValidatedSet(map[string]string{
-		RoleGuidLabel: deleteMsg.GUID,
-	})})
+	err := r.klient.List(ctx, roleBindings,
+		InNamespace(ns),
+		WithLabel(RoleGuidLabel, deleteMsg.GUID),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to list roles with guid %q in namespace %q: %w", deleteMsg.GUID, ns, apierrors.FromK8sError(err, RoleResourceType))
 	}
