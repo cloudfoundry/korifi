@@ -2,6 +2,7 @@ package v1alpha1_test
 
 import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -31,8 +32,18 @@ var _ = Describe("CFDomainMutatingWebhook", func() {
 		Expect(adminClient.Create(ctx, cfDomain)).To(Succeed())
 	})
 
-	It("sets the domain name label", func() {
-		Expect(cfDomain.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFDomainNameLabelKey, cfDomain.Spec.Name))
+	It("sets the encoded domain name label", func() {
+		Expect(cfDomain.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFEncodedDomainNameLabelKey, tools.EncodeValueToSha224(cfDomain.Spec.Name)))
+	})
+
+	When("the domain name is too long", func() {
+		BeforeEach(func() {
+			cfDomain.Spec.Name = "a-very-long-domain-name-that-is-way-too-long-to-be-encoded-in-a-label"
+		})
+
+		It("sets the encoded domain name label", func() {
+			Expect(cfDomain.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFEncodedDomainNameLabelKey, tools.EncodeValueToSha224(cfDomain.Spec.Name)))
+		})
 	})
 
 	It("preserves all other labels", func() {

@@ -45,6 +45,7 @@ spec:
         - bash
         - -c
         - |
+
           set-label() {
             local kind namespace name
             kind=$1
@@ -52,6 +53,7 @@ spec:
             name="$3"
             label="$4"
             label_value="$5"
+
 
             kubectl patch \
               --namespace "$namespace" \
@@ -61,24 +63,25 @@ spec:
           }
 
           set-migrated-by-label() {
-            local resource_kinds=(cfapps cfdomains)
+            local resource_kinds="$(
+              IFS=,
+              echo "$*"
+            )"
 
-            for kind in "${resource_kinds[@]}"; do
-              resources="$(kubectl get --all-namespaces "$kind" -o=custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers)"
-              if [[ -z "${resources}" ]]; then
-                echo "No resources of kind $kind. Nothing to do."
-                continue
-              fi
+            resources=$(kubectl get --all-namespaces $resource_kinds -o=custom-columns=KIND:.kind,NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers)
+            if [[ -z "${resources}" ]]; then
+              echo "No resources of kinds $resource_kinds. Nothing to do."
+              return
+            fi
 
-              while IFS= read -r line; do
-                read -r namespace name <<<$line
-                set-label "$kind" "$namespace" "$name" "korifi.cloudfoundry.org/migrated-by" "$KORIFI_VERSION"
-              done <<<"$resources"
-            done
+            while IFS= read -r resource; do
+              read -r kind namespace name <<<$resource
+              set-label "$kind" "$namespace" "$name" "korifi.cloudfoundry.org/migrated-by" "$KORIFI_VERSION"
+            done <<<"$resources"
           }
 
           main() {
-            set-migrated-by-label
+            set-migrated-by-label cfapps cfdomains
           }
 
           main
