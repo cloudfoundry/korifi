@@ -23,18 +23,15 @@ import (
 	"log"
 	"os"
 
+	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	routeControllers "code.cloudfoundry.org/korifi/gateway-api-router/controllers"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
-	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/k8s"
-	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/version"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -73,9 +70,13 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var gatewayNamespace string
+	var gatewayName string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&gatewayName, "gateway-name", "korifi", "Gateway name")
+	flag.StringVar(&gatewayNamespace, "gateway-namespace", "korifi-gateway", "Gateway namespace.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -122,50 +123,26 @@ func main() {
 	}
 	controllersClient := k8s.IgnoreEmptyPatches(mgr.GetClient())
 	if os.Getenv("ENABLE_CONTROLLERS") != "false" {
+		// Setup Index with Manager
+		err = shared.SetupIndexWithManager(mgr)
+		if err != nil {
+			setupLog.Error(err, "unable to setup index on manager")
+			os.Exit(1)
+		}
+
 		controllersLog := ctrl.Log.WithName("controllers")
 
 		if err = routeControllers.NewReconciler(
 			controllersClient,
 			mgr.GetScheme(),
 			controllersLog,
-			controllerConfig,
+			gatewayName,
+			gatewayNamespace,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create gateway-api-router", "gateway-api-router", "CFRoute")
 			os.Exit(1)
 		}
 
-	}
-	// Setup webhooks with manager
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-
-		uncachedClient, clientErr := client.New(mgr.GetConfig(), client.Options{
-			Scheme: scheme,
-		})
-		if clientErr != nil {
-			setupLog.Error(clientErr, "unable to create uncached client")
-			os.Exit(1)
-		}
-
-		if err = routeswebhook.NewValidator(
-			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, routeswebhook.RouteEntityType)),
-			controllerConfig.CFRootNamespace,
-			uncachedClient,
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
-			os.Exit(1)
-		}
-
-		if err = korifiv1alpha1.NewCFRouteDefaulter().SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
-			os.Exit(1)
-		}
-
-		if err = mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
-			setupLog.Error(err, "unable to set up ready check")
-			os.Exit(1)
-		}
-	} else {
-		setupLog.Info("skipping webhook setup because ENABLE_WEBHOOKS set to false.")
 	}
 
 	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

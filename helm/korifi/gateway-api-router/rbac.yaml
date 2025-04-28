@@ -22,3 +22,16 @@ subjects:
   - kind: ServiceAccount
     name: korifi-gateway-api-router-manager
     namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gateway-api-router-admin
+subjects:
+  - kind: ServiceAccount
+    name: korifi-gateway-api-router-manager
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io

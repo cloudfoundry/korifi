@@ -18,9 +18,6 @@ spec:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
-        prometheus.io/path: /metrics
-        prometheus.io/port: "8080"
-        prometheus.io/scrape: "true"
         checksum/config: {{ tpl ($.Files.Get "gateway-api-router/configmap.yaml") $ | sha256sum }}
       labels:
         app: korifi-gateway-api-router
@@ -28,7 +25,7 @@ spec:
       containers:
         - name: manager
           env:
-            - name: ROUTECONTROLCONFIG
+            - name: GATEWAYAPIROUTERCONFIG
               value: /etc/korifi-gateway-api-router-config
           image: {{ .Values.gatewayApiRouter.image }}
           imagePullPolicy: IfNotPresent
@@ -57,25 +54,9 @@ spec:
               port: 8081
             initialDelaySeconds: 15
             periodSeconds: 20
-          ports:
-            - containerPort: 9443
-              name: webhook-server
-              protocol: TCP
-            - containerPort: 8080
-              name: metrics
-              protocol: TCP
-          readinessProbe:
-            httpGet:
-              path: /readyz
-              port: 8081
-            initialDelaySeconds: 5
-            periodSeconds: 10
           {{- include "korifi.resources" . | indent 10 }}
           {{- include "korifi.securityContext" . | indent 10 }}
           volumeMounts:
-            - mountPath: /tmp/k8s-webhook-server/serving-certs
-              name: cert
-              readOnly: true
             - mountPath: /etc/korifi-gateway-api-router-config
               name: korifi-gateway-api-router-config
               readOnly: true
@@ -91,10 +72,6 @@ spec:
 {{- end }}
       terminationGracePeriodSeconds: 10
       volumes:
-        - name: cert
-          secret:
-            defaultMode: 420
-            secretName: gateway-api-router-webhook-server-cert
         - configMap:
             name: korifi-gateway-api-router-config
           name: korifi-gateway-api-router-config

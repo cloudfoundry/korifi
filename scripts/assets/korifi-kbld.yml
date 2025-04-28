@@ -31,3 +31,9 @@ sources:
   docker:
     buildx:
       file: job-task-runner/Dockerfile
+
+- image: cloudfoundry/korifi-gateway-api-router:latest
+  path: .
+  docker:
+    buildx:
+      file: gateway-api-router/Dockerfile

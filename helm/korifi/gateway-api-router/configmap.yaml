@@ -2,14 +2,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: korifi-gateway-api-router-config
-  namespace: {{ .Releases.Namespace }}
+  namespace: {{ .Release.Namespace }}
 data:
   config.yaml: |-
     builderName: {{ .Values.gatewayApiRouter.builderName | default "cf-gateway-api-router-builder" }}
     runnerName: {{ .Values.gatewayApiRouter.runnerName | default "cf-gateway-api-router-runner" }}
     cfRootNamespace: {{ .Values.rootNamespace }}
     namespaceLabels:
-    {{ - range $key, $value := .Values.gateway-api-router.namespaceLabels }}
+    {{- range $key, $value := .Values.gatewayApiRouter.namespaceLabels }}
       {{ $key }}: {{ $value }}
-    {{ - end }}
-    logLevel: { { .Values.logLevel } }
+    {{- end }}
+    logLevel: {{ .Values.logLevel }}

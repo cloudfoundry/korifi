@@ -31,17 +31,11 @@ help: ## Display this help.
 export GOBIN = $(shell pwd)/bin
 export PATH := $(shell pwd)/bin:$(PATH)
 
-webhooks-file = ../helm/korifi/gateway-api-router/manifests.yaml
 manifests: bin/controller-gen bin/yq
 	controller-gen \
 		paths="./..." \
 		rbac:roleName=korifi-gateway-api-router-manager-role \
-		webhook \
-		output:rbac:artifacts:config=../helm/korifi/gateway-api-router \
-		output:webhook:artifacts:config=../helm/korifi/gateway-api-router
-
-	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/korifi-gateway-api-router-serving-cert")' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
+		output:rbac:artifacts:config=../helm/korifi/gateway-api-router
 
 generate: bin/controller-gen
 	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
