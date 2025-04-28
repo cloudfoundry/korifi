@@ -423,6 +423,19 @@ var _ = Describe("RouteRepository", func() {
 					Expect(routeRecords).To(BeEmpty())
 				})
 			})
+
+			When("is-unmapped filter is provided", func() {
+				BeforeEach(func() {
+					message = ListRoutesMessage{IsUnmapped: true}
+				})
+
+				It("returns a list of routeRecords that are not mapped to an app", func() {
+					Expect(routeRecords).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute2A.Name)}),
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute1B.Name)}),
+					))
+				})
+			})
 		})
 	})
 
@@ -691,6 +704,88 @@ var _ = Describe("RouteRepository", func() {
 					Expect(deleteErr).To(MatchError(ContainSubstring("not found")))
 				})
 			})
+		})
+	})
+
+	Describe("DeleteUnmappedRoutes", func() {
+		var (
+			cfRoute1  *korifiv1alpha1.CFRoute
+			cfRoute2  *korifiv1alpha1.CFRoute
+			deleteErr error
+		)
+
+		BeforeEach(func() {
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+
+			cfRoute1 = &korifiv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
+				},
+				Spec: korifiv1alpha1.CFRouteSpec{
+					Host:     "my-subdomain-1",
+					Path:     "",
+					Protocol: "http",
+					DomainRef: corev1.ObjectReference{
+						Name:      domainGUID,
+						Namespace: rootNamespace,
+					},
+					Destinations: []korifiv1alpha1.Destination{
+						{
+							GUID: "destination-guid",
+							Port: tools.PtrTo[int32](8080),
+							AppRef: corev1.LocalObjectReference{
+								Name: "some-app-guid",
+							},
+							ProcessType: "web",
+							Protocol:    tools.PtrTo("http1"),
+						},
+					},
+				},
+			}
+			Expect(
+				k8sClient.Create(ctx, cfRoute1),
+			).To(Succeed())
+
+			cfRoute2 = &korifiv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: space.Name,
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+					},
+				},
+				Spec: korifiv1alpha1.CFRouteSpec{
+					Host:     "my-subdomain-1",
+					Path:     "",
+					Protocol: "http",
+					DomainRef: corev1.ObjectReference{
+						Name:      domainGUID,
+						Namespace: rootNamespace,
+					},
+					Destinations: []korifiv1alpha1.Destination{},
+				},
+			}
+			Expect(
+				k8sClient.Create(ctx, cfRoute2),
+			).To(Succeed())
+		})
+
+		JustBeforeEach(func() {
+			deleteErr = routeRepo.DeleteUnmappedRoutes(ctx, authInfo, space.Name)
+		})
+
+		It("deletes only the unmapped route resource", func() {
+			Expect(deleteErr).NotTo(HaveOccurred())
+
+			var routeList korifiv1alpha1.CFRouteList
+			Expect(k8sClient.List(ctx, &routeList, client.InNamespace(space.Name))).To(Succeed())
+
+			Expect(routeList.Items).To(HaveLen(1))
+			Expect(routeList.Items[0].Name).To(Equal(cfRoute1.Name))
 		})
 	})
 

@@ -409,6 +409,7 @@ func main() {
 				handlers.ManagedServiceInstanceCreateJobType: serviceInstanceRepo,
 				handlers.ManagedServiceBindingCreateJobType:  serviceBindingRepo,
 			},
+			routeRepo,
 			500*time.Millisecond,
 		),
 		handlers.NewOrg(
@@ -422,6 +423,7 @@ func main() {
 		handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
+			routeRepo,
 			requestValidator,
 		),
 		handlers.NewSpaceManifest(

@@ -16,16 +16,17 @@ const (
 	StateProcessing = "PROCESSING"
 	StatePolling    = "POLLING"
 
-	AppDeleteOperation           = "app.delete"
-	OrgDeleteOperation           = "org.delete"
-	RouteDeleteOperation         = "route.delete"
-	SpaceApplyManifestOperation  = "space.apply_manifest"
-	SpaceDeleteOperation         = "space.delete"
-	DomainDeleteOperation        = "domain.delete"
-	RoleDeleteOperation          = "role.delete"
-	ServiceBrokerCreateOperation = "service_broker.create"
-	ServiceBrokerDeleteOperation = "service_broker.delete"
-	ServiceBrokerUpdateOperation = "service_broker.update"
+	AppDeleteOperation                 = "app.delete"
+	OrgDeleteOperation                 = "org.delete"
+	RouteDeleteOperation               = "route.delete"
+	SpaceApplyManifestOperation        = "space.apply_manifest"
+	SpaceDeleteOperation               = "space.delete"
+	SpaceDeleteUnmappedRoutesOperation = "space.delete_unapped_routes"
+	DomainDeleteOperation              = "domain.delete"
+	RoleDeleteOperation                = "role.delete"
+	ServiceBrokerCreateOperation       = "service_broker.create"
+	ServiceBrokerDeleteOperation       = "service_broker.delete"
+	ServiceBrokerUpdateOperation       = "service_broker.update"
 
 	ManagedServiceInstanceResourceType    = "managed_service_instance"
 	ManagedServiceBindingResourceType     = "managed_service_binding"
@@ -84,6 +85,14 @@ type JobLinks struct {
 
 func ForManifestApplyJob(job Job, baseURL url.URL) JobResponse {
 	response := ForJob(job, []JobResponseError{}, repositories.ResourceStateReady, baseURL)
+	response.Links.Space = &Link{
+		HRef: buildURL(baseURL).appendPath("/v3/spaces", job.ResourceGUID).build(),
+	}
+	return response
+}
+
+func ForSpaceDeleteUnmappedRoutesJob(job Job, state repositories.ResourceState, baseURL url.URL) JobResponse {
+	response := ForJob(job, []JobResponseError{}, state, baseURL)
 	response.Links.Space = &Link{
 		HRef: buildURL(baseURL).appendPath("/v3/spaces", job.ResourceGUID).build(),
 	}
