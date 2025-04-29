@@ -38,6 +38,8 @@ spec:
 {{- end }}
         name: korifi-api
         ports:
+        - containerPort: 9205 
+          name: debug
         - containerPort: {{ .Values.api.apiServer.internalPort }}
           name: web
         {{- include "korifi.resources" . | indent 8 }}
@@ -55,6 +57,23 @@ spec:
           subPath: ca.crt
           readOnly: true
 {{- end }}
+      - name: debug-sidecar
+        image: curlimages/curl:8.6.0
+        command: [ "sleep", "infinity" ]
+        securityContext:
+          runAsUser: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          readOnlyRootFilesystem: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
       {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-api-system-serviceaccount
 {{- if .Values.api.nodeSelector }}

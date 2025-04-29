@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"code.cloudfoundry.org/debugserver"
 	"code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/actions/manifest"
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -33,6 +34,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	toolsregistry "code.cloudfoundry.org/korifi/tools/registry"
 	"code.cloudfoundry.org/korifi/version"
+	"code.cloudfoundry.org/lager/v3"
 
 	chiMiddlewares "github.com/go-chi/chi/middleware"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -527,6 +529,21 @@ func main() {
 		ReadHeaderTimeout: time.Duration(cfg.ReadHeaderTimeout * int(time.Second)),
 		WriteTimeout:      time.Duration(cfg.WriteTimeout * int(time.Second)),
 		ErrorLog:          log.New(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"}, "", 0),
+	}
+
+	cfg.DebugAddress = ":9205" // to test only
+	if cfg.DebugAddress != "" {
+		reconfigurableSink := lager.NewReconfigurableSink(
+			lager.NewWriterSink(os.Stdout, lager.DEBUG),
+			lager.DEBUG,
+		)
+
+		debugServerErrChan := make(chan error, 1)
+		go func() {
+			ctrl.Log.Info("listening without TLS on " + cfg.DebugAddress)
+			_, err := debugserver.Run(cfg.DebugAddress, reconfigurableSink)
+			debugServerErrChan <- err
+		}()
 	}
 
 	if tlsFound {

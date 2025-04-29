@@ -8,6 +8,7 @@ data:
     externalFQDN: {{ .Values.api.apiServer.url }}
     externalPort: {{ .Values.api.apiServer.port | default 0 }}
     internalPort: {{ .Values.api.apiServer.internalPort }}
+    debugAddress: {{ .Values.api.apiServer.debugAddress }}
     idleTimeout: {{ .Values.api.apiServer.timeouts.idle }}
     readTimeout: {{ .Values.api.apiServer.timeouts.read }}
     readHeaderTimeout: {{ .Values.api.apiServer.timeouts.readHeader }}

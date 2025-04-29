@@ -49,6 +49,8 @@ type (
 		LogLevel        zapcore.Level `yaml:"logLevel"`
 
 		Experimental Experimental `yaml:"experimental"`
+
+		DebugAddress string `yaml:"debugAddress"`
 	}
 
 	Experimental struct {

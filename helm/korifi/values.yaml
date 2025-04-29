@@ -23,6 +23,10 @@ stagingRequirements:
 crds:
   include: true
 
+debugSidecar:
+  enabled: true
+  intervalSeconds: 10
+
 api:
   include: true
 
@@ -38,7 +42,6 @@ api:
     limits:
       cpu: 1000m
       memory: 1Gi
-
   apiServer:
     url: ""
     # To override default port, set port to a non-zero value
