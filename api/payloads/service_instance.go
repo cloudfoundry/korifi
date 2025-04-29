@@ -259,6 +259,9 @@ func (l ServiceInstanceList) Validate() error {
 				return jellidation.Each(validation.OneOf(
 					"guid",
 					"name",
+					"description",
+					"documentation_url",
+					"tags",
 					"relationships.service_broker",
 				)).Validate(rule.Fields)
 			case "service_plan.service_offering.service_broker":
