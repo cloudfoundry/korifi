@@ -38,10 +38,10 @@ var _ = Describe("ServiceInstanceList", func() {
 				Fields:           []string{"guid", "name"},
 			}}}),
 		Entry("fields[service_plan.service_offering]",
-			"fields[service_plan.service_offering]=guid,name,relationships.service_broker",
+			"fields[service_plan.service_offering]=guid,name,relationships.service_broker,description,tags,documentation_url",
 			payloads.ServiceInstanceList{IncludeResourceRules: []params.IncludeResourceRule{{
 				RelationshipPath: []string{"service_plan", "service_offering"},
-				Fields:           []string{"guid", "name", "relationships.service_broker"},
+				Fields:           []string{"guid", "name", "relationships.service_broker", "description", "tags", "documentation_url"},
 			}}}),
 
 		Entry("fields[service_plan]",
