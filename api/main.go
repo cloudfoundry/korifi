@@ -467,9 +467,6 @@ func main() {
 			taskRepo,
 			requestValidator,
 		),
-		handlers.NewOAuth(
-			*serverURL,
-		),
 		handlers.NewServiceBroker(
 			*serverURL,
 			serviceBrokerRepo,
