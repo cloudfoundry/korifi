@@ -1,0 +1,23 @@
+---
+{{- if .Values.debug }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: korifi-gateway-api-router
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    meta.helm.sh/release-name: gateway-api-router
+    meta.helm.sh/release-namespace: controllers
+spec:
+  ports:
+    - name: debug-30059
+      nodePort: 30059
+      port: 30059
+      protocol: TCP
+      targetPort: 40000
+  selector:
+    app: korifi-gateway-api-router
+  type: NodePort
+{{- end }}

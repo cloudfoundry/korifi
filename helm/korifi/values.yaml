@@ -69,6 +69,22 @@ api:
     host: ""
     caCert: ""
 
+gatewayApiRouter:
+  image: cloudfoundry/korifi-gateway-api-router:latest
+  include: true
+
+  replicas: 1
+  nodeSelector: {}
+  tolerations: []
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+  namespaceLabels: {}
+
 controllers:
   image: cloudfoundry/korifi-controllers:latest
   webhookCertSecret: "korifi-controllers-webhook-cert"
