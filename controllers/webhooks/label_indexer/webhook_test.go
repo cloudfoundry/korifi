@@ -1,259 +1,46 @@
 package label_indexer_test
 
 import (
-	"errors"
-
-	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
-	"code.cloudfoundry.org/korifi/tools"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Indexing Functions", func() {
-	var (
-		result *string
-		err    error
-	)
-
-	Describe("JSONValue", func() {
-		var (
-			obj  map[string]any
-			path string
-		)
+var _ = Describe("LabelIndexerWebhook", func() {
+	Describe("CFRoute", func() {
+		var route *korifiv1alpha1.CFRoute
 
 		BeforeEach(func() {
-			obj = map[string]any{
-				"foo": map[string]any{
-					"bar": "baz",
+			route = &korifiv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: namespace,
+				},
+				Spec: korifiv1alpha1.CFRouteSpec{
+					DomainRef: corev1.ObjectReference{
+						Name: "example.com",
+					},
 				},
 			}
-
-			path = "$.foo.bar"
 		})
 
 		JustBeforeEach(func() {
-			result, err = label_indexer.JSONValue(path)(obj)
+			Expect(adminClient.Create(ctx, route)).To(Succeed())
 		})
 
-		It("returns the value at the given JSON path", func() {
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(PointTo(Equal(`"baz"`)))
-		})
-
-		When("the path does not exist", func() {
-			BeforeEach(func() {
-				path = "$.foo.qux"
-			})
-
-			It("returns nil", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result).To(BeNil())
-			})
-		})
-
-		When("the object contains an array", func() {
-			BeforeEach(func() {
-				obj = map[string]any{
-					"students": []any{
-						map[string]any{
-							"first_name": "Alice",
-							"last_name":  "Smith",
-						},
-						map[string]any{
-							"first_name": "Bob",
-							"last_name":  "Johnson",
-						},
-					},
-				}
-				path = `$.students[?@.last_name == "Smith"].first_name`
-			})
-
-			It("returns a filtered array of results", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result).To(PointTo(Equal(`["Alice"]`)))
-			})
-		})
-	})
-
-	Describe("SingleValue", func() {
-		var indexingFunc label_indexer.IndexingFunc
-
-		BeforeEach(func() {
-			indexingFunc = func(obj map[string]any) (*string, error) {
-				return tools.PtrTo(`["foo"]`), nil
-			}
-		})
-
-		JustBeforeEach(func() {
-			result, err = label_indexer.SingleValue(indexingFunc)(map[string]any{})
-		})
-
-		It("returns the first value in the array", func() {
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(PointTo(Equal(`"foo"`)))
-		})
-
-		When("indexing func returns empty array", func() {
-			BeforeEach(func() {
-				indexingFunc = func(obj map[string]any) (*string, error) {
-					return tools.PtrTo(`[]`), nil
-				}
-			})
-
-			It("returns nil", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result).To(BeNil())
-			})
-		})
-
-		When("indexing func reuturns array with more than one element", func() {
-			BeforeEach(func() {
-				indexingFunc = func(obj map[string]any) (*string, error) {
-					return tools.PtrTo(`["foo", "bar"]`), nil
-				}
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("expected single value, got array")))
-			})
-		})
-
-		When("indexing func returns invalid json", func() {
-			BeforeEach(func() {
-				indexingFunc = func(obj map[string]any) (*string, error) {
-					return tools.PtrTo(`{"foo": "bar"`), nil
-				}
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("failed to unmarshal value")))
-			})
-		})
-
-		When("indexing func returns an error", func() {
-			BeforeEach(func() {
-				indexingFunc = func(obj map[string]any) (*string, error) {
-					return nil, errors.New("foo")
-				}
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("foo")))
-			})
-		})
-
-		When("indexing func returns nil", func() {
-			BeforeEach(func() {
-				indexingFunc = func(obj map[string]any) (*string, error) {
-					return nil, nil
-				}
-			})
-
-			It("returns nil", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result).To(BeNil())
-			})
-		})
-	})
-
-	Describe("Unquote", func() {
-		var indexingFunc label_indexer.IndexingFunc
-
-		BeforeEach(func() {
-			indexingFunc = func(obj map[string]any) (*string, error) {
-				return tools.PtrTo(`"foo"`), nil
-			}
-		})
-
-		JustBeforeEach(func() {
-			result, err = label_indexer.Unquote(indexingFunc)(map[string]any{})
-		})
-
-		It("returns the unquoted value", func() {
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(PointTo(Equal("foo")))
-		})
-
-		When("indexing func returns an error", func() {
-			BeforeEach(func() {
-				indexingFunc = func(obj map[string]any) (*string, error) {
-					return nil, errors.New("foo")
-				}
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("foo")))
-			})
-		})
-
-		When("indexing func returns nil", func() {
-			BeforeEach(func() {
-				indexingFunc = func(obj map[string]any) (*string, error) {
-					return nil, nil
-				}
-			})
-
-			It("returns nil", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result).To(BeNil())
-			})
-		})
-
-		When("indexing func returns an unquoted value", func() {
-			BeforeEach(func() {
-				indexingFunc = func(obj map[string]any) (*string, error) {
-					return tools.PtrTo("foo"), nil
-				}
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("failed to unquote value")))
-			})
-		})
-	})
-
-	Describe("SHA224", func() {
-		var indexingFunc label_indexer.IndexingFunc
-
-		BeforeEach(func() {
-			indexingFunc = func(obj map[string]any) (*string, error) {
-				return tools.PtrTo("foo"), nil
-			}
-		})
-
-		JustBeforeEach(func() {
-			result, err = label_indexer.SHA224(indexingFunc)(map[string]any{})
-		})
-
-		It("returns the SHA224 hash of the value", func() {
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(PointTo(Equal("0808f64e60d58979fcb676c96ec938270dea42445aeefcd3a4e6f8db")))
-		})
-
-		When("indexing func returns an error", func() {
-			BeforeEach(func() {
-				indexingFunc = func(obj map[string]any) (*string, error) {
-					return nil, errors.New("foo")
-				}
-			})
-
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("foo")))
-			})
-		})
-
-		When("indexing func returns nil", func() {
-			BeforeEach(func() {
-				indexingFunc = func(obj map[string]any) (*string, error) {
-					return nil, nil
-				}
-			})
-
-			It("returns nil", func() {
-				Expect(err).NotTo(HaveOccurred())
-				Expect(result).To(BeNil())
-			})
+		It("labels the CFRoute with the expected index labels", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(route), route)).To(Succeed())
+				g.Expect(route.Labels).To(MatchKeys(IgnoreExtras, Keys{
+					korifiv1alpha1.CFDomainGUIDLabelKey: Equal("example.com"),
+					korifiv1alpha1.SpaceGUIDKey:         Equal(namespace),
+				}))
+			}).Should(Succeed())
 		})
 	})
 })

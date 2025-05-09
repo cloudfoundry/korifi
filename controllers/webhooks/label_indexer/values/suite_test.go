@@ -1,4 +1,4 @@
-package label_indexer_test
+package values_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestLabelIndexer(t *testing.T) {
+func TestValues(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "LabelIndexer Suite")
+	RunSpecs(t, "Index Values Suite")
 }

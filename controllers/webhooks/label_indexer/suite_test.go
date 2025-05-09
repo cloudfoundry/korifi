@@ -52,7 +52,7 @@ var _ = BeforeSuite(func() {
 	})
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "helm", "korifi", "controllers", "crds"),
+			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
 		},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
