@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	. "code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer/rules"
 	. "code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer/values"
 	"code.cloudfoundry.org/korifi/tools"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,9 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-type IndexingRule struct {
-	Label        string
-	IndexingFunc IndexValueFunc
+type IndexingRule interface {
+	Apply(obj map[string]any) (map[string]string, error)
 }
 
 type LabelIndexerWebhook struct {
@@ -29,8 +29,10 @@ func NewWebhook() *LabelIndexerWebhook {
 	return &LabelIndexerWebhook{
 		indexingRules: map[string][]IndexingRule{
 			"CFRoute": {
-				{Label: korifiv1alpha1.CFDomainGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.domainRef.name"))},
-				{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+				LabelRule{Label: korifiv1alpha1.CFDomainGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.domainRef.name"))},
+				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+				MultiLabelRule{LabelRules: DestinationAppGuidLabelRules},
+				MultiLabelRule{LabelRules: RouteIsUnmappedLabelRule},
 			},
 		},
 	}
@@ -60,13 +62,13 @@ func (r *LabelIndexerWebhook) Handle(ctx context.Context, req admission.Request)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	for _, rule := range r.indexingRules[obj.GetObjectKind().GroupVersionKind().Kind] {
-		indexValue, err := rule.IndexingFunc(unstructuredObj)
+	for _, objectRules := range r.indexingRules[obj.GetObjectKind().GroupVersionKind().Kind] {
+		labels, err := objectRules.Apply(unstructuredObj)
 		if err != nil {
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
-		if indexValue != nil {
-			obj.SetLabels(tools.SetMapValue(obj.GetLabels(), rule.Label, *indexValue))
+		for k, v := range labels {
+			obj.SetLabels(tools.SetMapValue(obj.GetLabels(), k, v))
 		}
 	}
 

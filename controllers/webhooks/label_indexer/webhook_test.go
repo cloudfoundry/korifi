@@ -1,6 +1,8 @@
 package label_indexer_test
 
 import (
+	"maps"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -37,10 +39,51 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(route), route)).To(Succeed())
 				g.Expect(route.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.CFDomainGUIDLabelKey: Equal("example.com"),
-					korifiv1alpha1.SpaceGUIDKey:         Equal(namespace),
+					korifiv1alpha1.CFDomainGUIDLabelKey:      Equal("example.com"),
+					korifiv1alpha1.SpaceGUIDKey:              Equal(namespace),
+					korifiv1alpha1.CFRouteIsUnmappedLabelKey: Equal("true"),
 				}))
 			}).Should(Succeed())
+		})
+
+		When("the route has destdinations", func() {
+			var app1GUID, app2GUID string
+
+			BeforeEach(func() {
+				app1GUID = uuid.NewString()
+				app2GUID = uuid.NewString()
+
+				route.Spec.Destinations = []korifiv1alpha1.Destination{
+					{AppRef: corev1.LocalObjectReference{Name: app1GUID}},
+					{AppRef: corev1.LocalObjectReference{Name: app2GUID}},
+				}
+			})
+
+			It("adds labels per every destination app", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(route), route)).To(Succeed())
+					g.Expect(route.Labels).To(MatchKeys(IgnoreExtras, Keys{
+						korifiv1alpha1.DestinationAppGUIDLabelPrefix + app1GUID: BeEmpty(),
+						korifiv1alpha1.DestinationAppGUIDLabelPrefix + app2GUID: BeEmpty(),
+						korifiv1alpha1.CFRouteIsUnmappedLabelKey:                Equal("false"),
+					}))
+				}).Should(Succeed())
+			})
+
+			When("the destination does not have app ref", func() {
+				BeforeEach(func() {
+					route.Spec.Destinations = []korifiv1alpha1.Destination{
+						{GUID: "dest-guid"},
+					}
+				})
+
+				It("does not add destination app labels", func() {
+					Consistently(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(route), route)).To(Succeed())
+						g.Expect(maps.Keys(route.Labels)).NotTo(ContainElement(HavePrefix(korifiv1alpha1.DestinationAppGUIDLabelPrefix)))
+					}).Should(Succeed())
+				})
+			})
 		})
 	})
 })

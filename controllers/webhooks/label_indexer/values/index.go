@@ -89,6 +89,21 @@ func SHA224(prev IndexValueFunc) IndexValueFunc {
 	}
 }
 
+func EmptyValue() IndexValueFunc {
+	return func(_ map[string]any) (*string, error) {
+		return tools.PtrTo(""), nil
+	}
+}
+
+func DestinationsAreEmpty(destinations []any) IndexValueFunc {
+	return func(_ map[string]any) (*string, error) {
+		if len(destinations) == 0 {
+			return tools.PtrTo("true"), nil
+		}
+		return tools.PtrTo("false"), nil
+	}
+}
+
 func marshal(value any) (*string, error) {
 	valueBytes, err := json.Marshal(value)
 	if err != nil {

@@ -256,4 +256,15 @@ var _ = Describe("IndexValues", func() {
 			})
 		})
 	})
+
+	Describe("EmptyValue", func() {
+		JustBeforeEach(func() {
+			result, err = values.EmptyValue()(map[string]any{})
+		})
+
+		It("returns an empty string", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(PointTo(Equal("")))
+		})
+	})
 })
