@@ -156,6 +156,7 @@ var _ = Describe("Indexing Functions", func() {
 			})
 		})
 	})
+
 	Describe("Unquote", func() {
 		var indexingFunc label_indexer.IndexingFunc
 
