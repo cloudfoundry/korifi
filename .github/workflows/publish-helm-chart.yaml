@@ -26,26 +26,22 @@ jobs:
             TAG_NAME="${{ github.event.release.tag_name }}"
           else
             echo "Manual run detected — using fallback version"
-            TAG_NAME="v0.15.2"
+            TAG_NAME="v0.15.3"
           fi
 
           echo "Release tag: $TAG_NAME"
 
           RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG_NAME | \
-            jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
+            jq -r '.assets[] | select(.name | endswith(".tar")) | .browser_download_url')
 
           if [[ -z "$RELEASE_URL" ]]; then
-            echo "No .tgz chart found in release $TAG_NAME"
+            echo "No .tar chart found in release $TAG_NAME"
             exit 1
           fi
 
           echo "Downloading: $RELEASE_URL"
-          curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
-
-          echo "Verifying chart.tgz format..."
-          file chart.tgz
-          tar -tzf chart.tgz > /dev/null || (echo "Invalid .tgz format" && exit 1)
+          curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tar
 
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
@@ -56,7 +52,7 @@ jobs:
       - name: Unpack, patch Chart.yaml, and repackage
         run: |
           mkdir -p unpacked
-          tar -xzf chart.tgz -C unpacked
+          tar -xf chart.tar -C unpacked
 
           CHART_DIR=$(find unpacked -type d -name "korifi*")
           CHART_PATH="$CHART_DIR/Chart.yaml"
@@ -81,7 +77,6 @@ jobs:
       - name: Copy chart and index.yaml to gh-pages folder
         run: |
           cp -f helm-repo/* gh-pages/
-          ls -l gh-pages
 
       - name: Commit and push to gh-pages
         working-directory: gh-pages
