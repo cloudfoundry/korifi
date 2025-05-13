@@ -18,16 +18,28 @@ jobs:
       - name: Checkout repository (default branch)
         uses: actions/checkout@v4
 
-      - name: Download Helm chart .tgz from *this* GitHub Release
+      - name: Set version and download chart
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME=${{ github.event.release.tag_name }}
+          # Use tag name from release or fallback for manual run
+          if [[ "${{ github.event.release.tag_name }}" != "" ]]; then
+            TAG_NAME="${{ github.event.release.tag_name }}"
+          else
+            echo "Manual run detected — please set tag manually"
+            TAG_NAME="v0.15.2"  # fallback tag for manual test
+          fi
+
           echo "Release tag: $TAG_NAME"
 
           RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG_NAME | \
             jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
+
+          if [[ "$RELEASE_URL" == "" ]]; then
+            echo "No .tgz chart found in release $TAG_NAME"
+            exit 1
+          fi
 
           echo "Downloading: $RELEASE_URL"
           curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
