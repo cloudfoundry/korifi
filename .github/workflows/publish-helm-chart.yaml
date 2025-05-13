@@ -50,7 +50,7 @@ jobs:
           mkdir -p unpacked
           tar -xzf chart.tgz -C unpacked
 
-          CHART_DIR=$(find unpacked -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
+          CHART_DIR=$(find unpacked -type d -name "korifi*")
           CHART_PATH="$CHART_DIR/Chart.yaml"
           CLEAN_VERSION="${VERSION#v}"
 
