@@ -29,13 +29,12 @@ jobs:
           echo "Downloading: $RELEASE_URL"
           curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
 
-      - name: Generate index.yaml
+      - name: Generate index.yaml # TODO: change to cloudfoundry.github.io/korifi
         run: |
           mkdir -p helm-repo
           cp chart.tgz helm-repo/
           cd helm-repo
-          helm repo index . --url https://cloudfoundry.github.io/korifi
-          cd ..
+          helm repo index . --url https://vkazmin1.github.io/korifi 
 
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
