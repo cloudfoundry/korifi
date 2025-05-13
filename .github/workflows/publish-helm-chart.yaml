@@ -15,8 +15,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout default branch
         uses: actions/checkout@v4
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
 
       - name: Set VERSION and download chart
         id: prepare
@@ -45,13 +51,9 @@ jobs:
           echo "Downloading: $RELEASE_URL"
           curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
 
-      - name: Checkout gh-pages branch
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          path: gh-pages
-
       - name: Unpack, patch Chart.yaml, and repackage
+        env:
+          VERSION: ${{ env.VERSION }}
         run: |
           mkdir -p unpacked
           tar -xzf chart.tgz -C unpacked
@@ -69,7 +71,7 @@ jobs:
 
           if [ -f gh-pages/index.yaml ]; then
             cp gh-pages/index.yaml helm-repo/index.yaml
-            helm repo index helm-repo --url https://vkazmin1.github.io/korifi --merge index.yaml
+            helm repo index helm-repo --url https://vkazmin1.github.io/korifi --merge helm-repo/index.yaml
           else
             helm repo index helm-repo --url https://vkazmin1.github.io/korifi
           fi
@@ -79,7 +81,7 @@ jobs:
           cp -f helm-repo/* gh-pages/
           ls -l gh-pages
 
-      - name: Commit and push
+      - name: Commit and push to gh-pages
         working-directory: gh-pages
         run: |
           git config user.name "github-actions"
