@@ -22,6 +22,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          TAG_NAME=${{ github.event.release.tag_name }}
+          echo "Release tag: $TAG_NAME"
+
           RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/repos/cloudfoundry/korifi/releases/latest | \
             jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
@@ -29,12 +32,23 @@ jobs:
           echo "Downloading: $RELEASE_URL"
           curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
 
-      - name: Generate index.yaml # TODO: change to cloudfoundry.github.io/korifi
+      - name: Unpack and patch Chart.yaml with version and appVersion
+        run: |
+          RELEASE_VERSION=${{ github.event.release.tag_name }}
+          mkdir -p unpacked
+          tar -xzf chart.tgz -C unpacked
+          CHART_PATH=$(find unpacked -name Chart.yaml)
+
+          echo "Patching $CHART_PATH with version: $RELEASE_VERSION"
+          yq e ".version = \"$RELEASE_VERSION\"" -i "$CHART_PATH"
+          yq e ".appVersion = \"$RELEASE_VERSION\"" -i "$CHART_PATH"
+
+      - name: Repackage and index Helm chart
         run: |
           mkdir -p helm-repo
-          cp chart.tgz helm-repo/
+          helm package unpacked/** --destination helm-repo
           cd helm-repo
-          helm repo index . --url https://vkazmin1.github.io/korifi 
+          helm repo index . --url https://vkazmin1.github.io/korifi
 
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
@@ -42,7 +56,7 @@ jobs:
           ref: gh-pages
           path: gh-pages
 
-      - name: Copy chart and overwrite index.yaml to gh-pages folder
+      - name: Copy chart and index.yaml to gh-pages folder
         run: |
           cp -f helm-repo/* gh-pages/
           ls -l gh-pages
