@@ -42,9 +42,10 @@ jobs:
           ref: gh-pages
           path: gh-pages
 
-      - name: Copy chart and index.yaml to gh-pages folder
+      - name: Copy chart and overwrite index.yaml to gh-pages folder
         run: |
-          cp helm-repo/* gh-pages/
+          cp -f helm-repo/* gh-pages/
+          ls -l gh-pages
 
       - name: Commit and push to gh-pages
         working-directory: gh-pages
