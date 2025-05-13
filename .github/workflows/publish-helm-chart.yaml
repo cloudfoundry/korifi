@@ -3,8 +3,7 @@ name: Publish Helm Chart to gh-pages
 on:
   release:
     types:
-      - released
-  workflow_dispatch:
+      - released  # Trigger only on actual GitHub Releases
 
 permissions:
   contents: write
@@ -25,17 +24,10 @@ jobs:
           path: gh-pages
 
       - name: Set VERSION and download chart
-        id: prepare
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [[ -z "${{ github.event.release.tag_name }}" ]]; then
-            echo "Manual run — using fallback version"
-            VERSION="v0.15.3"
-          else
-            VERSION="${{ github.event.release.tag_name }}"
-          fi
-
+          VERSION="${{ github.event.release.tag_name }}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "Using release tag: $VERSION"
 
@@ -62,7 +54,7 @@ jobs:
           CHART_PATH="$CHART_DIR/Chart.yaml"
           CLEAN_VERSION="${VERSION#v}"
 
-          echo "Patching $CHART_PATH with version: $CLEAN_VERSION"
+          echo "🔧 Patching $CHART_PATH with version: $CLEAN_VERSION"
           yq e ".version = \"$CLEAN_VERSION\"" -i "$CHART_PATH"
           yq e ".appVersion = \"$CLEAN_VERSION\"" -i "$CHART_PATH"
 
