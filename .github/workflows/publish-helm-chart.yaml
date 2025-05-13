@@ -32,16 +32,34 @@ jobs:
           echo "Downloading: $RELEASE_URL"
           curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
 
-      - name: Unpack and patch Chart.yaml with version and appVersion
+      - name: Unpack, patch Chart.yaml, and repackage
         run: |
           mkdir -p unpacked
           tar -xzf chart.tgz -C unpacked
-          CHART_PATH=$(find unpacked -name Chart.yaml)
       
-          echo "Patching $CHART_PATH with version: $GITHUB_REF_NAME"
-          yq e ".version = \"$GITHUB_REF_NAME\"" -i "$CHART_PATH"
-          yq e ".appVersion = \"$GITHUB_REF_NAME\"" -i "$CHART_PATH"
-        
+          CHART_DIR=$(find unpacked -type d -name "korifi*")
+          CHART_PATH="$CHART_DIR/Chart.yaml"
+      
+          # Determine release version from tag (if triggered by release), fallback to manual input
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            echo "Not triggered by a tag. Please set version manually for testing."
+            VERSION="0.0.0-dev"  # fallback for manual run
+          fi
+      
+          echo "Patching $CHART_PATH with version: $VERSION"
+      
+          yq e ".version = \"$VERSION\"" -i "$CHART_PATH"
+          yq e ".appVersion = \"$VERSION\"" -i "$CHART_PATH"
+      
+          cat "$CHART_PATH"
+      
+          mkdir -p helm-repo
+          helm package "$CHART_DIR" --destination helm-repo
+          cd helm-repo
+          helm repo index . --url https://vkazmin1.github.io/korifi
+  
 
       - name: Repackage and index Helm chart
         run: |
