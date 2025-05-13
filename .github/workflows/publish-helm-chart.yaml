@@ -27,7 +27,7 @@ jobs:
         run: |
           if [[ -z "$VERSION" ]]; then
             echo "Manual run — using fallback version"
-            VERSION="v0.15.3-dev"
+            VERSION="v0.15.3"
           fi
 
           echo "Release tag: $VERSION"
