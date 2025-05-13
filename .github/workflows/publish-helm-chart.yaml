@@ -3,7 +3,7 @@ name: Publish Helm Chart to gh-pages
 on:
   release:
     types:
-      - released  # Only on published releases (not drafts/prereleases)
+      - released  # Trigger only on real releases in vkazmin1/korifi
   workflow_dispatch:
 
 permissions:
@@ -18,12 +18,15 @@ jobs:
       - name: Checkout repository (default branch)
         uses: actions/checkout@v4
 
-      - name: Download Helm chart .tgz from GitHub Release
+      - name: Download Helm chart .tgz from *this* GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          TAG_NAME=${{ github.event.release.tag_name }}
+          echo "Release tag: $TAG_NAME"
+
           RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            https://api.github.com/repos/cloudfoundry/korifi/releases/latest | \
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG_NAME | \
             jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
 
           echo "Downloading: $RELEASE_URL"
@@ -43,12 +46,8 @@ jobs:
           CHART_DIR=$(find unpacked -type d -name "korifi*")
           CHART_PATH="$CHART_DIR/Chart.yaml"
 
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            echo "Not triggered by a tag. Please set version manually for testing."
-            VERSION="0.0.0-dev"
-          fi
+          VERSION=${{ github.event.release.tag_name }}
+          VERSION="${VERSION#v}"
 
           echo "Patching $CHART_PATH with version: $VERSION"
           yq e ".version = \"$VERSION\"" -i "$CHART_PATH"
