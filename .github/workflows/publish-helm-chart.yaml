@@ -34,14 +34,14 @@ jobs:
 
       - name: Unpack and patch Chart.yaml with version and appVersion
         run: |
-          RELEASE_VERSION=${{ github.event.release.tag_name }}
           mkdir -p unpacked
           tar -xzf chart.tgz -C unpacked
           CHART_PATH=$(find unpacked -name Chart.yaml)
-
-          echo "Patching $CHART_PATH with version: $RELEASE_VERSION"
-          yq e ".version = \"$RELEASE_VERSION\"" -i "$CHART_PATH"
-          yq e ".appVersion = \"$RELEASE_VERSION\"" -i "$CHART_PATH"
+      
+          echo "Patching $CHART_PATH with version: $GITHUB_REF_NAME"
+          yq e ".version = \"$GITHUB_REF_NAME\"" -i "$CHART_PATH"
+          yq e ".appVersion = \"$GITHUB_REF_NAME\"" -i "$CHART_PATH"
+        
 
       - name: Repackage and index Helm chart
         run: |
