@@ -14,6 +14,9 @@ jobs:
     name: Publish Helm Chart to gh-pages
     runs-on: ubuntu-latest
 
+    env:
+      VERSION: ${{ github.event.release.tag_name }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,24 +25,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="${{ github.event.release.tag_name }}"
-          if [[ -z "$TAG_NAME" ]]; then
-            echo "Manual run detected — fallback tag applied"
-            TAG_NAME="v0.15.3"
+          if [[ -z "$VERSION" ]]; then
+            echo "Manual run — using fallback version"
+            VERSION="v0.0.0-dev"
           fi
 
-          echo "Using tag: $TAG_NAME"
+          echo "Release tag: $VERSION"
 
           RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG_NAME | \
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/$VERSION | \
             jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
 
           if [[ -z "$RELEASE_URL" ]]; then
-            echo "❌ No .tgz chart found for release $TAG_NAME"
+            echo "No .tgz chart found in release $VERSION"
             exit 1
           fi
 
-          echo "Downloading chart from: $RELEASE_URL"
+          echo "Downloading: $RELEASE_URL"
           curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
 
       - name: Checkout gh-pages branch
@@ -53,17 +55,13 @@ jobs:
           mkdir -p unpacked
           tar -xzf chart.tgz -C unpacked
 
-          CHART_DIR=$(find unpacked -type d -name "korifi*" | head -n 1)
+          CHART_DIR=$(find unpacked -type d -name "korifi*")
           CHART_PATH="$CHART_DIR/Chart.yaml"
+          CLEAN_VERSION="${VERSION#v}"
 
-          VERSION="${{ github.event.release.tag_name }}"
-          VERSION="${VERSION#v}"
-
-          echo "Patching $CHART_PATH with version: $VERSION"
-          yq e ".version = \"$VERSION\"" -i "$CHART_PATH"
-          yq e ".appVersion = \"$VERSION\"" -i "$CHART_PATH"
-
-          cat "$CHART_PATH"
+          echo "Patching $CHART_PATH with version: $CLEAN_VERSION"
+          yq e ".version = \"$CLEAN_VERSION\"" -i "$CHART_PATH"
+          yq e ".appVersion = \"$CLEAN_VERSION\"" -i "$CHART_PATH"
 
           mkdir -p helm-repo
           helm package "$CHART_DIR" --destination helm-repo
@@ -80,11 +78,11 @@ jobs:
           cp -f helm-repo/* gh-pages/
           ls -l gh-pages
 
-      - name: Commit and push to gh-pages
+      - name: Commit and push
         working-directory: gh-pages
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add .
-          git commit -m "Publish Helm chart from release ${{ github.event.release.tag_name }}" || echo "No changes to commit"
+          git commit -m "Publish Helm chart from release $VERSION" || echo "No changes to commit"
           git push origin gh-pages
