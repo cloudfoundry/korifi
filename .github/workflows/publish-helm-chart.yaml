@@ -1,0 +1,73 @@
+name: Publish Helm Chart to gh-pages
+
+on:
+  release:
+    types:
+      - released  # Trigger only on actual GitHub Releases
+
+permissions:
+  contents: write
+
+jobs:
+  publish-helm-chart:
+    name: Publish Helm Chart to gh-pages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout default branch
+        uses: actions/checkout@v4
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Set VERSION and download chart
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Using release tag: $VERSION"
+          RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/repos/${{ github.repository }}/releases/tags/$VERSION | \
+            jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
+          if [[ -z "$RELEASE_URL" ]]; then
+            echo "No .tgz chart found in release $VERSION"
+            exit 1
+          fi
+          echo "Downloading: $RELEASE_URL"
+          curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
+      - name: Unpack, patch Chart.yaml, and repackage
+        env:
+          VERSION: ${{ env.VERSION }}
+        run: |
+          mkdir -p unpacked
+          tar -xzf chart.tgz -C unpacked
+          CHART_DIR=$(find unpacked -type d -name "korifi*")
+          CHART_PATH="$CHART_DIR/Chart.yaml"
+          CLEAN_VERSION="${VERSION#v}"
+          echo "Patching $CHART_PATH with version: $CLEAN_VERSION"
+          yq e ".version = \"$CLEAN_VERSION\"" -i "$CHART_PATH"
+          yq e ".appVersion = \"$CLEAN_VERSION\"" -i "$CHART_PATH"
+          mkdir -p helm-repo
+          helm package "$CHART_DIR" --destination helm-repo
+          if [ -f gh-pages/index.yaml ]; then
+            cp gh-pages/index.yaml helm-repo/index.yaml
+            helm repo index helm-repo --url https://cloudfoundry.github.io/korifi --merge helm-repo/index.yaml
+          else
+            helm repo index helm-repo --url https://cloudfoundry.github.io/korifi
+          fi
+      - name: Copy chart and index.yaml to gh-pages
+        run: |
+          cp -f helm-repo/* gh-pages/
+          ls -l gh-pages
+      - name: Commit and push to gh-pages
+        working-directory: gh-pages
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .
+          git commit -m "Publish Helm chart from release $VERSION" || echo "No changes to commit"
+          git push origin gh-pages
