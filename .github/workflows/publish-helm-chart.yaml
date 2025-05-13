@@ -3,7 +3,7 @@ name: Publish Helm Chart to gh-pages
 on:
   release:
     types:
-      - released  # Trigger only on published releases
+      - released
   workflow_dispatch:
 
 permissions:
@@ -15,33 +15,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository (default branch)
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set version and download chart
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [[ "${{ github.event.release.tag_name }}" != "" ]]; then
-            TAG_NAME="${{ github.event.release.tag_name }}"
-          else
-            echo "Manual run detected — using fallback version"
+          TAG_NAME="${{ github.event.release.tag_name }}"
+          if [[ -z "$TAG_NAME" ]]; then
+            echo "Manual run detected — fallback tag applied"
             TAG_NAME="v0.15.3"
           fi
 
-          echo "Release tag: $TAG_NAME"
+          echo "Using tag: $TAG_NAME"
 
           RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG_NAME | \
-            jq -r '.assets[] | select(.name | endswith(".tar")) | .browser_download_url')
+            jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
 
           if [[ -z "$RELEASE_URL" ]]; then
-            echo "No .tar chart found in release $TAG_NAME"
+            echo "❌ No .tgz chart found for release $TAG_NAME"
             exit 1
           fi
 
-          echo "Downloading: $RELEASE_URL"
-          curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tar
+          echo "Downloading chart from: $RELEASE_URL"
+          curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
 
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
@@ -52,17 +51,19 @@ jobs:
       - name: Unpack, patch Chart.yaml, and repackage
         run: |
           mkdir -p unpacked
-          tar -xf chart.tar -C unpacked
+          tar -xzf chart.tgz -C unpacked
 
-          CHART_DIR=$(find unpacked -type d -name "korifi*")
+          CHART_DIR=$(find unpacked -type d -name "korifi*" | head -n 1)
           CHART_PATH="$CHART_DIR/Chart.yaml"
 
-          VERSION=${{ github.event.release.tag_name }}
+          VERSION="${{ github.event.release.tag_name }}"
           VERSION="${VERSION#v}"
 
           echo "Patching $CHART_PATH with version: $VERSION"
           yq e ".version = \"$VERSION\"" -i "$CHART_PATH"
           yq e ".appVersion = \"$VERSION\"" -i "$CHART_PATH"
+
+          cat "$CHART_PATH"
 
           mkdir -p helm-repo
           helm package "$CHART_DIR" --destination helm-repo
@@ -74,9 +75,10 @@ jobs:
             helm repo index helm-repo --url https://vkazmin1.github.io/korifi
           fi
 
-      - name: Copy chart and index.yaml to gh-pages folder
+      - name: Copy chart and index.yaml to gh-pages
         run: |
           cp -f helm-repo/* gh-pages/
+          ls -l gh-pages
 
       - name: Commit and push to gh-pages
         working-directory: gh-pages
