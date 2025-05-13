@@ -3,11 +3,11 @@ name: Publish Helm Chart to gh-pages
 on:
   release:
     types:
-      - released  # Ignores drafts and prereleases
+      - released  # Only on published releases (not drafts/prereleases)
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish-helm-chart:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (default branch)
         uses: actions/checkout@v4
 
       - name: Download Helm chart .tgz from GitHub Release
@@ -25,27 +25,30 @@ jobs:
           RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/repos/cloudfoundry/korifi/releases/latest | \
             jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
-      
+
           echo "Downloading: $RELEASE_URL"
           curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
 
-      - name: Unpack chart and index it
+      - name: Generate index.yaml
         run: |
-          mkdir -p repo
-          cp chart.tgz repo/
-          cd repo
+          mkdir -p helm-repo
+          cp chart.tgz helm-repo/
+          cd helm-repo
           helm repo index . --url https://cloudfoundry.github.io/korifi
+          cd ..
 
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
         with:
           ref: gh-pages
+          path: gh-pages
 
-      - name: Copy updated chart and index.yaml
+      - name: Copy chart and index.yaml to gh-pages folder
         run: |
-          cp -r repo/* .
+          cp helm-repo/* gh-pages/
 
-      - name: Commit and push
+      - name: Commit and push to gh-pages
+        working-directory: gh-pages
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
