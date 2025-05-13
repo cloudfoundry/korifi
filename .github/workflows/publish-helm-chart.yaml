@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   publish-helm-chart:
@@ -18,13 +18,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Helm chart artifact from release
-        uses: dsaltares/fetch-gh-release-asset@v1
-        with:
-          repo: cloudfoundry/korifi
-          file: korifi-*.tgz
-          token: ${{ secrets.GITHUB_TOKEN }}
-          target: ./chart.tgz
+      - name: Download Helm chart .tgz from GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/repos/cloudfoundry/korifi/releases/latest | \
+            jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
+      
+          echo "Downloading: $RELEASE_URL"
+          curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
 
       - name: Unpack chart and index it
         run: |
