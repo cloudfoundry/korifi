@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,6 +40,7 @@ const (
 
 type AppRepo struct {
 	klient     Klient
+	k8sClient  client.Client
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp]
 	sorter     AppSorter
 }
@@ -88,11 +90,13 @@ func AppComparator(fieldName string) func(AppRecord, AppRecord) int {
 
 func NewAppRepo(
 	klient Klient,
+	cacheClient client.Client,
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp],
 	sorter AppSorter,
 ) *AppRepo {
 	return &AppRepo{
 		klient:     klient,
+		k8sClient:  cacheClient,
 		appAwaiter: appAwaiter,
 		sorter:     sorter,
 	}
@@ -320,15 +324,70 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
-	appList := &korifiv1alpha1.CFAppList{}
-	err := f.klient.List(ctx, appList, message.toListOptions()...)
+	k8sListOptions, err := toK8sListOptions(message.toListOptions()...)
+	if err != nil {
+		return []AppRecord{}, err
+	}
+
+	metadatas := &metav1.PartialObjectMetadataList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "CFApp",
+			APIVersion: "korifi.cloudfoundry.org/v1alpha1",
+		},
+	}
+	err = f.k8sClient.List(ctx, metadatas, &k8sListOptions)
 	if err != nil {
 		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	appRecords := it.Map(itx.FromSlice(appList.Items), cfAppToAppRecord)
+	slices.SortFunc(metadatas.Items, func(a, b metav1.PartialObjectMetadata) int {
+		return strings.Compare(a.Labels[korifiv1alpha1.CFAppDisplayNameKey], b.Labels[korifiv1alpha1.CFAppDisplayNameKey])
+	})
 
-	return f.sorter.Sort(slices.Collect(appRecords), message.OrderBy), nil
+	sortedAppGuids := slices.Collect(it.Map(slices.Values(metadatas.Items), func(item metav1.PartialObjectMetadata) string {
+		return item.Name
+	}))
+
+	appList := &korifiv1alpha1.CFAppList{}
+	err = f.klient.List(ctx, appList, WithLabelIn(korifiv1alpha1.GUIDLabelKey, sortedAppGuids))
+	if err != nil {
+		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
+	}
+
+	appsMap := map[string]korifiv1alpha1.CFApp{}
+	for _, app := range appList.Items {
+		appsMap[app.Name] = app
+	}
+
+	sortedApps := []korifiv1alpha1.CFApp{}
+	for _, guid := range sortedAppGuids {
+		sortedApps = append(sortedApps, appsMap[guid])
+	}
+
+	return slices.Collect(it.Map(itx.FromSlice(sortedApps), cfAppToAppRecord)), nil
+}
+
+func toK8sListOptions(opts ...ListOption) (client.ListOptions, error) {
+	listOpts := ListOptions{}
+	for _, o := range opts {
+		if err := o.ApplyToList(&listOpts); err != nil {
+			return client.ListOptions{}, err
+		}
+	}
+
+	return client.ListOptions{
+		LabelSelector: newLabelSelector(listOpts.Requrements),
+		FieldSelector: listOpts.FieldSelector,
+		Namespace:     listOpts.Namespace,
+	}, nil
+}
+
+func newLabelSelector(requrements []labels.Requirement) labels.Selector {
+	if len(requrements) == 0 {
+		return nil
+	}
+
+	return labels.NewSelector().Add(requrements...)
 }
 
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
