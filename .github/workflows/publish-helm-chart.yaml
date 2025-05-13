@@ -3,7 +3,7 @@ name: Publish Helm Chart to gh-pages
 on:
   release:
     types:
-      - released  # Trigger only on real releases in vkazmin1/korifi
+      - released  # Trigger only on published releases
   workflow_dispatch:
 
 permissions:
@@ -22,12 +22,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Use tag name from release or fallback for manual run
           if [[ "${{ github.event.release.tag_name }}" != "" ]]; then
             TAG_NAME="${{ github.event.release.tag_name }}"
           else
-            echo "Manual run detected — please set tag manually"
-            TAG_NAME="v0.15.2"  # fallback tag for manual test
+            echo "Manual run detected — using fallback version"
+            TAG_NAME="v0.15.2"
           fi
 
           echo "Release tag: $TAG_NAME"
@@ -36,13 +35,17 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG_NAME | \
             jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
 
-          if [[ "$RELEASE_URL" == "" ]]; then
+          if [[ -z "$RELEASE_URL" ]]; then
             echo "No .tgz chart found in release $TAG_NAME"
             exit 1
           fi
 
           echo "Downloading: $RELEASE_URL"
           curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
+
+          echo "Verifying chart.tgz format..."
+          file chart.tgz
+          tar -tzf chart.tgz > /dev/null || (echo "Invalid .tgz format" && exit 1)
 
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
@@ -64,8 +67,6 @@ jobs:
           echo "Patching $CHART_PATH with version: $VERSION"
           yq e ".version = \"$VERSION\"" -i "$CHART_PATH"
           yq e ".appVersion = \"$VERSION\"" -i "$CHART_PATH"
-
-          cat "$CHART_PATH"
 
           mkdir -p helm-repo
           helm package "$CHART_DIR" --destination helm-repo
