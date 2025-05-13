@@ -64,9 +64,15 @@ jobs:
       - name: Repackage and index Helm chart
         run: |
           mkdir -p helm-repo
-          helm package unpacked/** --destination helm-repo
-          cd helm-repo
-          helm repo index . --url https://vkazmin1.github.io/korifi
+          helm package "$CHART_DIR" --destination helm-repo
+      
+          # Merge with existing index.yaml if it exists
+          if [ -f gh-pages/index.yaml ]; then
+            cp gh-pages/index.yaml helm-repo/index.yaml
+            helm repo index helm-repo --url https://vkazmin1.github.io/korifi --merge index.yaml
+          else
+            helm repo index helm-repo --url https://vkazmin1.github.io/korifi
+          fi
 
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
