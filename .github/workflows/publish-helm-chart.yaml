@@ -14,23 +14,24 @@ jobs:
     name: Publish Helm Chart to gh-pages
     runs-on: ubuntu-latest
 
-    env:
-      VERSION: ${{ github.event.release.tag_name }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set version and download chart
+      - name: Set VERSION and download chart
+        id: prepare
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [[ -z "$VERSION" ]]; then
+          if [[ -z "${{ github.event.release.tag_name }}" ]]; then
             echo "Manual run — using fallback version"
             VERSION="v0.15.3"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
           fi
 
-          echo "Release tag: $VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Using release tag: $VERSION"
 
           RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/repos/${{ github.repository }}/releases/tags/$VERSION | \
