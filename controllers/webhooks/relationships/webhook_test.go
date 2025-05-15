@@ -65,19 +65,6 @@ var _ = Describe("Setting the space-guid label", func() {
 					Name:      uuid.NewString(),
 				},
 			},
-			&korifiv1alpha1.CFRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: spaceNamespace,
-					Name:      uuid.NewString(),
-				},
-				Spec: korifiv1alpha1.CFRouteSpec{
-					DomainRef: corev1.ObjectReference{
-						Name:      uuid.NewString(),
-						Namespace: spaceNamespace,
-					},
-					Host: "myhost",
-				},
-			},
 			&korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: spaceNamespace,

@@ -1,6 +1,6 @@
 package relationships
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-space-guid,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfapps;cfbuilds;cfpackages;cfprocesses;cfroutes;cfservicebindings;cfserviceinstances;cftasks,verbs=create;update,versions=v1alpha1,name=mcfspaceguid.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-space-guid,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfapps;cfbuilds;cfpackages;cfprocesses;cfservicebindings;cfserviceinstances;cftasks,verbs=create;update,versions=v1alpha1,name=mcfspaceguid.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 import (
 	"context"

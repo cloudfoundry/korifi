@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/routing"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/logger"
 )
 
@@ -93,7 +94,7 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 		authInfo, _ := authorization.InfoFromContext(ctx)
 		state := repositories.ResourceStateReady
 
-		unmappedRoutes, err := h.routeRepo.ListRoutes(ctx, authInfo, repositories.ListRoutesMessage{SpaceGUIDs: []string{job.ResourceGUID}, IsUnmapped: true})
+		unmappedRoutes, err := h.routeRepo.ListRoutes(ctx, authInfo, repositories.ListRoutesMessage{SpaceGUIDs: []string{job.ResourceGUID}, IsUnmapped: tools.PtrTo(true)})
 		if err != nil {
 			return nil, err
 		}

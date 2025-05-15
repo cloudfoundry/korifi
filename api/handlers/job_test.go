@@ -93,7 +93,7 @@ var _ = Describe("Job", func() {
 				Expect(actualAuthInfo).To(Equal(authInfo))
 				Expect(actualMessage).To(Equal(repositories.ListRoutesMessage{
 					SpaceGUIDs: []string{"cf-space-guid"},
-					IsUnmapped: true,
+					IsUnmapped: tools.PtrTo(true),
 				}))
 
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))

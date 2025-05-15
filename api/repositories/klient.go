@@ -79,6 +79,26 @@ func (o LabelIn) ApplyToList(opts *ListOptions) error {
 	return nil
 }
 
+type LabelExists struct {
+	Key string
+}
+
+func WithLabelExists(key string) ListOption {
+	return LabelExists{
+		Key: key,
+	}
+}
+
+func (o LabelExists) ApplyToList(opts *ListOptions) error {
+	req, err := labels.NewRequirement(o.Key, selection.Exists, nil)
+	if err != nil {
+		return fmt.Errorf("invalid label selector: %w", err)
+	}
+
+	opts.Requrements = append(opts.Requrements, *req)
+	return nil
+}
+
 type WithLabelSelector string
 
 func (o WithLabelSelector) ApplyToList(opts *ListOptions) error {

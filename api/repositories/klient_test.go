@@ -143,5 +143,28 @@ var _ = Describe("Klient", func() {
 				})
 			})
 		})
+
+		Describe("WithLabelExists", func() {
+			BeforeEach(func() {
+				option = repositories.WithLabelExists("foo")
+			})
+
+			It("adds the label selector requirements to the list options", func() {
+				expectedReq, err := labels.NewRequirement("foo", selection.Exists, nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(listOptions.Requrements).To(ConsistOf(*expectedReq))
+			})
+
+			When("the key is invalid", func() {
+				BeforeEach(func() {
+					option = repositories.WithLabelExists("~")
+				})
+
+				It("returns an error", func() {
+					Expect(applyToListErr).To(MatchError(ContainSubstring("invalid label selector")))
+				})
+			})
+		})
 	})
 })
