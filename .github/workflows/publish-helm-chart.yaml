@@ -31,6 +31,11 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "Using release tag: $VERSION"
 
+          CLEAN_VERSION="${VERSION#v}"
+          CHART_FILE="korifi-${CLEAN_VERSION}.tgz"
+          echo "CLEAN_VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
+          echo "CHART_FILE=$CHART_FILE" >> $GITHUB_ENV
+
           RELEASE_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             https://api.github.com/repos/${{ github.repository }}/releases/tags/$VERSION | \
             jq -r '.assets[] | select(.name | endswith(".tgz")) | .browser_download_url')
@@ -41,19 +46,20 @@ jobs:
           fi
 
           echo "Downloading: $RELEASE_URL"
-          curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
-
+          curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o "$CHART_FILE"
 
       - name: Update index.yaml with downloaded chart
+        env:
+          CHART_FILE: ${{ env.CHART_FILE }}
         run: |
           mkdir -p helm-repo
-          mv chart.tgz helm-repo/
+          mv "$CHART_FILE" helm-repo/
+
           if [ -f gh-pages/index.yaml ]; then
             cp gh-pages/index.yaml helm-repo/index.yaml
             helm repo index helm-repo --url https://cloudfoundry.github.io/korifi --merge helm-repo/index.yaml
           else
             helm repo index helm-repo --url https://cloudfoundry.github.io/korifi
-
           fi
 
       - name: Copy chart and index.yaml to gh-pages
