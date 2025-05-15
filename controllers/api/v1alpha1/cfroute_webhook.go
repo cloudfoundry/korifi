@@ -48,7 +48,6 @@ func (r *CFRouteDefaulter) Default(ctx context.Context, obj runtime.Object) erro
 	cfRoute := obj.(*CFRoute)
 	cfroutelog.V(1).Info("mutating CFRoute webhook handler", "name", cfRoute.Name)
 	routeLabels := cfRoute.GetLabels()
-	routeLabels = tools.SetMapValue(routeLabels, CFDomainGUIDLabelKey, cfRoute.Spec.DomainRef.Name)
 	routeLabels = tools.SetMapValue(routeLabels, CFRouteGUIDLabelKey, cfRoute.Name)
 	cfRoute.SetLabels(routeLabels)
 

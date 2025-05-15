@@ -169,6 +169,7 @@ func (d SpaceDeleteRoutes) Validate() error {
 		),
 	)
 }
+
 func (d *SpaceDeleteRoutes) DecodeFromURLValues(values url.Values) error {
 	d.Unmapped = values.Get("unmapped")
 	return nil

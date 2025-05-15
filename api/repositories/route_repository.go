@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -100,34 +101,26 @@ type ListRoutesMessage struct {
 	DomainGUIDs []string
 	Hosts       []string
 	Paths       []string
-	IsUnmapped  bool
+	IsUnmapped  *bool
 }
 
-func (m *ListRoutesMessage) matches(r korifiv1alpha1.CFRoute) bool {
-	return tools.EmptyOrContains(m.DomainGUIDs, r.Spec.DomainRef.Name) &&
-		tools.EmptyOrContains(m.Hosts, r.Spec.Host) &&
-		tools.EmptyOrContains(m.Paths, r.Spec.Path) &&
-		tools.EmptyOrContains(m.SpaceGUIDs, r.Namespace) &&
-		m.matchesApp(r) &&
-		m.matchesUnmapped(r)
-}
-
-func (m *ListRoutesMessage) matchesApp(r korifiv1alpha1.CFRoute) bool {
-	if len(m.AppGUIDs) == 0 {
-		return true
+func (m *ListRoutesMessage) toListOptions() []ListOption {
+	listOptions := []ListOption{
+		WithLabelIn(korifiv1alpha1.CFDomainGUIDLabelKey, m.DomainGUIDs),
+		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
+		WithLabelIn(korifiv1alpha1.CFRouteHostLabelKey, m.Hosts),
+		WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224(m.Paths...)),
 	}
 
-	return len(itx.FromSlice(r.Spec.Destinations).Filter(func(d korifiv1alpha1.Destination) bool {
-		return slices.Contains(m.AppGUIDs, d.AppRef.Name)
-	}).Collect()) > 0
-}
+	listOptions = append(listOptions, slices.Collect(it.Map(slices.Values(m.AppGUIDs), func(s string) ListOption {
+		return WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix + s)
+	}))...)
 
-func (m *ListRoutesMessage) matchesUnmapped(r korifiv1alpha1.CFRoute) bool {
-	if m.IsUnmapped {
-		return len(r.Spec.Destinations) == 0
+	if m.IsUnmapped != nil {
+		listOptions = append(listOptions, WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, strconv.FormatBool(*m.IsUnmapped)))
 	}
 
-	return true
+	return listOptions
 }
 
 type CreateRouteMessage struct {
@@ -182,13 +175,13 @@ func (r *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, r
 
 func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info, message ListRoutesMessage) ([]RouteRecord, error) {
 	cfRouteList := &korifiv1alpha1.CFRouteList{}
-	err := r.klient.List(ctx, cfRouteList)
+	err := r.klient.List(ctx, cfRouteList, message.toListOptions()...)
 	if err != nil {
 		return []RouteRecord{}, fmt.Errorf("failed to list routes: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	filteredRoutes := itx.FromSlice(cfRouteList.Items).Filter(message.matches)
-	return slices.Collect(it.Map(filteredRoutes, cfRouteToRouteRecord)), nil
+	appRecords := itx.FromSlice(cfRouteList.Items)
+	return slices.Collect(it.Map(appRecords, cfRouteToRouteRecord)), nil
 }
 
 func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
@@ -274,9 +267,8 @@ func (r *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 func (r *RouteRepo) DeleteUnmappedRoutes(ctx context.Context, authInfo authorization.Info, spaceGUID string) error {
 	routes, err := r.ListRoutes(ctx, authInfo, ListRoutesMessage{
 		SpaceGUIDs: []string{spaceGUID},
-		IsUnmapped: true,
+		IsUnmapped: tools.PtrTo(true),
 	})
-
 	if err != nil {
 		return apierrors.FromK8sError(err, RouteResourceType)
 	}
