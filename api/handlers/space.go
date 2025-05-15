@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	SpacesPath = "/v3/spaces"
-	SpacePath  = "/v3/spaces/{guid}"
+	SpacesPath         = "/v3/spaces"
+	SpacePath          = "/v3/spaces/{guid}"
+	RoutesForSpacePath = "/v3/spaces/{guid}/routes"
 )
 
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
@@ -34,14 +35,16 @@ type CFSpaceRepository interface {
 
 type Space struct {
 	spaceRepo        CFSpaceRepository
+	routeRepo        CFRouteRepository
 	apiBaseURL       url.URL
 	requestValidator RequestValidator
 }
 
-func NewSpace(apiBaseURL url.URL, spaceRepo CFSpaceRepository, requestValidator RequestValidator) *Space {
+func NewSpace(apiBaseURL url.URL, spaceRepo CFSpaceRepository, routeRepo CFRouteRepository, requestValidator RequestValidator) *Space {
 	return &Space{
 		apiBaseURL:       apiBaseURL,
 		spaceRepo:        spaceRepo,
+		routeRepo:        routeRepo,
 		requestValidator: requestValidator,
 	}
 }
@@ -148,6 +151,29 @@ func (h *Space) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForSpace(space, h.apiBaseURL)), nil
 }
 
+func (h *Space) deleteUnmappedRoutes(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.delete-unmapped-routes")
+
+	spaceDeleteRoutes := new(payloads.SpaceDeleteRoutes)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, spaceDeleteRoutes); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to decode and validate request values")
+	}
+
+	spaceGUID := routing.URLParam(r, "guid")
+	_, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch space", "spaceGUID", spaceGUID)
+	}
+
+	err = h.routeRepo.DeleteUnmappedRoutes(r.Context(), authInfo, spaceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to delete unmapped routes for space", "SpaceGUID", spaceGUID)
+	}
+
+	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteUnmappedRoutesOperation, h.apiBaseURL)), nil
+}
+
 func (h *Space) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -159,5 +185,6 @@ func (h *Space) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: SpacePath, Handler: h.update},
 		{Method: "DELETE", Pattern: SpacePath, Handler: h.delete},
 		{Method: "GET", Pattern: SpacePath, Handler: h.get},
+		{Method: "DELETE", Pattern: RoutesForSpacePath, Handler: h.deleteUnmappedRoutes},
 	}
 }

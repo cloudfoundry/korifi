@@ -100,6 +100,7 @@ type ListRoutesMessage struct {
 	DomainGUIDs []string
 	Hosts       []string
 	Paths       []string
+	IsUnmapped  bool
 }
 
 func (m *ListRoutesMessage) matches(r korifiv1alpha1.CFRoute) bool {
@@ -107,7 +108,8 @@ func (m *ListRoutesMessage) matches(r korifiv1alpha1.CFRoute) bool {
 		tools.EmptyOrContains(m.Hosts, r.Spec.Host) &&
 		tools.EmptyOrContains(m.Paths, r.Spec.Path) &&
 		tools.EmptyOrContains(m.SpaceGUIDs, r.Namespace) &&
-		m.matchesApp(r)
+		m.matchesApp(r) &&
+		m.matchesUnmapped(r)
 }
 
 func (m *ListRoutesMessage) matchesApp(r korifiv1alpha1.CFRoute) bool {
@@ -118,6 +120,14 @@ func (m *ListRoutesMessage) matchesApp(r korifiv1alpha1.CFRoute) bool {
 	return len(itx.FromSlice(r.Spec.Destinations).Filter(func(d korifiv1alpha1.Destination) bool {
 		return slices.Contains(m.AppGUIDs, d.AppRef.Name)
 	}).Collect()) > 0
+}
+
+func (m *ListRoutesMessage) matchesUnmapped(r korifiv1alpha1.CFRoute) bool {
+	if m.IsUnmapped {
+		return len(r.Spec.Destinations) == 0
+	}
+
+	return true
 }
 
 type CreateRouteMessage struct {
@@ -259,6 +269,30 @@ func (r *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info
 	})
 
 	return apierrors.FromK8sError(err, RouteResourceType)
+}
+
+func (r *RouteRepo) DeleteUnmappedRoutes(ctx context.Context, authInfo authorization.Info, spaceGUID string) error {
+	routes, err := r.ListRoutes(ctx, authInfo, ListRoutesMessage{
+		SpaceGUIDs: []string{spaceGUID},
+		IsUnmapped: true,
+	})
+
+	if err != nil {
+		return apierrors.FromK8sError(err, RouteResourceType)
+	}
+
+	for _, route := range routes {
+		if err = r.klient.Delete(ctx, &korifiv1alpha1.CFRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      route.GUID,
+				Namespace: spaceGUID,
+			},
+		}); err != nil {
+			return apierrors.FromK8sError(err, RouteResourceType)
+		}
+	}
+
+	return nil
 }
 
 func (r *RouteRepo) GetOrCreateRoute(ctx context.Context, authInfo authorization.Info, message CreateRouteMessage) (RouteRecord, error) {

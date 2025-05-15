@@ -170,7 +170,10 @@ func main() {
 		klient,
 		repositories.NewDeploymentSorter(),
 	)
-	buildRepo := repositories.NewBuildRepo(klient)
+	buildRepo := repositories.NewBuildRepo(
+		klient,
+		repositories.NewBuildSorter(),
+	)
 	logRepo := repositories.NewLogRepo(
 		klientUnfiltered,
 		authorization.NewUnprivilegedClientsetFactory(k8sClientConfig),
@@ -409,6 +412,7 @@ func main() {
 				handlers.ManagedServiceInstanceCreateJobType: serviceInstanceRepo,
 				handlers.ManagedServiceBindingCreateJobType:  serviceBindingRepo,
 			},
+			routeRepo,
 			500*time.Millisecond,
 		),
 		handlers.NewOrg(
@@ -422,6 +426,7 @@ func main() {
 		handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
+			routeRepo,
 			requestValidator,
 		),
 		handlers.NewSpaceManifest(

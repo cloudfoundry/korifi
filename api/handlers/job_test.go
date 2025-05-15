@@ -22,6 +22,7 @@ var _ = Describe("Job", func() {
 		handler       *handlers.Job
 		deletionRepos map[string]handlers.DeletionRepository
 		stateRepos    map[string]handlers.StateRepository
+		routeRepo     *fake.CFRouteRepository
 		jobGUID       string
 		req           *http.Request
 	)
@@ -29,10 +30,11 @@ var _ = Describe("Job", func() {
 	BeforeEach(func() {
 		deletionRepos = map[string]handlers.DeletionRepository{}
 		stateRepos = map[string]handlers.StateRepository{}
+		routeRepo = new(fake.CFRouteRepository)
 	})
 
 	JustBeforeEach(func() {
-		handler = handlers.NewJob(*serverURL, deletionRepos, stateRepos, 0)
+		handler = handlers.NewJob(*serverURL, deletionRepos, stateRepos, routeRepo, 0)
 		routerBuilder.LoadRoutes(handler)
 
 		var err error
@@ -57,6 +59,53 @@ var _ = Describe("Job", func() {
 				MatchJSONPath("$.state", "COMPLETE"),
 				MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/cf-space-guid"),
 			)))
+		})
+	})
+
+	Describe("GET /v3/jobs/space.delete_unapped_routes", func() {
+		BeforeEach(func() {
+			jobGUID = "space.delete_unapped_routes~cf-space-guid"
+		})
+
+		It("returns a complete status when the job is done", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", jobGUID),
+				MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+				MatchJSONPath("$.operation", "space.delete_unapped_routes"),
+				MatchJSONPath("$.state", "COMPLETE"),
+				MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/cf-space-guid"),
+			)))
+		})
+
+		When("not all unmapped routes are deleted", func() {
+			BeforeEach(func() {
+				routeRepo.ListRoutesReturns([]repositories.RouteRecord{{
+					GUID:      "route-guid",
+					SpaceGUID: "cf-space-guid",
+				}}, nil)
+			})
+
+			It("returns a processing status", func() {
+				Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+				_, actualAuthInfo, actualMessage := routeRepo.ListRoutesArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualMessage).To(Equal(repositories.ListRoutesMessage{
+					SpaceGUIDs: []string{"cf-space-guid"},
+					IsUnmapped: true,
+				}))
+
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.guid", jobGUID),
+					MatchJSONPath("$.links.self.href", defaultServerURL+"/v3/jobs/"+jobGUID),
+					MatchJSONPath("$.operation", "space.delete_unapped_routes"),
+					MatchJSONPath("$.state", "PROCESSING"),
+					MatchJSONPath("$.links.space.href", defaultServerURL+"/v3/spaces/cf-space-guid"),
+				)))
+			})
 		})
 	})
 

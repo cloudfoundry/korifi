@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/google/uuid"
 
@@ -67,7 +68,7 @@ type ListDomainsMessage struct {
 
 func (m *ListDomainsMessage) toListOptions(rootNamespace string) []ListOption {
 	return []ListOption{
-		WithLabelIn(korifiv1alpha1.CFDomainNameLabelKey, m.Names),
+		WithLabelIn(korifiv1alpha1.CFEncodedDomainNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
 		InNamespace(rootNamespace),
 	}
 }

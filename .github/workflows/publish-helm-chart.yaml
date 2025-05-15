@@ -43,6 +43,7 @@ jobs:
           echo "Downloading: $RELEASE_URL"
           curl -L -H "Authorization: token $GITHUB_TOKEN" "$RELEASE_URL" -o chart.tgz
 
+
       - name: Update index.yaml with downloaded chart
         run: |
           mkdir -p helm-repo
@@ -52,6 +53,7 @@ jobs:
             helm repo index helm-repo --url https://cloudfoundry.github.io/korifi --merge helm-repo/index.yaml
           else
             helm repo index helm-repo --url https://cloudfoundry.github.io/korifi
+
           fi
 
       - name: Copy chart and index.yaml to gh-pages

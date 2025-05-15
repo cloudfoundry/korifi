@@ -5,6 +5,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -387,7 +388,12 @@ var _ = Describe("DropletRepository", func() {
 				})
 
 				Describe("filter parameters to list options", func() {
+					var fakeKlient *fake.Klient
+
 					BeforeEach(func() {
+						fakeKlient = new(fake.Klient)
+						dropletRepo = repositories.NewDropletRepo(fakeKlient)
+
 						message = repositories.ListDropletsMessage{
 							PackageGUIDs: []string{"p1", "p2"},
 							AppGUIDs:     []string{"a1", "a2"},
@@ -396,7 +402,9 @@ var _ = Describe("DropletRepository", func() {
 
 					It("translates filter parameters to klient list options", func() {
 						Expect(listErr).NotTo(HaveOccurred())
-						Expect(klient.GetRecordedListOptions()).To(ConsistOf(
+						Expect(fakeKlient.ListCallCount()).To(Equal(1))
+						_, _, listOptions := fakeKlient.ListArgsForCall(0)
+						Expect(listOptions).To(ConsistOf(
 							repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
 							repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
 						))

@@ -236,7 +236,12 @@ var _ = Describe("AppRepository", func() {
 			})
 
 			Describe("filter parameters to list options", func() {
+				var fakeKlient *fake.Klient
+
 				BeforeEach(func() {
+					fakeKlient = new(fake.Klient)
+					appRepo = repositories.NewAppRepo(fakeKlient, appAwaiter, sorter)
+
 					message = repositories.ListAppsMessage{
 						Names:         []string{"n1", "n2"},
 						Guids:         []string{"g1", "g2"},
@@ -247,8 +252,10 @@ var _ = Describe("AppRepository", func() {
 
 				It("translates filter parameters to klient list options", func() {
 					Expect(listErr).NotTo(HaveOccurred())
-					Expect(klient.GetRecordedListOptions()).To(ConsistOf(
-						repositories.WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, []string{"n1", "n2"}),
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, tools.EncodeValuesToSha224("n1", "n2")),
 						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
 						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"sg1", "sg2"}),
 						repositories.WithLabelSelector("foo=bar"),

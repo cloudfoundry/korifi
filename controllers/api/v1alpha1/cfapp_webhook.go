@@ -62,7 +62,7 @@ func (r *CFAppDefaulter) defaultLabels(cfApp *CFApp) {
 	labels := cfApp.GetLabels()
 	labels = tools.SetMapValue(labels, CFAppGUIDLabelKey, cfApp.Name)
 	labels = tools.SetMapValue(labels, GUIDLabelKey, cfApp.Name)
-	labels = tools.SetMapValue(labels, CFAppDisplayNameKey, cfApp.Spec.DisplayName)
+	labels = tools.SetMapValue(labels, CFAppDisplayNameKey, tools.EncodeValueToSha224(cfApp.Spec.DisplayName))
 	cfApp.SetLabels(labels)
 }
 

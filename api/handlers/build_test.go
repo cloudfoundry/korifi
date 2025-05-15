@@ -147,7 +147,7 @@ var _ = Describe("Build", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 
 			Expect(buildRepo.ListBuildsCallCount()).To(Equal(1))
-			_, actualAuthInfo := buildRepo.ListBuildsArgsForCall(0)
+			_, actualAuthInfo, _ := buildRepo.ListBuildsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -158,6 +158,25 @@ var _ = Describe("Build", func() {
 				MatchJSONPath("$.resources[0].state", "STAGING"),
 				MatchJSONPath("$.resources[0].guid", buildGUID),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.BuildList{
+					PackageGUIDs: "p1,p2",
+					AppGUIDs:     "a1,a2",
+					States:       "s1,s2",
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(buildRepo.ListBuildsCallCount()).To(Equal(1))
+				_, _, message := buildRepo.ListBuildsArgsForCall(0)
+
+				Expect(message.PackageGUIDs).To(ConsistOf("p1", "p2"))
+				Expect(message.AppGUIDs).To(ConsistOf("a1", "a2"))
+				Expect(message.States).To(ConsistOf("s1", "s2"))
+			})
 		})
 
 		When("there is some other error fetching the list of builds", func() {
