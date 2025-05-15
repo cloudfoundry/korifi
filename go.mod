@@ -10,7 +10,6 @@ require (
 	github.com/BooleanCat/go-functional/v2 v2.5.1
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
-	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.44.0
 	github.com/blendle/zapdriver v1.3.1
@@ -45,7 +44,7 @@ require (
 	k8s.io/pod-security-admission v0.33.0
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 	sigs.k8s.io/controller-runtime v0.20.4
-	sigs.k8s.io/controller-tools v0.17.3
+	sigs.k8s.io/controller-tools v0.18.0
 	sigs.k8s.io/gateway-api v1.3.0
 )
 
@@ -93,6 +92,8 @@ require (
 	golang.org/x/term v0.32.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
+	k8s.io/code-generator v0.33.0 // indirect
+	k8s.io/gengo/v2 v2.0.0-20250207200755-1244d31929d7 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 )
 
@@ -194,7 +195,7 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/apiextensions-apiserver v0.32.3 // indirect
+	k8s.io/apiextensions-apiserver v0.33.0 // indirect
 	k8s.io/component-base v0.33.0 // indirect
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
