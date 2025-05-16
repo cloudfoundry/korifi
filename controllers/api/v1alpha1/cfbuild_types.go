@@ -21,6 +21,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	BuildStateLabelKey = "korifi.cloudfoundry.org/build-state"
+
+	BuildStateStaging = "STAGING"
+	BuildStateStaged  = "STAGED"
+	BuildStateFailed  = "FAILED"
+)
+
 // CFBuildSpec defines the desired state of CFBuild
 type CFBuildSpec struct {
 	// The CFPackage associated with this build. Must be in the same namespace

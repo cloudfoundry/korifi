@@ -118,6 +118,12 @@ func EmptyValue() IndexValueFunc {
 	}
 }
 
+func ConstantValue(v string) IndexValueFunc {
+	return func(_ map[string]any) (*string, error) {
+		return tools.PtrTo(v), nil
+	}
+}
+
 func marshal(value any) (*string, error) {
 	valueBytes, err := json.Marshal(value)
 	if err != nil {

@@ -336,4 +336,15 @@ var _ = Describe("IndexValues", func() {
 			Expect(result).To(PointTo(Equal("")))
 		})
 	})
+
+	Describe("ConstantValue", func() {
+		JustBeforeEach(func() {
+			result, err = values.ConstantValue("my-const")(map[string]any{})
+		})
+
+		It("returns a constant string", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(PointTo(Equal("my-const")))
+		})
+	})
 })
