@@ -14,11 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	cfProcessGUIDLabelKey = "korifi.cloudfoundry.org/process-guid"
-	cfProcessTypeLabelKey = "korifi.cloudfoundry.org/process-type"
-)
-
 var _ = Describe("CFProcessMutatingWebhook", func() {
 	var (
 		cfAppGUID     string
@@ -50,9 +45,8 @@ var _ = Describe("CFProcessMutatingWebhook", func() {
 
 	Describe("labels", func() {
 		It("adds the labels with details about the process and the app", func() {
-			Expect(cfProcess.Labels).To(HaveKeyWithValue(cfProcessGUIDLabelKey, cfProcessGUID))
-			Expect(cfProcess.Labels).To(HaveKeyWithValue(cfProcessTypeLabelKey, "test-process-type"))
-			Expect(cfProcess.Labels).To(HaveKeyWithValue(cfAppGUIDLabelKey, cfAppGUID))
+			Expect(cfProcess.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFProcessTypeLabelKey, "test-process-type"))
+			Expect(cfProcess.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID))
 		})
 
 		It("preserves all other labels", func() {

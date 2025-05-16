@@ -153,7 +153,7 @@ var _ = Describe("Space", func() {
 				Entry("guids", "guids=guid", payloads.SpaceList{GUIDs: "guid"}),
 				Entry("organization_guids", "organization_guids=org-guid", payloads.SpaceList{OrganizationGUIDs: "org-guid"}),
 				Entry("include", "include=organization", payloads.SpaceList{IncludeResourceRules: []params.IncludeResourceRule{
-					params.IncludeResourceRule{
+					{
 						RelationshipPath: []string{"organization"},
 					},
 				}}),
@@ -280,7 +280,7 @@ var _ = Describe("Space", func() {
 				},
 
 				Entry("include", "include=organization", payloads.SpaceGet{IncludeResourceRules: []params.IncludeResourceRule{
-					params.IncludeResourceRule{
+					{
 						RelationshipPath: []string{"organization"},
 					},
 				}}),

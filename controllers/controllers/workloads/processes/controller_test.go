@@ -140,7 +140,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				Namespace: testNamespace,
 				Labels: map[string]string{
 					korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
-					korifiv1alpha1.CFProcessGUIDLabelKey: cfProcessGUID,
 					korifiv1alpha1.CFProcessTypeLabelKey: korifiv1alpha1.ProcessTypeWeb,
 				},
 			},

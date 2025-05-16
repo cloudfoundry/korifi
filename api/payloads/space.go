@@ -86,11 +86,12 @@ func (g SpaceGet) Validate() error {
 func (s *SpaceGet) SupportedKeys() []string {
 	return []string{"include"}
 }
+
 func (s *SpaceGet) DecodeFromURLValues(values url.Values) error {
 	includeVal := values.Get("include")
 	if includeVal != "" {
 		s.IncludeResourceRules = []params.IncludeResourceRule{
-			params.IncludeResourceRule{
+			{
 				RelationshipPath: []string{includeVal},
 			},
 		}
@@ -143,7 +144,7 @@ func (l *SpaceList) DecodeFromURLValues(values url.Values) error {
 	includeVal := values.Get("include")
 	if includeVal != "" {
 		l.IncludeResourceRules = []params.IncludeResourceRule{
-			params.IncludeResourceRule{
+			{
 				RelationshipPath: []string{includeVal},
 			},
 		}
