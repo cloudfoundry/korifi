@@ -157,6 +157,7 @@ func main() {
 	podRepo := repositories.NewPodRepo(klientUnfiltered)
 	appRepo := repositories.NewAppRepo(
 		klient,
+		privilegedClientset.RESTClient(),
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
 		repositories.NewAppSorter(),
 	)
