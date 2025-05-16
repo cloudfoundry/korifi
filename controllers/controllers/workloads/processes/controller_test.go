@@ -140,7 +140,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				Namespace: testNamespace,
 				Labels: map[string]string{
 					korifiv1alpha1.CFAppGUIDLabelKey:     cfApp.Name,
-					korifiv1alpha1.CFProcessGUIDLabelKey: cfProcessGUID,
 					korifiv1alpha1.CFProcessTypeLabelKey: korifiv1alpha1.ProcessTypeWeb,
 				},
 			},
@@ -225,7 +224,6 @@ var _ = Describe("CFProcessReconciler Integration Tests", func() {
 				g.Expect(appWorkload.ObjectMeta.Labels).To(MatchAllKeys(Keys{
 					korifiv1alpha1.CFAppGUIDLabelKey:     Equal(cfApp.Name),
 					korifiv1alpha1.CFAppRevisionKey:      Equal(cfApp.Annotations[korifiv1alpha1.CFAppRevisionKey]),
-					korifiv1alpha1.CFProcessGUIDLabelKey: Equal(cfProcess.Name),
 					korifiv1alpha1.CFProcessTypeLabelKey: Equal(cfProcess.Spec.ProcessType),
 				}))
 

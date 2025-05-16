@@ -54,7 +54,6 @@ import (
 	domainswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
 	securitygroupswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/security_groups"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/relationships"
 	bindingswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
 	brokerswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/brokers"
 	instanceswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/instances"
@@ -366,19 +365,6 @@ func main() {
 
 		(&appswebhook.AppRevWebhook{}).SetupWebhookWithManager(mgr)
 
-		if err = korifiv1alpha1.NewCFPackageDefaulter().SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
-			os.Exit(1)
-		}
-		if err = korifiv1alpha1.NewCFBuildDefaulter().SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFBuild")
-			os.Exit(1)
-		}
-		if err = korifiv1alpha1.NewCFDomainDefaulter().SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFDomain")
-			os.Exit(1)
-		}
-
 		if err = korifiv1alpha1.NewCFProcessDefaulter(
 			controllerConfig.CFProcessDefaults.MemoryMB,
 			controllerConfig.CFProcessDefaults.DiskQuotaMB,
@@ -464,11 +450,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = korifiv1alpha1.NewCFRouteDefaulter().SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
-			os.Exit(1)
-		}
-
 		if err = taskswebhook.NewDefaulter(controllerConfig.CFProcessDefaults).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFTask")
 			os.Exit(1)
@@ -487,8 +468,6 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
 			os.Exit(1)
 		}
-
-		relationships.NewSpaceGUIDWebhook().SetupWebhookWithManager(mgr)
 
 		if err = mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
 			setupLog.Error(err, "unable to set up ready check")
