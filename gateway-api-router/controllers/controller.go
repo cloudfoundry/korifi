@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package routes
+package controllers
 
 import (
 	"context"
@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/shared"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -47,16 +46,17 @@ type Reconciler struct {
 	client           client.Client
 	scheme           *runtime.Scheme
 	log              logr.Logger
-	controllerConfig *config.ControllerConfig
+	gatewayName      string
+	gatewayNamespace string
 }
 
 func NewReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-	controllerConfig *config.ControllerConfig,
+	gatewayName, gatewayNamespace string,
 ) *k8s.PatchingReconciler[korifiv1alpha1.CFRoute] {
-	routeReconciler := Reconciler{client: client, scheme: scheme, log: log, controllerConfig: controllerConfig}
+	routeReconciler := Reconciler{client: client, scheme: scheme, log: log, gatewayName: gatewayName, gatewayNamespace: gatewayNamespace}
 	return k8s.NewPatchingReconciler[korifiv1alpha1.CFRoute](log, client, &routeReconciler)
 }
 
@@ -99,15 +99,6 @@ func (r *Reconciler) enqueueCFAppRequests(ctx context.Context, o client.Object) 
 
 	return requests
 }
-
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfroutes/finalizers,verbs=update
-
-//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes/status,verbs=get
-
-//+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
 func (r *Reconciler) ReconcileResource(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
@@ -312,8 +303,8 @@ func (r *Reconciler) reconcileHTTPRoute(ctx context.Context, cfRoute *korifiv1al
 		httpRoute.Spec.ParentRefs = []gatewayv1beta1.ParentReference{{
 			Group:     tools.PtrTo(gatewayv1beta1.Group("gateway.networking.k8s.io")),
 			Kind:      tools.PtrTo(gatewayv1beta1.Kind("Gateway")),
-			Namespace: tools.PtrTo(gatewayv1beta1.Namespace(r.controllerConfig.Networking.GatewayNamespace)),
-			Name:      gatewayv1beta1.ObjectName(r.controllerConfig.Networking.GatewayName),
+			Namespace: tools.PtrTo(gatewayv1beta1.Namespace(r.gatewayNamespace)),
+			Name:      gatewayv1beta1.ObjectName(r.gatewayName),
 		}}
 
 		httpRoute.Spec.Hostnames = []gatewayv1beta1.Hostname{

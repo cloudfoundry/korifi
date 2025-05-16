@@ -1,4 +1,4 @@
-package routes_test
+package controllers_test
 
 import (
 	"fmt"
