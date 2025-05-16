@@ -202,7 +202,7 @@ var _ = Describe("Space", func() {
 					},
 				}, nil)
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{IncludeResourceRules: []params.IncludeResourceRule{
-					params.IncludeResourceRule{
+					{
 						RelationshipPath: []string{"organization"},
 					},
 				}})
@@ -417,7 +417,7 @@ var _ = Describe("Space", func() {
 				}, nil)
 
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceGet{IncludeResourceRules: []params.IncludeResourceRule{
-					params.IncludeResourceRule{
+					{
 						RelationshipPath: []string{"organization"},
 					},
 				}})
