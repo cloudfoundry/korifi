@@ -14,7 +14,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: contourconfigurations.projectcontour.io
 spec:
   preserveUnknownFields: false
@@ -1413,7 +1413,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: contourdeployments.projectcontour.io
 spec:
   preserveUnknownFields: false
@@ -2823,7 +2823,7 @@ spec:
                             The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
                             The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
                             The volume will be mounted read-only (ro) and non-executable files (noexec).
-                            Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+                            Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
                             The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
                           properties:
                             pullPolicy:
@@ -5147,7 +5147,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: extensionservices.projectcontour.io
 spec:
   preserveUnknownFields: false
@@ -5627,7 +5627,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: httpproxies.projectcontour.io
 spec:
   preserveUnknownFields: false
@@ -8529,7 +8529,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.18.0
   name: tlscertificatedelegations.projectcontour.io
 spec:
   preserveUnknownFields: false
@@ -23951,7 +23951,7 @@ spec:
         - --metrics-addr=127.0.0.1:8080
         - --enable-leader-election
         command: ["contour"]
-        image: ghcr.io/projectcontour/contour:v1.31.0
+        image: ghcr.io/projectcontour/contour:v1.32.0
         imagePullPolicy: IfNotPresent
         name: contour-gateway-provisioner
         resources:
