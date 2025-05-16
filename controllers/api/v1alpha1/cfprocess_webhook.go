@@ -70,7 +70,6 @@ func (d *CFProcessDefaulter) defaultLabels(process *CFProcess) {
 		processLabels = make(map[string]string)
 	}
 
-	processLabels[CFProcessGUIDLabelKey] = process.Name
 	processLabels[CFProcessTypeLabelKey] = process.Spec.ProcessType
 	processLabels[CFAppGUIDLabelKey] = process.Spec.AppRef.Name
 

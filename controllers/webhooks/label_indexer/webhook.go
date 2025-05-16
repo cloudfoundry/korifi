@@ -1,6 +1,6 @@
 package label_indexer
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes,verbs=create;update,versions=v1alpha1,name=mcflabelindexer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes;cfapps;cfbuilds;cfdomains;cfpackages;cfprocesses;cfservicebindings;cfserviceinstances;cftasks,verbs=create;update,versions=v1alpha1,name=mcflabelindexer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 import (
 	"context"
@@ -35,6 +35,35 @@ func NewWebhook() *LabelIndexerWebhook {
 				LabelRule{Label: korifiv1alpha1.CFRoutePathLabelKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.path")))},
 				LabelRule{Label: korifiv1alpha1.CFRouteIsUnmappedLabelKey, IndexingFunc: IsEmptyValue(JSONValue("$.spec.destinations[*]"))},
 				MultiLabelRule{LabelRules: DestinationAppGuidLabelRules},
+			},
+			"CFApp": {
+				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
+				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+				LabelRule{Label: korifiv1alpha1.CFAppDisplayNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.displayName")))},
+			},
+			"CFBuild": {
+				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+				LabelRule{Label: korifiv1alpha1.CFAppGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.appRef.name"))},
+				LabelRule{Label: korifiv1alpha1.CFPackageGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.packageRef.name"))},
+			},
+			"CFDomain": {
+				LabelRule{Label: korifiv1alpha1.CFEncodedDomainNameLabelKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.name")))},
+			},
+			"CFPackage": {
+				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+				LabelRule{Label: korifiv1alpha1.CFAppGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.appRef.name"))},
+			},
+			"CFProcess": {
+				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+			},
+			"CFServiceInstance": {
+				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+			},
+			"CFServiceBinding": {
+				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+			},
+			"CFTask": {
+				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
 			},
 		},
 	}

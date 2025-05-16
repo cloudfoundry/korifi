@@ -52,18 +52,9 @@ func (r *CFAppDefaulter) Default(ctx context.Context, obj runtime.Object) error 
 	cfApp := obj.(*CFApp)
 	cfapplog.V(1).Info("mutating CFApp webhook handler", "name", cfApp.Name)
 
-	r.defaultLabels(cfApp)
 	r.defaultAnnotations(cfApp)
 
 	return nil
-}
-
-func (r *CFAppDefaulter) defaultLabels(cfApp *CFApp) {
-	labels := cfApp.GetLabels()
-	labels = tools.SetMapValue(labels, CFAppGUIDLabelKey, cfApp.Name)
-	labels = tools.SetMapValue(labels, GUIDLabelKey, cfApp.Name)
-	labels = tools.SetMapValue(labels, CFAppDisplayNameKey, tools.EncodeValueToSha224(cfApp.Spec.DisplayName))
-	cfApp.SetLabels(labels)
 }
 
 func (r *CFAppDefaulter) defaultAnnotations(cfApp *CFApp) {
