@@ -4,11 +4,13 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 )
 
 var _ = Describe("Space", func() {
@@ -150,9 +152,22 @@ var _ = Describe("Space", func() {
 				Entry("names", "names=name", payloads.SpaceList{Names: "name"}),
 				Entry("guids", "guids=guid", payloads.SpaceList{GUIDs: "guid"}),
 				Entry("organization_guids", "organization_guids=org-guid", payloads.SpaceList{OrganizationGUIDs: "org-guid"}),
+				Entry("include", "include=organization", payloads.SpaceList{IncludeResourceRules: []params.IncludeResourceRule{
+					params.IncludeResourceRule{
+						RelationshipPath: []string{"organization"},
+					},
+				}}),
 				Entry("order_by", "order_by=something", payloads.SpaceList{}),
 				Entry("per_page", "per_page=few", payloads.SpaceList{}),
 				Entry("page", "page=3", payloads.SpaceList{}),
+			)
+			DescribeTable("invalid query",
+				func(query string, errMatcher types.GomegaMatcher) {
+					_, decodeErr := decodeQuery[payloads.SpaceList](query)
+					Expect(decodeErr).To(errMatcher)
+				},
+
+				Entry("include", "include=something", MatchError(ContainSubstring("must be organization"))),
 			)
 		})
 
@@ -251,6 +266,34 @@ var _ = Describe("Space", func() {
 					"unmapped cannot be blank",
 				)
 			})
+		})
+	})
+
+	Describe("SpaceGet", func() {
+		Describe("Validation", func() {
+			DescribeTable("valid query",
+				func(query string, expectedSpaceGet payloads.SpaceGet) {
+					actualSpaceGet, decodeErr := decodeQuery[payloads.SpaceGet](query)
+
+					Expect(decodeErr).NotTo(HaveOccurred())
+					Expect(*actualSpaceGet).To(Equal(expectedSpaceGet))
+				},
+
+				Entry("include", "include=organization", payloads.SpaceGet{IncludeResourceRules: []params.IncludeResourceRule{
+					params.IncludeResourceRule{
+						RelationshipPath: []string{"organization"},
+					},
+				}}),
+			)
+
+			DescribeTable("invalid query",
+				func(query string, errMatcher types.GomegaMatcher) {
+					_, decodeErr := decodeQuery[payloads.SpaceGet](query)
+					Expect(decodeErr).To(errMatcher)
+				},
+
+				Entry("include", "include=something", MatchError(ContainSubstring("must be organization"))),
+			)
 		})
 	})
 })

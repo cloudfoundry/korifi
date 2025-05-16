@@ -81,7 +81,7 @@ spec:
           }
 
           main() {
-            set-migrated-by-label cfapps cfdomains
+            set-migrated-by-label cfapps cfdomains cfroutes
           }
 
           main

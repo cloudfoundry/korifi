@@ -23,6 +23,8 @@ const (
 	CFDomainGUIDLabelKey        = "korifi.cloudfoundry.org/domain-guid"
 	CFEncodedDomainNameLabelKey = "korifi.cloudfoundry.org/domain-name"
 	CFRouteGUIDLabelKey         = "korifi.cloudfoundry.org/route-guid"
+	CFRouteHostLabelKey         = "korifi.cloudfoundry.org/route-host"
+	CFRoutePathLabelKey         = "korifi.cloudfoundry.org/route-path"
 	CFTaskGUIDLabelKey          = "korifi.cloudfoundry.org/task-guid"
 
 	GUIDLabelKey            = "korifi.cloudfoundry.org/guid"

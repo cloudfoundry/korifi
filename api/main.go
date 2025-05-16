@@ -426,8 +426,10 @@ func main() {
 		handlers.NewSpace(
 			*serverURL,
 			spaceRepo,
+			orgRepo,
 			routeRepo,
 			requestValidator,
+			relationshipsRepo,
 		),
 		handlers.NewSpaceManifest(
 			*serverURL,
@@ -466,9 +468,6 @@ func main() {
 			appRepo,
 			taskRepo,
 			requestValidator,
-		),
-		handlers.NewOAuth(
-			*serverURL,
 		),
 		handlers.NewServiceBroker(
 			*serverURL,
