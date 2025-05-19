@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	DropletPath = "/v3/droplets/{guid}"
+	DropletsPath = "/v3/droplets"
+	DropletPath  = "/v3/droplets/{guid}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFDropletRepository . CFDropletRepository
@@ -64,6 +65,24 @@ func (h *Droplet) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForDroplet(droplet, h.serverURL)), nil
 }
 
+func (h *Droplet) list(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.droplet.list")
+
+	payload := new(payloads.DropletList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, payload)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
+	droplets, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, payload.ToMessage())
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to list droplets")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDroplet, droplets, h.serverURL, *r.URL)), nil
+}
+
 func (h *Droplet) update(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.droplet.update")
@@ -100,6 +119,7 @@ func (h *Droplet) UnauthenticatedRoutes() []routing.Route {
 func (h *Droplet) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: DropletPath, Handler: h.get},
+		{Method: "GET", Pattern: DropletsPath, Handler: h.list},
 		{Method: "PATCH", Pattern: DropletPath, Handler: h.update},
 	}
 }

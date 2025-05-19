@@ -19,28 +19,31 @@ import (
 )
 
 var _ = Describe("Droplet", func() {
-	const (
-		appGUID     = "test-app-guid"
-		packageGUID = "test-package-guid"
-		dropletGUID = "test-build-guid" // same as build guid
-
-	)
 	var (
 		createdAt = time.UnixMilli(2000)
 		updatedAt = tools.PtrTo(time.UnixMilli(2000))
 
+		appGUID      string
+		packageGUID  string
+		dropletGUID  string
+		dropletGUID2 string
+
 		requestValidator *fake.RequestValidator
 		dropletRepo      *fake.CFDropletRepository
 		req              *http.Request
+		err              error
+		reqPath          string
+		reqMethod        string
 	)
 
 	BeforeEach(func() {
 		dropletRepo = new(fake.CFDropletRepository)
-		var err error
-		req, err = http.NewRequestWithContext(ctx, "GET", "/v3/droplets/"+dropletGUID, nil)
-		Expect(err).NotTo(HaveOccurred())
-
 		requestValidator = new(fake.RequestValidator)
+
+		appGUID = "test-app-guid"
+		packageGUID = "test-package-guid"
+		dropletGUID = "test-build-guid" // same as build guid
+		dropletGUID2 = "test-build-guid-2"
 
 		apiHandler := NewDroplet(
 			*serverURL,
@@ -48,13 +51,21 @@ var _ = Describe("Droplet", func() {
 			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
+		reqPath = "/v3/droplets"
+		reqMethod = http.MethodGet
 	})
 
 	JustBeforeEach(func() {
+		req, err = http.NewRequestWithContext(ctx, reqMethod, reqPath, strings.NewReader("the-json-body"))
+		Expect(err).NotTo(HaveOccurred())
 		routerBuilder.Build().ServeHTTP(rr, req)
 	})
 
 	Describe("the GET /v3/droplet/:guid endpoint", func() {
+		BeforeEach(func() {
+			reqPath += "/" + dropletGUID
+		})
+
 		When("build staging is successful", func() {
 			BeforeEach(func() {
 				dropletRepo.GetDropletReturns(repositories.DropletRecord{
@@ -120,6 +131,53 @@ var _ = Describe("Droplet", func() {
 		})
 	})
 
+	Describe("the GET /v3/droplets endpoint", func() {
+		BeforeEach(func() {
+			dropletRepo.ListDropletsReturns([]repositories.DropletRecord{
+				{
+					GUID:  dropletGUID,
+					State: "STAGED",
+					ProcessTypes: map[string]string{
+						"rake": "bundle exec rake",
+						"web":  "bundle exec rackup config.ru -p $PORT",
+					},
+				},
+				{
+					GUID:  dropletGUID2,
+					State: "STAGED",
+				},
+			}, nil)
+		})
+
+		It("lists the droplets", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+
+			Expect(dropletRepo.ListDropletsCallCount()).To(Equal(1))
+			_, _, message := dropletRepo.ListDropletsArgsForCall(0)
+			Expect(message.AppGUIDs).To(BeEmpty())
+			Expect(message.SpaceGUIDs).To(BeEmpty())
+			Expect(message.PackageGUIDs).To(BeEmpty())
+			Expect(message.GUIDs).To(BeEmpty())
+
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
+				MatchJSONPath("$.resources[0].guid", dropletGUID),
+				MatchJSONPath("$.resources[0].process_types.rake", "bundle exec rake"),
+				MatchJSONPath("$.resources[1].guid", dropletGUID2),
+			)))
+		})
+
+		When("the droplet repo returns an error", func() {
+			BeforeEach(func() {
+				dropletRepo.ListDropletsReturns([]repositories.DropletRecord{}, errors.New("update-droplet-error"))
+			})
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+	})
+
 	Describe("the PATCH /v3/droplet/:guid endpoint", func() {
 		var payload *payloads.DropletUpdate
 
@@ -174,18 +232,15 @@ var _ = Describe("Droplet", func() {
 				},
 			}, nil)
 
-			var err error
-			req, err = http.NewRequestWithContext(ctx, "PATCH", "/v3/droplets/"+dropletGUID, strings.NewReader("the-json-body"))
-			Expect(err).NotTo(HaveOccurred())
-
 			payload = &payloads.DropletUpdate{
 				Metadata: payloads.MetadataPatch{
 					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
 					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
 				},
 			}
-
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
+			reqPath += "/" + dropletGUID
+			reqMethod = http.MethodPatch
 		})
 
 		It("validates the payload", func() {
