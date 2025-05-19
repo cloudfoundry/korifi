@@ -80,8 +80,10 @@ type CFAppStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+//+kubebuilder:printcolumn:name="name",type=string,JSONPath=`.spec.displayName`
+//+kubebuilder:printcolumn:name="state",type=string,JSONPath=`.spec.desiredState`
+//+kubebuilder:printcolumn:name="created_at",type="date",JSONPath=`.metadata.creationTimestamp`
+//+kubebuilder:printcolumn:name="foo",type="string",JSONPath=`.metadata.labels.foo`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFApp is the Schema for the cfapps API

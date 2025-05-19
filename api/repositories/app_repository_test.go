@@ -3,6 +3,8 @@ package repositories_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"slices"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -16,6 +18,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -58,12 +62,69 @@ var _ = Describe("AppRepository", func() {
 		sorter.SortStub = func(records []repositories.AppRecord, _ string) []repositories.AppRecord {
 			return records
 		}
-		appRepo = repositories.NewAppRepo(klient, appAwaiter, sorter)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
 
-		cfApp = createAppWithGUID(cfSpace.Name, testutils.PrefixedGUID("cfapp1-"))
+		// cfApp = createAppWithGUID(cfSpace.Name, testutils.PrefixedGUID("cfapp1-"))
+	})
+
+	Describe("sorting via table objects", func() {
+		const appsCount = 10
+
+		var appRecords []repositories.AppRecord
+
+		BeforeEach(func() {
+			clientSet, err := kubernetes.NewForConfig(testEnv.Config)
+			Expect(err).NotTo(HaveOccurred())
+			appRepo = repositories.NewAppRepo(klient, clientSet.RESTClient(), appAwaiter, repositories.NewAppSorter())
+			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
+
+			for i := 0; i < appsCount; i++ {
+				appGUID := fmt.Sprintf("app-%d", i)
+				displayName := uuid.NewString()
+				Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFApp{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      appGUID,
+						Namespace: cfSpace.Name,
+						Labels: map[string]string{
+							"foo":                       "bar",
+							CFAppDisplayNameLabel:       displayName,
+							korifiv1alpha1.GUIDLabelKey: appGUID,
+							korifiv1alpha1.SpaceGUIDKey: cfSpace.Name,
+						},
+					},
+					Spec: korifiv1alpha1.CFAppSpec{
+						DisplayName:  displayName,
+						DesiredState: "STOPPED",
+						Lifecycle: korifiv1alpha1.Lifecycle{
+							Type: "buildpack",
+							Data: korifiv1alpha1.LifecycleData{
+								Buildpacks: []string{"java"},
+							},
+						},
+					},
+				})).To(Succeed())
+			}
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			appRecords, err = appRepo.ListApps(ctx, authInfo, repositories.ListAppsMessage{
+				OrderBy: "name",
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(appRecords).To(HaveLen(appsCount))
+		})
+
+		FIt("sorts the apps", func() {
+			appNames := slices.Collect(it.Map(slices.Values(appRecords), func(appRecord repositories.AppRecord) string {
+				return appRecord.Name
+			}))
+
+			Expect(slices.IsSorted(appNames)).To(BeTrue())
+			Expect(appRecords[0].State).To(BeEquivalentTo("STOPPED"))
+		})
 	})
 
 	Describe("GetApp", func() {
@@ -240,7 +301,7 @@ var _ = Describe("AppRepository", func() {
 
 				BeforeEach(func() {
 					fakeKlient = new(fake.Klient)
-					appRepo = repositories.NewAppRepo(fakeKlient, appAwaiter, sorter)
+					appRepo = repositories.NewAppRepo(fakeKlient, nil, appAwaiter, sorter)
 
 					message = repositories.ListAppsMessage{
 						Names:         []string{"n1", "n2"},

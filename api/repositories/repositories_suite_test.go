@@ -25,6 +25,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -92,6 +93,9 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.NewWithWatch(testEnv.Config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	Expect(metav1.AddMetaToScheme(scheme.Scheme)).To(Succeed())
+	metav1.AddToGroupVersion(scheme.Scheme, metav1.SchemeGroupVersion)
 
 	adminRole = createClusterRole(context.Background(), "cf_admin")
 	orgManagerRole = createClusterRole(context.Background(), "cf_org_manager")

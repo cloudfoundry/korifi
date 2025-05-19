@@ -22,8 +22,10 @@ import (
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -39,6 +41,7 @@ const (
 
 type AppRepo struct {
 	klient     Klient
+	restClient rest.Interface
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp]
 	sorter     AppSorter
 }
@@ -88,11 +91,13 @@ func AppComparator(fieldName string) func(AppRecord, AppRecord) int {
 
 func NewAppRepo(
 	klient Klient,
+	restClient rest.Interface,
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp],
 	sorter AppSorter,
 ) *AppRepo {
 	return &AppRepo{
 		klient:     klient,
+		restClient: restClient,
 		appAwaiter: appAwaiter,
 		sorter:     sorter,
 	}
@@ -320,15 +325,84 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
+	k8sListOptions, err := toK8sListOptions(message.toListOptions()...)
+	if err != nil {
+		return []AppRecord{}, err
+	}
+
+	table := &metav1.Table{}
+	if err := f.restClient.
+		Get().AbsPath("/apis/korifi.cloudfoundry.org/v1alpha1/cfapps").
+		SetHeader("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1").
+		VersionedParams(&metav1.TableOptions{
+			IncludeObject: metav1.IncludeNone,
+		}, scheme.ParameterCodec).
+		VersionedParams(k8sListOptions.AsListOptions(), scheme.ParameterCodec).
+		Do(ctx).Into(table); err != nil {
+		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
+	}
+
+	objects := toJSONObjects(table)
+
+	slices.SortFunc(objects, func(a, b map[string]any) int {
+		aField := a[message.OrderBy].(string)
+		bField := b[message.OrderBy].(string)
+		return strings.Compare(aField, bField)
+	})
+
+	sortedObjectGUIDs := slices.Collect(it.Map(slices.Values(objects), func(obj map[string]any) string {
+		return obj["Name"].(string)
+	}))
+
 	appList := &korifiv1alpha1.CFAppList{}
-	err := f.klient.List(ctx, appList, message.toListOptions()...)
+	err = f.klient.List(ctx, appList, WithLabelIn(korifiv1alpha1.GUIDLabelKey, sortedObjectGUIDs))
 	if err != nil {
 		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	appRecords := it.Map(itx.FromSlice(appList.Items), cfAppToAppRecord)
+	appsMap := map[string]korifiv1alpha1.CFApp{}
+	for _, app := range appList.Items {
+		appsMap[app.Name] = app
+	}
 
-	return f.sorter.Sort(slices.Collect(appRecords), message.OrderBy), nil
+	sortedApps := []korifiv1alpha1.CFApp{}
+	for _, guid := range sortedObjectGUIDs {
+		sortedApps = append(sortedApps, appsMap[guid])
+	}
+
+	return slices.Collect(it.Map(itx.FromSlice(sortedApps), cfAppToAppRecord)), nil
+}
+
+func toJSONObjects(table *metav1.Table) []map[string]any {
+	columnsNames := it.Map(slices.Values(table.ColumnDefinitions), func(column metav1.TableColumnDefinition) string {
+		return column.Name
+	})
+	return slices.Collect(it.Map(slices.Values(table.Rows), func(row metav1.TableRow) map[string]any {
+		return maps.Collect(it.Zip(columnsNames, slices.Values(row.Cells)))
+	}))
+}
+
+func toK8sListOptions(opts ...ListOption) (client.ListOptions, error) {
+	listOpts := ListOptions{}
+	for _, o := range opts {
+		if err := o.ApplyToList(&listOpts); err != nil {
+			return client.ListOptions{}, err
+		}
+	}
+
+	return client.ListOptions{
+		LabelSelector: newLabelSelector(listOpts.Requrements),
+		FieldSelector: listOpts.FieldSelector,
+		Namespace:     listOpts.Namespace,
+	}, nil
+}
+
+func newLabelSelector(requrements []labels.Requirement) labels.Selector {
+	if len(requrements) == 0 {
+		return nil
+	}
+
+	return labels.NewSelector().Add(requrements...)
 }
 
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
