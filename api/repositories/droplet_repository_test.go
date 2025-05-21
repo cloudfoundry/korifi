@@ -373,7 +373,7 @@ var _ = Describe("DropletRepository", func() {
 				Expect(dropletRecords).To(HaveLen(2))
 			})
 
-			Describe("filtering", func() {
+			Describe("filtering by package guid", func() {
 				BeforeEach(func() {
 					message = repositories.ListDropletsMessage{
 						PackageGUIDs: []string{packageGUID},
@@ -386,29 +386,46 @@ var _ = Describe("DropletRepository", func() {
 						"PackageGUID": Equal(packageGUID),
 					})))
 				})
+			})
 
-				Describe("filter parameters to list options", func() {
-					var fakeKlient *fake.Klient
+			Describe("filtering by build guid", func() {
+				BeforeEach(func() {
+					message = repositories.ListDropletsMessage{
+						GUIDs: []string{buildGUID},
+					}
+				})
 
-					BeforeEach(func() {
-						fakeKlient = new(fake.Klient)
-						dropletRepo = repositories.NewDropletRepo(fakeKlient)
+				It("returns the builds matching the filter parameters", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(dropletRecords).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+						"GUID": Equal(buildGUID),
+					})))
+				})
+			})
 
-						message = repositories.ListDropletsMessage{
-							PackageGUIDs: []string{"p1", "p2"},
-							AppGUIDs:     []string{"a1", "a2"},
-						}
-					})
+			Describe("filter parameters to list options", func() {
+				var fakeKlient *fake.Klient
 
-					It("translates filter parameters to klient list options", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(fakeKlient.ListCallCount()).To(Equal(1))
-						_, _, listOptions := fakeKlient.ListArgsForCall(0)
-						Expect(listOptions).To(ConsistOf(
-							repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
-							repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
-						))
-					})
+				BeforeEach(func() {
+					fakeKlient = new(fake.Klient)
+					dropletRepo = repositories.NewDropletRepo(fakeKlient)
+
+					message = repositories.ListDropletsMessage{
+						PackageGUIDs: []string{"p1", "p2"},
+						AppGUIDs:     []string{"a1", "a2"},
+						SpaceGUIDs:   []string{"a1", "a2"},
+					}
+				})
+
+				It("translates filter parameters to klient list options", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
+						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"a1", "a2"}),
+					))
 				})
 			})
 		})
