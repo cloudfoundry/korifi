@@ -138,12 +138,12 @@ var _ = BeforeEach(func() {
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
-	klientUnfiltered = k8sklient.NewK8sKlient(namespaceRetriever, userClientFactoryUnfiltered)
+	klientUnfiltered = k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, userClientFactoryUnfiltered)
 
 	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
 	})
-	klient = k8sklient.NewK8sKlient(namespaceRetriever, userClientFactory)
+	klient = k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, userClientFactory)
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)

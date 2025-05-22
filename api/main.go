@@ -123,7 +123,7 @@ func main() {
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
-	klientUnfiltered := k8sklient.NewK8sKlient(namespaceRetriever, userClientFactoryUnfiltered)
+	klientUnfiltered := k8sklient.NewK8sKlient(namespaceRetriever, nil, userClientFactoryUnfiltered)
 
 	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewSpaceFilteringClient(client, privilegedClient, nsPermissions)

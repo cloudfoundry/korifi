@@ -10,8 +10,10 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -22,15 +24,36 @@ type NamespaceRetriever interface {
 
 type K8sKlient struct {
 	namespaceRetriever NamespaceRetriever
+	descriptorClient   DescriptorClient
+	objectListMapper   ObjectListMapper
 	userClientFactory  authorization.UserClientFactory
+}
+
+//counterfeiter:generate -o fake -fake-name DescriptorClient . DescriptorClient
+type DescriptorClient interface {
+	List(ctx context.Context, gvk schema.GroupVersionKind, opts ...client.ListOption) (ResultSetDescriptor, error)
+}
+
+//counterfeiter:generate -o fake -fake-name ResultSetDescriptor . ResultSetDescriptor
+type ResultSetDescriptor interface {
+	SortedGUIDs(column string, desc bool) ([]string, error)
+}
+
+//counterfeiter:generate -o fake -fake-name ObjectListMapper . ObjectListMapper
+type ObjectListMapper interface {
+	GUIDsToObjectList(ctx context.Context, gvk schema.GroupVersionKind, orderedGUIDs []string) (client.ObjectList, error)
 }
 
 func NewK8sKlient(
 	namespaceRetriever NamespaceRetriever,
+	descriptorClient DescriptorClient,
+	objectListMapper ObjectListMapper,
 	userClientFactory authorization.UserClientFactory,
 ) *K8sKlient {
 	return &K8sKlient{
 		namespaceRetriever: namespaceRetriever,
+		descriptorClient:   descriptorClient,
+		objectListMapper:   objectListMapper,
 		userClientFactory:  userClientFactory,
 	}
 }
@@ -85,18 +108,76 @@ func (k *K8sKlient) Patch(ctx context.Context, obj client.Object, modify func() 
 }
 
 func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...repositories.ListOption) error {
+	listOpts, err := unpackListOptions(opts...)
+	if err != nil {
+		return toStatusError(list, err)
+	}
+
 	authInfo, _ := authorization.InfoFromContext(ctx)
 	userClient, err := k.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	k8sListOpts, err := toK8sListOptions(opts...)
-	if err != nil {
-		return toStatusError(list, err)
+	if listOpts.Sort != nil {
+		// TODO: move to descriptors/client.go
+		//
+		// table := &metav1.Table{}
+		// if err := k.restClient.
+		// 	Get().AbsPath("/apis/korifi.cloudfoundry.org/v1alpha1/cfapps").
+		// 	SetHeader("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1").
+		// 	VersionedParams(&metav1.TableOptions{
+		// 		IncludeObject: metav1.IncludeNone,
+		// 	}, scheme.ParameterCodec).
+		// 	VersionedParams(listOpts.AsClientListOptions().AsListOptions(), scheme.ParameterCodec).
+		// 	Do(ctx).Into(table); err != nil {
+		// 	return fmt.Errorf("failed to list app descriptors: %w", err)
+		// }
+
+		gvk, err := getGVK(list)
+		objectDescriptors, err := k.descriptorClient.List(ctx, gvk, listOpts.AsClientListOptions())
+		if err != nil {
+			return fmt.Errorf("failed to list object descriptors: %w", err)
+		}
+
+		sortedObjectGUIDs, err := objectDescriptors.SortedGUIDs(listOpts.Sort.By, listOpts.Sort.Desc)
+		if err != nil {
+			return fmt.Errorf("failed to get sorted object GUIDs: %w", err)
+		}
+
+		if err != nil {
+			return fmt.Errorf("failed to get GVK: %w", err)
+		}
+		list, err = k.objectListMapper.GUIDsToObjectList(ctx, gvk, sortedObjectGUIDs)
+		if err != nil {
+			return fmt.Errorf("failed to map sorted object GUIDs to objects: %w", err)
+		}
+		return nil
+
 	}
 
-	return userClient.List(ctx, list, &k8sListOpts)
+	return userClient.List(ctx, list, listOpts.AsClientListOptions())
+}
+
+func getGVK(obj runtime.Object) (schema.GroupVersionKind, error) {
+	gvks, _, err := scheme.Scheme.ObjectKinds(obj)
+	if err != nil {
+		return schema.GroupVersionKind{}, err
+	}
+	if len(gvks) == 0 {
+		return schema.GroupVersionKind{}, fmt.Errorf("no GVK found for object")
+	}
+	return gvks[0], nil
+}
+
+func unpackListOptions(opts ...repositories.ListOption) (repositories.ListOptions, error) {
+	listOpts := repositories.ListOptions{}
+	for _, o := range opts {
+		if err := o.ApplyToList(&listOpts); err != nil {
+			return repositories.ListOptions{}, err
+		}
+	}
+	return listOpts, nil
 }
 
 func toStatusError(list client.ObjectList, err error) *k8serrors.StatusError {
@@ -110,19 +191,19 @@ func toStatusError(list client.ObjectList, err error) *k8serrors.StatusError {
 	}
 }
 
-func (k *K8sKlient) Watch(ctx context.Context, obj client.ObjectList, opts ...repositories.ListOption) (watch.Interface, error) {
+func (k *K8sKlient) Watch(ctx context.Context, list client.ObjectList, opts ...repositories.ListOption) (watch.Interface, error) {
+	listOpts, err := unpackListOptions(opts...)
+	if err != nil {
+		return nil, toStatusError(list, err)
+	}
+
 	authInfo, _ := authorization.InfoFromContext(ctx)
 	userClient, err := k.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	k8sListOpts, err := toK8sListOptions(opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return userClient.Watch(ctx, obj, &k8sListOpts)
+	return userClient.Watch(ctx, list, listOpts.AsClientListOptions())
 }
 
 func (k *K8sKlient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
@@ -172,27 +253,4 @@ func getResourceType(obj client.Object) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported resource type %T", obj)
 	}
-}
-
-func toK8sListOptions(opts ...repositories.ListOption) (client.ListOptions, error) {
-	listOpts := repositories.ListOptions{}
-	for _, o := range opts {
-		if err := o.ApplyToList(&listOpts); err != nil {
-			return client.ListOptions{}, err
-		}
-	}
-
-	return client.ListOptions{
-		LabelSelector: newLabelSelector(listOpts.Requrements),
-		FieldSelector: listOpts.FieldSelector,
-		Namespace:     listOpts.Namespace,
-	}, nil
-}
-
-func newLabelSelector(requrements []labels.Requirement) labels.Selector {
-	if len(requrements) == 0 {
-		return nil
-	}
-
-	return labels.NewSelector().Add(requrements...)
 }
