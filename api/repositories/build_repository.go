@@ -22,13 +22,6 @@ import (
 )
 
 const (
-	BuildStateStaging = "STAGING"
-	BuildStateStaged  = "STAGED"
-	BuildStateFailed  = "FAILED"
-
-	StagingConditionType   = "Staging"
-	SucceededConditionType = "Succeeded"
-
 	BuildResourceType = "Build"
 )
 
@@ -109,7 +102,7 @@ func (b *BuildRepo) cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRe
 	toReturn := BuildRecord{
 		GUID:            cfBuild.Name,
 		SpaceGUID:       cfBuild.Namespace,
-		State:           BuildStateStaging,
+		State:           tools.IfZero(cfBuild.Status.State, korifiv1alpha1.BuildStateStaging),
 		CreatedAt:       cfBuild.CreationTimestamp.Time,
 		UpdatedAt:       getLastUpdatedTime(&cfBuild),
 		StagingErrorMsg: "",
@@ -137,17 +130,13 @@ func (b *BuildRepo) cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRe
 		toReturn.Lifecycle.Data.Buildpacks = cfBuild.Spec.Lifecycle.Data.Buildpacks
 	}
 
-	stagingStatus := getConditionValue(&cfBuild.Status.Conditions, StagingConditionType)
-	succeededStatus := getConditionValue(&cfBuild.Status.Conditions, SucceededConditionType)
-	// TODO: Consider moving this logic to CRDs repo in case Status Conditions change later?
-	if stagingStatus == metav1.ConditionFalse {
-		switch succeededStatus {
-		case metav1.ConditionTrue:
-			toReturn.State = BuildStateStaged
-			toReturn.DropletGUID = cfBuild.Name
-		case metav1.ConditionFalse:
-			toReturn.State = BuildStateFailed
-			conditionStatus := meta.FindStatusCondition(cfBuild.Status.Conditions, SucceededConditionType)
+	switch cfBuild.Status.State {
+	case korifiv1alpha1.BuildStateStaged:
+		toReturn.DropletGUID = cfBuild.Name
+	case korifiv1alpha1.BuildStateFailed:
+		toReturn.StagingErrorMsg = "Unknown error"
+		conditionStatus := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
+		if conditionStatus != nil {
 			toReturn.StagingErrorMsg = conditionStatus.Message
 		}
 	}
@@ -232,27 +221,7 @@ func (m *ListBuildsMessage) matches(b korifiv1alpha1.CFBuild) bool {
 	return tools.EmptyOrContains(m.PackageGUIDs, b.Spec.PackageRef.Name) &&
 
 		tools.EmptyOrContains(m.AppGUIDs, b.Spec.AppRef.Name) &&
-		m.matchesState(b)
-}
-
-func (m *ListBuildsMessage) matchesState(b korifiv1alpha1.CFBuild) bool {
-	if len(m.States) == 0 {
-		return true
-	}
-
-	if slices.Contains(m.States, BuildStateStaged) && meta.IsStatusConditionTrue(b.Status.Conditions, korifiv1alpha1.SucceededConditionType) {
-		return true
-	}
-
-	if slices.Contains(m.States, BuildStateStaging) && meta.IsStatusConditionTrue(b.Status.Conditions, korifiv1alpha1.StagingConditionType) {
-		return true
-	}
-
-	if slices.Contains(m.States, BuildStateFailed) && meta.IsStatusConditionFalse(b.Status.Conditions, korifiv1alpha1.SucceededConditionType) {
-		return true
-	}
-
-	return false
+		tools.EmptyOrContains(m.States, b.Status.State)
 }
 
 func (m CreateBuildMessage) toCFBuild() korifiv1alpha1.CFBuild {

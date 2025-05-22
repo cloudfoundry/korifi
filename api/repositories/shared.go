@@ -8,7 +8,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,17 +57,6 @@ func golangTime(t *metav1.Time) *time.Time {
 		return nil
 	}
 	return &t.Time
-}
-
-// getConditionValue is a helper function that retrieves the value of the provided conditionType, like "Succeeded" and returns the value: "True", "False", or "Unknown"
-// If the value is not present, returns Unknown
-func getConditionValue(conditions *[]metav1.Condition, conditionType string) metav1.ConditionStatus {
-	conditionStatusValue := metav1.ConditionUnknown
-	conditionStatus := meta.FindStatusCondition(*conditions, conditionType)
-	if conditionStatus != nil {
-		conditionStatusValue = conditionStatus.Status
-	}
-	return conditionStatusValue
 }
 
 func getLabelOrAnnotation(mapObj map[string]string, key string) string {

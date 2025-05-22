@@ -100,7 +100,7 @@ var _ = Describe("BuildRepository", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(record.GUID).To(Equal(build.Name))
-				Expect(record.State).To(Equal(repositories.BuildStateStaging))
+				Expect(record.State).To(Equal(korifiv1alpha1.BuildStateStaging))
 				Expect(record.StagingErrorMsg).To(BeEmpty())
 				Expect(record.DropletGUID).To(BeEmpty())
 				Expect(record.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
@@ -121,25 +121,14 @@ var _ = Describe("BuildRepository", func() {
 			When("the build is staged", func() {
 				BeforeEach(func() {
 					Expect(k8s.Patch(ctx, k8sClient, build, func() {
-						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-							Type:    korifiv1alpha1.SucceededConditionType,
-							Status:  metav1.ConditionTrue,
-							Message: "Succeeded",
-							Reason:  "Succeeded",
-						})
-						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-							Type:    korifiv1alpha1.StagingConditionType,
-							Status:  metav1.ConditionFalse,
-							Message: "StatingDone",
-							Reason:  "Succeeded",
-						})
+						build.Status.State = korifiv1alpha1.BuildStateStaged
 					})).To(Succeed())
 				})
 
 				It("it returns a staged build record", func() {
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(record.State).To(Equal(repositories.BuildStateStaged))
+					Expect(record.State).To(Equal(korifiv1alpha1.BuildStateStaged))
 					Expect(record.DropletGUID).To(Equal(build.Name))
 					Expect(record.StagingErrorMsg).To(BeEmpty())
 				})
@@ -148,12 +137,7 @@ var _ = Describe("BuildRepository", func() {
 			When("the build has failed", func() {
 				BeforeEach(func() {
 					Expect(k8s.Patch(ctx, k8sClient, build, func() {
-						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-							Type:    korifiv1alpha1.StagingConditionType,
-							Status:  metav1.ConditionFalse,
-							Message: "StatingFailed",
-							Reason:  "Failed",
-						})
+						build.Status.State = korifiv1alpha1.BuildStateFailed
 						meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
 							Type:    korifiv1alpha1.SucceededConditionType,
 							Status:  metav1.ConditionFalse,
@@ -166,7 +150,7 @@ var _ = Describe("BuildRepository", func() {
 				It("returns a failed build record", func() {
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(record.State).To(Equal(repositories.BuildStateFailed))
+					Expect(record.State).To(Equal(korifiv1alpha1.BuildStateFailed))
 					Expect(record.DropletGUID).To(BeEmpty())
 					Expect(record.StagingErrorMsg).To(Equal("because it failed"))
 				})
@@ -330,7 +314,7 @@ var _ = Describe("BuildRepository", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(record.GUID).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
-				Expect(record.State).To(Equal(repositories.BuildStateStaging))
+				Expect(record.State).To(Equal(korifiv1alpha1.BuildStateStaging))
 				Expect(record.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 				Expect(record.UpdatedAt).To(gstruct.PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 				Expect(record.StagingErrorMsg).To(BeEmpty())
@@ -496,21 +480,11 @@ var _ = Describe("BuildRepository", func() {
 				When("filtering by State=STAGING", func() {
 					BeforeEach(func() {
 						Expect(k8s.Patch(ctx, k8sClient, build, func() {
-							meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-								Type:    korifiv1alpha1.StagingConditionType,
-								Status:  metav1.ConditionTrue,
-								Reason:  "kpack",
-								Message: "kpack",
-							})
+							build.Status.State = korifiv1alpha1.BuildStateStaging
 						})).To(Succeed())
 
 						Expect(k8s.Patch(ctx, k8sClient, anotherBuild, func() {
-							meta.SetStatusCondition(&anotherBuild.Status.Conditions, metav1.Condition{
-								Type:    korifiv1alpha1.StagingConditionType,
-								Status:  metav1.ConditionFalse,
-								Reason:  "kpack",
-								Message: "kpack",
-							})
+							anotherBuild.Status.State = korifiv1alpha1.BuildStateStaged
 						})).To(Succeed())
 
 						listMessage = repositories.ListBuildsMessage{States: []string{"STAGING"}}
@@ -527,18 +501,7 @@ var _ = Describe("BuildRepository", func() {
 				When("filtering by State=STAGED", func() {
 					BeforeEach(func() {
 						Expect(k8s.Patch(ctx, k8sClient, build, func() {
-							meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-								Type:    korifiv1alpha1.StagingConditionType,
-								Status:  metav1.ConditionFalse,
-								Reason:  "Unknown",
-								Message: "Unknown",
-							})
-							meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-								Type:    korifiv1alpha1.SucceededConditionType,
-								Status:  metav1.ConditionTrue,
-								Reason:  "Unknown",
-								Message: "Unknown",
-							})
+							build.Status.State = korifiv1alpha1.BuildStateStaged
 						})).To(Succeed())
 
 						listMessage = repositories.ListBuildsMessage{States: []string{"STAGED"}}
@@ -555,18 +518,7 @@ var _ = Describe("BuildRepository", func() {
 				When("filtering by State=FAILED", func() {
 					BeforeEach(func() {
 						Expect(k8s.Patch(ctx, k8sClient, build, func() {
-							meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-								Type:    korifiv1alpha1.StagingConditionType,
-								Status:  metav1.ConditionFalse,
-								Reason:  "Unknown",
-								Message: "Unknown",
-							})
-							meta.SetStatusCondition(&build.Status.Conditions, metav1.Condition{
-								Type:    korifiv1alpha1.SucceededConditionType,
-								Status:  metav1.ConditionFalse,
-								Reason:  "Unknown",
-								Message: "Unknown",
-							})
+							build.Status.State = korifiv1alpha1.BuildStateFailed
 						})).To(Succeed())
 
 						listMessage = repositories.ListBuildsMessage{States: []string{"FAILED"}}
