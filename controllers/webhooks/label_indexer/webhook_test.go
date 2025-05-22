@@ -4,6 +4,7 @@ import (
 	"maps"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -147,6 +148,9 @@ var _ = Describe("LabelIndexerWebhook", func() {
 
 		JustBeforeEach(func() {
 			Expect(adminClient.Create(ctx, build)).To(Succeed())
+			Expect(k8s.Patch(ctx, adminClient, build, func() {
+				build.Status.State = korifiv1alpha1.BuildStateStaged
+			})).To(Succeed())
 		})
 
 		It("labels the CFBuild with the expected index labels", func() {
@@ -156,6 +160,7 @@ var _ = Describe("LabelIndexerWebhook", func() {
 					korifiv1alpha1.SpaceGUIDKey:          Equal(build.Namespace),
 					korifiv1alpha1.CFAppGUIDLabelKey:     Equal(build.Spec.AppRef.Name),
 					korifiv1alpha1.CFPackageGUIDLabelKey: Equal(build.Spec.PackageRef.Name),
+					korifiv1alpha1.CFBuildStateLabelKey:  Equal(korifiv1alpha1.BuildStateStaged),
 				}))
 			}).Should(Succeed())
 		})

@@ -22,6 +22,8 @@ import (
 )
 
 const (
+	CFBuildStateLabelKey = "korifi.cloudfoundry.org/build-state"
+
 	BuildStateStaging = "STAGING"
 	BuildStateStaged  = "STAGED"
 	BuildStateFailed  = "FAILED"

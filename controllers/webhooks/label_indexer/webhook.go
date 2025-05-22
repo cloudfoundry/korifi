@@ -45,6 +45,7 @@ func NewWebhook() *LabelIndexerWebhook {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
 				LabelRule{Label: korifiv1alpha1.CFAppGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.appRef.name"))},
 				LabelRule{Label: korifiv1alpha1.CFPackageGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.packageRef.name"))},
+				LabelRule{Label: korifiv1alpha1.CFBuildStateLabelKey, IndexingFunc: Unquote(JSONValue("$.status.state"))},
 			},
 			"CFDomain": {
 				LabelRule{Label: korifiv1alpha1.CFEncodedDomainNameLabelKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.name")))},
