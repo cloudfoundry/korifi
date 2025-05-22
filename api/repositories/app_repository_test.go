@@ -665,7 +665,19 @@ var _ = Describe("AppRepository", func() {
 		BeforeEach(func() {
 			dropletGUID = uuid.NewString()
 			appGUID = cfApp.Name
-			createDropletCR(ctx, k8sClient, dropletGUID, cfApp.Name, cfSpace.Name)
+
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFBuild{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      dropletGUID,
+					Namespace: cfSpace.Name,
+				},
+				Spec: korifiv1alpha1.CFBuildSpec{
+					AppRef: corev1.LocalObjectReference{Name: appGUID},
+					Lifecycle: korifiv1alpha1.Lifecycle{
+						Type: "buildpack",
+					},
+				},
+			})).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
