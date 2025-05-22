@@ -117,6 +117,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			g.Expect(cfBuild.Status.Droplet.Registry.Image).To(Equal(imageRef))
 			g.Expect(cfBuild.Status.Droplet.Registry.ImagePullSecrets).To(ConsistOf(corev1.LocalObjectReference{Name: imageSecret.Name}))
 			g.Expect(cfBuild.Status.Droplet.Ports).To(BeEmpty())
+			g.Expect(cfBuild.Status.State).To(Equal(korifiv1alpha1.BuildStateStaged))
 		}).Should(Succeed())
 	})
 
@@ -153,24 +154,30 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 				g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)).To(BeTrue())
 				stagingConditionMessage := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType).Message
 				g.Expect(stagingConditionMessage).To(ContainSubstring("Failed to fetch image"))
+
+				g.Expect(cfBuild.Status.State).To(Equal(korifiv1alpha1.BuildStateFailed))
 			}).Should(Succeed())
 		})
 	})
 
 	Describe("privileged images", func() {
-		succeededCondition := func(g Gomega) metav1.Condition {
+		completedBuild := func(g Gomega) korifiv1alpha1.CFBuild {
 			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfBuild), cfBuild)).To(Succeed())
 			g.Expect(meta.IsStatusConditionFalse(cfBuild.Status.Conditions, korifiv1alpha1.StagingConditionType)).To(BeTrue())
-			succeedCondition := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
-			g.Expect(succeedCondition).NotTo(BeNil())
 
-			return *succeedCondition
+			return *cfBuild
 		}
 
 		haveFailed := gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Status":  Equal(metav1.ConditionFalse),
-			"Reason":  Equal("BuildFailed"),
-			"Message": ContainSubstring("not supported"),
+			"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Conditions": ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":    Equal(korifiv1alpha1.SucceededConditionType),
+					"Status":  Equal(metav1.ConditionFalse),
+					"Reason":  Equal("BuildFailed"),
+					"Message": ContainSubstring("not supported"),
+				})),
+				"State": Equal(korifiv1alpha1.BuildStateFailed),
+			}),
 		})
 
 		When("the user is not specified", func() {
@@ -179,7 +186,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			})
 
 			It("fails the build", func() {
-				Eventually(succeededCondition).Should(haveFailed)
+				Eventually(completedBuild).Should(haveFailed)
 			})
 		})
 
@@ -189,7 +196,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			})
 
 			It("fails the build", func() {
-				Eventually(succeededCondition).Should(haveFailed)
+				Eventually(completedBuild).Should(haveFailed)
 			})
 		})
 
@@ -199,7 +206,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			})
 
 			It("fails the build", func() {
-				Eventually(succeededCondition).Should(haveFailed)
+				Eventually(completedBuild).Should(haveFailed)
 			})
 		})
 
@@ -209,7 +216,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			})
 
 			It("fails the build", func() {
-				Eventually(succeededCondition).Should(haveFailed)
+				Eventually(completedBuild).Should(haveFailed)
 			})
 		})
 
@@ -219,7 +226,7 @@ var _ = Describe("CFDockerBuildReconciler Integration Tests", func() {
 			})
 
 			It("fails the build", func() {
-				Eventually(succeededCondition).Should(haveFailed)
+				Eventually(completedBuild).Should(haveFailed)
 			})
 		})
 	})

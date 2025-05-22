@@ -21,6 +21,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	BuildStateStaging = "STAGING"
+	BuildStateStaged  = "STAGED"
+	BuildStateFailed  = "FAILED"
+)
+
 // CFBuildSpec defines the desired state of CFBuild
 type CFBuildSpec struct {
 	// The CFPackage associated with this build. Must be in the same namespace
@@ -45,6 +51,10 @@ type CFBuildStatus struct {
 
 	// ObservedGeneration captures the latest generation of the CFBuild that has been reconciled
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	//+kubebuilder:validation:Optional
+	//+kubebuilder:validation:Enum=STAGING;STAGED;FAILED
+	State string `json:"state,omitempty"`
 }
 
 // BuildDropletStatus defines the observed state of the CFBuild's Droplet or runnable image
@@ -74,7 +84,7 @@ type ProcessType struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="AppGUID",type=string,JSONPath=`.spec.appRef.name`
-//+kubebuilder:printcolumn:name="Staged",type=string,JSONPath=`.status.conditions[?(@.type=='Succeeded')].status`
+//+kubebuilder:printcolumn:name="State",type=string,JSONPath=`.status.state`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

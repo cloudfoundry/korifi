@@ -128,6 +128,7 @@ func (r *dockerBuildReconciler) ReconcileBuild(
 			Message:            fmt.Sprintf("Failed to fetch image %q", cfPackage.Spec.Source.Registry.Image),
 			ObservedGeneration: cfBuild.Generation,
 		})
+		cfBuild.Status.State = korifiv1alpha1.BuildStateFailed
 
 		return ctrl.Result{}, nil
 	}
@@ -150,6 +151,7 @@ func (r *dockerBuildReconciler) ReconcileBuild(
 			),
 			ObservedGeneration: cfBuild.Generation,
 		})
+		cfBuild.Status.State = korifiv1alpha1.BuildStateFailed
 
 		return ctrl.Result{}, nil
 	}
@@ -160,6 +162,7 @@ func (r *dockerBuildReconciler) ReconcileBuild(
 		Reason:             "BuildSucceeded",
 		ObservedGeneration: cfBuild.Generation,
 	})
+	cfBuild.Status.State = korifiv1alpha1.BuildStateStaged
 
 	cfBuild.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{
 		Registry: cfPackage.Spec.Source.Registry,
