@@ -35,10 +35,7 @@ var _ = Describe("BuildRepository", func() {
 			return records
 		}
 
-		buildRepo = repositories.NewBuildRepo(
-			klient,
-			sorter,
-		)
+		buildRepo = repositories.NewBuildRepo(klient, sorter)
 
 		org := createOrgWithCleanup(ctx, uuid.NewString())
 		cfSpace = createSpaceWithCleanup(ctx, org.Name, uuid.NewString())
@@ -449,12 +446,12 @@ var _ = Describe("BuildRepository", func() {
 				))
 			})
 
-			When("the app_guids filter is provided", func() {
+			When("filtering", func() {
 				BeforeEach(func() {
 					listMessage = repositories.ListBuildsMessage{AppGUIDs: []string{build.Spec.AppRef.Name}}
 				})
 
-				It("fetches all BuildRecords for that app", func() {
+				It("returns matching build records", func() {
 					Expect(fetchError).NotTo(HaveOccurred())
 
 					Expect(buildRecords).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -463,73 +460,28 @@ var _ = Describe("BuildRepository", func() {
 				})
 			})
 
-			When("the package_guids filter is provided", func() {
+			Describe("filter parameters to list options", func() {
+				var fakeKlient *fake.Klient
+
 				BeforeEach(func() {
-					listMessage = repositories.ListBuildsMessage{PackageGUIDs: []string{build.Spec.PackageRef.Name}}
+					fakeKlient = new(fake.Klient)
+					buildRepo = repositories.NewBuildRepo(fakeKlient, sorter)
+
+					listMessage = repositories.ListBuildsMessage{
+						PackageGUIDs: []string{"p1", "p2"},
+						AppGUIDs:     []string{"a1", "a2"},
+						States:       []string{"s1", "s2"},
+					}
 				})
 
-				It("fetches all BuildRecords for that package", func() {
-					Expect(fetchError).NotTo(HaveOccurred())
-					Expect(buildRecords).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"GUID": Equal(build.Name),
-					})))
-				})
-			})
-
-			When("the state filter is provided", func() {
-				When("filtering by State=STAGING", func() {
-					BeforeEach(func() {
-						Expect(k8s.Patch(ctx, k8sClient, build, func() {
-							build.Status.State = korifiv1alpha1.BuildStateStaging
-						})).To(Succeed())
-
-						Expect(k8s.Patch(ctx, k8sClient, anotherBuild, func() {
-							anotherBuild.Status.State = korifiv1alpha1.BuildStateStaged
-						})).To(Succeed())
-
-						listMessage = repositories.ListBuildsMessage{States: []string{"STAGING"}}
-					})
-
-					It("filters the builds", func() {
-						Expect(fetchError).NotTo(HaveOccurred())
-						Expect(buildRecords).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"GUID": Equal(build.Name),
-						})))
-					})
-				})
-
-				When("filtering by State=STAGED", func() {
-					BeforeEach(func() {
-						Expect(k8s.Patch(ctx, k8sClient, build, func() {
-							build.Status.State = korifiv1alpha1.BuildStateStaged
-						})).To(Succeed())
-
-						listMessage = repositories.ListBuildsMessage{States: []string{"STAGED"}}
-					})
-
-					It("filters the builds", func() {
-						Expect(fetchError).NotTo(HaveOccurred())
-						Expect(buildRecords).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"GUID": Equal(build.Name),
-						})))
-					})
-				})
-
-				When("filtering by State=FAILED", func() {
-					BeforeEach(func() {
-						Expect(k8s.Patch(ctx, k8sClient, build, func() {
-							build.Status.State = korifiv1alpha1.BuildStateFailed
-						})).To(Succeed())
-
-						listMessage = repositories.ListBuildsMessage{States: []string{"FAILED"}}
-					})
-
-					It("filters the builds", func() {
-						Expect(fetchError).NotTo(HaveOccurred())
-						Expect(buildRecords).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"GUID": Equal(build.Name),
-						})))
-					})
+				It("translates filter parameters to klient list options", func() {
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFBuildStateLabelKey, []string{"s1", "s2"}),
+					))
 				})
 			})
 		})

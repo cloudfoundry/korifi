@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -155,13 +154,12 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 
 func (b *BuildRepo) ListBuilds(ctx context.Context, authInfo authorization.Info, message ListBuildsMessage) ([]BuildRecord, error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	err := b.klient.List(ctx, buildList)
+	err := b.klient.List(ctx, buildList, message.toListOptions()...)
 	if err != nil {
 		return []BuildRecord{}, fmt.Errorf("failed to list builds: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}
-	filteredBuilds := itx.FromSlice(buildList.Items).Filter(message.matches)
 
-	return b.sorter.Sort(slices.Collect(it.Map(filteredBuilds, b.cfBuildToBuildRecord)), message.OrderBy), nil
+	return b.sorter.Sort(slices.Collect(it.Map(slices.Values(buildList.Items), b.cfBuildToBuildRecord)), message.OrderBy), nil
 }
 
 type CreateBuildMessage struct {
@@ -217,11 +215,12 @@ type ListBuildsMessage struct {
 	OrderBy      string
 }
 
-func (m *ListBuildsMessage) matches(b korifiv1alpha1.CFBuild) bool {
-	return tools.EmptyOrContains(m.PackageGUIDs, b.Spec.PackageRef.Name) &&
-
-		tools.EmptyOrContains(m.AppGUIDs, b.Spec.AppRef.Name) &&
-		tools.EmptyOrContains(m.States, b.Status.State)
+func (m *ListBuildsMessage) toListOptions() []ListOption {
+	return []ListOption{
+		WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, m.PackageGUIDs),
+		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
+		WithLabelIn(korifiv1alpha1.CFBuildStateLabelKey, m.States),
+	}
 }
 
 func (m CreateBuildMessage) toCFBuild() korifiv1alpha1.CFBuild {
