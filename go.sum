@@ -258,8 +258,8 @@ github.com/google/go-cmp v0.3.0/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMyw
 github.com/google/go-cmp v0.5.9/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
-github.com/google/go-containerregistry v0.20.4 h1:w/Fdj3ef046SdV/GJU69cCnreaLpqbTo1X9XPyHbkd4=
-github.com/google/go-containerregistry v0.20.4/go.mod h1:Q14vdOOzug02bwnhMkZKD4e30pDaD9W65qzXpyzF49E=
+github.com/google/go-containerregistry v0.20.5 h1:4RnlYcDs5hoA++CeFjlbZ/U9Yp1EuWr+UhhTyYQjOP0=
+github.com/google/go-containerregistry v0.20.5/go.mod h1:Q14vdOOzug02bwnhMkZKD4e30pDaD9W65qzXpyzF49E=
 github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230822174451-190ad0e4d556 h1:puv+FoZO8MhCBuk3ey6G/DxhTWfJ+3bJatuRrpQL/Og=
 github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230822174451-190ad0e4d556/go.mod h1:Ek+8PQrShkA7aHEj3/zSW33wU0V/Bx3zW/gFh7l21xY=
 github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20241111191718-6bce25ecf029 h1:tmtax9EjrCFrrw72NeGso7qZUnJXTIP368kcjE4lZwE=
@@ -692,8 +692,8 @@ k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e/go.mod h1:OLgZIPagt7ERELqWJFomSt
 knative.dev/pkg v0.0.0-20250109131202-4ba3f1b39dbf h1:b1N1fbncJoj37B+l53KEIllA3iPeXtEcdk4eZ0xcXlc=
 knative.dev/pkg v0.0.0-20250109131202-4ba3f1b39dbf/go.mod h1:C2dxK66GlycMOS0SKqv0SMAnWkxsYbG4hkH32Xg1qD0=
 launchpad.net/gocheck v0.0.0-20140225173054-000000000087/go.mod h1:hj7XX3B/0A+80Vse0e+BUHsHMTEhd0O4cpUHr/e/BUM=
-sigs.k8s.io/controller-runtime v0.20.4 h1:X3c+Odnxz+iPTRobG4tp092+CvBU9UK0t/bRf+n0DGU=
-sigs.k8s.io/controller-runtime v0.20.4/go.mod h1:xg2XB0K5ShQzAgsoujxuKN4LNXR2LfwwHsPj7Iaw+XY=
+sigs.k8s.io/controller-runtime v0.21.0 h1:CYfjpEuicjUecRk+KAeyYh+ouUBn4llGyDYytIGcJS8=
+sigs.k8s.io/controller-runtime v0.21.0/go.mod h1:OSg14+F65eWqIu4DceX7k/+QRAbTTvxeQSNSOQpukWM=
 sigs.k8s.io/controller-tools v0.18.0 h1:rGxGZCZTV2wJreeRgqVoWab/mfcumTMmSwKzoM9xrsE=
 sigs.k8s.io/controller-tools v0.18.0/go.mod h1:gLKoiGBriyNh+x1rWtUQnakUYEujErjXs9pf+x/8n1U=
 sigs.k8s.io/gateway-api v1.3.0 h1:q6okN+/UKDATola4JY7zXzx40WO4VISk7i9DIfOvr9M=
