@@ -18,8 +18,8 @@ spec:
     - jsonPath: .spec.appRef.name
       name: AppGUID
       type: string
-    - jsonPath: .status.conditions[?(@.type=='Succeeded')].status
-      name: Staged
+    - jsonPath: .status.state
+      name: State
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -249,6 +249,12 @@ spec:
                   the CFBuild that has been reconciled
                 format: int64
                 type: integer
+              state:
+                enum:
+                - STAGING
+                - STAGED
+                - FAILED
+                type: string
             type: object
         type: object
     served: true

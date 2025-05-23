@@ -147,6 +147,7 @@ func (r *buildpackBuildReconciler) ReconcileBuild(
 			Reason:             "BuildRunning",
 			ObservedGeneration: cfBuild.Generation,
 		})
+		cfBuild.Status.State = korifiv1alpha1.BuildStateStaging
 
 		return ctrl.Result{}, nil
 	}
@@ -183,6 +184,8 @@ func (r *buildpackBuildReconciler) ReconcileBuild(
 			Message:            fmt.Sprintf("%s: %s", workloadSucceededStatus.Reason, workloadSucceededStatus.Message),
 			ObservedGeneration: cfBuild.Generation,
 		})
+
+		cfBuild.Status.State = korifiv1alpha1.BuildStateFailed
 	case metav1.ConditionTrue:
 		meta.SetStatusCondition(&cfBuild.Status.Conditions, metav1.Condition{
 			Type:               korifiv1alpha1.StagingConditionType,
@@ -198,6 +201,7 @@ func (r *buildpackBuildReconciler) ReconcileBuild(
 			ObservedGeneration: cfBuild.Generation,
 		})
 
+		cfBuild.Status.State = korifiv1alpha1.BuildStateStaged
 		cfBuild.Status.Droplet = buildWorkload.Status.Droplet
 	default:
 		return ctrl.Result{}, nil

@@ -209,6 +209,8 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 			g.Expect(stagingCondition.Status).To(Equal(metav1.ConditionTrue))
 			g.Expect(stagingCondition.Reason).To(Equal("BuildRunning"))
 			g.Expect(stagingCondition.ObservedGeneration).To(Equal(cfBuild.Generation))
+
+			g.Expect(cfBuild.Status.State).To(Equal(korifiv1alpha1.BuildStateStaging))
 		}).Should(Succeed())
 	})
 
@@ -264,6 +266,8 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 				g.Expect(stagingCondition.Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(stagingCondition.Reason).To(Equal("BuildRunning"))
 				g.Expect(stagingCondition.ObservedGeneration).To(Equal(cfBuild.Generation))
+
+				g.Expect(cfBuild.Status.State).To(Equal(korifiv1alpha1.BuildStateStaging))
 			}).Should(Succeed())
 		})
 	})
@@ -299,6 +303,8 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 				g.Expect(succeededStatusCondition.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(succeededStatusCondition.Reason).To(Equal("BuildFailed"))
 				g.Expect(succeededStatusCondition.ObservedGeneration).To(Equal(cfBuild.Generation))
+
+				g.Expect(cfBuild.Status.State).To(Equal(korifiv1alpha1.BuildStateFailed))
 			}).Should(Succeed())
 		})
 	})
@@ -351,6 +357,8 @@ var _ = Describe("CFBuildpackBuildReconciler Integration Tests", func() {
 				g.Expect(succeededStatusCondition.Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(succeededStatusCondition.Reason).To(Equal("BuildSucceeded"))
 				g.Expect(succeededStatusCondition.ObservedGeneration).To(Equal(cfBuild.Generation))
+
+				g.Expect(cfBuild.Status.State).To(Equal(korifiv1alpha1.BuildStateStaged))
 			}).Should(Succeed())
 		})
 

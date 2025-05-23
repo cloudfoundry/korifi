@@ -303,64 +303,6 @@ func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID,
 	return toReturn
 }
 
-func createBuild(ctx context.Context, k8sClient client.Client, namespace, buildGUID, packageGUID, appGUID string) *korifiv1alpha1.CFBuild {
-	const (
-		stagingMemory = 1024
-		stagingDisk   = 2048
-	)
-
-	record := &korifiv1alpha1.CFBuild{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildGUID,
-			Namespace: namespace,
-			Labels: map[string]string{
-				korifiv1alpha1.SpaceGUIDKey:      namespace,
-				korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
-			},
-		},
-		Spec: korifiv1alpha1.CFBuildSpec{
-			PackageRef: corev1.LocalObjectReference{
-				Name: packageGUID,
-			},
-			AppRef: corev1.LocalObjectReference{
-				Name: appGUID,
-			},
-			StagingMemoryMB: stagingMemory,
-			StagingDiskMB:   stagingDisk,
-			Lifecycle: korifiv1alpha1.Lifecycle{
-				Type: "buildpack",
-				Data: korifiv1alpha1.LifecycleData{
-					Buildpacks: []string{},
-					Stack:      "",
-				},
-			},
-		},
-	}
-	Expect(
-		k8sClient.Create(ctx, record),
-	).To(Succeed())
-	return record
-}
-
-func createDropletCR(ctx context.Context, k8sClient client.Client, dropletGUID, appGUID, spaceGUID string) *korifiv1alpha1.CFBuild {
-	toReturn := &korifiv1alpha1.CFBuild{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dropletGUID,
-			Namespace: spaceGUID,
-		},
-		Spec: korifiv1alpha1.CFBuildSpec{
-			AppRef: corev1.LocalObjectReference{Name: appGUID},
-			Lifecycle: korifiv1alpha1.Lifecycle{
-				Type: "buildpack",
-			},
-		},
-	}
-	Expect(
-		k8sClient.Create(ctx, toReturn),
-	).To(Succeed())
-	return toReturn
-}
-
 func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, secretName string) *korifiv1alpha1.CFServiceInstance {
 	serviceInstance := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{

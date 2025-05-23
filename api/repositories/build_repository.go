@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -22,13 +21,6 @@ import (
 )
 
 const (
-	BuildStateStaging = "STAGING"
-	BuildStateStaged  = "STAGED"
-	BuildStateFailed  = "FAILED"
-
-	StagingConditionType   = "Staging"
-	SucceededConditionType = "Succeeded"
-
 	BuildResourceType = "Build"
 )
 
@@ -109,7 +101,7 @@ func (b *BuildRepo) cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRe
 	toReturn := BuildRecord{
 		GUID:            cfBuild.Name,
 		SpaceGUID:       cfBuild.Namespace,
-		State:           BuildStateStaging,
+		State:           tools.IfZero(cfBuild.Status.State, korifiv1alpha1.BuildStateStaging),
 		CreatedAt:       cfBuild.CreationTimestamp.Time,
 		UpdatedAt:       getLastUpdatedTime(&cfBuild),
 		StagingErrorMsg: "",
@@ -137,17 +129,13 @@ func (b *BuildRepo) cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRe
 		toReturn.Lifecycle.Data.Buildpacks = cfBuild.Spec.Lifecycle.Data.Buildpacks
 	}
 
-	stagingStatus := getConditionValue(&cfBuild.Status.Conditions, StagingConditionType)
-	succeededStatus := getConditionValue(&cfBuild.Status.Conditions, SucceededConditionType)
-	// TODO: Consider moving this logic to CRDs repo in case Status Conditions change later?
-	if stagingStatus == metav1.ConditionFalse {
-		switch succeededStatus {
-		case metav1.ConditionTrue:
-			toReturn.State = BuildStateStaged
-			toReturn.DropletGUID = cfBuild.Name
-		case metav1.ConditionFalse:
-			toReturn.State = BuildStateFailed
-			conditionStatus := meta.FindStatusCondition(cfBuild.Status.Conditions, SucceededConditionType)
+	switch cfBuild.Status.State {
+	case korifiv1alpha1.BuildStateStaged:
+		toReturn.DropletGUID = cfBuild.Name
+	case korifiv1alpha1.BuildStateFailed:
+		toReturn.StagingErrorMsg = "Unknown error"
+		conditionStatus := meta.FindStatusCondition(cfBuild.Status.Conditions, korifiv1alpha1.SucceededConditionType)
+		if conditionStatus != nil {
 			toReturn.StagingErrorMsg = conditionStatus.Message
 		}
 	}
@@ -166,13 +154,12 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 
 func (b *BuildRepo) ListBuilds(ctx context.Context, authInfo authorization.Info, message ListBuildsMessage) ([]BuildRecord, error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	err := b.klient.List(ctx, buildList)
+	err := b.klient.List(ctx, buildList, message.toListOptions()...)
 	if err != nil {
 		return []BuildRecord{}, fmt.Errorf("failed to list builds: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}
-	filteredBuilds := itx.FromSlice(buildList.Items).Filter(message.matches)
 
-	return b.sorter.Sort(slices.Collect(it.Map(filteredBuilds, b.cfBuildToBuildRecord)), message.OrderBy), nil
+	return b.sorter.Sort(slices.Collect(it.Map(slices.Values(buildList.Items), b.cfBuildToBuildRecord)), message.OrderBy), nil
 }
 
 type CreateBuildMessage struct {
@@ -228,31 +215,12 @@ type ListBuildsMessage struct {
 	OrderBy      string
 }
 
-func (m *ListBuildsMessage) matches(b korifiv1alpha1.CFBuild) bool {
-	return tools.EmptyOrContains(m.PackageGUIDs, b.Spec.PackageRef.Name) &&
-
-		tools.EmptyOrContains(m.AppGUIDs, b.Spec.AppRef.Name) &&
-		m.matchesState(b)
-}
-
-func (m *ListBuildsMessage) matchesState(b korifiv1alpha1.CFBuild) bool {
-	if len(m.States) == 0 {
-		return true
+func (m *ListBuildsMessage) toListOptions() []ListOption {
+	return []ListOption{
+		WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, m.PackageGUIDs),
+		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
+		WithLabelIn(korifiv1alpha1.CFBuildStateLabelKey, m.States),
 	}
-
-	if slices.Contains(m.States, BuildStateStaged) && meta.IsStatusConditionTrue(b.Status.Conditions, korifiv1alpha1.SucceededConditionType) {
-		return true
-	}
-
-	if slices.Contains(m.States, BuildStateStaging) && meta.IsStatusConditionTrue(b.Status.Conditions, korifiv1alpha1.StagingConditionType) {
-		return true
-	}
-
-	if slices.Contains(m.States, BuildStateFailed) && meta.IsStatusConditionFalse(b.Status.Conditions, korifiv1alpha1.SucceededConditionType) {
-		return true
-	}
-
-	return false
 }
 
 func (m CreateBuildMessage) toCFBuild() korifiv1alpha1.CFBuild {

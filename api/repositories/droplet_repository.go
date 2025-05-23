@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -92,12 +91,10 @@ func (r *DropletRepo) getBuildAssociatedWithDroplet(ctx context.Context, authInf
 }
 
 func cfBuildToDroplet(cfBuild *korifiv1alpha1.CFBuild) (DropletRecord, error) {
-	stagingStatus := getConditionValue(&cfBuild.Status.Conditions, StagingConditionType)
-	succeededStatus := getConditionValue(&cfBuild.Status.Conditions, SucceededConditionType)
-	if stagingStatus == metav1.ConditionFalse &&
-		succeededStatus == metav1.ConditionTrue {
+	if cfBuild.Status.State == korifiv1alpha1.BuildStateStaged {
 		return cfBuildToDropletRecord(*cfBuild), nil
 	}
+
 	return DropletRecord{}, apierrors.NewNotFoundError(nil, DropletResourceType)
 }
 
@@ -144,8 +141,7 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 
-	filteredBuilds := itx.FromSlice(buildList.Items)
-	return slices.Collect(it.Map(filteredBuilds, cfBuildToDropletRecord)), nil
+	return slices.Collect(it.Map(slices.Values(buildList.Items), cfBuildToDropletRecord)), nil
 }
 
 type UpdateDropletMessage struct {
