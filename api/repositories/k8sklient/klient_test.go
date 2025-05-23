@@ -278,7 +278,7 @@ var _ = Describe("Klient", func() {
 
 	Describe("List", func() {
 		var (
-			objectList client.ObjectList
+			objectList *korifiv1alpha1.CFAppList
 			listOpt    *fake.ListOption
 			listOpts   []repositories.ListOption
 		)
@@ -325,12 +325,20 @@ var _ = Describe("Klient", func() {
 			})
 		})
 
-		FWhen("sorting is requested", func() {
+		When("sorting is requested", func() {
 			var fakeDescriptor *fake.ResultSetDescriptor
 			BeforeEach(func() {
 				fakeDescriptor = new(fake.ResultSetDescriptor)
 				fakeDescriptor.SortedGUIDsReturns([]string{"guid-1", "guid-2"}, nil)
 				descriptorClient.ListReturns(fakeDescriptor, nil)
+
+				appsList := &korifiv1alpha1.CFAppList{
+					Items: []korifiv1alpha1.CFApp{
+						{ObjectMeta: metav1.ObjectMeta{Name: "guid-1"}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "guid-2"}},
+					},
+				}
+				objectListMapper.GUIDsToObjectListReturns(appsList, nil)
 
 				listOpts = []repositories.ListOption{
 					repositories.InNamespace("ns"),
@@ -396,7 +404,7 @@ var _ = Describe("Klient", func() {
 				})
 			})
 
-			It("returns sorted objects", func() {
+			It("maps sorted guids to objects", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(objectListMapper.GUIDsToObjectListCallCount()).To(Equal(1))
@@ -417,6 +425,15 @@ var _ = Describe("Klient", func() {
 				It("returns the error", func() {
 					Expect(err).To(MatchError(ContainSubstring("map-err")))
 				})
+			})
+
+			It("fills sorted objects into the object list parameter", func() {
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(objectList.Items).To(Equal([]korifiv1alpha1.CFApp{
+					{ObjectMeta: metav1.ObjectMeta{Name: "guid-1"}},
+					{ObjectMeta: metav1.ObjectMeta{Name: "guid-2"}},
+				}))
 			})
 		})
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -31,7 +32,7 @@ type K8sKlient struct {
 
 //counterfeiter:generate -o fake -fake-name DescriptorClient . DescriptorClient
 type DescriptorClient interface {
-	List(ctx context.Context, gvk schema.GroupVersionKind, opts ...client.ListOption) (ResultSetDescriptor, error)
+	List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (ResultSetDescriptor, error)
 }
 
 //counterfeiter:generate -o fake -fake-name ResultSetDescriptor . ResultSetDescriptor
@@ -41,7 +42,7 @@ type ResultSetDescriptor interface {
 
 //counterfeiter:generate -o fake -fake-name ObjectListMapper . ObjectListMapper
 type ObjectListMapper interface {
-	GUIDsToObjectList(ctx context.Context, gvk schema.GroupVersionKind, orderedGUIDs []string) (client.ObjectList, error)
+	GUIDsToObjectList(ctx context.Context, listObjectGVK schema.GroupVersionKind, orderedGUIDs []string) (client.ObjectList, error)
 }
 
 func NewK8sKlient(
@@ -120,25 +121,11 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 	}
 
 	if listOpts.Sort != nil {
-		// TODO: move to descriptors/client.go
-		//
-		// table := &metav1.Table{}
-		// if err := k.restClient.
-		// 	Get().AbsPath("/apis/korifi.cloudfoundry.org/v1alpha1/cfapps").
-		// 	SetHeader("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1").
-		// 	VersionedParams(&metav1.TableOptions{
-		// 		IncludeObject: metav1.IncludeNone,
-		// 	}, scheme.ParameterCodec).
-		// 	VersionedParams(listOpts.AsClientListOptions().AsListOptions(), scheme.ParameterCodec).
-		// 	Do(ctx).Into(table); err != nil {
-		// 	return fmt.Errorf("failed to list app descriptors: %w", err)
-		// }
-
-		gvk, err := getGVK(list)
+		listObjectGVK, err := getGVK(list)
 		if err != nil {
 			return fmt.Errorf("failed to get GVK for list %T: %w", list, err)
 		}
-		objectDescriptors, err := k.descriptorClient.List(ctx, gvk, listOpts.AsClientListOptions())
+		objectDescriptors, err := k.descriptorClient.List(ctx, listObjectGVK, listOpts.AsClientListOptions())
 		if err != nil {
 			return fmt.Errorf("failed to list object descriptors: %w", err)
 		}
@@ -148,18 +135,52 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 			return fmt.Errorf("failed to get sorted object GUIDs: %w", err)
 		}
 
-		if err != nil {
-			return fmt.Errorf("failed to get GVK: %w", err)
-		}
-		list, err = k.objectListMapper.GUIDsToObjectList(ctx, gvk, sortedObjectGUIDs)
+		listResult, err := k.objectListMapper.GUIDsToObjectList(ctx, listObjectGVK, sortedObjectGUIDs)
 		if err != nil {
 			return fmt.Errorf("failed to map sorted object GUIDs to objects: %w", err)
 		}
+
+		if err := copyListItems(listResult, list); err != nil {
+			return fmt.Errorf("failed to copy list items: %w", err)
+		}
+
 		return nil
 
 	}
 
 	return userClient.List(ctx, list, listOpts.AsClientListOptions())
+}
+
+func getObjectListItemsField(listObj client.ObjectList) (reflect.Value, error) {
+	v := reflect.ValueOf(listObj)
+	if v.Kind() != reflect.Ptr || v.IsNil() {
+		return reflect.Value{}, fmt.Errorf("listObj must be a non-nil pointer")
+	}
+
+	// Dereference the list struct
+	elem := v.Elem()
+	itemsField := elem.FieldByName("Items")
+
+	if !itemsField.IsValid() || itemsField.Kind() != reflect.Slice {
+		return reflect.Value{}, fmt.Errorf("list object has no slice field named 'Items'")
+	}
+
+	return itemsField, nil
+}
+
+func copyListItems(srcList, destList client.ObjectList) error {
+	destItemsField, err := getObjectListItemsField(destList)
+	if err != nil {
+		return fmt.Errorf("failed to get items field from destination list: %w", err)
+	}
+
+	srcItemsField, err := getObjectListItemsField(srcList)
+	if err != nil {
+		return fmt.Errorf("failed to get items field from source list: %w", err)
+	}
+	destItemsField.Set(srcItemsField)
+
+	return nil
 }
 
 func getGVK(obj runtime.Object) (schema.GroupVersionKind, error) {

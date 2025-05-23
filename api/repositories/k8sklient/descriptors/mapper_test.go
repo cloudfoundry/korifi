@@ -51,7 +51,7 @@ var _ = Describe("Mapper", func() {
 		objectList, mapErr = mapper.GUIDsToObjectList(ctx, gvk, objectGUIDs)
 	})
 
-	FIt("returns a list of objects ordered in the specified order", func() {
+	It("returns a list of objects ordered in the specified order", func() {
 		Expect(mapErr).NotTo(HaveOccurred())
 		Expect(objectList).To(BeAssignableToTypeOf(&corev1.SecretList{}))
 		object := objectList.(*corev1.SecretList)
