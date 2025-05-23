@@ -26,7 +26,7 @@ var _ = Describe("Mapper", func() {
 	BeforeEach(func() {
 		objectGUIDs = []string{"obj-3", "obj-0", "obj-1"}
 
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			Expect(k8sClient.Create(ctx, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      fmt.Sprintf("obj-%d", i),

@@ -135,6 +135,9 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 		// }
 
 		gvk, err := getGVK(list)
+		if err != nil {
+			return fmt.Errorf("failed to get GVK for list %T: %w", list, err)
+		}
 		objectDescriptors, err := k.descriptorClient.List(ctx, gvk, listOpts.AsClientListOptions())
 		if err != nil {
 			return fmt.Errorf("failed to list object descriptors: %w", err)

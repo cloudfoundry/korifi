@@ -23,8 +23,8 @@ func NewObjectListMapper(client client.Client) *ObjectListMapper {
 	}
 }
 
-func (m *ObjectListMapper) GUIDsToObjectList(ctx context.Context, gvk schema.GroupVersionKind, orderedGUIDs []string) (client.ObjectList, error) {
-	listObj, err := scheme.Scheme.New(gvk)
+func (m *ObjectListMapper) GUIDsToObjectList(ctx context.Context, listObjectGVK schema.GroupVersionKind, orderedGUIDs []string) (client.ObjectList, error) {
+	listObj, err := scheme.Scheme.New(listObjectGVK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new object list: %w", err)
 	}
@@ -45,11 +45,11 @@ func (m *ObjectListMapper) GUIDsToObjectList(ctx context.Context, gvk schema.Gro
 		return nil, fmt.Errorf("failed to list objects: %w", err)
 	}
 
-	return order(orderedGUIDs, gvk, list)
+	return order(orderedGUIDs, listObjectGVK, list)
 }
 
-func order(orderedGUIDs []string, gvk schema.GroupVersionKind, list client.ObjectList) (client.ObjectList, error) {
-	resultList, err := scheme.Scheme.New(gvk)
+func order(orderedGUIDs []string, listObjectGVK schema.GroupVersionKind, list client.ObjectList) (client.ObjectList, error) {
+	resultList, err := scheme.Scheme.New(listObjectGVK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new object list: %w", err)
 	}
@@ -59,14 +59,18 @@ func order(orderedGUIDs []string, gvk schema.GroupVersionKind, list client.Objec
 		return nil, fmt.Errorf("failed to get items index: %w", err)
 	}
 
+	orderedObjects := []client.Object{}
 	for _, guid := range orderedGUIDs {
 		item, ok := itemsIndex[guid]
 		if !ok {
 			return nil, fmt.Errorf("item with GUID %s not found in list", guid)
 		}
-		if err = appendToList(resultList, item); err != nil {
-			return nil, fmt.Errorf("failed to append item to list: %w", err)
-		}
+		orderedObjects = append(orderedObjects, item)
+
+	}
+
+	if err = appendToList(resultList, orderedObjects); err != nil {
+		return nil, fmt.Errorf("failed to append item to list: %w", err)
 	}
 
 	return resultList.(client.ObjectList), nil
@@ -88,7 +92,7 @@ func getItemsIndex(listObj runtime.Object) (map[string]client.Object, error) {
 		return nil, fmt.Errorf("list object has no slice field named 'Items'")
 	}
 
-	for i := 0; i < itemsField.Len(); i++ {
+	for i := range itemsField.Len() {
 		item := itemsField.Index(i).Addr().Interface()
 		if obj, ok := item.(client.Object); ok {
 			result[obj.GetName()] = obj
@@ -100,7 +104,7 @@ func getItemsIndex(listObj runtime.Object) (map[string]client.Object, error) {
 	return result, nil
 }
 
-func appendToList(listObj runtime.Object, item client.Object) error {
+func appendToList(listObj runtime.Object, items []client.Object) error {
 	v := reflect.ValueOf(listObj)
 	if v.Kind() != reflect.Ptr || v.IsNil() {
 		return fmt.Errorf("listObj must be a non-nil pointer")
@@ -114,10 +118,11 @@ func appendToList(listObj runtime.Object, item client.Object) error {
 		return fmt.Errorf("list object has no slice field named 'Items'")
 	}
 
-	// Get the item value (concrete, not pointer)
-	itemVal := reflect.ValueOf(item).Elem()
+	for _, item := range items {
+		// Get the item value (concrete, not pointer)
+		itemVal := reflect.ValueOf(item).Elem()
+		itemsField.Set(reflect.Append(itemsField, itemVal))
+	}
 
-	// Append item to list
-	itemsField.Set(reflect.Append(itemsField, itemVal))
 	return nil
 }

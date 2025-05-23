@@ -362,11 +362,8 @@ var _ = Describe("Klient", func() {
 					Kind:    "CFAppList",
 				}))
 
-				expectedLabelSelector, err := labels.Parse("my-label=my-value")
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(actualListOpts).To(Equal(&client.ListOptions{
-					LabelSelector: expectedLabelSelector,
+				Expect(actualListOpts).To(ConsistOf(&client.ListOptions{
+					LabelSelector: parseLabelSelector("my-label=my-value"),
 					Namespace:     "ns",
 				}))
 			})
@@ -492,7 +489,6 @@ var _ = Describe("Klient", func() {
 
 		When("watching with options", func() {
 			var (
-				expectedSelector      labels.Selector
 				spaceGuidsReqs        []labels.Requirement
 				expectedFieldSelector fields.Selector
 			)
@@ -512,8 +508,7 @@ var _ = Describe("Klient", func() {
 				Expect(userClient.WatchCallCount()).To(Equal(1))
 				_, _, actualOpts := userClient.WatchArgsForCall(0)
 
-				expectedSelector, err = labels.Parse("foo==bar")
-				Expect(err).NotTo(HaveOccurred())
+				expectedSelector := parseLabelSelector("foo==bar")
 
 				spaceGuidsReqs, err = labels.ParseToRequirements(fmt.Sprintf("%s in (s1,s2)", korifiv1alpha1.SpaceGUIDKey))
 				Expect(err).NotTo(HaveOccurred())
@@ -550,3 +545,11 @@ var _ = Describe("Klient", func() {
 		})
 	})
 })
+
+func parseLabelSelector(selectorString string) labels.Selector {
+	GinkgoHelper()
+
+	selector, err := labels.Parse(selectorString)
+	Expect(err).NotTo(HaveOccurred())
+	return selector
+}
