@@ -51,8 +51,6 @@ var _ = Describe("Droplet", func() {
 			requestValidator,
 		)
 		routerBuilder.LoadRoutes(apiHandler)
-		reqPath = "/v3/droplets"
-		reqMethod = http.MethodGet
 	})
 
 	JustBeforeEach(func() {
@@ -63,7 +61,8 @@ var _ = Describe("Droplet", func() {
 
 	Describe("the GET /v3/droplet/:guid endpoint", func() {
 		BeforeEach(func() {
-			reqPath += "/" + dropletGUID
+			reqMethod = http.MethodGet
+			reqPath = "/v3/droplets/" + dropletGUID
 		})
 
 		When("build staging is successful", func() {
@@ -147,6 +146,9 @@ var _ = Describe("Droplet", func() {
 					State: "STAGED",
 				},
 			}, nil)
+
+			reqMethod = http.MethodGet
+			reqPath = "/v3/droplets"
 		})
 
 		It("lists the droplets", func() {
@@ -155,10 +157,7 @@ var _ = Describe("Droplet", func() {
 
 			Expect(dropletRepo.ListDropletsCallCount()).To(Equal(1))
 			_, _, message := dropletRepo.ListDropletsArgsForCall(0)
-			Expect(message.AppGUIDs).To(BeEmpty())
-			Expect(message.SpaceGUIDs).To(BeEmpty())
-			Expect(message.PackageGUIDs).To(BeEmpty())
-			Expect(message.GUIDs).To(BeEmpty())
+			Expect(message).To(BeZero())
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
@@ -239,8 +238,8 @@ var _ = Describe("Droplet", func() {
 				},
 			}
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(payload)
-			reqPath += "/" + dropletGUID
 			reqMethod = http.MethodPatch
+			reqPath = "/v3/droplets/" + dropletGUID
 		})
 
 		It("validates the payload", func() {

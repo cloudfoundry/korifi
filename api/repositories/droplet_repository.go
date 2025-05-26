@@ -7,12 +7,10 @@ import (
 	"time"
 
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -65,15 +63,12 @@ type ListDropletsMessage struct {
 	SpaceGUIDs   []string
 }
 
-func (m *ListDropletsMessage) matches(droplet korifiv1alpha1.CFBuild) bool {
-	return tools.EmptyOrContains(m.GUIDs, droplet.Name)
-}
-
 func (m *ListDropletsMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, m.PackageGUIDs),
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
+		WithLabelIn(korifiv1alpha1.CFDropletGUIDLabelKey, m.GUIDs),
 	}
 }
 
@@ -150,8 +145,7 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 
-	filteredBuilds := itx.FromSlice(buildList.Items).Filter(message.matches)
-	return slices.Collect(it.Map(filteredBuilds, cfBuildToDropletRecord)), nil
+	return slices.Collect(it.Map(slices.Values(buildList.Items), cfBuildToDropletRecord)), nil
 }
 
 type UpdateDropletMessage struct {
