@@ -44,8 +44,9 @@
 {{- end }}
 {{- end }}
 
-
-{{- range $path, $_ := .Files.Glob "migrations/*.yaml" }}
+{{- if .Values.gatewayApiRouter.include }}
+{{- range $path, $_ := .Files.Glob "gateway-api-router/*.yaml" }}
 ---
 {{ tpl ($.Files.Get $path) $ctx }}
+{{- end }}
 {{- end }}

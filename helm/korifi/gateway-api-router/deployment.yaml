@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: korifi-gateway-api-router-manager
+  labels:
+    app: korifi-gateway-api-router
+    app.kubernetes.io/managed-by: Helm
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    meta.helm.sh/release-name: gateway-api-router
+    meta.helm.sh/release-namespace: controllers
+spec:
+  replicas: {{ .Values.controllers.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: korifi-gateway-api-router
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+        checksum/config: {{ tpl ($.Files.Get "gateway-api-router/configmap.yaml") $ | sha256sum }}
+      labels:
+        app: korifi-gateway-api-router
+    spec:
+      containers:
+        - name: manager
+          env:
+            - name: GATEWAYAPIROUTERCONFIG
+              value: /etc/korifi-gateway-api-router-config
+          image: {{ .Values.gatewayApiRouter.image }}
+          imagePullPolicy: IfNotPresent
+{{- if .Values.debug }}
+          command:
+            - "/dlv"
+          args:
+            - "--listen=:40000"
+            - "--headless=true"
+            - "--api-version=2"
+            - "exec"
+            - "/manager"
+            - "--continue"
+            - "--accept-multiclient"
+            - "--"
+            - "--health-probe-bind-address=:8081"
+            - "--leader-elect"
+{{- else }}
+          args:
+            - "--health-probe-bind-address=:8081"
+            - "--leader-elect"
+{{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          {{- include "korifi.resources" . | indent 10 }}
+          {{- include "korifi.securityContext" . | indent 10 }}
+          volumeMounts:
+            - mountPath: /etc/korifi-gateway-api-router-config
+              name: korifi-gateway-api-router-config
+              readOnly: true
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
+      serviceAccountName: korifi-gateway-api-router-manager
+{{- if .Values.gatewayApiRouter.nodeSelector }}
+      nodeSelector:
+      {{ toYaml .Values.gatewayApiRouter.nodeSelector | indent 8 }}
+{{- end }}
+{{- if .Values.gatewayApiRouter.tolerations }}
+      tolerations:
+      {{- toYaml .Values.gatewayApiRouter.tolerations | nindent 8 }}
+{{- end }}
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - configMap:
+            name: korifi-gateway-api-router-config
+          name: korifi-gateway-api-router-config
