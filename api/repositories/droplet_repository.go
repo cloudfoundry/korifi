@@ -57,14 +57,18 @@ func (r DropletRecord) Relationships() map[string]string {
 }
 
 type ListDropletsMessage struct {
+	GUIDs        []string
 	PackageGUIDs []string
 	AppGUIDs     []string
+	SpaceGUIDs   []string
 }
 
 func (m *ListDropletsMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, m.PackageGUIDs),
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
+		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
+		WithLabelIn(korifiv1alpha1.CFDropletGUIDLabelKey, m.GUIDs),
 	}
 }
 

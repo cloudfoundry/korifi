@@ -257,8 +257,10 @@ var _ = Describe("DropletRepository", func() {
 						dropletRepo = repositories.NewDropletRepo(fakeKlient)
 
 						message = repositories.ListDropletsMessage{
+							GUIDs:        []string{"a1", "a2"},
 							PackageGUIDs: []string{"p1", "p2"},
 							AppGUIDs:     []string{"a1", "a2"},
+							SpaceGUIDs:   []string{"a1", "a2"},
 						}
 					})
 
@@ -267,8 +269,10 @@ var _ = Describe("DropletRepository", func() {
 						Expect(fakeKlient.ListCallCount()).To(Equal(1))
 						_, _, listOptions := fakeKlient.ListArgsForCall(0)
 						Expect(listOptions).To(ConsistOf(
+							repositories.WithLabelIn(korifiv1alpha1.CFDropletGUIDLabelKey, []string{"a1", "a2"}),
 							repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
 							repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
+							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"a1", "a2"}),
 						))
 					})
 				})
