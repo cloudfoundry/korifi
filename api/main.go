@@ -23,6 +23,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/conditions"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/api/routing"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -35,6 +36,7 @@ import (
 
 	chiMiddlewares "github.com/go-chi/chi/middleware"
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
@@ -53,6 +55,8 @@ import (
 var conditionTimeout = time.Second * 120
 
 func init() {
+	utilruntime.Must(metav1.AddMetaToScheme(scheme.Scheme))
+	metav1.AddToGroupVersion(scheme.Scheme, metav1.SchemeGroupVersion)
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(buildv1alpha2.AddToScheme(scheme.Scheme))
 	utilruntime.Must(metricsv1beta1.AddToScheme(scheme.Scheme))
@@ -123,12 +127,15 @@ func main() {
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
-	klientUnfiltered := k8sklient.NewK8sKlient(namespaceRetriever, nil, userClientFactoryUnfiltered)
+	// TODO: Using nils for the descriptors client and object mapper is not great
+	klientUnfiltered := k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, userClientFactoryUnfiltered)
 
 	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-		return authorization.NewSpaceFilteringClient(client, privilegedClient, nsPermissions)
+		return authorization.NewSpaceFilteringClient(client, privilegedClient, authorization.NewSpaceFilteringOpts(nsPermissions))
 	})
-	klient := k8sklient.NewK8sKlient(namespaceRetriever, userClientFactory)
+	descriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), authorization.NewSpaceFilteringOpts(nsPermissions))
+	objectListMapper := descriptors.NewObjectListMapper(userClientFactory)
+	klient := k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, objectListMapper, userClientFactory)
 
 	serverURL, err := url.Parse(cfg.ServerURL)
 	if err != nil {

@@ -12,8 +12,10 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	k8sclient "k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/stdr"
@@ -91,7 +93,6 @@ var _ = BeforeSuite(func() {
 
 	k8sClient, err = client.NewWithWatch(testEnv.Config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
 
 	adminRole = createClusterRole(context.Background(), "cf_admin")
 	orgManagerRole = createClusterRole(context.Background(), "cf_org_manager")
@@ -141,9 +142,14 @@ var _ = BeforeEach(func() {
 	klientUnfiltered = k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, userClientFactoryUnfiltered)
 
 	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-		return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
+		return authorization.NewSpaceFilteringClient(client, k8sClient, authorization.NewSpaceFilteringOpts(nsPerms))
 	})
-	klient = k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, userClientFactory)
+	privilegedClientset, err := k8sclient.NewForConfig(testEnv.Config)
+	Expect(err).NotTo(HaveOccurred())
+	descriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), authorization.NewSpaceFilteringOpts(nsPerms))
+	objectListMapper := descriptors.NewObjectListMapper(userClientFactory)
+
+	klient = k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, objectListMapper, userClientFactory)
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)

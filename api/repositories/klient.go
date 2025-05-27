@@ -48,6 +48,12 @@ type ListOption interface {
 	ApplyToList(*ListOptions) error
 }
 
+type NoopListOption struct{}
+
+func (o NoopListOption) ApplyToList(opts *ListOptions) error {
+	return nil
+}
+
 type LabelOpt struct {
 	Key   string
 	Value string

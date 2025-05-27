@@ -81,6 +81,8 @@ type CFAppStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
+//+kubebuilder:printcolumn:name="Created At",type="date",JSONPath=`.metadata.creationTimestamp`
+//+kubebuilder:printcolumn:name="State",type=string,JSONPath=`.status.actualState`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

@@ -232,6 +232,29 @@ func (m *ListAppsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.Guids),
 		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, tools.EncodeValuesToSha224(m.Names...)),
+		m.toSortOption(),
+	}
+}
+
+func (m *ListAppsMessage) toSortOption() ListOption {
+	if m.OrderBy == "" {
+		return NoopListOption{}
+	}
+
+	desc := false
+	orderBy := m.OrderBy
+	if strings.HasPrefix(m.OrderBy, "-") {
+		desc = true
+		orderBy = strings.TrimPrefix(m.OrderBy, "-")
+	}
+
+	switch orderBy {
+	case "name":
+		return SortBy("Display Name", desc)
+	case "state":
+		return SortBy("State", desc)
+	default:
+		return nil
 	}
 }
 

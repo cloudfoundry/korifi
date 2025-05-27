@@ -19,6 +19,12 @@ spec:
       name: Display Name
       type: string
     - jsonPath: .metadata.creationTimestamp
+      name: Created At
+      type: date
+    - jsonPath: .status.actualState
+      name: State
+      type: string
+    - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
     name: v1alpha1
