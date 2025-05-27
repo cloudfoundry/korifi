@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	"github.com/BooleanCat/go-functional/v2/it"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,17 +17,22 @@ import (
 )
 
 type Client struct {
-	restClient restclient.Interface
+	restClient         restclient.Interface
+	spaceFilteringOpts *authorization.SpaceFilteringOpts
 }
 
-func NewClient(restClient restclient.Interface) *Client {
+func NewClient(restClient restclient.Interface, spaceFilteringOpts *authorization.SpaceFilteringOpts) *Client {
 	return &Client{
-		restClient: restClient,
+		restClient:         restClient,
+		spaceFilteringOpts: spaceFilteringOpts,
 	}
 }
 
 func (c *Client) List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (k8sklient.ResultSetDescriptor, error) {
-	listOpts := unpackListOptions(opts...)
+	listOpts, err := c.spaceFilteringOpts.Apply(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply space filtering options: %w", err)
+	}
 
 	pluralObjectKind := fmt.Sprintf("%ss", strings.ToLower(strings.TrimSuffix(listObjectGVK.Kind, "List")))
 	requestPath := fmt.Sprintf("/apis/%s/%s/%s",
@@ -36,7 +42,7 @@ func (c *Client) List(ctx context.Context, listObjectGVK schema.GroupVersionKind
 	)
 
 	table := &metav1.Table{}
-	err := c.restClient.Get().
+	err = c.restClient.Get().
 		AbsPath(requestPath).
 		SetHeader("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1").
 		VersionedParams(&metav1.TableOptions{
@@ -49,14 +55,6 @@ func (c *Client) List(ctx context.Context, listObjectGVK schema.GroupVersionKind
 	}
 
 	return &tableResultSetDescriptor{table: table}, nil
-}
-
-func unpackListOptions(opts ...client.ListOption) client.ListOptions {
-	listOpts := client.ListOptions{}
-	for _, o := range opts {
-		o.ApplyToList(&listOpts)
-	}
-	return listOpts
 }
 
 type tableResultSetDescriptor struct {

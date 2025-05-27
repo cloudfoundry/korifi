@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"code.cloudfoundry.org/korifi/api/authorization"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -14,12 +15,12 @@ import (
 )
 
 type ObjectListMapper struct {
-	client client.Client
+	userClientFactory authorization.UserClientFactory
 }
 
-func NewObjectListMapper(client client.Client) *ObjectListMapper {
+func NewObjectListMapper(userClientFactory authorization.UserClientFactory) *ObjectListMapper {
 	return &ObjectListMapper{
-		client: client,
+		userClientFactory: userClientFactory,
 	}
 }
 
@@ -38,7 +39,13 @@ func (m *ObjectListMapper) GUIDsToObjectList(ctx context.Context, listObjectGVK 
 	if err != nil {
 		return nil, fmt.Errorf("invalid label selector: %w", err)
 	}
-	err = m.client.List(ctx, list, client.MatchingLabelsSelector{
+
+	authInfo, _ := authorization.InfoFromContext(ctx)
+	userClient, err := m.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build user client: %w", err)
+	}
+	err = userClient.List(ctx, list, client.MatchingLabelsSelector{
 		Selector: labels.NewSelector().Add(*req),
 	})
 	if err != nil {
