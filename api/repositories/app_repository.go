@@ -11,7 +11,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
@@ -40,61 +39,15 @@ const (
 type AppRepo struct {
 	klient     Klient
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp]
-	sorter     AppSorter
-}
-
-//counterfeiter:generate -o fake -fake-name AppSorter . AppSorter
-type AppSorter interface {
-	Sort(records []AppRecord, order string) []AppRecord
-}
-
-type appSorter struct {
-	sorter *compare.Sorter[AppRecord]
-}
-
-func NewAppSorter() *appSorter {
-	return &appSorter{
-		sorter: compare.NewSorter(AppComparator),
-	}
-}
-
-func (s *appSorter) Sort(records []AppRecord, order string) []AppRecord {
-	return s.sorter.Sort(records, order)
-}
-
-func AppComparator(fieldName string) func(AppRecord, AppRecord) int {
-	return func(a1, a2 AppRecord) int {
-		switch fieldName {
-		case "", "name":
-			return strings.Compare(a1.Name, a2.Name)
-		case "-name":
-			return strings.Compare(a2.Name, a1.Name)
-		case "created_at":
-			return tools.CompareTimePtr(&a1.CreatedAt, &a2.CreatedAt)
-		case "-created_at":
-			return tools.CompareTimePtr(&a2.CreatedAt, &a1.CreatedAt)
-		case "updated_at":
-			return tools.CompareTimePtr(a1.UpdatedAt, a2.UpdatedAt)
-		case "-updated_at":
-			return tools.CompareTimePtr(a2.UpdatedAt, a1.UpdatedAt)
-		case "state":
-			return strings.Compare(string(a1.State), string(a2.State))
-		case "-state":
-			return strings.Compare(string(a2.State), string(a1.State))
-		}
-		return 0
-	}
 }
 
 func NewAppRepo(
 	klient Klient,
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp],
-	sorter AppSorter,
 ) *AppRepo {
 	return &AppRepo{
 		klient:     klient,
 		appAwaiter: appAwaiter,
-		sorter:     sorter,
 	}
 }
 
@@ -253,8 +206,13 @@ func (m *ListAppsMessage) toSortOption() ListOption {
 		return SortBy("Display Name", desc)
 	case "state":
 		return SortBy("State", desc)
+	case "created_at":
+		return SortBy("Created At", desc)
+	case "updated_at":
+		return SortBy("Updated At", desc)
 	default:
-		return nil
+		// TODO: error
+		return NoopListOption{}
 	}
 }
 
@@ -349,9 +307,8 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	appRecords := it.Map(itx.FromSlice(appList.Items), cfAppToAppRecord)
-
-	return f.sorter.Sort(slices.Collect(appRecords), message.OrderBy), nil
+	appRecords := slices.Collect(it.Map(itx.FromSlice(appList.Items), cfAppToAppRecord))
+	return appRecords, nil
 }
 
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {

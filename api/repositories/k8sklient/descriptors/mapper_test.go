@@ -77,6 +77,7 @@ var _ = Describe("Mapper", func() {
 		})
 
 		It("returns a list of objects ordered in the specified order", func() {
+			Expect(mapErr).NotTo(HaveOccurred())
 			Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
 			object := objectList.(*korifiv1alpha1.CFAppList)
 			Expect(object.Items).To(HaveLen(3))
@@ -85,6 +86,19 @@ var _ = Describe("Mapper", func() {
 				return item.Name
 			}))
 			Expect(resultGUIDs).To(Equal(objectGUIDs))
+		})
+	})
+
+	When("the ordered guids slice is empty", func() {
+		BeforeEach(func() {
+			objectGUIDs = []string{}
+		})
+
+		It("returns an empty list", func() {
+			Expect(mapErr).NotTo(HaveOccurred())
+			Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
+			object := objectList.(*korifiv1alpha1.CFAppList)
+			Expect(object.Items).To(BeEmpty())
 		})
 	})
 })

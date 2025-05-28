@@ -111,9 +111,15 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 	log.V(1).Info("set observed generation", "generation", cfApp.Status.ObservedGeneration)
 
 	cfApp.Status.ActualState = korifiv1alpha1.StoppedState
+	cfApp.Status.CreatedAt = cfApp.CreationTimestamp.Format(time.RFC3339)
 
 	if !cfApp.GetDeletionTimestamp().IsZero() {
 		return r.finalizeCFApp(ctx, cfApp)
+	}
+
+	updatedAt := getLastUpdatedTime(cfApp)
+	if updatedAt != nil {
+		cfApp.Status.UpdatedAt = updatedAt.Format(time.RFC3339)
 	}
 
 	if cfApp.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey] == "" {
@@ -489,4 +495,32 @@ func (r *Reconciler) reconcileVCAPSecret(
 	}
 
 	return nil
+}
+
+// TODO: Move to a place that is reusable from both api and controllers
+func getLastUpdatedTime(obj client.Object) *time.Time {
+	managedFields := obj.GetManagedFields()
+	if len(managedFields) == 0 {
+		return nil
+	}
+
+	var latestTime *metav1.Time
+	for _, managedField := range managedFields {
+		currentTime := managedField.Time
+		if latestTime == nil {
+			latestTime = currentTime
+		} else if currentTime != nil {
+			if currentTime.After(latestTime.Time) {
+				latestTime = currentTime
+			}
+		}
+	}
+	return golangTime(latestTime)
+}
+
+func golangTime(t *metav1.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	return &t.Time
 }

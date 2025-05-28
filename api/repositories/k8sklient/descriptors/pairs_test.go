@@ -53,12 +53,12 @@ var _ = Describe("Pairs", func() {
 		})
 	})
 
-	Describe("SortNonIntegerPairs", func() {
+	Describe("SortPairsAsStrings", func() {
 		BeforeEach(func() {
 			pairs = []*descriptors.Pair{
-				{Guid: "guid-2", Value: "b", ValueType: "string"},
-				{Guid: "guid-1", Value: "a", ValueType: "string"},
-				{Guid: "guid-3", Value: "c", ValueType: "string"},
+				{Guid: "guid-2", Value: "b", ValueType: "whatever"},
+				{Guid: "guid-1", Value: "a", ValueType: "whatever"},
+				{Guid: "guid-3", Value: "c", ValueType: "whatever"},
 			}
 		})
 

@@ -35,6 +35,10 @@ func (m *ObjectListMapper) GUIDsToObjectList(ctx context.Context, listObjectGVK 
 		return nil, fmt.Errorf("object list is not a client.ObjectList: %T", listObj)
 	}
 
+	if len(orderedGUIDs) == 0 {
+		return list, nil
+	}
+
 	req, err := labels.NewRequirement("korifi.cloudfoundry.org/guid", selection.In, orderedGUIDs)
 	if err != nil {
 		return nil, fmt.Errorf("invalid label selector: %w", err)

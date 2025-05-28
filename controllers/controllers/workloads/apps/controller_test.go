@@ -1,6 +1,8 @@
 package apps_test
 
 import (
+	"time"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -178,6 +180,47 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 				},
 			}), &corev1.Secret{})).To(Succeed())
 		}).Should(Succeed())
+	})
+
+	It("sets status.CreatedAt", func() {
+		Eventually(func(g Gomega) {
+			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+
+			g.Expect(cfApp.Status.CreatedAt).NotTo(BeEmpty())
+			createdAt, err := time.Parse(time.RFC3339, cfApp.Status.CreatedAt)
+			Expect(err).NotTo(HaveOccurred())
+			g.Expect(createdAt).To(BeTemporally("~", time.Now(), 10*time.Second))
+
+			g.Expect(cfApp.Status.UpdatedAt).NotTo(BeEmpty())
+			updatedAt, err := time.Parse(time.RFC3339, cfApp.Status.UpdatedAt)
+			Expect(err).NotTo(HaveOccurred())
+			g.Expect(updatedAt).To(BeTemporally("~", time.Now(), 10*time.Second))
+		}).Should(Succeed())
+	})
+
+	When("the app is updated at a later time", func() {
+		BeforeEach(func() {
+			time.Sleep(1001 * time.Millisecond)
+			Expect(k8s.PatchResource(ctx, adminClient, cfApp, func() {
+				cfApp.Spec.DisplayName = "updated-display-name"
+			})).To(Succeed())
+		})
+
+		It("sets status.UpdatedAt", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+
+				g.Expect(cfApp.Status.CreatedAt).NotTo(BeEmpty())
+				createdAt, err := time.Parse(time.RFC3339, cfApp.Status.CreatedAt)
+				Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(cfApp.Status.UpdatedAt).NotTo(BeEmpty())
+				updatedAt, err := time.Parse(time.RFC3339, cfApp.Status.UpdatedAt)
+				Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(updatedAt).To(BeTemporally(">", createdAt))
+			}).Should(Succeed())
+		})
 	})
 
 	When("lastStopAppRev annotation is set", func() {

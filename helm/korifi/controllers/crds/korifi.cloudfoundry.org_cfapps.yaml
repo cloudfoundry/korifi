@@ -18,9 +18,12 @@ spec:
     - jsonPath: .spec.displayName
       name: Display Name
       type: string
-    - jsonPath: .metadata.creationTimestamp
+    - jsonPath: .status.createdAt
       name: Created At
-      type: date
+      type: string
+    - jsonPath: .status.updatedAt
+      name: Updated At
+      type: string
     - jsonPath: .status.actualState
       name: State
       type: string
@@ -184,6 +187,8 @@ spec:
                   - type
                   type: object
                 type: array
+              createdAt:
+                type: string
               observedDesiredState:
                 description: 'Deprecated: No longer used'
                 type: string
@@ -214,6 +219,8 @@ spec:
                   - secret
                   type: object
                 type: array
+              updatedAt:
+                type: string
               vcapApplicationSecretName:
                 description: VCAPApplicationSecretName contains the name of the CFApp's
                   VCAP_APPLICATION Secret, which should exist in the same namespace

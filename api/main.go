@@ -165,7 +165,6 @@ func main() {
 	appRepo := repositories.NewAppRepo(
 		klient,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
-		repositories.NewAppSorter(),
 	)
 	dropletRepo := repositories.NewDropletRepo(klient)
 	routeRepo := repositories.NewRouteRepo(klient)
