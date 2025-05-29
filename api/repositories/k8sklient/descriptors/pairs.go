@@ -20,10 +20,10 @@ func (p PairsList) Sort(desc bool) {
 	}
 
 	valueType := p[0].ValueType
+	// TODO: maybe error of the value type is neither string, nor integer (i.e. not supported)
 	switch valueType {
 	case "integer":
 		sortIntegerPairs(p, desc)
-
 	default:
 		sortStringPairs(p, desc)
 	}

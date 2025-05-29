@@ -37,6 +37,7 @@ type DescriptorClient interface {
 
 //counterfeiter:generate -o fake -fake-name ResultSetDescriptor . ResultSetDescriptor
 type ResultSetDescriptor interface {
+	// TODO: Maybe split this method into `GUIDs() []string` and `Sort(column, desc)`. then we would be able to implement client-side paging without sorting
 	SortedGUIDs(column string, desc bool) ([]string, error)
 }
 

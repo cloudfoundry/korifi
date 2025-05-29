@@ -76,19 +76,13 @@ type CFAppStatus struct {
 	// They are in the [servicebinding.io](https://servicebinding.io/spec/core/1.1.0/) format
 	//+kubebuilder:validation:Optional
 	ServiceBindings []ServiceBinding `json:"serviceBindings,omitempty"`
-
-	//+kubebuilder:validation:Optional
-	CreatedAt string `json:"createdAt,omitempty"`
-
-	//+kubebuilder:validation:Optional
-	UpdatedAt string `json:"updatedAt,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
-//+kubebuilder:printcolumn:name="Created At",type="string",JSONPath=`.status.createdAt`
-//+kubebuilder:printcolumn:name="Updated At",type="string",JSONPath=`.status.updatedAt`
+//+kubebuilder:printcolumn:name="Created At",type="string",JSONPath=`.metadata.labels.korifi\.cloudfoundry\.org/created_at`
+//+kubebuilder:printcolumn:name="Updated At",type="string",JSONPath=`.metadata.labels.korifi\.cloudfoundry\.org/updated_at`
 //+kubebuilder:printcolumn:name="State",type=string,JSONPath=`.status.actualState`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

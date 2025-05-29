@@ -18,10 +18,10 @@ spec:
     - jsonPath: .spec.displayName
       name: Display Name
       type: string
-    - jsonPath: .status.createdAt
+    - jsonPath: .metadata.labels.korifi\.cloudfoundry\.org/created_at
       name: Created At
       type: string
-    - jsonPath: .status.updatedAt
+    - jsonPath: .metadata.labels.korifi\.cloudfoundry\.org/updated_at
       name: Updated At
       type: string
     - jsonPath: .status.actualState
@@ -187,8 +187,6 @@ spec:
                   - type
                   type: object
                 type: array
-              createdAt:
-                type: string
               observedDesiredState:
                 description: 'Deprecated: No longer used'
                 type: string
@@ -219,8 +217,6 @@ spec:
                   - secret
                   type: object
                 type: array
-              updatedAt:
-                type: string
               vcapApplicationSecretName:
                 description: VCAPApplicationSecretName contains the name of the CFApp's
                   VCAP_APPLICATION Secret, which should exist in the same namespace

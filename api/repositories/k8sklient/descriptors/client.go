@@ -76,6 +76,7 @@ func (d *tableResultSetDescriptor) SortedGUIDs(column string, desc bool) ([]stri
 		return nil, fmt.Errorf("column 'name' is not of type string")
 	}
 
+	// TODO: sort rows directly instead of collecting them into a PairList (in order to reduce memory consumption)
 	var pairs PairsList = slices.Collect(it.Map(slices.Values(d.table.Rows), func(row metav1.TableRow) *Pair {
 		return &Pair{
 			Guid:      row.Cells[nameColumnIndex].(string),

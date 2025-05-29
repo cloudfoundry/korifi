@@ -593,6 +593,7 @@ func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) {
 }
 
 func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
+	// TODO: CreatedAt And UpdatedAt should be taken from the app labels
 	return AppRecord{
 		GUID:        cfApp.Name,
 		EtcdUID:     cfApp.GetUID(),
