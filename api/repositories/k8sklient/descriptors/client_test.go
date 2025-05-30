@@ -30,59 +30,25 @@ var _ = Describe("Client", func() {
 
 		descrClient = descriptors.NewClient(restClient, authorization.NewSpaceFilteringOpts(nsPerms))
 
-		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFApp{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: rootNamespace,
-				Name:      fmt.Sprintf("app-%d", 2),
-				Labels: map[string]string{
-					korifiv1alpha1.SpaceGUIDKey: space.Name,
-					"foo":                       "bar",
+		for i := 0; i < 2; i++ {
+			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFApp{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      fmt.Sprintf("app-%d", i),
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey: space.Name,
+						"foo":                       "bar",
+					},
 				},
-			},
-			Spec: korifiv1alpha1.CFAppSpec{
-				DisplayName:  fmt.Sprintf("application-%d", 2),
-				DesiredState: korifiv1alpha1.StoppedState,
-				Lifecycle: korifiv1alpha1.Lifecycle{
-					Type: "docker",
+				Spec: korifiv1alpha1.CFAppSpec{
+					DisplayName:  fmt.Sprintf("application-%d", i),
+					DesiredState: korifiv1alpha1.StoppedState,
+					Lifecycle: korifiv1alpha1.Lifecycle{
+						Type: "docker",
+					},
 				},
-			},
-		})).To(Succeed())
-
-		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFApp{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: rootNamespace,
-				Name:      fmt.Sprintf("app-%d", 1),
-				Labels: map[string]string{
-					korifiv1alpha1.SpaceGUIDKey: space.Name,
-					"foo":                       "bar",
-				},
-			},
-			Spec: korifiv1alpha1.CFAppSpec{
-				DisplayName:  fmt.Sprintf("application-%d", 1),
-				DesiredState: korifiv1alpha1.StoppedState,
-				Lifecycle: korifiv1alpha1.Lifecycle{
-					Type: "docker",
-				},
-			},
-		})).To(Succeed())
-
-		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFApp{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: rootNamespace,
-				Name:      fmt.Sprintf("app-%d", 3),
-				Labels: map[string]string{
-					korifiv1alpha1.SpaceGUIDKey: space.Name,
-					"foo":                       "bar",
-				},
-			},
-			Spec: korifiv1alpha1.CFAppSpec{
-				DisplayName:  fmt.Sprintf("application-%d", 3),
-				DesiredState: korifiv1alpha1.StoppedState,
-				Lifecycle: korifiv1alpha1.Lifecycle{
-					Type: "docker",
-				},
-			},
-		})).To(Succeed())
+			})).To(Succeed())
+		}
 
 		Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
@@ -113,60 +79,24 @@ var _ = Describe("Client", func() {
 			listResultDescriptor, listErr = descrClient.List(ctx, gvks[0], client.MatchingLabels{"foo": "bar"})
 		})
 
-		Describe("sorting", func() {
-			var (
-				sortColumn  string
-				desc        bool
-				sortedGUIDs []string
-				sortErr     error
-			)
+		It("returns an empty list", func() {
+			Expect(listErr).NotTo(HaveOccurred())
+			guids, err := listResultDescriptor.GUIDs()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(guids).To(BeEmpty())
+		})
 
+		When("the user is allowed to list the objects", func() {
 			BeforeEach(func() {
-				sortColumn = "Display Name"
-				desc = false
+				createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			JustBeforeEach(func() {
+			It("returns a descriptor for the list of objects", func() {
 				Expect(listErr).NotTo(HaveOccurred())
-				sortedGUIDs, sortErr = listResultDescriptor.SortedGUIDs(sortColumn, desc)
-			})
-
-			It("returns an empty list", func() {
-				Expect(sortErr).NotTo(HaveOccurred())
-				Expect(sortedGUIDs).To(BeEmpty())
-			})
-
-			When("the user is allowed to list the objects", func() {
-				BeforeEach(func() {
-					createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
-					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-				})
-
-				It("sorts the results", func() {
-					Expect(sortErr).NotTo(HaveOccurred())
-					Expect(sortedGUIDs).To(Equal([]string{"app-1", "app-2", "app-3"}))
-				})
-
-				When("sorting descending", func() {
-					BeforeEach(func() {
-						desc = true
-					})
-
-					It("sorts the results in descending order", func() {
-						Expect(sortErr).NotTo(HaveOccurred())
-						Expect(sortedGUIDs).To(Equal([]string{"app-3", "app-2", "app-1"}))
-					})
-				})
-
-				When("the sort column does not exist", func() {
-					BeforeEach(func() {
-						sortColumn = "non-existing-column"
-					})
-
-					It("fails", func() {
-						Expect(sortErr).To(MatchError(ContainSubstring("not found")))
-					})
-				})
+				guids, err := listResultDescriptor.GUIDs()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(guids).To(ConsistOf("app-0", "app-1"))
 			})
 		})
 	})

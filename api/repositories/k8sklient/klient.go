@@ -37,8 +37,8 @@ type DescriptorClient interface {
 
 //counterfeiter:generate -o fake -fake-name ResultSetDescriptor . ResultSetDescriptor
 type ResultSetDescriptor interface {
-	// TODO: Maybe split this method into `GUIDs() []string` and `Sort(column, desc)`. then we would be able to implement client-side paging without sorting
-	SortedGUIDs(column string, desc bool) ([]string, error)
+	GUIDs() ([]string, error)
+	Sort(column string, desc bool) error
 }
 
 //counterfeiter:generate -o fake -fake-name ObjectListMapper . ObjectListMapper
@@ -131,7 +131,11 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 			return fmt.Errorf("failed to list object descriptors: %w", err)
 		}
 
-		sortedObjectGUIDs, err := objectDescriptors.SortedGUIDs(listOpts.Sort.By, listOpts.Sort.Desc)
+		if err := objectDescriptors.Sort(listOpts.Sort.By, listOpts.Sort.Desc); err != nil {
+			return fmt.Errorf("failed to sort object descriptors: %w", err)
+		}
+
+		sortedObjectGUIDs, err := objectDescriptors.GUIDs()
 		if err != nil {
 			return fmt.Errorf("failed to get sorted object GUIDs: %w", err)
 		}

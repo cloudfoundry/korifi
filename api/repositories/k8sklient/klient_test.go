@@ -329,7 +329,7 @@ var _ = Describe("Klient", func() {
 			var fakeDescriptor *fake.ResultSetDescriptor
 			BeforeEach(func() {
 				fakeDescriptor = new(fake.ResultSetDescriptor)
-				fakeDescriptor.SortedGUIDsReturns([]string{"guid-1", "guid-2"}, nil)
+				fakeDescriptor.GUIDsReturns([]string{"guid-1", "guid-2"}, nil)
 				descriptorClient.ListReturns(fakeDescriptor, nil)
 
 				appsList := &korifiv1alpha1.CFAppList{
@@ -346,19 +346,6 @@ var _ = Describe("Klient", func() {
 					repositories.SortBy("foo", true),
 				}
 			})
-
-			// TODO: move to descriptors/client_test.go
-			//
-			// It("uses the rest client to fetch objects as table", func() {
-			// 	Expect(err).NotTo(HaveOccurred())
-
-			// 	request := requestRecorder.req
-			// 	Expect(request).NotTo(BeNil())
-			// 	Expect(request.Method).To(Equal(http.MethodGet))
-			// 	Expect(request.URL.Path).To(Equal("/apis/korifi.cloudfoundry.org/v1alpha1/cfapps"))
-			// 	Expect(request.URL.RawQuery).To(Equal("includeObject=None&labelSelector=my-label%3Dmy-value"))
-			// 	Expect(request.Header.Get("Accept")).To(Equal("application/json;as=Table;g=meta.k8s.io;v=v1"))
-			// })
 
 			It("lists object descriptors with user supplied filltering opts", func() {
 				Expect(err).NotTo(HaveOccurred())
@@ -388,19 +375,35 @@ var _ = Describe("Klient", func() {
 
 			It("sorts the objects in the requested order", func() {
 				Expect(err).NotTo(HaveOccurred())
-				Expect(fakeDescriptor.SortedGUIDsCallCount()).To(Equal(1))
-				by, descending := fakeDescriptor.SortedGUIDsArgsForCall(0)
+				Expect(fakeDescriptor.SortCallCount()).To(Equal(1))
+				by, descending := fakeDescriptor.SortArgsForCall(0)
 				Expect(by).To(Equal("foo"))
 				Expect(descending).To(BeTrue())
+				Expect(fakeDescriptor.GUIDsCallCount()).To(Equal(1))
 			})
 
 			When("sorting fails", func() {
 				BeforeEach(func() {
-					fakeDescriptor.SortedGUIDsReturns(nil, errors.New("sort-err"))
+					fakeDescriptor.SortReturns(errors.New("sort-err"))
 				})
 
 				It("returns the error", func() {
 					Expect(err).To(MatchError(ContainSubstring("sort-err")))
+				})
+			})
+
+			It("gets the guids from the sorted descriptor", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fakeDescriptor.GUIDsCallCount()).To(Equal(1))
+			})
+
+			When("getting the guids fails", func() {
+				BeforeEach(func() {
+					fakeDescriptor.GUIDsReturns(nil, errors.New("guids-err"))
+				})
+
+				It("returns the error", func() {
+					Expect(err).To(MatchError(ContainSubstring("guids-err")))
 				})
 			})
 

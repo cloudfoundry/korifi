@@ -8,37 +8,45 @@ import (
 )
 
 type ResultSetDescriptor struct {
-	SortedGUIDsStub        func(string, bool) ([]string, error)
-	sortedGUIDsMutex       sync.RWMutex
-	sortedGUIDsArgsForCall []struct {
+	GUIDsStub        func() ([]string, error)
+	gUIDsMutex       sync.RWMutex
+	gUIDsArgsForCall []struct {
+	}
+	gUIDsReturns struct {
+		result1 []string
+		result2 error
+	}
+	gUIDsReturnsOnCall map[int]struct {
+		result1 []string
+		result2 error
+	}
+	SortStub        func(string, bool) error
+	sortMutex       sync.RWMutex
+	sortArgsForCall []struct {
 		arg1 string
 		arg2 bool
 	}
-	sortedGUIDsReturns struct {
-		result1 []string
-		result2 error
+	sortReturns struct {
+		result1 error
 	}
-	sortedGUIDsReturnsOnCall map[int]struct {
-		result1 []string
-		result2 error
+	sortReturnsOnCall map[int]struct {
+		result1 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ResultSetDescriptor) SortedGUIDs(arg1 string, arg2 bool) ([]string, error) {
-	fake.sortedGUIDsMutex.Lock()
-	ret, specificReturn := fake.sortedGUIDsReturnsOnCall[len(fake.sortedGUIDsArgsForCall)]
-	fake.sortedGUIDsArgsForCall = append(fake.sortedGUIDsArgsForCall, struct {
-		arg1 string
-		arg2 bool
-	}{arg1, arg2})
-	stub := fake.SortedGUIDsStub
-	fakeReturns := fake.sortedGUIDsReturns
-	fake.recordInvocation("SortedGUIDs", []interface{}{arg1, arg2})
-	fake.sortedGUIDsMutex.Unlock()
+func (fake *ResultSetDescriptor) GUIDs() ([]string, error) {
+	fake.gUIDsMutex.Lock()
+	ret, specificReturn := fake.gUIDsReturnsOnCall[len(fake.gUIDsArgsForCall)]
+	fake.gUIDsArgsForCall = append(fake.gUIDsArgsForCall, struct {
+	}{})
+	stub := fake.GUIDsStub
+	fakeReturns := fake.gUIDsReturns
+	fake.recordInvocation("GUIDs", []interface{}{})
+	fake.gUIDsMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub()
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -46,56 +54,113 @@ func (fake *ResultSetDescriptor) SortedGUIDs(arg1 string, arg2 bool) ([]string, 
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *ResultSetDescriptor) SortedGUIDsCallCount() int {
-	fake.sortedGUIDsMutex.RLock()
-	defer fake.sortedGUIDsMutex.RUnlock()
-	return len(fake.sortedGUIDsArgsForCall)
+func (fake *ResultSetDescriptor) GUIDsCallCount() int {
+	fake.gUIDsMutex.RLock()
+	defer fake.gUIDsMutex.RUnlock()
+	return len(fake.gUIDsArgsForCall)
 }
 
-func (fake *ResultSetDescriptor) SortedGUIDsCalls(stub func(string, bool) ([]string, error)) {
-	fake.sortedGUIDsMutex.Lock()
-	defer fake.sortedGUIDsMutex.Unlock()
-	fake.SortedGUIDsStub = stub
+func (fake *ResultSetDescriptor) GUIDsCalls(stub func() ([]string, error)) {
+	fake.gUIDsMutex.Lock()
+	defer fake.gUIDsMutex.Unlock()
+	fake.GUIDsStub = stub
 }
 
-func (fake *ResultSetDescriptor) SortedGUIDsArgsForCall(i int) (string, bool) {
-	fake.sortedGUIDsMutex.RLock()
-	defer fake.sortedGUIDsMutex.RUnlock()
-	argsForCall := fake.sortedGUIDsArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *ResultSetDescriptor) SortedGUIDsReturns(result1 []string, result2 error) {
-	fake.sortedGUIDsMutex.Lock()
-	defer fake.sortedGUIDsMutex.Unlock()
-	fake.SortedGUIDsStub = nil
-	fake.sortedGUIDsReturns = struct {
+func (fake *ResultSetDescriptor) GUIDsReturns(result1 []string, result2 error) {
+	fake.gUIDsMutex.Lock()
+	defer fake.gUIDsMutex.Unlock()
+	fake.GUIDsStub = nil
+	fake.gUIDsReturns = struct {
 		result1 []string
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *ResultSetDescriptor) SortedGUIDsReturnsOnCall(i int, result1 []string, result2 error) {
-	fake.sortedGUIDsMutex.Lock()
-	defer fake.sortedGUIDsMutex.Unlock()
-	fake.SortedGUIDsStub = nil
-	if fake.sortedGUIDsReturnsOnCall == nil {
-		fake.sortedGUIDsReturnsOnCall = make(map[int]struct {
+func (fake *ResultSetDescriptor) GUIDsReturnsOnCall(i int, result1 []string, result2 error) {
+	fake.gUIDsMutex.Lock()
+	defer fake.gUIDsMutex.Unlock()
+	fake.GUIDsStub = nil
+	if fake.gUIDsReturnsOnCall == nil {
+		fake.gUIDsReturnsOnCall = make(map[int]struct {
 			result1 []string
 			result2 error
 		})
 	}
-	fake.sortedGUIDsReturnsOnCall[i] = struct {
+	fake.gUIDsReturnsOnCall[i] = struct {
 		result1 []string
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *ResultSetDescriptor) Sort(arg1 string, arg2 bool) error {
+	fake.sortMutex.Lock()
+	ret, specificReturn := fake.sortReturnsOnCall[len(fake.sortArgsForCall)]
+	fake.sortArgsForCall = append(fake.sortArgsForCall, struct {
+		arg1 string
+		arg2 bool
+	}{arg1, arg2})
+	stub := fake.SortStub
+	fakeReturns := fake.sortReturns
+	fake.recordInvocation("Sort", []interface{}{arg1, arg2})
+	fake.sortMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ResultSetDescriptor) SortCallCount() int {
+	fake.sortMutex.RLock()
+	defer fake.sortMutex.RUnlock()
+	return len(fake.sortArgsForCall)
+}
+
+func (fake *ResultSetDescriptor) SortCalls(stub func(string, bool) error) {
+	fake.sortMutex.Lock()
+	defer fake.sortMutex.Unlock()
+	fake.SortStub = stub
+}
+
+func (fake *ResultSetDescriptor) SortArgsForCall(i int) (string, bool) {
+	fake.sortMutex.RLock()
+	defer fake.sortMutex.RUnlock()
+	argsForCall := fake.sortArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *ResultSetDescriptor) SortReturns(result1 error) {
+	fake.sortMutex.Lock()
+	defer fake.sortMutex.Unlock()
+	fake.SortStub = nil
+	fake.sortReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *ResultSetDescriptor) SortReturnsOnCall(i int, result1 error) {
+	fake.sortMutex.Lock()
+	defer fake.sortMutex.Unlock()
+	fake.SortStub = nil
+	if fake.sortReturnsOnCall == nil {
+		fake.sortReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.sortReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *ResultSetDescriptor) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.sortedGUIDsMutex.RLock()
-	defer fake.sortedGUIDsMutex.RUnlock()
+	fake.gUIDsMutex.RLock()
+	defer fake.gUIDsMutex.RUnlock()
+	fake.sortMutex.RLock()
+	defer fake.sortMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
