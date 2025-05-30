@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
 	"github.com/go-logr/logr"
@@ -159,6 +160,11 @@ func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alph
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: rootNamespace,
+			Labels: map[string]string{
+				korifiv1alpha1.GUIDLabelKey:        guid,
+				korifiv1alpha1.CFOrgDisplayNameKey: tools.EncodeValueToSha224(displayName),
+				korifiv1alpha1.ReadyLabelKey:       string(metav1.ConditionTrue),
+			},
 		},
 		Spec: korifiv1alpha1.CFOrgSpec{
 			DisplayName: displayName,
@@ -166,19 +172,11 @@ func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alph
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	meta.SetStatusCondition(&(cfOrg.Status.Conditions), metav1.Condition{
-		Type:    korifiv1alpha1.StatusConditionReady,
-		Status:  metav1.ConditionTrue,
-		Reason:  "cus",
-		Message: "cus",
-	})
-	Expect(k8sClient.Status().Update(ctx, cfOrg)).To(Succeed())
-
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cfOrg.Name,
 			Labels: map[string]string{
-				korifiv1alpha1.OrgNameKey: cfOrg.Spec.DisplayName,
+				korifiv1alpha1.CFOrgDisplayNameKey: tools.EncodeValueToSha224(cfOrg.Spec.DisplayName),
 			},
 		},
 	}

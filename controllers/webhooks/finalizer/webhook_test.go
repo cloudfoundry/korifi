@@ -29,7 +29,7 @@ var _ = Describe("Controllers Finalizers Webhook", func() {
 				Expect(adminClient.Create(context.Background(), &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:   obj.GetNamespace(),
-						Labels: map[string]string{korifiv1alpha1.OrgNameKey: obj.GetNamespace()},
+						Labels: map[string]string{korifiv1alpha1.CFOrgDisplayNameKey: obj.GetNamespace()},
 					},
 				})).To(Succeed())
 			}

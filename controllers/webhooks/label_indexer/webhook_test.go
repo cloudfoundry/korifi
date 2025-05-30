@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -331,6 +332,46 @@ var _ = Describe("LabelIndexerWebhook", func() {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(task), task)).To(Succeed())
 				g.Expect(task.Labels).To(MatchKeys(IgnoreExtras, Keys{
 					korifiv1alpha1.SpaceGUIDKey: Equal(task.Namespace),
+				}))
+			}).Should(Succeed())
+		})
+	})
+
+	Describe("CFOrg", func() {
+		var org *korifiv1alpha1.CFOrg
+
+		BeforeEach(func() {
+			org = &korifiv1alpha1.CFOrg{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: namespace,
+				},
+				Spec: korifiv1alpha1.CFOrgSpec{
+					DisplayName: "my-awesome-org",
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			Expect(adminClient.Create(ctx, org)).To(Succeed())
+			Expect(k8s.Patch(ctx, adminClient, org, func() {
+				org.Status.GUID = uuid.NewString()
+				meta.SetStatusCondition(&org.Status.Conditions, metav1.Condition{
+					Type:    korifiv1alpha1.StatusConditionReady,
+					Status:  metav1.ConditionTrue,
+					Reason:  "Ready",
+					Message: "Reconciled",
+				})
+			})).To(Succeed())
+		})
+
+		It("labels the CFOrg with the expected index labels", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(org), org)).To(Succeed())
+				g.Expect(org.Labels).To(MatchKeys(IgnoreExtras, Keys{
+					korifiv1alpha1.CFOrgDisplayNameKey: Equal("02305ec6ce38ed4d9b654b58bca88c90a824558ecafac09ecc3acbae"), // SHA224 hash of "my-awesome-org"
+					korifiv1alpha1.GUIDLabelKey:        Equal(org.Name),
+					korifiv1alpha1.ReadyLabelKey:       Equal("True"),
 				}))
 			}).Should(Succeed())
 		})

@@ -136,13 +136,13 @@ type cfOrgMetadataCompiler struct {
 
 func (c *cfOrgMetadataCompiler) CompileLabels(cfOrg *korifiv1alpha1.CFOrg) map[string]string {
 	return c.labelCompiler.Compile(map[string]string{
-		korifiv1alpha1.OrgNameKey: korifiv1alpha1.OrgSpaceDeprecatedName,
-		korifiv1alpha1.OrgGUIDKey: cfOrg.Name,
+		korifiv1alpha1.CFOrgDisplayNameKey: cfOrg.Labels[korifiv1alpha1.CFOrgDisplayNameKey],
+		korifiv1alpha1.CFOrgGUIDKey:        cfOrg.Name,
 	})
 }
 
 func (c *cfOrgMetadataCompiler) CompileAnnotations(cfOrg *korifiv1alpha1.CFOrg) map[string]string {
 	return map[string]string{
-		korifiv1alpha1.OrgNameKey: cfOrg.Spec.DisplayName,
+		korifiv1alpha1.CFOrgDisplayNameKey: cfOrg.Spec.DisplayName,
 	}
 }

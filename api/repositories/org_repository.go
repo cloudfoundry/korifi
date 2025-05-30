@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -12,9 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,10 +33,20 @@ type ListOrgsMessage struct {
 	GUIDs []string
 }
 
-func (m *ListOrgsMessage) matches(org korifiv1alpha1.CFOrg) bool {
-	return tools.EmptyOrContains(m.GUIDs, org.Name) &&
-		tools.EmptyOrContains(m.Names, org.Spec.DisplayName) &&
-		meta.IsStatusConditionTrue(org.Status.Conditions, korifiv1alpha1.StatusConditionReady)
+func (m *ListOrgsMessage) toListOptions(rootNamespace string, authorizedOrgGuids []string) []ListOption {
+	selectedGuids := authorizedOrgGuids
+	if len(m.GUIDs) != 0 {
+		selectedGuids = slices.Collect(it.Filter(slices.Values(selectedGuids), func(guid string) bool {
+			return slices.Contains(m.GUIDs, guid)
+		}))
+	}
+
+	return []ListOption{
+		WithLabelStrictlyIn(korifiv1alpha1.GUIDLabelKey, selectedGuids),
+		WithLabelIn(korifiv1alpha1.CFOrgDisplayNameKey, tools.EncodeValuesToSha224(m.Names...)),
+		WithLabel(korifiv1alpha1.ReadyLabelKey, string(metav1.ConditionTrue)),
+		InNamespace(rootNamespace),
+	}
 }
 
 type DeleteOrgMessage struct {
@@ -126,15 +135,12 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, message
 	}
 
 	cfOrgList := new(korifiv1alpha1.CFOrgList)
-	err = r.klient.List(ctx, cfOrgList, InNamespace(r.rootNamespace))
+	err = r.klient.List(ctx, cfOrgList, message.toListOptions(r.rootNamespace, slices.Collect(maps.Keys(authorizedNamespaces)))...)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, OrgResourceType)
 	}
 
-	filteredOrgs := itx.FromSlice(cfOrgList.Items).Filter(func(org korifiv1alpha1.CFOrg) bool {
-		return authorizedNamespaces[org.Name] && message.matches(org)
-	})
-	return slices.Collect(it.Map(filteredOrgs, cfOrgToOrgRecord)), nil
+	return slices.Collect(it.Map(slices.Values(cfOrgList.Items), cfOrgToOrgRecord)), nil
 }
 
 func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID string) (OrgRecord, error) {

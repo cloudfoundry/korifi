@@ -23,6 +23,7 @@ var (
 	k8sClient     client.Client
 	testEnv       *envtest.Environment
 	testNamespace *corev1.Namespace
+	ctx           context.Context
 )
 
 var _ = BeforeSuite(func() {
@@ -43,7 +44,8 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	testNamespace = createNamespace(context.Background(), k8sClient, prefixedGUID("testns"))
+	ctx = context.Background()
+	testNamespace = createNamespace(ctx, k8sClient, prefixedGUID("testns"))
 })
 
 func prefixedGUID(prefix string) string {

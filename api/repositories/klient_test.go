@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 )
 
 var _ = Describe("Klient", func() {
@@ -163,6 +164,30 @@ var _ = Describe("Klient", func() {
 
 				It("returns an error", func() {
 					Expect(applyToListErr).To(MatchError(ContainSubstring("invalid label selector")))
+				})
+			})
+		})
+
+		Describe("WithLabelStrictlyIn", func() {
+			BeforeEach(func() {
+				option = repositories.WithLabelStrictlyIn("foo", []string{"bar"})
+			})
+
+			It("adds the label selector requirements to the list options", func() {
+				expectedReq, err := labels.NewRequirement("foo", selection.In, []string{"bar"})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(listOptions.Requrements).To(ConsistOf(*expectedReq))
+			})
+
+			When("the values are empty", func() {
+				BeforeEach(func() {
+					option = repositories.WithLabelStrictlyIn("foo", []string{})
+				})
+
+				It("adds match nothing requirements to the list options", func() {
+					expectedReqs, _ := k8s.MatchNotingSelector().Requirements()
+					Expect(listOptions.Requrements).To(ConsistOf(expectedReqs))
 				})
 			})
 		})
