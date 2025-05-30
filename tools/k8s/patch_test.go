@@ -16,12 +16,6 @@ import (
 )
 
 var _ = Describe("Kubernetes Patch", func() {
-	var ctx context.Context
-
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
-
 	Describe("Patch", func() {
 		Describe("objects with Status", func() {
 			var (

@@ -53,7 +53,6 @@ func (f *fakeObjectReconciler) SetupWithManager(mgr ctrl.Manager) *builder.Build
 
 var _ = Describe("Reconcile", func() {
 	var (
-		ctx                context.Context
 		fakeClient         *fake.Client
 		fakeStatusWriter   *fake.StatusWriter
 		patchingReconciler *k8s.PatchingReconciler[korifiv1alpha1.CFOrg]
@@ -69,7 +68,6 @@ var _ = Describe("Reconcile", func() {
 		fakeStatusWriter = new(fake.StatusWriter)
 		fakeClient.StatusReturns(fakeStatusWriter)
 
-		ctx = context.Background()
 		org = &korifiv1alpha1.CFOrg{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: uuid.NewString(),

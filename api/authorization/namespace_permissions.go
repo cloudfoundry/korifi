@@ -35,7 +35,7 @@ func NewNamespacePermissions(privilegedClient client.Client, identityProvider Id
 }
 
 func (o *NamespacePermissions) GetAuthorizedOrgNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
-	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.OrgNameKey, "Org")
+	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.CFOrgDisplayNameKey, "Org")
 }
 
 func (o *NamespacePermissions) GetAuthorizedSpaceNamespaces(ctx context.Context, info Info) (map[string]bool, error) {

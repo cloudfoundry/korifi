@@ -25,9 +25,12 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 				Finalizers: []string{
 					korifiv1alpha1.CFOrgFinalizerName,
 				},
+				Labels: map[string]string{
+					korifiv1alpha1.CFOrgDisplayNameKey: "my-test-org",
+				},
 			},
 			Spec: korifiv1alpha1.CFOrgSpec{
-				DisplayName: uuid.NewString(),
+				DisplayName: "my-test-org",
 			},
 		}
 		Expect(adminClient.Create(ctx, cfOrg)).To(Succeed())
@@ -39,11 +42,11 @@ var _ = Describe("CFOrgReconciler Integration Tests", func() {
 			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: cfOrg.Name}, &orgNamespace)).To(Succeed())
 
 			g.Expect(orgNamespace.Labels).To(SatisfyAll(
-				HaveKeyWithValue(korifiv1alpha1.OrgNameKey, korifiv1alpha1.OrgSpaceDeprecatedName),
-				HaveKeyWithValue(korifiv1alpha1.OrgGUIDKey, cfOrg.Name),
+				HaveKeyWithValue(korifiv1alpha1.CFOrgDisplayNameKey, "my-test-org"),
+				HaveKeyWithValue(korifiv1alpha1.CFOrgGUIDKey, cfOrg.Name),
 				HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)),
 			))
-			g.Expect(orgNamespace.Annotations).To(HaveKeyWithValue(korifiv1alpha1.OrgNameKey, cfOrg.Spec.DisplayName))
+			g.Expect(orgNamespace.Annotations).To(HaveKeyWithValue(korifiv1alpha1.CFOrgDisplayNameKey, cfOrg.Spec.DisplayName))
 		}).Should(Succeed())
 	})
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -125,4 +126,21 @@ func (m MatchingFields) ApplyToList(opts *ListOptions) error {
 	sel := fields.Set(m).AsSelector()
 	opts.FieldSelector = sel
 	return nil
+}
+
+type Nothing struct{}
+
+func (o Nothing) ApplyToList(opts *ListOptions) error {
+	matchNothingRequirements, _ := k8s.MatchNotingSelector().Requirements()
+	opts.Requrements = append(opts.Requrements, matchNothingRequirements...)
+
+	return nil
+}
+
+func WithLabelStrictlyIn(key string, values []string) ListOption {
+	if len(values) == 0 {
+		return Nothing{}
+	}
+
+	return WithLabelIn(key, values)
 }

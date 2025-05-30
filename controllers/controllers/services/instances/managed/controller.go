@@ -217,7 +217,7 @@ func (r *Reconciler) provisionServiceInstance(
 			ServiceId:  assets.ServiceOffering.Spec.BrokerCatalog.ID,
 			PlanID:     assets.ServicePlan.Spec.BrokerCatalog.ID,
 			SpaceGUID:  namespace.Labels[korifiv1alpha1.SpaceGUIDKey],
-			OrgGUID:    namespace.Labels[korifiv1alpha1.OrgGUIDKey],
+			OrgGUID:    namespace.Labels[korifiv1alpha1.CFOrgGUIDKey],
 			Parameters: parametersMap,
 		},
 	})
@@ -454,7 +454,7 @@ func (r *Reconciler) isServicePlanVisible(
 		return false, err
 	}
 
-	return slices.Contains(servicePlan.Spec.Visibility.Organizations, namespace.Labels[korifiv1alpha1.OrgGUIDKey]), nil
+	return slices.Contains(servicePlan.Spec.Visibility.Organizations, namespace.Labels[korifiv1alpha1.CFOrgGUIDKey]), nil
 }
 
 func (r *Reconciler) getNamespace(ctx context.Context, namespaceName string) (*corev1.Namespace, error) {

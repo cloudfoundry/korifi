@@ -11,6 +11,7 @@ import (
 const (
 	VersionLabelKey = "korifi.cloudfoundry.org/version"
 
+	CFOrgGUIDKey                = "korifi.cloudfoundry.org/org-guid"
 	CFAppGUIDLabelKey           = "korifi.cloudfoundry.org/app-guid"
 	CFAppRevisionKey            = "korifi.cloudfoundry.org/app-rev"
 	CFAppDisplayNameKey         = "korifi.cloudfoundry.org/display-name"
@@ -27,6 +28,7 @@ const (
 	CFRoutePathLabelKey         = "korifi.cloudfoundry.org/route-path"
 	CFTaskGUIDLabelKey          = "korifi.cloudfoundry.org/task-guid"
 
+	ReadyLabelKey           = "korifi.cloudfoundry.org/ready"
 	GUIDLabelKey            = "korifi.cloudfoundry.org/guid"
 	SpaceGUIDKey            = "korifi.cloudfoundry.org/space-guid"
 	ServiceBindingTypeLabel = "korifi.cloudfoundry.org/service-binding-type"

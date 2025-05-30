@@ -1,6 +1,6 @@
 package label_indexer
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes;cfapps;cfbuilds;cfdomains;cfpackages;cfprocesses;cfservicebindings;cfserviceinstances;cftasks,verbs=create;update,versions=v1alpha1,name=mcflabelindexer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes;cfapps;cfbuilds;cfdomains;cfpackages;cfprocesses;cfservicebindings;cfserviceinstances;cftasks;cforgs,verbs=create;update,versions=v1alpha1,name=mcflabelindexer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 import (
 	"context"
@@ -65,6 +65,11 @@ func NewWebhook() *LabelIndexerWebhook {
 			},
 			"CFTask": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+			},
+			"CFOrg": {
+				LabelRule{Label: korifiv1alpha1.CFOrgDisplayNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.displayName")))},
+				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
+				LabelRule{Label: korifiv1alpha1.ReadyLabelKey, IndexingFunc: Unquote(SingleValue(JSONValue("$.status.conditions[?@.type == \"Ready\"].status")))},
 			},
 		},
 	}

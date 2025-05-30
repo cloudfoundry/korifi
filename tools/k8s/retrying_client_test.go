@@ -1,7 +1,6 @@
 package k8s_test
 
 import (
-	"context"
 	"errors"
 
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -22,7 +21,6 @@ var _ = Describe("RetryingK8sClient", func() {
 		retriableError error
 		retryingClient client.WithWatch
 		k8sClient      *fake.WithWatch
-		ctx            context.Context
 		backoff        wait.Backoff
 	)
 
@@ -34,7 +32,6 @@ var _ = Describe("RetryingK8sClient", func() {
 		}
 
 		retryingClient = k8s.NewRetryingClient(k8sClient, func(err error) bool { return err == retriableError }, backoff)
-		ctx = context.Background()
 	})
 
 	Describe("get", func() {

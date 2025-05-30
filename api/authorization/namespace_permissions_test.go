@@ -130,8 +130,8 @@ var _ = Describe("Namespace Permissions", func() {
 
 	Describe("Get Authorized Org Namespaces", func() {
 		BeforeEach(func() {
-			org1NS = createNamespace("org1", map[string]string{korifiv1alpha1.OrgNameKey: "org1"})
-			org2NS = createNamespace("org2", map[string]string{korifiv1alpha1.OrgNameKey: "org2"})
+			org1NS = createNamespace("org1", map[string]string{korifiv1alpha1.CFOrgDisplayNameKey: "org1"})
+			org2NS = createNamespace("org2", map[string]string{korifiv1alpha1.CFOrgDisplayNameKey: "org2"})
 		})
 
 		AfterEach(func() {
@@ -339,8 +339,8 @@ var _ = Describe("Namespace Permissions", func() {
 
 	Describe("Authorized In", func() {
 		BeforeEach(func() {
-			org1NS = createNamespace("org1", map[string]string{korifiv1alpha1.OrgNameKey: "org1"})
-			org2NS = createNamespace("org2", map[string]string{korifiv1alpha1.OrgNameKey: "org2"})
+			org1NS = createNamespace("org1", map[string]string{korifiv1alpha1.CFOrgDisplayNameKey: "org1"})
+			org2NS = createNamespace("org2", map[string]string{korifiv1alpha1.CFOrgDisplayNameKey: "org2"})
 		})
 
 		AfterEach(func() {
