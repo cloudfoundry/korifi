@@ -14,6 +14,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	k8sclient "k8s.io/client-go/kubernetes"
 
@@ -74,22 +76,34 @@ var (
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
+	commonLabelsWebhookManifestPath := helpers.GenerateWebhookManifest("code.cloudfoundry.org/korifi/controllers/webhooks/common_labels")
+	DeferCleanup(func() {
+		Expect(os.RemoveAll(filepath.Dir(commonLabelsWebhookManifestPath))).To(Succeed())
+	})
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "helm", "korifi", "controllers", "crds"),
 			filepath.Join("..", "..", "tests", "vendor", "kpack"),
 		},
 		ErrorIfCRDPathMissing: true,
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{commonLabelsWebhookManifestPath},
+		},
 	}
 
 	var err error
 	_, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
-	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = buildv1alpha2.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
+
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
+
+	common_labels.NewWebhook().SetupWebhookWithManager(k8sManager)
+
+	DeferCleanup(helpers.StartK8sManager(k8sManager))
 
 	k8sClient, err = client.NewWithWatch(testEnv.Config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -392,6 +406,8 @@ func createApp(space string) *korifiv1alpha1.CFApp {
 }
 
 func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
+	GinkgoHelper()
+
 	displayName := uuid.NewString()
 	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{

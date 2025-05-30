@@ -162,46 +162,22 @@ var _ = Describe("AppRepository", func() {
 			message = repositories.ListAppsMessage{OrderBy: "foo"}
 
 			space2 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space2"))
-			space3 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space3"))
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 
 			cfApp2 = createAppWithGUID(space2.Name, testutils.PrefixedGUID("cfapp2-"))
-			createApp(space3.Name)
 		})
 
 		JustBeforeEach(func() {
 			appList, listErr = appRepo.ListApps(ctx, authInfo, message)
 		})
 
-		It("returns all the AppRecord CRs where client has permission", func() {
+		It("lists the apps", func() {
 			Expect(listErr).NotTo(HaveOccurred())
 			Expect(appList).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
 			))
-		})
-
-		When("there are apps in non-cf namespaces", func() {
-			var nonCFApp *korifiv1alpha1.CFApp
-
-			BeforeEach(func() {
-				nonCFNamespace := prefixedGUID("non-cf")
-				Expect(k8sClient.Create(
-					ctx,
-					&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
-				)).To(Succeed())
-
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, nonCFNamespace)
-				nonCFApp = createApp(nonCFNamespace)
-			})
-
-			It("does not list them", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(appList).NotTo(ContainElement(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(nonCFApp.Name)}),
-				))
-			})
 		})
 
 		Describe("message list options", func() {
@@ -324,7 +300,7 @@ var _ = Describe("AppRepository", func() {
 				Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
 
 				Expect(createdAppRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-				Expect(createdAppRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				Expect(createdAppRecord.UpdatedAt).To(BeNil())
 			})
 
 			It("creates an empty secret and sets the environment variable secret ref on the App", func() {

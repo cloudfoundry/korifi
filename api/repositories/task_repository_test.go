@@ -134,7 +134,7 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.DiskMB).To(BeEquivalentTo(128))
 				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 				Expect(taskRecord.State).To(Equal(repositories.TaskStatePending))
-				Expect(taskRecord.Labels).To(Equal(map[string]string{"color": "blue"}))
+				Expect(taskRecord.Labels).To(HaveKeyWithValue("color", "blue"))
 				Expect(taskRecord.Annotations).To(Equal(map[string]string{"extra-bugs": "true"}))
 			})
 
@@ -683,11 +683,9 @@ var _ = Describe("TaskRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(taskRecord.GUID).To(Equal(taskGUID))
 					Expect(taskRecord.SpaceGUID).To(Equal(space.Name))
-					Expect(taskRecord.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
+					Expect(taskRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key-one", "value-one"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(taskRecord.Annotations).To(Equal(
 						map[string]string{
@@ -701,11 +699,9 @@ var _ = Describe("TaskRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFTask := new(korifiv1alpha1.CFTask)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), updatedCFTask)).To(Succeed())
-					Expect(updatedCFTask.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
+					Expect(updatedCFTask.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key-one", "value-one"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(updatedCFTask.Annotations).To(Equal(
 						map[string]string{
@@ -746,12 +742,10 @@ var _ = Describe("TaskRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(taskRecord.GUID).To(Equal(cfTask.Name))
 					Expect(taskRecord.SpaceGUID).To(Equal(cfTask.Namespace))
-					Expect(taskRecord.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(taskRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(taskRecord.Annotations).To(Equal(
 						map[string]string{
@@ -766,12 +760,10 @@ var _ = Describe("TaskRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFTask := new(korifiv1alpha1.CFTask)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfTask), updatedCFTask)).To(Succeed())
-					Expect(updatedCFTask.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(updatedCFTask.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(updatedCFTask.Annotations).To(Equal(
 						map[string]string{

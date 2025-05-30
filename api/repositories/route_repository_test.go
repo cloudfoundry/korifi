@@ -1211,12 +1211,10 @@ var _ = Describe("RouteRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(routeRecord.GUID).To(Equal(routeGUID))
 					Expect(routeRecord.SpaceGUID).To(Equal(space.Name))
-					Expect(routeRecord.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(routeRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(routeRecord.Annotations).To(Equal(
 						map[string]string{
@@ -1231,12 +1229,10 @@ var _ = Describe("RouteRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFRoute := new(korifiv1alpha1.CFRoute)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), updatedCFRoute)).To(Succeed())
-					Expect(updatedCFRoute.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(updatedCFRoute.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(updatedCFRoute.Annotations).To(Equal(
 						map[string]string{

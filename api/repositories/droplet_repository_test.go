@@ -157,13 +157,13 @@ var _ = Describe("DropletRepository", func() {
 					Expect(dropletRecord.Ports).To(ConsistOf(int32(1234), int32(2345)))
 					Expect(dropletRecord.AppGUID).To(Equal(build.Spec.AppRef.Name))
 					Expect(dropletRecord.PackageGUID).To(Equal(build.Spec.PackageRef.Name))
-					Expect(dropletRecord.Labels).To(Equal(map[string]string{
-						"key1":                               "val1",
-						"key2":                               "val2",
-						korifiv1alpha1.CFPackageGUIDLabelKey: packageGUID,
-						korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
-						korifiv1alpha1.SpaceGUIDKey:          space.Name,
-					}))
+					Expect(dropletRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key1", "val1"),
+						HaveKeyWithValue("key2", "val2"),
+						HaveKeyWithValue(korifiv1alpha1.CFPackageGUIDLabelKey, packageGUID),
+						HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, appGUID),
+						HaveKeyWithValue(korifiv1alpha1.SpaceGUIDKey, space.Name),
+					))
 					Expect(dropletRecord.Annotations).To(Equal(map[string]string{
 						"key1": "val1",
 						"key2": "val2",
@@ -543,13 +543,13 @@ var _ = Describe("DropletRepository", func() {
 					})
 
 					By("returns a record with a Label field matching the CR", func() {
-						Expect(dropletRecord.Labels).To(Equal(map[string]string{
-							"key1":                               "val1edit",
-							"key3":                               "val3",
-							korifiv1alpha1.CFPackageGUIDLabelKey: packageGUID,
-							korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
-							korifiv1alpha1.SpaceGUIDKey:          space.Name,
-						}))
+						Expect(dropletRecord.Labels).To(SatisfyAll(
+							HaveKeyWithValue("key1", "val1edit"),
+							HaveKeyWithValue("key3", "val3"),
+							HaveKeyWithValue(korifiv1alpha1.CFPackageGUIDLabelKey, packageGUID),
+							HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, appGUID),
+							HaveKeyWithValue(korifiv1alpha1.SpaceGUIDKey, space.Name),
+						))
 					})
 
 					By("returns a record with an Annotation field matching the CR", func() {

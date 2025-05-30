@@ -82,10 +82,8 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					"URL":       Equal("https://my.broker.com"),
 					"CreatedAt": Not(BeZero()),
 					"GUID":      BeValidUUID(),
-					"Metadata": MatchAllFields(Fields{
-						"Labels": Equal(map[string]string{
-							"label": "label-value",
-						}),
+					"Metadata": MatchFields(IgnoreExtras, Fields{
+						"Labels": HaveKeyWithValue("label", "label-value"),
 						"Annotations": Equal(map[string]string{
 							"annotation": "annotation-value",
 						}),
@@ -283,7 +281,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					"URL":       Equal("https://first.broker"),
 					"GUID":      Equal("broker-1"),
 					"CreatedAt": Not(BeZero()),
-					"Metadata": MatchAllFields(Fields{
+					"Metadata": MatchFields(IgnoreExtras, Fields{
 						"Labels":      HaveKeyWithValue("broker-label", "broker-label-value"),
 						"Annotations": HaveKeyWithValue("broker-annotation", "broker-annotation-value"),
 					}),
@@ -293,10 +291,6 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					"URL":       Equal("https://second.broker"),
 					"GUID":      Equal("broker-2"),
 					"CreatedAt": Not(BeZero()),
-					"Metadata": MatchAllFields(Fields{
-						"Labels":      BeEmpty(),
-						"Annotations": BeEmpty(),
-					}),
 				}),
 			))
 		})

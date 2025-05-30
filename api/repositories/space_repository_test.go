@@ -528,11 +528,9 @@ var _ = Describe("SpaceRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(spaceRecord.GUID).To(Equal(spaceGUID))
 					Expect(spaceRecord.OrganizationGUID).To(Equal(orgGUID))
-					Expect(spaceRecord.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
+					Expect(spaceRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key-one", "value-one"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(spaceRecord.Annotations).To(Equal(
 						map[string]string{
@@ -546,11 +544,9 @@ var _ = Describe("SpaceRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFSpace := new(korifiv1alpha1.CFSpace)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), updatedCFSpace)).To(Succeed())
-					Expect(updatedCFSpace.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
+					Expect(updatedCFSpace.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key-one", "value-one"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(updatedCFSpace.Annotations).To(Equal(
 						map[string]string{
@@ -592,12 +588,10 @@ var _ = Describe("SpaceRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(spaceRecord.GUID).To(Equal(spaceGUID))
 					Expect(spaceRecord.OrganizationGUID).To(Equal(orgGUID))
-					Expect(spaceRecord.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(spaceRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(spaceRecord.Annotations).To(Equal(
 						map[string]string{
@@ -612,12 +606,10 @@ var _ = Describe("SpaceRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFSpace := new(korifiv1alpha1.CFSpace)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), updatedCFSpace)).To(Succeed())
-					Expect(updatedCFSpace.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(updatedCFSpace.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(updatedCFSpace.Annotations).To(Equal(
 						map[string]string{

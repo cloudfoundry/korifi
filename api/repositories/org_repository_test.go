@@ -112,7 +112,7 @@ var _ = Describe("OrgRepository", func() {
 				Expect(orgRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 				Expect(orgRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 				Expect(orgRecord.DeletedAt).To(BeNil())
-				Expect(orgRecord.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
+				Expect(orgRecord.Labels).To(HaveKeyWithValue("test-label-key", "test-label-val"))
 				Expect(orgRecord.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
 
@@ -123,7 +123,7 @@ var _ = Describe("OrgRepository", func() {
 				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: orgRecord.GUID}, cfOrg)).To(Succeed())
 
 				Expect(cfOrg.Spec.DisplayName).To(Equal(orgGUID))
-				Expect(cfOrg.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
+				Expect(cfOrg.Labels).To(HaveKeyWithValue("test-label-key", "test-label-val"))
 				Expect(cfOrg.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
 
@@ -309,7 +309,7 @@ var _ = Describe("OrgRepository", func() {
 				orgRecord, err := orgRepo.GetOrg(ctx, authInfo, cfOrg.Name)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(orgRecord.Name).To(Equal(cfOrg.Spec.DisplayName))
-				Expect(orgRecord.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
+				Expect(orgRecord.Labels).To(HaveKeyWithValue("test-label-key", "test-label-val"))
 				Expect(orgRecord.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
 		})
@@ -521,11 +521,9 @@ var _ = Describe("OrgRepository", func() {
 				It("returns the updated org record", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(orgRecord.GUID).To(Equal(orgGUID))
-					Expect(orgRecord.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
+					Expect(orgRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key-one", "value-one"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(orgRecord.Annotations).To(Equal(
 						map[string]string{
@@ -540,11 +538,9 @@ var _ = Describe("OrgRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFOrg := new(korifiv1alpha1.CFOrg)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), updatedCFOrg)).To(Succeed())
-					Expect(updatedCFOrg.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
+					Expect(updatedCFOrg.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key-one", "value-one"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(updatedCFOrg.Annotations).To(Equal(
 						map[string]string{
@@ -585,12 +581,10 @@ var _ = Describe("OrgRepository", func() {
 				It("returns the updated org record", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(orgRecord.GUID).To(Equal(cfOrg.Name))
-					Expect(orgRecord.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(orgRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(orgRecord.Annotations).To(Equal(
 						map[string]string{
@@ -606,13 +600,12 @@ var _ = Describe("OrgRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFOrg := new(korifiv1alpha1.CFOrg)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), updatedCFOrg)).To(Succeed())
-					Expect(updatedCFOrg.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(updatedCFOrg.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
+
 					Expect(updatedCFOrg.Annotations).To(Equal(
 						map[string]string{
 							"before-key-one": "value-one",

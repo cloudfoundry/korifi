@@ -843,12 +843,12 @@ var _ = Describe("PackageRepository", func() {
 			It("succeeds", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 				Expect(packageRecord.GUID).To(Equal(packageGUID))
-				Expect(packageRecord.Labels).To(Equal(map[string]string{"foo": "bar"}))
+				Expect(packageRecord.Labels).To(HaveKeyWithValue("foo", "bar"))
 				Expect(packageRecord.Annotations).To(Equal(map[string]string{"bar": "baz"}))
 
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
-					g.Expect(cfPackage.Labels).To(Equal(map[string]string{"foo": "bar"}))
+					g.Expect(cfPackage.Labels).To(HaveKeyWithValue("foo", "bar"))
 					g.Expect(cfPackage.Annotations).To(Equal(map[string]string{"bar": "baz"}))
 				}).Should(Succeed())
 			})
@@ -872,7 +872,7 @@ var _ = Describe("PackageRepository", func() {
 					Expect(packageRecord.Labels).ToNot(HaveKey("foo"))
 					Eventually(func(g Gomega) {
 						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
-						g.Expect(cfPackage.Labels).To(BeEmpty())
+						g.Expect(cfPackage.Labels).NotTo(HaveKey("foo"))
 					}).Should(Succeed())
 				})
 			})

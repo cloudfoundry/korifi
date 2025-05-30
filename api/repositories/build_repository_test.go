@@ -386,7 +386,6 @@ var _ = Describe("BuildRepository", func() {
 		)
 
 		var (
-			buildCreateLabels      map[string]string
 			buildCreateAnnotations map[string]string
 			buildCreateMsg         repositories.CreateBuildMessage
 			spaceGUID              string
@@ -398,7 +397,6 @@ var _ = Describe("BuildRepository", func() {
 				k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spaceGUID}}),
 			).To(Succeed())
 
-			buildCreateLabels = nil
 			buildCreateAnnotations = nil
 			buildCreateMsg = repositories.CreateBuildMessage{
 				AppGUID:         appGUID,
@@ -413,7 +411,6 @@ var _ = Describe("BuildRepository", func() {
 						Stack:      buildStack,
 					},
 				},
-				Labels:      buildCreateLabels,
 				Annotations: buildCreateAnnotations,
 			}
 		})
@@ -453,7 +450,6 @@ var _ = Describe("BuildRepository", func() {
 				Expect(buildCreateRecord.PackageGUID).To(Equal(packageGUID))
 				Expect(buildCreateRecord.DropletGUID).To(BeEmpty())
 				Expect(buildCreateRecord.AppGUID).To(Equal(appGUID))
-				Expect(buildCreateRecord.Labels).To(Equal(buildCreateLabels))
 				Expect(buildCreateRecord.Annotations).To(Equal(buildCreateAnnotations))
 				Expect(buildCreateRecord.Annotations).To(Equal(buildCreateAnnotations))
 			})
@@ -465,7 +461,6 @@ var _ = Describe("BuildRepository", func() {
 				Expect(k8sClient.Get(ctx, cfBuildLookupKey, &cfBuild)).To(Succeed())
 
 				Expect(cfBuild.Name).To(MatchRegexp("^[-0-9a-f]{36}$"), "record GUID was not a 36 character guid")
-				Expect(cfBuild.Labels).To(Equal(buildCreateLabels))
 				Expect(cfBuild.Annotations).To(Equal(buildCreateAnnotations))
 				Expect(cfBuild.Annotations).To(Equal(buildCreateAnnotations))
 				Expect(cfBuild.Spec.PackageRef.Name).To(Equal(packageGUID))

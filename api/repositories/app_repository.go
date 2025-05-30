@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"slices"
 	"strings"
 	"time"
 
@@ -227,7 +226,7 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 		return AppRecord{}, fmt.Errorf("failed to get app: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	return cfAppToAppRecord(*app), nil
+	return cfAppToAppRecord(*app)
 }
 
 func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, appCreateMessage CreateAppMessage) (AppRecord, error) {
@@ -260,7 +259,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
-	return cfAppToAppRecord(cfApp), nil
+	return cfAppToAppRecord(cfApp)
 }
 
 func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, appPatchMessage PatchAppMessage) (AppRecord, error) {
@@ -297,7 +296,7 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 	if err != nil {
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
-	return cfAppToAppRecord(*cfApp), nil
+	return cfAppToAppRecord(*cfApp)
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
@@ -307,8 +306,7 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	appRecords := slices.Collect(it.Map(itx.FromSlice(appList.Items), cfAppToAppRecord))
-	return appRecords, nil
+	return it.TryCollect(it.MapError(itx.FromSlice(appList.Items), cfAppToAppRecord))
 }
 
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
@@ -410,7 +408,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
-	return cfAppToAppRecord(*cfApp), nil
+	return cfAppToAppRecord(*cfApp)
 }
 
 func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, message DeleteAppMessage) error {
@@ -592,8 +590,12 @@ func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) {
 	m.MetadataPatch.Apply(app)
 }
 
-func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
-	// TODO: CreatedAt And UpdatedAt should be taken from the app labels
+func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) (AppRecord, error) {
+	createdAt, updatedAt, err := getCreatedUpdatedAt(&cfApp)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to get created and updated timestamps for app %q: %w", cfApp.Name, err)
+	}
+
 	return AppRecord{
 		GUID:        cfApp.Name,
 		EtcdUID:     cfApp.GetUID(),
@@ -611,14 +613,14 @@ func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
 				Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 			},
 		},
-		CreatedAt:             cfApp.CreationTimestamp.Time,
-		UpdatedAt:             getLastUpdatedTime(&cfApp),
+		CreatedAt:             createdAt,
+		UpdatedAt:             updatedAt,
 		DeletedAt:             golangTime(cfApp.DeletionTimestamp),
 		IsStaged:              cfApp.Spec.CurrentDropletRef.Name != "",
 		envSecretName:         cfApp.Spec.EnvSecretName,
 		vcapServiceSecretName: cfApp.Status.VCAPServicesSecretName,
 		vcapAppSecretName:     cfApp.Status.VCAPApplicationSecretName,
-	}
+	}, nil
 }
 
 func appEnvVarsSecretToRecord(envVars corev1.Secret) AppEnvVarsRecord {
