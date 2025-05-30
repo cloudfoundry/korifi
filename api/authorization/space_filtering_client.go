@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,7 +57,7 @@ func (c SpaceFilteringClient) buildLabelSelector(ctx context.Context, listOpts *
 	}
 
 	if len(namespaces) == 0 {
-		return matchNotingSelector()
+		return k8s.MatchNotingSelector(), nil
 	}
 
 	selector := labels.NewSelector()
@@ -72,20 +73,6 @@ func (c SpaceFilteringClient) buildLabelSelector(ctx context.Context, listOpts *
 	}
 
 	return selector, nil
-}
-
-func matchNotingSelector() (labels.Selector, error) {
-	r1, err := labels.NewRequirement(korifiv1alpha1.SpaceGUIDKey, selection.Exists, []string{})
-	if err != nil {
-		return nil, err
-	}
-
-	r2, err := labels.NewRequirement(korifiv1alpha1.SpaceGUIDKey, selection.DoesNotExist, []string{})
-	if err != nil {
-		return nil, err
-	}
-
-	return labels.NewSelector().Add(*r1, *r2), nil
 }
 
 func (c SpaceFilteringClient) getAuthorizedSpaceNamespaces(ctx context.Context) ([]string, error) {
