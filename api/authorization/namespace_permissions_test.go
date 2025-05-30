@@ -257,8 +257,8 @@ var _ = Describe("Namespace Permissions", func() {
 
 	Describe("Get Authorized Space Namespaces", func() {
 		BeforeEach(func() {
-			space1NS = createNamespace("space1", map[string]string{korifiv1alpha1.SpaceNameKey: "space1"})
-			space2NS = createNamespace("space2", map[string]string{korifiv1alpha1.SpaceNameKey: "space2"})
+			space1NS = createNamespace("space1", map[string]string{korifiv1alpha1.CFSpaceDisplayNameKey: "space1"})
+			space2NS = createNamespace("space2", map[string]string{korifiv1alpha1.CFSpaceDisplayNameKey: "space2"})
 		})
 
 		AfterEach(func() {

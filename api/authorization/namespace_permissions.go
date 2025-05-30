@@ -39,7 +39,7 @@ func (o *NamespacePermissions) GetAuthorizedOrgNamespaces(ctx context.Context, i
 }
 
 func (o *NamespacePermissions) GetAuthorizedSpaceNamespaces(ctx context.Context, info Info) (map[string]bool, error) {
-	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.SpaceNameKey, "Space")
+	return o.getAuthorizedNamespaces(ctx, info, korifiv1alpha1.CFSpaceDisplayNameKey, "Space")
 }
 
 func (o *NamespacePermissions) getAuthorizedNamespaces(ctx context.Context, info Info, orgSpaceLabel, resourceType string) (map[string]bool, error) {

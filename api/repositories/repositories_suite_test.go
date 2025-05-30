@@ -24,7 +24,6 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -196,6 +195,12 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: orgGUID,
+			Labels: map[string]string{
+				korifiv1alpha1.GUIDLabelKey:          guid,
+				korifiv1alpha1.CFOrgGUIDKey:          orgGUID,
+				korifiv1alpha1.CFSpaceDisplayNameKey: tools.EncodeValueToSha224(name),
+				korifiv1alpha1.ReadyLabelKey:         string(metav1.ConditionTrue),
+			},
 		},
 		Spec: korifiv1alpha1.CFSpaceSpec{
 			DisplayName: name,
@@ -203,20 +208,11 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 	}
 	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 
-	cfSpace.Status.GUID = cfSpace.Name
-	meta.SetStatusCondition(&(cfSpace.Status.Conditions), metav1.Condition{
-		Type:    korifiv1alpha1.StatusConditionReady,
-		Status:  metav1.ConditionTrue,
-		Reason:  "cus",
-		Message: "cus",
-	})
-	Expect(k8sClient.Status().Update(ctx, cfSpace)).To(Succeed())
-
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cfSpace.Name,
 			Labels: map[string]string{
-				korifiv1alpha1.SpaceNameKey: cfSpace.Spec.DisplayName,
+				korifiv1alpha1.CFSpaceDisplayNameKey: tools.EncodeValueToSha224(name),
 			},
 		},
 	}

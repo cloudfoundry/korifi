@@ -43,12 +43,12 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 			g.Expect(adminClient.Get(ctx, types.NamespacedName{Name: cfSpace.Name}, &ns)).To(Succeed())
 
 			g.Expect(ns.Labels).To(SatisfyAll(
-				HaveKeyWithValue(korifiv1alpha1.SpaceNameKey, "XXX-deprecated-XXX"),
+				HaveKeyWithValue(korifiv1alpha1.CFSpaceDisplayNameKey, "XXX-deprecated-XXX"),
 				HaveKeyWithValue(korifiv1alpha1.SpaceGUIDKey, cfSpace.Name),
 				HaveKeyWithValue(korifiv1alpha1.CFOrgGUIDKey, cfSpace.Namespace),
 				HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)),
 			))
-			g.Expect(ns.Annotations).To(HaveKeyWithValue(korifiv1alpha1.SpaceNameKey, cfSpace.Spec.DisplayName))
+			g.Expect(ns.Annotations).To(HaveKeyWithValue(korifiv1alpha1.CFSpaceDisplayNameKey, cfSpace.Spec.DisplayName))
 		}).Should(Succeed())
 	})
 

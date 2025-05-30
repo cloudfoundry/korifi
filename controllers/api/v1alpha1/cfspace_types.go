@@ -27,7 +27,7 @@ import (
 const (
 	CFSpaceFinalizerName = "cfSpace.korifi.cloudfoundry.org"
 
-	SpaceNameKey = "cloudfoundry.org/space-name"
+	CFSpaceDisplayNameKey = "cloudfoundry.org/space-name"
 )
 
 // CFSpaceSpec defines the desired state of CFSpace
