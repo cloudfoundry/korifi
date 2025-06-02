@@ -376,4 +376,45 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			}).Should(Succeed())
 		})
 	})
+
+	Describe("CFSpace", func() {
+		var space *korifiv1alpha1.CFSpace
+
+		BeforeEach(func() {
+			space = &korifiv1alpha1.CFSpace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: namespace,
+				},
+				Spec: korifiv1alpha1.CFSpaceSpec{
+					DisplayName: "my-awesome-space",
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			Expect(adminClient.Create(ctx, space)).To(Succeed())
+			Expect(k8s.Patch(ctx, adminClient, space, func() {
+				space.Status.GUID = uuid.NewString()
+				meta.SetStatusCondition(&space.Status.Conditions, metav1.Condition{
+					Type:    korifiv1alpha1.StatusConditionReady,
+					Status:  metav1.ConditionTrue,
+					Reason:  "Ready",
+					Message: "Reconciled",
+				})
+			})).To(Succeed())
+		})
+
+		It("labels the CFSpace with the expected index labels", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(space), space)).To(Succeed())
+				g.Expect(space.Labels).To(MatchKeys(IgnoreExtras, Keys{
+					korifiv1alpha1.CFSpaceDisplayNameKey: Equal("e2ff2d1641634dc2e43603c6e294926801d785b9715ccd61a26c2aca"), // SHA224 hash of "my-awesome-space"
+					korifiv1alpha1.GUIDLabelKey:          Equal(space.Name),
+					korifiv1alpha1.CFOrgGUIDKey:          Equal(space.Namespace),
+					korifiv1alpha1.ReadyLabelKey:         Equal("True"),
+				}))
+			}).Should(Succeed())
+		})
+	})
 })

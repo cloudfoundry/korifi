@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -12,10 +13,8 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,14 +33,20 @@ type ListSpacesMessage struct {
 	OrganizationGUIDs []string
 }
 
-func (m *ListSpacesMessage) matches(space korifiv1alpha1.CFSpace) bool {
-	return meta.IsStatusConditionTrue(space.Status.Conditions, korifiv1alpha1.StatusConditionReady) &&
-		tools.EmptyOrContains(m.GUIDs, space.Name) &&
-		tools.EmptyOrContains(m.Names, space.Spec.DisplayName)
-}
+func (m *ListSpacesMessage) toListOptions(orgNs string, authorizedSpaceGuids []string) []ListOption {
+	selectedGuids := authorizedSpaceGuids
+	if len(m.GUIDs) != 0 {
+		selectedGuids = slices.Collect(it.Filter(slices.Values(selectedGuids), func(guid string) bool {
+			return slices.Contains(m.GUIDs, guid)
+		}))
+	}
 
-func (m *ListSpacesMessage) matchesNamespace(ns string) bool {
-	return tools.EmptyOrContains(m.OrganizationGUIDs, ns)
+	return []ListOption{
+		InNamespace(orgNs),
+		WithLabelStrictlyIn(korifiv1alpha1.GUIDLabelKey, selectedGuids),
+		WithLabelIn(korifiv1alpha1.CFSpaceDisplayNameKey, tools.EncodeValuesToSha224(m.Names...)),
+		WithLabel(korifiv1alpha1.ReadyLabelKey, string(metav1.ConditionTrue)),
+	}
 }
 
 type DeleteSpaceMessage struct {
@@ -127,16 +132,19 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info,
 		return nil, err
 	}
 
+	orgNsList := authorizedOrgNamespaces.Filter(func(ns string) bool {
+		return tools.EmptyOrContains(message.OrganizationGUIDs, ns)
+	}).Collect()
+
 	authorizedSpaceNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	orgNsList := authorizedOrgNamespaces.Filter(message.matchesNamespace).Collect()
 	cfSpaces := []korifiv1alpha1.CFSpace{}
 	for _, org := range orgNsList {
 		cfSpaceList := new(korifiv1alpha1.CFSpaceList)
-		err = r.klient.List(ctx, cfSpaceList, InNamespace(org))
+		err = r.klient.List(ctx, cfSpaceList, message.toListOptions(org, slices.Collect(maps.Keys(authorizedSpaceNamespaces)))...)
 		if k8serrors.IsForbidden(err) {
 			continue
 		}
@@ -147,11 +155,7 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info,
 		cfSpaces = append(cfSpaces, cfSpaceList.Items...)
 	}
 
-	filteredSpaces := itx.FromSlice(cfSpaces).Filter(func(s korifiv1alpha1.CFSpace) bool {
-		return authorizedSpaceNamespaces[s.Name] && message.matches(s)
-	})
-
-	return slices.Collect(it.Map(filteredSpaces, cfSpaceToSpaceRecord)), nil
+	return slices.Collect(it.Map(slices.Values(cfSpaces), cfSpaceToSpaceRecord)), nil
 }
 
 func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGUID string) (SpaceRecord, error) {

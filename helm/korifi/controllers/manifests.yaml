@@ -108,6 +108,7 @@ webhooks:
           - cfserviceinstances
           - cftasks
           - cforgs
+          - cfspaces
     sideEffects: None
   - admissionReviewVersions:
       - v1
