@@ -81,7 +81,7 @@ spec:
           }
 
           main() {
-            set-migrated-by-label cfapps cfdomains cfroutes cfbuilds cforgs
+            set-migrated-by-label cfapps cfdomains cfroutes cfbuilds cforgs cfspaces
           }
 
           main
