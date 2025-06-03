@@ -32,10 +32,10 @@ const (
 	CFServiceBindingTypeApp = "app"
 
 	ServiceInstanceTypeAnnotation = "korifi.cloudfoundry.org/service-instance-type"
-	PlanGUIDLabelKey              = "korifi.cloudfoundry.org/plan-guid"
 
 	ServiceBindingGUIDLabel       = "korifi.cloudfoundry.org/service-binding-guid"
 	CFServiceBindingFinalizerName = "cfServiceBinding.korifi.cloudfoundry.org"
+	CFServiceInstanceGUIDLabelKey = "korifi.cloudfoundry.org/service-instance-guid"
 )
 
 // CFServiceBindingSpec defines the desired state of CFServiceBinding
