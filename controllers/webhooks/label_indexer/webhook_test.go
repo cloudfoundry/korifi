@@ -417,4 +417,98 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			}).Should(Succeed())
 		})
 	})
+
+	Describe("CFServiceOffering", func() {
+		var offering *korifiv1alpha1.CFServiceOffering
+
+		BeforeEach(func() {
+			offering = &korifiv1alpha1.CFServiceOffering{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: namespace,
+				},
+				Spec: korifiv1alpha1.CFServiceOfferingSpec{
+					Name: "my-awesome-offering",
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			Expect(adminClient.Create(ctx, offering)).To(Succeed())
+		})
+
+		It("labels the CFServiceOffering with the expected index labels", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(offering), offering)).To(Succeed())
+				g.Expect(offering.Labels).To(MatchKeys(IgnoreExtras, Keys{
+					korifiv1alpha1.GUIDLabelKey:             Equal(offering.Name),
+					korifiv1alpha1.CFServiceOfferingNameKey: Equal("dfcda624de1c07d0ecde233a93cccc75171934a53876dd616f321cae"), // SHA224 hash of "my-awesome-offering"
+				}))
+			}).Should(Succeed())
+		})
+	})
+
+	Describe("CFServicePlan", func() {
+		var plan *korifiv1alpha1.CFServicePlan
+
+		BeforeEach(func() {
+			plan = &korifiv1alpha1.CFServicePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: namespace,
+				},
+				Spec: korifiv1alpha1.CFServicePlanSpec{
+					Name: "my-awesome-plan",
+					Visibility: korifiv1alpha1.ServicePlanVisibility{
+						Type: korifiv1alpha1.PublicServicePlanVisibilityType,
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			Expect(adminClient.Create(ctx, plan)).To(Succeed())
+		})
+
+		It("labels the CFServicePlan with the expected index labels", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(plan), plan)).To(Succeed())
+				g.Expect(plan.Labels).To(MatchKeys(IgnoreExtras, Keys{
+					korifiv1alpha1.GUIDLabelKey:              Equal(plan.Name),
+					korifiv1alpha1.CFServicePlanNameKey:      Equal("17f65f9393e1826ece32c78a186b397b259ae4317ada0891021d9ea9"), // SHA224 hash of "my-awesome-plan"
+					korifiv1alpha1.CFServicePlanAvailableKey: Equal("true"),
+				}))
+			}).Should(Succeed())
+		})
+
+		When("the plan visibility is org", func() {
+			BeforeEach(func() {
+				plan.Spec.Visibility.Type = korifiv1alpha1.OrganizationServicePlanVisibilityType
+			})
+
+			It("labels the CFServicePlan as available", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(plan), plan)).To(Succeed())
+					g.Expect(plan.Labels).To(MatchKeys(IgnoreExtras, Keys{
+						korifiv1alpha1.CFServicePlanAvailableKey: Equal("true"),
+					}))
+				}).Should(Succeed())
+			})
+		})
+
+		When("the plan visibility is admin", func() {
+			BeforeEach(func() {
+				plan.Spec.Visibility.Type = korifiv1alpha1.AdminServicePlanVisibilityType
+			})
+
+			It("labels the CFServicePlan as unavailable", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(plan), plan)).To(Succeed())
+					g.Expect(plan.Labels).To(MatchKeys(IgnoreExtras, Keys{
+						korifiv1alpha1.CFServicePlanAvailableKey: Equal("false"),
+					}))
+				}).Should(Succeed())
+			})
+		})
+	})
 })

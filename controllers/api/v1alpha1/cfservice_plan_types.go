@@ -5,6 +5,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const (
+	CFServicePlanNameKey      = "korifi.cloudfoundry.org/service-plan-name"
+	CFServicePlanAvailableKey = "korifi.cloudfoundry.org/service-plan-available"
+)
+
 type CFServicePlanSpec struct {
 	Name            string                   `json:"name"`
 	Free            bool                     `json:"free"`

@@ -109,6 +109,8 @@ webhooks:
           - cftasks
           - cforgs
           - cfspaces
+          - cfserviceofferings
+          - cfserviceplans
     sideEffects: None
   - admissionReviewVersions:
       - v1

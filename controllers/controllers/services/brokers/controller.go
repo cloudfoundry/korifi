@@ -171,7 +171,7 @@ func (r *Reconciler) reconcileCatalogService(ctx context.Context, cfServiceBroke
 			serviceOffering.Labels = map[string]string{}
 		}
 		serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] = cfServiceBroker.Name
-		serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerNameLabel] = cfServiceBroker.Spec.Name
+		serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerNameLabel] = tools.EncodeValueToSha224(cfServiceBroker.Spec.Name)
 
 		var err error
 		serviceOffering.Spec, err = toServiceOfferingSpec(catalogService)
@@ -206,7 +206,7 @@ func (r *Reconciler) reconcileCatalogPlan(ctx context.Context, serviceOffering *
 		servicePlan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel] = serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel]
 		servicePlan.Labels[korifiv1alpha1.RelServiceBrokerNameLabel] = serviceOffering.Labels[korifiv1alpha1.RelServiceBrokerNameLabel]
 		servicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel] = serviceOffering.Name
-		servicePlan.Labels[korifiv1alpha1.RelServiceOfferingNameLabel] = serviceOffering.Spec.Name
+		servicePlan.Labels[korifiv1alpha1.RelServiceOfferingNameLabel] = tools.EncodeValueToSha224(serviceOffering.Spec.Name)
 
 		visibilityType := korifiv1alpha1.AdminServicePlanVisibilityType
 		if servicePlan.Spec.Visibility.Type != "" {

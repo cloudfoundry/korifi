@@ -1,6 +1,6 @@
 package label_indexer
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes;cfapps;cfbuilds;cfdomains;cfpackages;cfprocesses;cfservicebindings;cfserviceinstances;cftasks;cforgs;cfspaces,verbs=create;update,versions=v1alpha1,name=mcflabelindexer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes;cfapps;cfbuilds;cfdomains;cfpackages;cfprocesses;cfservicebindings;cfserviceinstances;cftasks;cforgs;cfspaces;cfserviceofferings;cfserviceplans,verbs=create;update,versions=v1alpha1,name=mcflabelindexer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 import (
 	"context"
@@ -76,6 +76,22 @@ func NewWebhook() *LabelIndexerWebhook {
 				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
 				LabelRule{Label: korifiv1alpha1.CFOrgGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
 				LabelRule{Label: korifiv1alpha1.ReadyLabelKey, IndexingFunc: Unquote(SingleValue(JSONValue("$.status.conditions[?@.type == \"Ready\"].status")))},
+			},
+			"CFServiceOffering": {
+				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
+				LabelRule{Label: korifiv1alpha1.CFServiceOfferingNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.name")))},
+			},
+			"CFServicePlan": {
+				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
+				LabelRule{Label: korifiv1alpha1.CFServicePlanNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.name")))},
+				LabelRule{Label: korifiv1alpha1.CFServicePlanAvailableKey, IndexingFunc: Map(
+					Unquote(JSONValue("$.spec.visibility.type")),
+					map[string]IndexValueFunc{
+						korifiv1alpha1.AdminServicePlanVisibilityType:        ConstantValue("false"),
+						korifiv1alpha1.PublicServicePlanVisibilityType:       ConstantValue("true"),
+						korifiv1alpha1.OrganizationServicePlanVisibilityType: ConstantValue("true"),
+					},
+				)},
 			},
 		},
 	}

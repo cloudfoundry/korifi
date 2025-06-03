@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi/fake"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -140,7 +141,7 @@ var _ = Describe("CFServiceBroker", func() {
 			offering := offerings.Items[0]
 			g.Expect(offering.Labels).To(SatisfyAll(
 				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, serviceBroker.Name),
-				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerNameLabel, serviceBroker.Spec.Name),
+				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValueToSha224(serviceBroker.Spec.Name)),
 			))
 			g.Expect(offering.Spec).To(MatchAllFields(Fields{
 				"Name":             Equal("service-name"),
@@ -186,12 +187,12 @@ var _ = Describe("CFServiceBroker", func() {
 
 			plan := plans.Items[0]
 
-			g.Expect(plan.Labels).To(SatisfyAll(
-				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, serviceBroker.Name),
-				HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerNameLabel, "my-service-broker"),
-				HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingGUIDLabel, offerings.Items[0].Name),
-				HaveKeyWithValue(korifiv1alpha1.RelServiceOfferingNameLabel, "service-name"),
-			))
+			g.Expect(plan.Labels).To(MatchKeys(IgnoreExtras, Keys{
+				korifiv1alpha1.RelServiceBrokerGUIDLabel:   Equal(serviceBroker.Name),
+				korifiv1alpha1.RelServiceBrokerNameLabel:   Equal(tools.EncodeValueToSha224("my-service-broker")),
+				korifiv1alpha1.RelServiceOfferingGUIDLabel: Equal(offerings.Items[0].Name),
+				korifiv1alpha1.RelServiceOfferingNameLabel: Equal(tools.EncodeValueToSha224("service-name")),
+			}))
 			g.Expect(plan.Spec).To(MatchAllFields(Fields{
 				"Name":        Equal("plan-name"),
 				"Free":        BeTrue(),

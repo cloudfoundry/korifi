@@ -7,6 +7,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/gomega/gstruct"
@@ -32,10 +33,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 		repo = repositories.NewServiceOfferingRepo(
 			klient,
 			rootNamespace,
-			repositories.NewServiceBrokerRepo(
-				klient,
-				rootNamespace,
-			),
 			nsPerms,
 		)
 
@@ -54,13 +51,18 @@ var _ = Describe("ServiceOfferingRepo", func() {
 		BeforeEach(func() {
 			offeringGUID = uuid.NewString()
 
+			brokerGUID := uuid.NewString()
+			offeringName := uuid.NewString()
 			broker = &korifiv1alpha1.CFServiceBroker{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: rootNamespace,
-					Name:      uuid.NewString(),
+					Name:      brokerGUID,
+					Labels: map[string]string{
+						korifiv1alpha1.GUIDLabelKey: brokerGUID,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					Name: uuid.NewString(),
+					Name: offeringName,
 				},
 			}
 			Expect(k8sClient.Create(ctx, broker)).To(Succeed())
@@ -75,7 +77,9 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Name:      offeringGUID,
 					Labels: map[string]string{
 						korifiv1alpha1.RelServiceBrokerGUIDLabel: broker.Name,
-						korifiv1alpha1.RelServiceBrokerNameLabel: broker.Spec.Name,
+						korifiv1alpha1.RelServiceBrokerNameLabel: tools.EncodeValueToSha224(broker.Spec.Name),
+						korifiv1alpha1.CFServiceOfferingNameKey:  tools.EncodeValueToSha224(offeringName),
+						korifiv1alpha1.GUIDLabelKey:              offeringGUID,
 					},
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
@@ -165,10 +169,14 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			offeringGUID = uuid.NewString()
 			anotherOfferingGUID = uuid.NewString()
 
+			brokerGUID := uuid.NewString()
 			broker = &korifiv1alpha1.CFServiceBroker{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: rootNamespace,
-					Name:      uuid.NewString(),
+					Name:      brokerGUID,
+					Labels: map[string]string{
+						korifiv1alpha1.GUIDLabelKey: brokerGUID,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
 					Name: uuid.NewString(),
@@ -182,7 +190,9 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Name:      offeringGUID,
 					Labels: map[string]string{
 						korifiv1alpha1.RelServiceBrokerGUIDLabel: broker.Name,
-						korifiv1alpha1.RelServiceBrokerNameLabel: broker.Spec.Name,
+						korifiv1alpha1.RelServiceBrokerNameLabel: tools.EncodeValueToSha224(broker.Spec.Name),
+						korifiv1alpha1.CFServiceOfferingNameKey:  tools.EncodeValueToSha224("my-offering"),
+						korifiv1alpha1.GUIDLabelKey:              offeringGUID,
 					},
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
@@ -281,29 +291,33 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			})
 		})
 
-		When("filtering by broker name", func() {
+		Describe("filter parameters to list options", func() {
+			var fakeKlient *fake.Klient
+
 			BeforeEach(func() {
-				message.BrokerNames = []string{broker.Spec.Name}
+				fakeKlient = new(fake.Klient)
+				repo = repositories.NewServiceOfferingRepo(
+					fakeKlient,
+					rootNamespace,
+					nsPerms,
+				)
+				message = repositories.ListServiceOfferingMessage{
+					Names:       []string{"n1", "n2"},
+					GUIDs:       []string{"g1", "g2"},
+					BrokerNames: []string{"b1", "b2"},
+				}
 			})
 
-			It("returns the matching offerings", func() {
+			It("translates filter parameters to klient list options", func() {
 				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"ServiceBrokerGUID": Equal(broker.Name),
-				})))
-			})
-		})
-
-		When("filtering by guid", func() {
-			BeforeEach(func() {
-				message.GUIDs = []string{offeringGUID}
-			})
-
-			It("returns the matching offerings", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"GUID": Equal(offeringGUID),
-				})))
+				Expect(fakeKlient.ListCallCount()).To(Equal(1))
+				_, _, listOptions := fakeKlient.ListArgsForCall(0)
+				Expect(listOptions).To(ConsistOf(
+					repositories.InNamespace(rootNamespace),
+					repositories.WithLabelIn(korifiv1alpha1.CFServiceOfferingNameKey, tools.EncodeValuesToSha224("n1", "n2")),
+					repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
+					repositories.WithLabelIn(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValuesToSha224("b1", "b2")),
+				))
 			})
 		})
 	})
