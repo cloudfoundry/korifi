@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
@@ -34,6 +35,8 @@ var _ = Describe("Klient", func() {
 		userClient        *fake.WithWatch
 		userClientFactory *authfake.UserClientFactory
 		nsRetriever       *fake.NamespaceRetriever
+		descriptorClient  *fake.DescriptorClient
+		objectListMapper  *fake.ObjectListMapper
 	)
 
 	BeforeEach(func() {
@@ -45,12 +48,19 @@ var _ = Describe("Klient", func() {
 		}
 
 		nsRetriever = new(fake.NamespaceRetriever)
+		descriptorClient = new(fake.DescriptorClient)
+		objectListMapper = new(fake.ObjectListMapper)
 
 		userClient = new(fake.WithWatch)
 		userClientFactory = new(authfake.UserClientFactory)
 		userClientFactory.BuildClientReturns(userClient, nil)
 
-		klient = k8sklient.NewK8sKlient(nsRetriever, userClientFactory)
+		klient = k8sklient.NewK8sKlient(
+			nsRetriever,
+			descriptorClient,
+			objectListMapper,
+			userClientFactory,
+		)
 	})
 
 	Describe("Get", func() {
@@ -268,7 +278,7 @@ var _ = Describe("Klient", func() {
 
 	Describe("List", func() {
 		var (
-			objectList client.ObjectList
+			objectList *korifiv1alpha1.CFAppList
 			listOpt    *fake.ListOption
 			listOpts   []repositories.ListOption
 		)
@@ -300,6 +310,11 @@ var _ = Describe("Klient", func() {
 			Expect(actualOpts).To(ConsistOf(PointTo(BeZero())))
 		})
 
+		It("does not use the descriptor client", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(descriptorClient.ListCallCount()).To(Equal(0))
+		})
+
 		When("creating the user client fails", func() {
 			BeforeEach(func() {
 				userClientFactory.BuildClientReturns(nil, errors.New("err-build-client"))
@@ -307,6 +322,122 @@ var _ = Describe("Klient", func() {
 
 			It("returns the error", func() {
 				Expect(err).To(MatchError(ContainSubstring("err-build-client")))
+			})
+		})
+
+		When("sorting is requested", func() {
+			var fakeDescriptor *fake.ResultSetDescriptor
+
+			BeforeEach(func() {
+				fakeDescriptor = new(fake.ResultSetDescriptor)
+				fakeDescriptor.GUIDsReturns([]string{"guid-1", "guid-2"}, nil)
+				descriptorClient.ListReturns(fakeDescriptor, nil)
+
+				appsList := &korifiv1alpha1.CFAppList{
+					Items: []korifiv1alpha1.CFApp{
+						{ObjectMeta: metav1.ObjectMeta{Name: "guid-1"}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "guid-2"}},
+					},
+				}
+				objectListMapper.GUIDsToObjectListReturns(appsList, nil)
+
+				listOpts = []repositories.ListOption{
+					repositories.InNamespace("ns"),
+					repositories.WithLabel("my-label", "my-value"),
+					repositories.SortBy("foo", true),
+				}
+			})
+
+			It("lists object descriptors with user supplied filltering opts", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(descriptorClient.ListCallCount()).To(Equal(1))
+				_, gvk, actualListOpts := descriptorClient.ListArgsForCall(0)
+				Expect(gvk).To(Equal(schema.GroupVersionKind{
+					Group:   "korifi.cloudfoundry.org",
+					Version: "v1alpha1",
+					Kind:    "CFAppList",
+				}))
+
+				Expect(actualListOpts).To(ConsistOf(&client.ListOptions{
+					LabelSelector: parseLabelSelector("my-label=my-value"),
+					Namespace:     "ns",
+				}))
+			})
+
+			When("the descriptor client fails", func() {
+				BeforeEach(func() {
+					descriptorClient.ListReturns(nil, errors.New("list-err"))
+				})
+
+				It("returns the error", func() {
+					Expect(err).To(MatchError(ContainSubstring("list-err")))
+				})
+			})
+
+			It("sorts the objects in the requested order", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fakeDescriptor.SortCallCount()).To(Equal(1))
+				by, descending := fakeDescriptor.SortArgsForCall(0)
+				Expect(by).To(Equal("foo"))
+				Expect(descending).To(BeTrue())
+				Expect(fakeDescriptor.GUIDsCallCount()).To(Equal(1))
+			})
+
+			When("sorting fails", func() {
+				BeforeEach(func() {
+					fakeDescriptor.SortReturns(errors.New("sort-err"))
+				})
+
+				It("returns the error", func() {
+					Expect(err).To(MatchError(ContainSubstring("sort-err")))
+				})
+			})
+
+			It("gets the guids from the sorted descriptor", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fakeDescriptor.GUIDsCallCount()).To(Equal(1))
+			})
+
+			When("getting the guids fails", func() {
+				BeforeEach(func() {
+					fakeDescriptor.GUIDsReturns(nil, errors.New("guids-err"))
+				})
+
+				It("returns the error", func() {
+					Expect(err).To(MatchError(ContainSubstring("guids-err")))
+				})
+			})
+
+			It("maps sorted guids to objects", func() {
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(objectListMapper.GUIDsToObjectListCallCount()).To(Equal(1))
+				_, actualGVK, actualGUIDs := objectListMapper.GUIDsToObjectListArgsForCall(0)
+				Expect(actualGVK).To(Equal(schema.GroupVersionKind{
+					Group:   "korifi.cloudfoundry.org",
+					Version: "v1alpha1",
+					Kind:    "CFAppList",
+				}))
+				Expect(actualGUIDs).To(Equal([]string{"guid-1", "guid-2"}))
+			})
+
+			When("mapping the guids to objects fails", func() {
+				BeforeEach(func() {
+					objectListMapper.GUIDsToObjectListReturns(nil, errors.New("map-err"))
+				})
+
+				It("returns the error", func() {
+					Expect(err).To(MatchError(ContainSubstring("map-err")))
+				})
+			})
+
+			It("fills sorted objects into the object list parameter", func() {
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(objectList.Items).To(Equal([]korifiv1alpha1.CFApp{
+					{ObjectMeta: metav1.ObjectMeta{Name: "guid-1"}},
+					{ObjectMeta: metav1.ObjectMeta{Name: "guid-2"}},
+				}))
 			})
 		})
 
@@ -379,7 +510,6 @@ var _ = Describe("Klient", func() {
 
 		When("watching with options", func() {
 			var (
-				expectedSelector      labels.Selector
 				spaceGuidsReqs        []labels.Requirement
 				expectedFieldSelector fields.Selector
 			)
@@ -399,8 +529,7 @@ var _ = Describe("Klient", func() {
 				Expect(userClient.WatchCallCount()).To(Equal(1))
 				_, _, actualOpts := userClient.WatchArgsForCall(0)
 
-				expectedSelector, err = labels.Parse("foo==bar")
-				Expect(err).NotTo(HaveOccurred())
+				expectedSelector := parseLabelSelector("foo==bar")
 
 				spaceGuidsReqs, err = labels.ParseToRequirements(fmt.Sprintf("%s in (s1,s2)", korifiv1alpha1.SpaceGUIDKey))
 				Expect(err).NotTo(HaveOccurred())
@@ -437,3 +566,11 @@ var _ = Describe("Klient", func() {
 		})
 	})
 })
+
+func parseLabelSelector(selectorString string) labels.Selector {
+	GinkgoHelper()
+
+	selector, err := labels.Parse(selectorString)
+	Expect(err).NotTo(HaveOccurred())
+	return selector
+}

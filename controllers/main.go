@@ -49,6 +49,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/tasks"
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/k8s"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels"
 	controllersfinalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
 	domainswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
@@ -462,6 +463,7 @@ func main() {
 
 		versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
 		controllersfinalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
+		common_labels.NewWebhook().SetupWebhookWithManager(mgr)
 		label_indexer.NewWebhook().SetupWebhookWithManager(mgr)
 
 		if err = packageswebhook.NewValidator().SetupWebhookWithManager(mgr); err != nil {

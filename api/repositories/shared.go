@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -82,4 +83,22 @@ func authorizedOrgNamespaces(ctx context.Context, authInfo authorization.Info, n
 	}
 
 	return itx.From(maps.Keys(nsList)), nil
+}
+
+func getCreatedUpdatedAt(obj metav1.Object) (time.Time, *time.Time, error) {
+	createdAt, err := time.Parse(korifiv1alpha1.LabelDateFormat, obj.GetLabels()[korifiv1alpha1.CreatedAtLabelKey])
+	if err != nil {
+		return time.Time{}, nil, fmt.Errorf("failed to parse %q label: %w", korifiv1alpha1.CreatedAtLabelKey, err)
+	}
+
+	var updatedAt *time.Time
+	if obj.GetLabels()[korifiv1alpha1.UpdatedAtLabelKey] != "" {
+		updateTime, err := time.Parse(korifiv1alpha1.LabelDateFormat, getLabelOrAnnotation(obj.GetLabels(), korifiv1alpha1.UpdatedAtLabelKey))
+		if err != nil {
+			return time.Time{}, nil, fmt.Errorf("failed to parse %q label: %w", korifiv1alpha1.UpdatedAtLabelKey, err)
+		}
+		updatedAt = &updateTime
+	}
+
+	return createdAt, updatedAt, nil
 }

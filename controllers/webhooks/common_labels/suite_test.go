@@ -1,4 +1,4 @@
-package label_indexer_test
+package common_labels_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"github.com/google/uuid"
@@ -37,14 +37,14 @@ func TestWorkloadsWebhooks(t *testing.T) {
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Label Indexer Webhook Integration Test Suite")
+	RunSpecs(t, "Common Labels Webhook Integration Test Suite")
 }
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	webhookManifestsPath := helpers.GenerateWebhookManifest(
-		"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer",
+		"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels",
 	)
 	DeferCleanup(func() {
 		Expect(os.RemoveAll(filepath.Dir(webhookManifestsPath))).To(Succeed())
@@ -68,7 +68,7 @@ var _ = BeforeSuite(func() {
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	label_indexer.NewWebhook().SetupWebhookWithManager(k8sManager)
+	common_labels.NewWebhook().SetupWebhookWithManager(k8sManager)
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 
