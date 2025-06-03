@@ -112,6 +112,9 @@ bin/yq: bin
 bin/setup-envtest: bin
 	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
+bin/controller-gen: bin
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen
+
 clean-bin:
 	# globstar (e.g. in rm -f **/bin/*) isn't available in the version of bash packaged with MacOS
 	find . -wholename '*/bin/*' -delete
