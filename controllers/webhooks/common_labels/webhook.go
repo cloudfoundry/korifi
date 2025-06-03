@@ -49,6 +49,7 @@ func (r *CommonLabelsWebhook) Handle(ctx context.Context, req admission.Request)
 	}
 
 	if req.Operation == admissionv1.Update {
+		obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.CreatedAtLabelKey, obj.CreationTimestamp.Format(korifiv1alpha1.LabelDateFormat)))
 		obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.UpdatedAtLabelKey, time.Now().Format(korifiv1alpha1.LabelDateFormat)))
 	}
 

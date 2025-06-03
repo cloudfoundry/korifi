@@ -68,5 +68,22 @@ var _ = Describe("CommonLabelsWebhook", func() {
 				g.Expect(updatedAt).To(BeTemporally(">", route.CreationTimestamp.Time))
 			}).Should(Succeed())
 		})
+
+		When("the object has no created_at label (it has been created before this webhook has been applied)", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, route, func() {
+					delete(route.Labels, korifiv1alpha1.CreatedAtLabelKey)
+				})).To(Succeed())
+			})
+
+			It("sets the created_at label", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(route), route)).To(Succeed())
+					g.Expect(route.Labels).To(MatchKeys(IgnoreExtras, Keys{
+						korifiv1alpha1.CreatedAtLabelKey: Equal(route.CreationTimestamp.Format(korifiv1alpha1.LabelDateFormat)),
+					}))
+				}).Should(Succeed())
+			})
+		})
 	})
 })
