@@ -7,6 +7,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
@@ -26,11 +27,12 @@ import (
 var _ = Describe("ServicePlanRepo", func() {
 	var (
 		repo     *repositories.ServicePlanRepo
+		orgRepo  *repositories.OrgRepo
 		planGUID string
 	)
 
 	BeforeEach(func() {
-		orgRepo := repositories.NewOrgRepo(klient, rootNamespace, nsPerms, &fakeawaiter.FakeAwaiter[
+		orgRepo = repositories.NewOrgRepo(klient, rootNamespace, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
@@ -60,9 +62,12 @@ var _ = Describe("ServicePlanRepo", func() {
 				Name:      planGUID,
 				Labels: map[string]string{
 					korifiv1alpha1.RelServiceOfferingGUIDLabel: "offering-guid",
-					korifiv1alpha1.RelServiceBrokerNameLabel:   "broker-name",
-					korifiv1alpha1.RelServiceOfferingNameLabel: "offering-name",
+					korifiv1alpha1.RelServiceBrokerNameLabel:   tools.EncodeValueToSha224("broker-name"),
+					korifiv1alpha1.RelServiceOfferingNameLabel: tools.EncodeValueToSha224("offering-name"),
 					korifiv1alpha1.RelServiceBrokerGUIDLabel:   "broker-guid",
+					korifiv1alpha1.GUIDLabelKey:                planGUID,
+					korifiv1alpha1.CFServicePlanNameKey:        tools.EncodeValueToSha224("my-service-plan"),
+					korifiv1alpha1.CFServicePlanAvailableKey:   "false",
 				},
 				Annotations: map[string]string{
 					"annotation": "annotation-value",
@@ -163,7 +168,7 @@ var _ = Describe("ServicePlanRepo", func() {
 			}))
 		})
 
-		When("the visibility type is not admin", func() {
+		When("the plan is available", func() {
 			BeforeEach(func() {
 				cfServicePlan := &korifiv1alpha1.CFServicePlan{
 					ObjectMeta: metav1.ObjectMeta{
@@ -172,7 +177,7 @@ var _ = Describe("ServicePlanRepo", func() {
 					},
 				}
 				Expect(k8s.PatchResource(ctx, k8sClient, cfServicePlan, func() {
-					cfServicePlan.Spec.Visibility.Type = korifiv1alpha1.PublicServicePlanVisibilityType
+					cfServicePlan.Labels = tools.SetMapValue(cfServicePlan.Labels, korifiv1alpha1.CFServicePlanAvailableKey, "true")
 				})).To(Succeed())
 			})
 
@@ -198,9 +203,12 @@ var _ = Describe("ServicePlanRepo", func() {
 					Name:      otherPlanGUID,
 					Labels: map[string]string{
 						korifiv1alpha1.RelServiceOfferingGUIDLabel: "other-offering-guid",
-						korifiv1alpha1.RelServiceBrokerNameLabel:   "other-broker-name",
-						korifiv1alpha1.RelServiceOfferingNameLabel: "other-offering-name",
+						korifiv1alpha1.RelServiceBrokerNameLabel:   tools.EncodeValueToSha224("other-broker-name"),
+						korifiv1alpha1.RelServiceOfferingNameLabel: tools.EncodeValueToSha224("other-offering-name"),
 						korifiv1alpha1.RelServiceBrokerGUIDLabel:   "other-broker-guid",
+						korifiv1alpha1.GUIDLabelKey:                otherPlanGUID,
+						korifiv1alpha1.CFServicePlanNameKey:        tools.EncodeValueToSha224("other-plan"),
+						korifiv1alpha1.CFServicePlanAvailableKey:   "true",
 					},
 				},
 				Spec: korifiv1alpha1.CFServicePlanSpec{
@@ -217,7 +225,7 @@ var _ = Describe("ServicePlanRepo", func() {
 			listedPlans, listErr = repo.ListPlans(ctx, authInfo, message)
 		})
 
-		It("lists service offerings", func() {
+		It("lists service plans", func() {
 			Expect(listErr).NotTo(HaveOccurred())
 			Expect(listedPlans).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
@@ -241,81 +249,66 @@ var _ = Describe("ServicePlanRepo", func() {
 			})
 		})
 
-		When("filtering by guids", func() {
+		Describe("filter parameters to list options", func() {
+			var fakeKlient *fake.Klient
+
 			BeforeEach(func() {
-				message.GUIDs = []string{otherPlanGUID}
+				fakeKlient = new(fake.Klient)
+				repo = repositories.NewServicePlanRepo(fakeKlient, rootNamespace, orgRepo)
+				message = repositories.ListServicePlanMessage{
+					GUIDs:                []string{"g1", "g2"},
+					Names:                []string{"n1", "n2"},
+					ServiceOfferingGUIDs: []string{"sog1", "sog2"},
+					ServiceOfferingNames: []string{"son1", "son2"},
+					BrokerNames:          []string{"bn1", "bn2"},
+					BrokerGUIDs:          []string{"bg1", "bg2"},
+				}
 			})
 
-			It("returns matching service plans", func() {
+			It("translates filter parameters to klient list options", func() {
 				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("other-plan"),
-				})))
-			})
-		})
-
-		When("filtering by names", func() {
-			BeforeEach(func() {
-				message.Names = []string{"other-plan"}
-			})
-
-			It("returns matching service plans", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("other-plan"),
-				})))
-			})
-		})
-
-		When("filtering by availability", func() {
-			BeforeEach(func() {
-				message.Available = tools.PtrTo(true)
+				Expect(fakeKlient.ListCallCount()).To(Equal(1))
+				_, _, listOptions := fakeKlient.ListArgsForCall(0)
+				Expect(listOptions).To(ConsistOf(
+					repositories.InNamespace(rootNamespace),
+					repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
+					repositories.WithLabelIn(korifiv1alpha1.CFServicePlanNameKey, tools.EncodeValuesToSha224("n1", "n2")),
+					repositories.WithLabelIn(korifiv1alpha1.RelServiceOfferingGUIDLabel, []string{"sog1", "sog2"}),
+					repositories.WithLabelIn(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValuesToSha224("bn1", "bn2")),
+					repositories.WithLabelIn(korifiv1alpha1.RelServiceBrokerGUIDLabel, []string{"bg1", "bg2"}),
+					repositories.WithLabelIn(korifiv1alpha1.RelServiceOfferingNameLabel, tools.EncodeValuesToSha224("son1", "son2")),
+					repositories.NoopListOption{},
+				))
 			})
 
-			It("returns matching service plans", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"GUID": Equal(otherPlanGUID),
-				})))
-			})
-		})
+			When("filtering by available service plans", func() {
+				BeforeEach(func() {
+					message.Available = tools.PtrTo(true)
+				})
 
-		When("filtering by broker name", func() {
-			BeforeEach(func() {
-				message.BrokerNames = []string{"other-broker-name"}
-			})
-
-			It("returns matching service plans", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"GUID": Equal(otherPlanGUID),
-				})))
-			})
-		})
-
-		When("filtering by broker guid", func() {
-			BeforeEach(func() {
-				message.BrokerGUIDs = []string{"other-broker-guid"}
+				It("translates the available parameters field to a list options", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ContainElement(
+						repositories.WithLabel(korifiv1alpha1.CFServicePlanAvailableKey, "true"),
+					))
+				})
 			})
 
-			It("returns matching service plans", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"GUID": Equal(otherPlanGUID),
-				})))
-			})
-		})
+			When("filtering by unavailable service plans", func() {
+				BeforeEach(func() {
+					message.Available = tools.PtrTo(false)
+				})
 
-		When("filtering by service offering name", func() {
-			BeforeEach(func() {
-				message.ServiceOfferingNames = []string{"other-offering-name"}
-			})
-
-			It("returns matching service plans", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"GUID": Equal(otherPlanGUID),
-				})))
+				It("translates the available parameters field to a list options", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ContainElement(
+						repositories.WithLabel(korifiv1alpha1.CFServicePlanAvailableKey, "false"),
+					))
+				})
 			})
 		})
 	})

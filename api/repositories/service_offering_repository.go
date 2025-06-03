@@ -55,7 +55,6 @@ func (r ServiceOfferingRecord) Relationships() map[string]string {
 type ServiceOfferingRepo struct {
 	klient               Klient
 	rootNamespace        string
-	brokerRepo           *ServiceBrokerRepo
 	namespacePermissions *authorization.NamespacePermissions
 }
 
@@ -70,22 +69,23 @@ type DeleteServiceOfferingMessage struct {
 	Purge bool
 }
 
-func (m *ListServiceOfferingMessage) matches(cfServiceOffering korifiv1alpha1.CFServiceOffering) bool {
-	return tools.EmptyOrContains(m.Names, cfServiceOffering.Spec.Name) &&
-		tools.EmptyOrContains(m.GUIDs, cfServiceOffering.Name) &&
-		tools.EmptyOrContains(m.BrokerNames, cfServiceOffering.Labels[korifiv1alpha1.RelServiceBrokerNameLabel])
+func (m *ListServiceOfferingMessage) toListOptions(rootNamespace string) []ListOption {
+	return []ListOption{
+		InNamespace(rootNamespace),
+		WithLabelIn(korifiv1alpha1.CFServiceOfferingNameKey, tools.EncodeValuesToSha224(m.Names...)),
+		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
+		WithLabelIn(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValuesToSha224(m.BrokerNames...)),
+	}
 }
 
 func NewServiceOfferingRepo(
 	klient Klient,
 	rootNamespace string,
-	brokerRepo *ServiceBrokerRepo,
 	namespacePermissions *authorization.NamespacePermissions,
 ) *ServiceOfferingRepo {
 	return &ServiceOfferingRepo{
 		klient:               klient,
 		rootNamespace:        rootNamespace,
-		brokerRepo:           brokerRepo,
 		namespacePermissions: namespacePermissions,
 	}
 }
@@ -107,7 +107,7 @@ func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo a
 
 func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {
 	offeringsList := &korifiv1alpha1.CFServiceOfferingList{}
-	err := r.klient.List(ctx, offeringsList, InNamespace(r.rootNamespace))
+	err := r.klient.List(ctx, offeringsList, message.toListOptions(r.rootNamespace)...)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return []ServiceOfferingRecord{}, nil
@@ -118,7 +118,7 @@ func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo author
 		)
 	}
 
-	return it.TryCollect(it.MapError(itx.FromSlice(offeringsList.Items).Filter(message.matches), offeringToRecord))
+	return it.TryCollect(it.MapError(itx.FromSlice(offeringsList.Items), offeringToRecord))
 }
 
 func (r *ServiceOfferingRepo) DeleteOffering(ctx context.Context, authInfo authorization.Info, message DeleteServiceOfferingMessage) error {

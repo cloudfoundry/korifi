@@ -336,4 +336,93 @@ var _ = Describe("IndexValues", func() {
 			Expect(result).To(PointTo(Equal("")))
 		})
 	})
+
+	Describe("ConstantValue", func() {
+		JustBeforeEach(func() {
+			result, err = values.ConstantValue("foo")(map[string]any{})
+		})
+
+		It("returns the value", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(PointTo(Equal("foo")))
+		})
+	})
+
+	Describe("Map", func() {
+		var (
+			indexingFunc values.IndexValueFunc
+			mapping      map[string]values.IndexValueFunc
+		)
+
+		BeforeEach(func() {
+			indexingFunc = func(obj map[string]any) (*string, error) {
+				return tools.PtrTo("foo"), nil
+			}
+
+			mapping = map[string]values.IndexValueFunc{
+				"foo": func(map[string]any) (*string, error) {
+					return tools.PtrTo("bar"), nil
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			result, err = values.Map(indexingFunc, mapping)(map[string]any{})
+		})
+
+		It("returns the mapped value", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(PointTo(Equal("bar")))
+		})
+
+		When("the previous func returns an error", func() {
+			BeforeEach(func() {
+				indexingFunc = func(obj map[string]any) (*string, error) {
+					return nil, errors.New("foo")
+				}
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("foo")))
+			})
+		})
+
+		When("the mapped func returns an error", func() {
+			BeforeEach(func() {
+				mapping = map[string]values.IndexValueFunc{
+					"foo": func(map[string]any) (*string, error) {
+						return nil, errors.New("bar")
+					},
+				}
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("bar")))
+			})
+		})
+
+		When("no mapping is found for the previous value", func() {
+			BeforeEach(func() {
+				indexingFunc = func(obj map[string]any) (*string, error) {
+					return tools.PtrTo("foo1"), nil
+				}
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("no mapping found")))
+			})
+		})
+
+		When("the previous func returns nil", func() {
+			BeforeEach(func() {
+				indexingFunc = func(obj map[string]any) (*string, error) {
+					return nil, nil
+				}
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("cannot map nil")))
+			})
+		})
+	})
 })

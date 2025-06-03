@@ -2,6 +2,7 @@ package values
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -113,8 +114,31 @@ func SHA224(prev IndexValueFunc) IndexValueFunc {
 }
 
 func EmptyValue() IndexValueFunc {
+	return ConstantValue("")
+}
+
+func ConstantValue(v string) IndexValueFunc {
 	return func(_ map[string]any) (*string, error) {
-		return tools.PtrTo(""), nil
+		return tools.PtrTo(v), nil
+	}
+}
+
+func Map(prev IndexValueFunc, valuesMap map[string]IndexValueFunc) IndexValueFunc {
+	return func(obj map[string]any) (*string, error) {
+		prevValue, err := prev(obj)
+		if err != nil {
+			return nil, err
+		}
+
+		if prevValue == nil {
+			return nil, errors.New("cannot map nil value")
+		}
+
+		mappedValue, ok := valuesMap[*prevValue]
+		if !ok {
+			return nil, fmt.Errorf("no mapping found for value %s", *prevValue)
+		}
+		return mappedValue(obj)
 	}
 }
 

@@ -144,3 +144,9 @@ func WithLabelStrictlyIn(key string, values []string) ListOption {
 
 	return WithLabelIn(key, values)
 }
+
+type NoopListOption struct{}
+
+func (o NoopListOption) ApplyToList(opts *ListOptions) error {
+	return nil
+}

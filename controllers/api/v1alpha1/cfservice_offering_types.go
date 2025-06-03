@@ -5,6 +5,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const (
+	CFServiceOfferingNameKey = "korifi.cloudfoundry.org/service-offering-name"
+)
+
 // CFServiceOfferingSpec defines the desired state of CFServiceOffering
 type CFServiceOfferingSpec struct {
 	Name        string   `json:"name"`

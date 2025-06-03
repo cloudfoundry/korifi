@@ -6,6 +6,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	. "github.com/onsi/ginkgo/v2" //lint:ignore ST1001 this is a test file
@@ -62,7 +63,7 @@ func (d *Deleter) ForBrokerGUID(brokerGUID string) *Deleter {
 
 func (d *Deleter) ForBrokerName(brokerName string) *Deleter {
 	d.catalogLabelSelector = client.MatchingLabels{
-		korifiv1alpha1.RelServiceBrokerNameLabel: brokerName,
+		korifiv1alpha1.RelServiceBrokerNameLabel: tools.EncodeValueToSha224(brokerName),
 	}
 
 	d.deleteCFServiceBroker = func() {

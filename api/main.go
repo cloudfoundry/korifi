@@ -236,7 +236,7 @@ func main() {
 	)
 	metricsRepo := repositories.NewMetricsRepo(klientUnfiltered)
 	serviceBrokerRepo := repositories.NewServiceBrokerRepo(klient, cfg.RootNamespace)
-	serviceOfferingRepo := repositories.NewServiceOfferingRepo(klient, cfg.RootNamespace, serviceBrokerRepo, nsPermissions)
+	serviceOfferingRepo := repositories.NewServiceOfferingRepo(klient, cfg.RootNamespace, nsPermissions)
 	servicePlanRepo := repositories.NewServicePlanRepo(klient, cfg.RootNamespace, orgRepo)
 	securityGroupRepo := repositories.NewSecurityGroupRepo(klient, cfg.RootNamespace)
 
