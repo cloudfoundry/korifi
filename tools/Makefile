@@ -28,3 +28,9 @@ export PATH := $(shell pwd)/bin:$(PATH)
 .PHONY: test
 test:
 	../scripts/run-tests.sh
+
+bin:
+	mkdir -p bin
+
+bin/controller-gen: bin
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen

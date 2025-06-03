@@ -85,6 +85,8 @@ function run_ginkgo() {
 }
 
 function main() {
+  make bin/controller-gen
+
   if grep -q "tests/e2e" <(echo "$@"); then
     configure_e2e_tests $@
   elif grep -q "tests/crds" <(echo "$@"); then
