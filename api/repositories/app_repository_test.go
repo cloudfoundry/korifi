@@ -20,10 +20,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	gomega_types "github.com/onsi/gomega/types"
+	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,7 +40,6 @@ var _ = Describe("AppRepository", func() {
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]
-		sorter  *fake.AppSorter
 		appRepo *repositories.AppRepo
 		cfOrg   *korifiv1alpha1.CFOrg
 		cfSpace *korifiv1alpha1.CFSpace
@@ -54,11 +52,7 @@ var _ = Describe("AppRepository", func() {
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]{}
-		sorter = new(fake.AppSorter)
-		sorter.SortStub = func(records []repositories.AppRecord, _ string) []repositories.AppRecord {
-			return records
-		}
-		appRepo = repositories.NewAppRepo(klient, appAwaiter, sorter)
+		appRepo = repositories.NewAppRepo(klient, appAwaiter)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
@@ -165,22 +159,20 @@ var _ = Describe("AppRepository", func() {
 		)
 
 		BeforeEach(func() {
-			message = repositories.ListAppsMessage{OrderBy: "foo"}
+			message = repositories.ListAppsMessage{}
 
 			space2 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space2"))
-			space3 := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space3"))
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 
 			cfApp2 = createAppWithGUID(space2.Name, testutils.PrefixedGUID("cfapp2-"))
-			createApp(space3.Name)
 		})
 
 		JustBeforeEach(func() {
 			appList, listErr = appRepo.ListApps(ctx, authInfo, message)
 		})
 
-		It("returns all the AppRecord CRs where client has permission", func() {
+		It("lists the apps", func() {
 			Expect(listErr).NotTo(HaveOccurred())
 			Expect(appList).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
@@ -188,40 +180,7 @@ var _ = Describe("AppRepository", func() {
 			))
 		})
 
-		It("sorts the apps", func() {
-			Expect(sorter.SortCallCount()).To(Equal(1))
-			sortedApps, field := sorter.SortArgsForCall(0)
-			Expect(field).To(Equal("foo"))
-
-			Expect(sortedApps).To(ConsistOf(
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
-			))
-		})
-
-		When("there are apps in non-cf namespaces", func() {
-			var nonCFApp *korifiv1alpha1.CFApp
-
-			BeforeEach(func() {
-				nonCFNamespace := prefixedGUID("non-cf")
-				Expect(k8sClient.Create(
-					ctx,
-					&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
-				)).To(Succeed())
-
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, nonCFNamespace)
-				nonCFApp = createApp(nonCFNamespace)
-			})
-
-			It("does not list them", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(appList).NotTo(ContainElement(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(nonCFApp.Name)}),
-				))
-			})
-		})
-
-		Describe("filtering", func() {
+		Describe("message list options", func() {
 			BeforeEach(func() {
 				message = repositories.ListAppsMessage{
 					Guids: []string{cfApp2.Name},
@@ -235,33 +194,62 @@ var _ = Describe("AppRepository", func() {
 				})))
 			})
 
-			Describe("filter parameters to list options", func() {
+			Describe("filtering", func() {
 				var fakeKlient *fake.Klient
 
 				BeforeEach(func() {
 					fakeKlient = new(fake.Klient)
-					appRepo = repositories.NewAppRepo(fakeKlient, appAwaiter, sorter)
-
-					message = repositories.ListAppsMessage{
-						Names:         []string{"n1", "n2"},
-						Guids:         []string{"g1", "g2"},
-						SpaceGUIDs:    []string{"sg1", "sg2"},
-						LabelSelector: "foo=bar",
-					}
+					appRepo = repositories.NewAppRepo(fakeKlient, appAwaiter)
 				})
 
-				It("translates filter parameters to klient list options", func() {
-					Expect(listErr).NotTo(HaveOccurred())
-					Expect(fakeKlient.ListCallCount()).To(Equal(1))
-					_, _, listOptions := fakeKlient.ListArgsForCall(0)
-					Expect(listOptions).To(ConsistOf(
-						repositories.WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, tools.EncodeValuesToSha224("n1", "n2")),
-						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
-						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"sg1", "sg2"}),
-						repositories.WithLabelSelector("foo=bar"),
-					))
+				Describe("filter parameters to list options", func() {
+					BeforeEach(func() {
+						message = repositories.ListAppsMessage{
+							Names:         []string{"n1", "n2"},
+							Guids:         []string{"g1", "g2"},
+							SpaceGUIDs:    []string{"sg1", "sg2"},
+							LabelSelector: "foo=bar",
+							OrderBy:       "name",
+						}
+					})
+
+					It("translates filter parameters to klient list options", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(fakeKlient.ListCallCount()).To(Equal(1))
+						_, _, listOptions := fakeKlient.ListArgsForCall(0)
+						Expect(listOptions).To(ConsistOf(
+							repositories.WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, tools.EncodeValuesToSha224("n1", "n2")),
+							repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
+							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"sg1", "sg2"}),
+							repositories.WithLabelSelector("foo=bar"),
+							repositories.SortBy("Display Name", false),
+						))
+					})
 				})
 			})
+
+			DescribeTable("ordering",
+				func(msg repositories.ListAppsMessage, match types.GomegaMatcher) {
+					fakeKlient := new(fake.Klient)
+					appRepo = repositories.NewAppRepo(fakeKlient, appAwaiter)
+
+					_, err := appRepo.ListApps(ctx, authInfo, msg)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(match)
+				},
+				Entry("name", repositories.ListAppsMessage{OrderBy: "name"}, ContainElement(repositories.SortBy("Display Name", false))),
+				Entry("-name", repositories.ListAppsMessage{OrderBy: "-name"}, ContainElement(repositories.SortBy("Display Name", true))),
+				Entry("state", repositories.ListAppsMessage{OrderBy: "state"}, ContainElement(repositories.SortBy("State", false))),
+				Entry("-state", repositories.ListAppsMessage{OrderBy: "-state"}, ContainElement(repositories.SortBy("State", true))),
+				Entry("created_at", repositories.ListAppsMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
+				Entry("-created_at", repositories.ListAppsMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
+				Entry("updated_at", repositories.ListAppsMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
+				Entry("-updated_at", repositories.ListAppsMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
+				Entry("no ordering", repositories.ListAppsMessage{OrderBy: ""}, ContainElement(repositories.NoopListOption{})),
+				Entry("notexistent-field", repositories.ListAppsMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
+			)
 		})
 	})
 
@@ -302,9 +290,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("creates a new app CR", func() {
 				Expect(createErr).NotTo(HaveOccurred())
-				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
-				createdCFApp := new(korifiv1alpha1.CFApp)
-				Expect(k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)).To(Succeed())
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 			})
 
 			It("returns an AppRecord with correct fields", func() {
@@ -316,19 +302,25 @@ var _ = Describe("AppRepository", func() {
 				Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(BeEmpty())
 
 				Expect(createdAppRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-				Expect(createdAppRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 			})
 
 			It("creates an empty secret and sets the environment variable secret ref on the App", func() {
 				Expect(createErr).NotTo(HaveOccurred())
-				cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
-				createdCFApp := new(korifiv1alpha1.CFApp)
-				Expect(k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)).To(Succeed())
-				Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
+				cfApp = &korifiv1alpha1.CFApp{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: createdAppRecord.SpaceGUID,
+						Name:      createdAppRecord.GUID,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
 
-				secretLookupKey := types.NamespacedName{Name: createdCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
-				createdSecret := new(corev1.Secret)
-				Expect(k8sClient.Get(ctx, secretLookupKey, createdSecret)).To(Succeed())
+				createdSecret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: cfSpace.Name,
+						Name:      cfApp.Spec.EnvSecretName,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(createdSecret), createdSecret)).To(Succeed())
 				Expect(createdSecret.Data).To(BeEmpty())
 			})
 
@@ -342,14 +334,23 @@ var _ = Describe("AppRepository", func() {
 
 				It("creates an secret for the environment variables and sets the ref on the App", func() {
 					Expect(createErr).NotTo(HaveOccurred())
-					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
-					createdCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)).To(Succeed())
-					Expect(createdCFApp.Spec.EnvSecretName).NotTo(BeEmpty())
 
-					secretLookupKey := types.NamespacedName{Name: createdCFApp.Spec.EnvSecretName, Namespace: cfSpace.Name}
-					createdSecret := new(corev1.Secret)
-					Expect(k8sClient.Get(ctx, secretLookupKey, createdSecret)).To(Succeed())
+					cfApp = &korifiv1alpha1.CFApp{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: createdAppRecord.SpaceGUID,
+							Name:      createdAppRecord.GUID,
+						},
+					}
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					Expect(cfApp.Spec.EnvSecretName).NotTo(BeEmpty())
+
+					createdSecret := &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: cfSpace.Name,
+							Name:      cfApp.Spec.EnvSecretName,
+						},
+					}
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(createdSecret), createdSecret)).To(Succeed())
 					Expect(createdSecret.Data).To(MatchAllKeys(Keys{
 						"FOO": BeEquivalentTo("foo"),
 						"BAR": BeEquivalentTo("bar"),
@@ -367,10 +368,14 @@ var _ = Describe("AppRepository", func() {
 
 				It("creates a CFApp with the buildpacks set", func() {
 					Expect(createErr).NotTo(HaveOccurred())
-					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
-					createdCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)).To(Succeed())
-					Expect(createdAppRecord.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
+					cfApp = &korifiv1alpha1.CFApp{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: createdAppRecord.SpaceGUID,
+							Name:      createdAppRecord.GUID,
+						},
+					}
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					Expect(cfApp.Spec.Lifecycle.Data.Buildpacks).To(Equal(buildpacks))
 				})
 
 				It("returns an AppRecord with the buildpacks set", func() {
@@ -391,10 +396,15 @@ var _ = Describe("AppRepository", func() {
 						Type: "docker",
 					}))
 
-					cfAppLookupKey := types.NamespacedName{Name: createdAppRecord.GUID, Namespace: cfSpace.Name}
-					createdCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(ctx, cfAppLookupKey, createdCFApp)).To(Succeed())
-					Expect(createdCFApp.Spec.Lifecycle).To(Equal(korifiv1alpha1.Lifecycle{
+					cfApp = &korifiv1alpha1.CFApp{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: createdAppRecord.SpaceGUID,
+							Name:      createdAppRecord.GUID,
+						},
+					}
+
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					Expect(cfApp.Spec.Lifecycle).To(Equal(korifiv1alpha1.Lifecycle{
 						Type: "docker",
 					}))
 				})
@@ -820,10 +830,8 @@ var _ = Describe("AppRepository", func() {
 				})
 
 				It("changes the desired state of the App", func() {
-					cfAppLookupKey := types.NamespacedName{Name: appGUID, Namespace: cfSpace.Name}
-					updatedCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(ctx, cfAppLookupKey, updatedCFApp)).To(Succeed())
-					Expect(string(updatedCFApp.Spec.DesiredState)).To(Equal(appStartedValue))
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					Expect(string(cfApp.Spec.DesiredState)).To(Equal(appStartedValue))
 				})
 			})
 
@@ -859,10 +867,8 @@ var _ = Describe("AppRepository", func() {
 				})
 
 				It("changes the desired state of the App", func() {
-					cfAppLookupKey := types.NamespacedName{Name: appGUID, Namespace: cfSpace.Name}
-					updatedCFApp := new(korifiv1alpha1.CFApp)
-					Expect(k8sClient.Get(ctx, cfAppLookupKey, updatedCFApp)).To(Succeed())
-					Expect(string(updatedCFApp.Spec.DesiredState)).To(Equal(appStoppedValue))
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfApp), cfApp)).To(Succeed())
+					Expect(string(cfApp.Spec.DesiredState)).To(Equal(appStoppedValue))
 				})
 			})
 
@@ -1244,63 +1250,3 @@ func asMapOfStrings(data map[string][]byte) map[string]string {
 
 	return result
 }
-
-var _ = DescribeTable("AppSorter",
-	func(a1, a2 repositories.AppRecord, field string, match gomega_types.GomegaMatcher) {
-		Expect(repositories.AppComparator(field)(a1, a2)).To(match)
-	},
-	Entry("default sorting",
-		repositories.AppRecord{Name: "first-app"},
-		repositories.AppRecord{Name: "second-app"},
-		"",
-		BeNumerically("<", 0),
-	),
-	Entry("name",
-		repositories.AppRecord{Name: "first-app"},
-		repositories.AppRecord{Name: "second-app"},
-		"name",
-		BeNumerically("<", 0),
-	),
-	Entry("-name",
-		repositories.AppRecord{Name: "first-app"},
-		repositories.AppRecord{Name: "second-app"},
-		"-name",
-		BeNumerically(">", 0),
-	),
-	Entry("created_at",
-		repositories.AppRecord{CreatedAt: time.UnixMilli(1)},
-		repositories.AppRecord{CreatedAt: time.UnixMilli(2)},
-		"created_at",
-		BeNumerically("<", 0),
-	),
-	Entry("-created_at",
-		repositories.AppRecord{CreatedAt: time.UnixMilli(1)},
-		repositories.AppRecord{CreatedAt: time.UnixMilli(2)},
-		"-created_at",
-		BeNumerically(">", 0),
-	),
-	Entry("updated_at",
-		repositories.AppRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
-		repositories.AppRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
-		"updated_at",
-		BeNumerically("<", 0),
-	),
-	Entry("-updated_at",
-		repositories.AppRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
-		repositories.AppRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
-		"-updated_at",
-		BeNumerically(">", 0),
-	),
-	Entry("state",
-		repositories.AppRecord{State: repositories.StartedState},
-		repositories.AppRecord{State: repositories.StoppedState},
-		"state",
-		BeNumerically("<", 0),
-	),
-	Entry("-state",
-		repositories.AppRecord{State: repositories.StartedState},
-		repositories.AppRecord{State: repositories.StoppedState},
-		"-state",
-		BeNumerically(">", 0),
-	),
-)

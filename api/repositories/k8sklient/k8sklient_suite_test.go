@@ -5,8 +5,11 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 var (
@@ -24,4 +27,5 @@ var _ = BeforeEach(func() {
 		Token: "i-am-user",
 	}
 	ctx = authorization.NewContext(context.Background(), &authInfo)
+	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme.Scheme))
 })

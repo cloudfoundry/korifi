@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"slices"
 	"strings"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
@@ -40,61 +38,15 @@ const (
 type AppRepo struct {
 	klient     Klient
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp]
-	sorter     AppSorter
-}
-
-//counterfeiter:generate -o fake -fake-name AppSorter . AppSorter
-type AppSorter interface {
-	Sort(records []AppRecord, order string) []AppRecord
-}
-
-type appSorter struct {
-	sorter *compare.Sorter[AppRecord]
-}
-
-func NewAppSorter() *appSorter {
-	return &appSorter{
-		sorter: compare.NewSorter(AppComparator),
-	}
-}
-
-func (s *appSorter) Sort(records []AppRecord, order string) []AppRecord {
-	return s.sorter.Sort(records, order)
-}
-
-func AppComparator(fieldName string) func(AppRecord, AppRecord) int {
-	return func(a1, a2 AppRecord) int {
-		switch fieldName {
-		case "", "name":
-			return strings.Compare(a1.Name, a2.Name)
-		case "-name":
-			return strings.Compare(a2.Name, a1.Name)
-		case "created_at":
-			return tools.CompareTimePtr(&a1.CreatedAt, &a2.CreatedAt)
-		case "-created_at":
-			return tools.CompareTimePtr(&a2.CreatedAt, &a1.CreatedAt)
-		case "updated_at":
-			return tools.CompareTimePtr(a1.UpdatedAt, a2.UpdatedAt)
-		case "-updated_at":
-			return tools.CompareTimePtr(a2.UpdatedAt, a1.UpdatedAt)
-		case "state":
-			return strings.Compare(string(a1.State), string(a2.State))
-		case "-state":
-			return strings.Compare(string(a2.State), string(a1.State))
-		}
-		return 0
-	}
 }
 
 func NewAppRepo(
 	klient Klient,
 	appAwaiter Awaiter[*korifiv1alpha1.CFApp],
-	sorter AppSorter,
 ) *AppRepo {
 	return &AppRepo{
 		klient:     klient,
 		appAwaiter: appAwaiter,
-		sorter:     sorter,
 	}
 }
 
@@ -232,6 +184,31 @@ func (m *ListAppsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.Guids),
 		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, tools.EncodeValuesToSha224(m.Names...)),
+		m.toSortOption(),
+	}
+}
+
+func (m *ListAppsMessage) toSortOption() ListOption {
+	desc := false
+	orderBy := m.OrderBy
+	if strings.HasPrefix(m.OrderBy, "-") {
+		desc = true
+		orderBy = strings.TrimPrefix(m.OrderBy, "-")
+	}
+
+	switch orderBy {
+	case "name":
+		return SortBy("Display Name", desc)
+	case "state":
+		return SortBy("State", desc)
+	case "created_at":
+		return SortBy("Created At", desc)
+	case "updated_at":
+		return SortBy("Updated At", desc)
+	case "":
+		return NoopListOption{}
+	default:
+		return ErroringListOption(fmt.Sprintf("unsupported field for ordering: %q", orderBy))
 	}
 }
 
@@ -246,7 +223,7 @@ func (f *AppRepo) GetApp(ctx context.Context, authInfo authorization.Info, appGU
 		return AppRecord{}, fmt.Errorf("failed to get app: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	return cfAppToAppRecord(*app), nil
+	return cfAppToAppRecord(*app)
 }
 
 func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, appCreateMessage CreateAppMessage) (AppRecord, error) {
@@ -279,7 +256,7 @@ func (f *AppRepo) CreateApp(ctx context.Context, authInfo authorization.Info, ap
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
-	return cfAppToAppRecord(cfApp), nil
+	return cfAppToAppRecord(cfApp)
 }
 
 func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, appPatchMessage PatchAppMessage) (AppRecord, error) {
@@ -316,7 +293,7 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 	if err != nil {
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
-	return cfAppToAppRecord(*cfApp), nil
+	return cfAppToAppRecord(*cfApp)
 }
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
@@ -326,9 +303,7 @@ func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, mes
 		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	appRecords := it.Map(itx.FromSlice(appList.Items), cfAppToAppRecord)
-
-	return f.sorter.Sort(slices.Collect(appRecords), message.OrderBy), nil
+	return it.TryCollect(it.MapError(itx.FromSlice(appList.Items), cfAppToAppRecord))
 }
 
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {
@@ -430,7 +405,7 @@ func (f *AppRepo) SetAppDesiredState(ctx context.Context, authInfo authorization
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
 	}
 
-	return cfAppToAppRecord(*cfApp), nil
+	return cfAppToAppRecord(*cfApp)
 }
 
 func (f *AppRepo) DeleteApp(ctx context.Context, authInfo authorization.Info, message DeleteAppMessage) error {
@@ -612,7 +587,12 @@ func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) {
 	m.MetadataPatch.Apply(app)
 }
 
-func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
+func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) (AppRecord, error) {
+	createdAt, updatedAt, err := getCreatedUpdatedAt(&cfApp)
+	if err != nil {
+		return AppRecord{}, fmt.Errorf("failed to get created and updated timestamps for app %q: %w", cfApp.Name, err)
+	}
+
 	return AppRecord{
 		GUID:        cfApp.Name,
 		EtcdUID:     cfApp.GetUID(),
@@ -630,14 +610,14 @@ func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) AppRecord {
 				Stack:      cfApp.Spec.Lifecycle.Data.Stack,
 			},
 		},
-		CreatedAt:             cfApp.CreationTimestamp.Time,
-		UpdatedAt:             getLastUpdatedTime(&cfApp),
+		CreatedAt:             createdAt,
+		UpdatedAt:             updatedAt,
 		DeletedAt:             golangTime(cfApp.DeletionTimestamp),
 		IsStaged:              cfApp.Spec.CurrentDropletRef.Name != "",
 		envSecretName:         cfApp.Spec.EnvSecretName,
 		vcapServiceSecretName: cfApp.Status.VCAPServicesSecretName,
 		vcapAppSecretName:     cfApp.Status.VCAPApplicationSecretName,
-	}
+	}, nil
 }
 
 func appEnvVarsSecretToRecord(envVars corev1.Secret) AppEnvVarsRecord {
