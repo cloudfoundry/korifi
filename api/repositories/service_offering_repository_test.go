@@ -322,7 +322,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 		})
 	})
 
-	Describe("Delete-off", func() {
+	Describe("DeleteOffering", func() {
 		var (
 			plan      *korifiv1alpha1.CFServicePlan
 			offering  *korifiv1alpha1.CFServiceOffering
@@ -373,6 +373,10 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Finalizers: []string{
 						korifiv1alpha1.CFServiceInstanceFinalizerName,
 					},
+					Labels: map[string]string{
+						korifiv1alpha1.SpaceGUIDKey:     space.Name,
+						korifiv1alpha1.PlanGUIDLabelKey: plan.Name,
+					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					PlanGUID: plan.Name,
@@ -386,7 +390,8 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
 					Labels: map[string]string{
-						korifiv1alpha1.PlanGUIDLabelKey: plan.Name,
+						korifiv1alpha1.SpaceGUIDKey:                  space.Name,
+						korifiv1alpha1.CFServiceInstanceGUIDLabelKey: instance.Name,
 					},
 					Finalizers: []string{
 						korifiv1alpha1.CFServiceBindingFinalizerName,
@@ -442,6 +447,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			BeforeEach(func() {
 				message.Purge = true
 			})
+
 			It("successfully deletes the offering and all related resources", func() {
 				Expect(deleteErr).ToNot(HaveOccurred())
 

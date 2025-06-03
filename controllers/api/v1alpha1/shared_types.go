@@ -36,6 +36,7 @@ const (
 	ServiceBindingTypeLabel = "korifi.cloudfoundry.org/service-binding-type"
 	CreatedAtLabelKey       = "korifi.cloudfoundry.org/created_at"
 	UpdatedAtLabelKey       = "korifi.cloudfoundry.org/updated_at"
+	PlanGUIDLabelKey        = "korifi.cloudfoundry.org/plan-guid"
 
 	PodIndexLabelKey = "apps.kubernetes.io/pod-index"
 

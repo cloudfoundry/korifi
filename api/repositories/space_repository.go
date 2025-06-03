@@ -127,14 +127,14 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 }
 
 func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info, message ListSpacesMessage) ([]SpaceRecord, error) {
-	authorizedOrgNamespaces, err := authorizedOrgNamespaces(ctx, authInfo, r.nsPerms)
+	authorizedOrgNamespaces, err := getAuthorizedOrgNamespaces(ctx, authInfo, r.nsPerms)
 	if err != nil {
 		return nil, err
 	}
 
-	orgNsList := authorizedOrgNamespaces.Filter(func(ns string) bool {
+	orgNsList := slices.Collect(it.Filter(slices.Values(authorizedOrgNamespaces), func(ns string) bool {
 		return tools.EmptyOrContains(message.OrganizationGUIDs, ns)
-	}).Collect()
+	}))
 
 	authorizedSpaceNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
