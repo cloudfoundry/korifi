@@ -34,7 +34,7 @@ func (d *TableResultSetDescriptor) Sort(column string, desc bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to get comparison function for column %s: %w", column, err)
 	}
-	slices.SortFunc(d.Table.Rows, rowCompareFunc)
+	slices.SortStableFunc(d.Table.Rows, rowCompareFunc)
 
 	return nil
 }
