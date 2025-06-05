@@ -160,6 +160,7 @@ var _ = Describe("LabelIndexerWebhook", func() {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(build), build)).To(Succeed())
 				g.Expect(build.Labels).To(MatchKeys(IgnoreExtras, Keys{
 					korifiv1alpha1.SpaceGUIDKey:          Equal(build.Namespace),
+					korifiv1alpha1.CFDropletGUIDLabelKey: Equal(build.Name),
 					korifiv1alpha1.CFAppGUIDLabelKey:     Equal(build.Spec.AppRef.Name),
 					korifiv1alpha1.CFPackageGUIDLabelKey: Equal(build.Spec.PackageRef.Name),
 					korifiv1alpha1.CFBuildStateLabelKey:  Equal(korifiv1alpha1.BuildStateStaged),

@@ -22,6 +22,7 @@ const (
 	CFAppDeploymentStatusKey    = "korifi.cloudfoundry.org/deployment-status"
 	CFPackageGUIDLabelKey       = "korifi.cloudfoundry.org/package-guid"
 	CFBuildGUIDLabelKey         = "korifi.cloudfoundry.org/build-guid"
+	CFDropletGUIDLabelKey       = "korifi.cloudfoundry.org/droplet-guid"
 	CFProcessGUIDLabelKey       = "korifi.cloudfoundry.org/process-guid"
 	CFProcessTypeLabelKey       = "korifi.cloudfoundry.org/process-type"
 	CFDomainGUIDLabelKey        = "korifi.cloudfoundry.org/domain-guid"

@@ -9,6 +9,28 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+var _ = Describe("DropletList", func() {
+	DescribeTable("valid query",
+		func(query string, expectedDropletList payloads.DropletList) {
+			actualDropletList, decodeErr := decodeQuery[payloads.DropletList](query)
+
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualDropletList).To(Equal(expectedDropletList))
+		},
+		Entry("guids", "guids=guid", payloads.DropletList{GUIDs: "guid"}),
+		Entry("app_guids", "app_guids=guid", payloads.DropletList{AppGUIDs: "guid"}),
+		Entry("space_guids", "space_guids=guid", payloads.DropletList{SpaceGUIDs: "guid"}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.DropletList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid parameter", "foo=bar", "unsupported query parameter: foo"),
+	)
+})
+
 var _ = Describe("DropletUpdate", func() {
 	Describe("Decode", func() {
 		var (
