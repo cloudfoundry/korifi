@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"code.cloudfoundry.org/korifi/version"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -28,17 +27,12 @@ var _ = Describe("DeploymentRepository", func() {
 		cfOrg          *korifiv1alpha1.CFOrg
 		cfSpace        *korifiv1alpha1.CFSpace
 		cfApp          *korifiv1alpha1.CFApp
-		sorter         *fake.DeploymentSorter
 	)
 
 	BeforeEach(func() {
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))
 		cfApp = createApp(cfSpace.Name)
-		sorter = new(fake.DeploymentSorter)
-		sorter.SortStub = func(records []repositories.DeploymentRecord, _ string) []repositories.DeploymentRecord {
-			return records
-		}
 
 		Expect(k8sClient.Create(ctx, &korifiv1alpha1.AppWorkload{
 			ObjectMeta: metav1.ObjectMeta{
@@ -53,7 +47,7 @@ var _ = Describe("DeploymentRepository", func() {
 			},
 		})).To(Succeed())
 
-		deploymentRepo = repositories.NewDeploymentRepo(klient, sorter)
+		deploymentRepo = repositories.NewDeploymentRepo(klient)
 	})
 
 	Describe("GetDeployment", func() {
@@ -89,21 +83,16 @@ var _ = Describe("DeploymentRepository", func() {
 				Expect(deployment.Status.Value).To(Equal(repositories.DeploymentStatusValueActive))
 				Expect(deployment.Status.Reason).To(Equal(repositories.DeploymentStatusReasonDeploying))
 				Expect(deployment.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-				Expect(deployment.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 
 				Expect(deployment.Relationships()).To(Equal(map[string]string{
 					"app": cfApp.Name,
 				}))
 			})
 
-			When("the app is ready", func() {
+			When("the deployment is finalized", func() {
 				BeforeEach(func() {
-					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-						meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-							Type:   korifiv1alpha1.StatusConditionReady,
-							Status: metav1.ConditionTrue,
-							Reason: "ready",
-						})
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+						cfApp.Labels = tools.SetMapValue(cfApp.Labels, korifiv1alpha1.CFAppDeploymentStatusKey, korifiv1alpha1.DeploymentStatusValueFinalized)
 					})).To(Succeed())
 				})
 
@@ -189,12 +178,8 @@ var _ = Describe("DeploymentRepository", func() {
 
 			When("the app is ready", func() {
 				BeforeEach(func() {
-					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-						meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-							Type:   korifiv1alpha1.StatusConditionReady,
-							Status: metav1.ConditionTrue,
-							Reason: "ready",
-						})
+					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
+						cfApp.Labels = tools.SetMapValue(cfApp.Labels, korifiv1alpha1.CFAppDeploymentStatusKey, korifiv1alpha1.DeploymentStatusValueFinalized)
 					})).To(Succeed())
 				})
 
@@ -257,6 +242,8 @@ var _ = Describe("DeploymentRepository", func() {
 			message     repositories.ListDeploymentsMessage
 			deployments []repositories.DeploymentRecord
 			anotherApp  *korifiv1alpha1.CFApp
+
+			listErr error
 		)
 
 		BeforeEach(func() {
@@ -268,9 +255,8 @@ var _ = Describe("DeploymentRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			var err error
-			deployments, err = deploymentRepo.ListDeployments(ctx, authInfo, message)
-			Expect(err).NotTo(HaveOccurred())
+			deployments, listErr = deploymentRepo.ListDeployments(ctx, authInfo, message)
+			Expect(listErr).NotTo(HaveOccurred())
 		})
 
 		It("returns an empty list", func() {
@@ -293,25 +279,24 @@ var _ = Describe("DeploymentRepository", func() {
 				))
 			})
 
-			Describe("ordering", func() {
-				BeforeEach(func() {
-					message.OrderBy = "foo"
-				})
+			DescribeTable("ordering",
+				func(msg repositories.ListDeploymentsMessage, match types.GomegaMatcher) {
+					fakeKlient := new(fake.Klient)
+					deploymentRepo = repositories.NewDeploymentRepo(fakeKlient)
 
-				It("sorts the deployments", func() {
-					Expect(sorter.SortCallCount()).To(Equal(1))
-					sortedDeployments, field := sorter.SortArgsForCall(0)
-					Expect(field).To(Equal("foo"))
-					Expect(sortedDeployments).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{
-							"GUID": Equal(cfApp.Name),
-						}),
-						MatchFields(IgnoreExtras, Fields{
-							"GUID": Equal(anotherApp.Name),
-						}),
-					))
-				})
-			})
+					_, err := deploymentRepo.ListDeployments(ctx, authInfo, msg)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(match)
+				},
+				Entry("no ordering", repositories.ListDeploymentsMessage{}, Not(ContainElement(BeAssignableToTypeOf(repositories.SortOpt{})))),
+				Entry("created_at", repositories.ListDeploymentsMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
+				Entry("-created_at", repositories.ListDeploymentsMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
+				Entry("updated_at", repositories.ListDeploymentsMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
+				Entry("-updated_at", repositories.ListDeploymentsMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
+				Entry("notexistent-field", repositories.ListDeploymentsMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
+			)
 
 			Describe("filtering", func() {
 				Describe("by app guid", func() {
@@ -328,46 +313,32 @@ var _ = Describe("DeploymentRepository", func() {
 					})
 				})
 
-				Describe("by status", func() {
+				Describe("filter parameters to list options", func() {
+					var fakeKlient *fake.Klient
+
 					BeforeEach(func() {
-						Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
-							meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
-								Type:   korifiv1alpha1.StatusConditionReady,
-								Status: metav1.ConditionTrue,
-								Reason: "ready",
-							})
-						})).To(Succeed())
+						fakeKlient = new(fake.Klient)
+						deploymentRepo = repositories.NewDeploymentRepo(fakeKlient)
 
 						message = repositories.ListDeploymentsMessage{
-							StatusValues: []repositories.DeploymentStatusValue{repositories.DeploymentStatusValueFinalized},
+							AppGUIDs:     []string{"a1", "a2"},
+							StatusValues: []repositories.DeploymentStatusValue{"ACTIVE"},
+							OrderBy:      "created_at",
 						}
 					})
 
-					It("filters by status", func() {
-						Expect(deployments).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-							"GUID": Equal(cfApp.Name),
-						})))
+					It("translates filter parameters to klient list options", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(fakeKlient.ListCallCount()).To(Equal(1))
+						_, _, listOptions := fakeKlient.ListArgsForCall(0)
+						Expect(listOptions).To(ConsistOf(
+							repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"a1", "a2"}),
+							repositories.WithLabelIn(korifiv1alpha1.CFAppDeploymentStatusKey, []string{"ACTIVE"}),
+							repositories.SortBy("Created At", false),
+						))
 					})
 				})
 			})
 		})
 	})
 })
-
-var _ = DescribeTable("DeploymentSorter",
-	func(d1, d2 repositories.DeploymentRecord, field string, match types.GomegaMatcher) {
-		Expect(repositories.DeploymentComparator(field)(d1, d2)).To(match)
-	},
-	Entry("created_at",
-		repositories.DeploymentRecord{CreatedAt: time.UnixMilli(1)},
-		repositories.DeploymentRecord{CreatedAt: time.UnixMilli(2)},
-		"created_at",
-		BeNumerically("<", 0),
-	),
-	Entry("updated_at",
-		repositories.DeploymentRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
-		repositories.DeploymentRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
-		"updated_at",
-		BeNumerically("<", 0),
-	),
-)

@@ -5,18 +5,16 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/version"
 	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/go-logr/logr"
 
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,7 +22,6 @@ const DeploymentResourceType = "Deployment"
 
 type DeploymentRepo struct {
 	klient Klient
-	sorter DeploymentSorter
 }
 
 type DeploymentRecord struct {
@@ -38,37 +35,6 @@ type DeploymentRecord struct {
 func (r DeploymentRecord) Relationships() map[string]string {
 	return map[string]string{
 		"app": r.GUID,
-	}
-}
-
-//counterfeiter:generate -o fake -fake-name DeploymentSorter . DeploymentSorter
-type DeploymentSorter interface {
-	Sort(records []DeploymentRecord, order string) []DeploymentRecord
-}
-
-type deploymentSorter struct {
-	sorter *compare.Sorter[DeploymentRecord]
-}
-
-func NewDeploymentSorter() *deploymentSorter {
-	return &deploymentSorter{
-		sorter: compare.NewSorter(DeploymentComparator),
-	}
-}
-
-func (s *deploymentSorter) Sort(records []DeploymentRecord, order string) []DeploymentRecord {
-	return s.sorter.Sort(records, order)
-}
-
-func DeploymentComparator(fieldName string) func(DeploymentRecord, DeploymentRecord) int {
-	return func(d1, d2 DeploymentRecord) int {
-		switch fieldName {
-		case "created_at":
-			return tools.CompareTimePtr(&d1.CreatedAt, &d2.CreatedAt)
-		case "updated_at":
-			return tools.CompareTimePtr(d1.UpdatedAt, d2.UpdatedAt)
-		}
-		return 0
 	}
 }
 
@@ -105,20 +71,38 @@ type ListDeploymentsMessage struct {
 func (m ListDeploymentsMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.AppGUIDs),
+		WithLabelIn(korifiv1alpha1.CFAppDeploymentStatusKey, slices.Collect(it.Map(slices.Values(m.StatusValues), func(s DeploymentStatusValue) string {
+			return string(s)
+		}))),
+		m.toSortOption(),
 	}
 }
 
-func (m ListDeploymentsMessage) matchesStatusValue(deployment DeploymentRecord) bool {
-	return tools.EmptyOrContains(m.StatusValues, deployment.Status.Value)
+func (m *ListDeploymentsMessage) toSortOption() ListOption {
+	desc := false
+	orderBy := m.OrderBy
+	if strings.HasPrefix(m.OrderBy, "-") {
+		desc = true
+		orderBy = strings.TrimPrefix(m.OrderBy, "-")
+	}
+
+	switch orderBy {
+	case "created_at":
+		return SortBy("Created At", desc)
+	case "updated_at":
+		return SortBy("Updated At", desc)
+	case "":
+		return NoopListOption{}
+	default:
+		return ErroringListOption(fmt.Sprintf("unsupported field for ordering: %q", orderBy))
+	}
 }
 
 func NewDeploymentRepo(
 	klient Klient,
-	sorter DeploymentSorter,
 ) *DeploymentRepo {
 	return &DeploymentRepo{
 		klient: klient,
-		sorter: sorter,
 	}
 }
 
@@ -133,7 +117,7 @@ func (r *DeploymentRepo) GetDeployment(ctx context.Context, authInfo authorizati
 		return DeploymentRecord{}, apierrors.FromK8sError(err, DeploymentResourceType)
 	}
 
-	return appToDeploymentRecord(*app), nil
+	return appToDeploymentRecord(*app)
 }
 
 func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authorization.Info, message CreateDeploymentMessage) (DeploymentRecord, error) {
@@ -176,7 +160,7 @@ func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authoriz
 		return DeploymentRecord{}, apierrors.FromK8sError(err, DeploymentResourceType)
 	}
 
-	return appToDeploymentRecord(*app), nil
+	return appToDeploymentRecord(*app)
 }
 
 func (r *DeploymentRepo) ListDeployments(ctx context.Context, authInfo authorization.Info, message ListDeploymentsMessage) ([]DeploymentRecord, error) {
@@ -186,8 +170,7 @@ func (r *DeploymentRepo) ListDeployments(ctx context.Context, authInfo authoriza
 		return nil, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	deploymentRecords := it.Filter(it.Map(slices.Values(appList.Items), appToDeploymentRecord), message.matchesStatusValue)
-	return r.sorter.Sort(slices.Collect(deploymentRecords), message.OrderBy), nil
+	return it.TryCollect(it.MapError(slices.Values(appList.Items), appToDeploymentRecord))
 }
 
 func bumpAppRev(appRev string) (string, error) {
@@ -199,26 +182,35 @@ func bumpAppRev(appRev string) (string, error) {
 	return strconv.Itoa(r + 1), nil
 }
 
-func appToDeploymentRecord(cfApp korifiv1alpha1.CFApp) DeploymentRecord {
-	deploymentRecord := DeploymentRecord{
-		GUID:        cfApp.Name,
-		CreatedAt:   cfApp.CreationTimestamp.Time,
-		UpdatedAt:   getLastUpdatedTime(&cfApp),
-		DropletGUID: cfApp.Spec.CurrentDropletRef.Name,
-		Status: DeploymentStatus{
-			Value:  DeploymentStatusValueActive,
-			Reason: DeploymentStatusReasonDeploying,
-		},
+func appToDeploymentRecord(cfApp korifiv1alpha1.CFApp) (DeploymentRecord, error) {
+	createdAt, updatedAt, err := getCreatedUpdatedAt(&cfApp)
+	if err != nil {
+		return DeploymentRecord{}, err
 	}
 
-	if meta.IsStatusConditionTrue(cfApp.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
-		deploymentRecord.Status = DeploymentStatus{
+	return DeploymentRecord{
+		GUID:        cfApp.Name,
+		CreatedAt:   createdAt,
+		UpdatedAt:   updatedAt,
+		DropletGUID: cfApp.Spec.CurrentDropletRef.Name,
+		Status:      appToDeploymentStatus(cfApp),
+	}, nil
+}
+
+func appToDeploymentStatus(cfapp korifiv1alpha1.CFApp) DeploymentStatus {
+	deploymentStatusValue := cfapp.Labels[korifiv1alpha1.CFAppDeploymentStatusKey]
+
+	if deploymentStatusValue == korifiv1alpha1.DeploymentStatusValueFinalized {
+		return DeploymentStatus{
 			Value:  DeploymentStatusValueFinalized,
 			Reason: DeploymentStatusReasonDeployed,
 		}
 	}
 
-	return deploymentRecord
+	return DeploymentStatus{
+		Value:  DeploymentStatusValueActive,
+		Reason: DeploymentStatusReasonDeploying,
+	}
 }
 
 func (r *DeploymentRepo) ensureSupport(ctx context.Context, app *korifiv1alpha1.CFApp) error {

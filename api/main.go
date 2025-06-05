@@ -173,7 +173,6 @@ func main() {
 	)
 	deploymentRepo := repositories.NewDeploymentRepo(
 		klient,
-		repositories.NewDeploymentSorter(),
 	)
 	buildRepo := repositories.NewBuildRepo(
 		klient,

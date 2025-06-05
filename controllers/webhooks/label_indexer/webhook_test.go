@@ -120,9 +120,10 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(app), app)).To(Succeed())
 				g.Expect(app.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.GUIDLabelKey:        Equal(app.Name),
-					korifiv1alpha1.SpaceGUIDKey:        Equal(app.Namespace),
-					korifiv1alpha1.CFAppDisplayNameKey: Equal("55c637753261f0925cbd0f3e595238aaf9c290fcf2efdbdf6e9b8bd4"), // SHA224 hash of "my-awesome-app"
+					korifiv1alpha1.GUIDLabelKey:             Equal(app.Name),
+					korifiv1alpha1.SpaceGUIDKey:             Equal(app.Namespace),
+					korifiv1alpha1.CFAppDisplayNameKey:      Equal("55c637753261f0925cbd0f3e595238aaf9c290fcf2efdbdf6e9b8bd4"), // SHA224 hash of "my-awesome-app"
+					korifiv1alpha1.CFAppDeploymentStatusKey: Equal(korifiv1alpha1.DeploymentStatusValueActive),
 				}))
 			}).Should(Succeed())
 		})

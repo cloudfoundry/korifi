@@ -19,6 +19,7 @@ const (
 	CFAppDisplayNameKey         = "korifi.cloudfoundry.org/display-name"
 	CFAppLastStopRevisionKey    = "korifi.cloudfoundry.org/last-stop-app-rev"
 	CFAppDefaultRevision        = "0"
+	CFAppDeploymentStatusKey    = "korifi.cloudfoundry.org/deployment-status"
 	CFPackageGUIDLabelKey       = "korifi.cloudfoundry.org/package-guid"
 	CFBuildGUIDLabelKey         = "korifi.cloudfoundry.org/build-guid"
 	CFProcessGUIDLabelKey       = "korifi.cloudfoundry.org/process-guid"
