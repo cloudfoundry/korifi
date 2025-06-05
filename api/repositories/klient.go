@@ -28,6 +28,7 @@ type ListOptions struct {
 	FieldSelector fields.Selector
 	Requrements   []labels.Requirement
 	Sort          *SortOpt
+	Paging        *PagingOpt
 }
 
 func (o ListOptions) AsClientListOptions() *client.ListOptions {
@@ -189,5 +190,22 @@ type SortOpt struct {
 
 func (o SortOpt) ApplyToList(opts *ListOptions) error {
 	opts.Sort = &o
+	return nil
+}
+
+func Paging(pageSize int, page int) ListOption {
+	return PagingOpt{
+		PageSize: pageSize,
+		Page:     page,
+	}
+}
+
+type PagingOpt struct {
+	PageSize int
+	Page     int
+}
+
+func (o PagingOpt) ApplyToList(opts *ListOptions) error {
+	opts.Paging = &o
 	return nil
 }

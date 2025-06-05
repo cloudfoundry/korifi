@@ -115,45 +115,54 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 		return toStatusError(list, err)
 	}
 
+	if isSimpleList(listOpts) {
+		return k.listViaUserClient(ctx, list, listOpts.AsClientListOptions())
+	}
+
+	listObjectGVK, err := getGVK(list)
+	if err != nil {
+		return fmt.Errorf("failed to get GVK for list %T: %w", list, err)
+	}
+	objectDescriptors, err := k.descriptorClient.List(ctx, listObjectGVK, listOpts.AsClientListOptions())
+	if err != nil {
+		return fmt.Errorf("failed to list object descriptors: %w", err)
+	}
+
+	if listOpts.Sort != nil {
+		if err = objectDescriptors.Sort(listOpts.Sort.By, listOpts.Sort.Desc); err != nil {
+			return fmt.Errorf("failed to sort object descriptors: %w", err)
+		}
+	}
+
+	objectGUIDs, err := objectDescriptors.GUIDs()
+	if err != nil {
+		return fmt.Errorf("failed to get sorted object GUIDs: %w", err)
+	}
+
+	listResult, err := k.objectListMapper.GUIDsToObjectList(ctx, listObjectGVK, objectGUIDs)
+	if err != nil {
+		return fmt.Errorf("failed to map sorted object GUIDs to objects: %w", err)
+	}
+
+	if err := transferItems(listResult, list); err != nil {
+		return fmt.Errorf("failed to copy list items: %w", err)
+	}
+
+	return nil
+}
+
+func isSimpleList(listOpts repositories.ListOptions) bool {
+	return listOpts.Sort == nil && listOpts.Paging == nil
+}
+
+func (k *K8sKlient) listViaUserClient(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
 	authInfo, _ := authorization.InfoFromContext(ctx)
 	userClient, err := k.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return fmt.Errorf("failed to build user client: %w", err)
 	}
 
-	if listOpts.Sort != nil {
-		listObjectGVK, err := getGVK(list)
-		if err != nil {
-			return fmt.Errorf("failed to get GVK for list %T: %w", list, err)
-		}
-		objectDescriptors, err := k.descriptorClient.List(ctx, listObjectGVK, listOpts.AsClientListOptions())
-		if err != nil {
-			return fmt.Errorf("failed to list object descriptors: %w", err)
-		}
-
-		if err = objectDescriptors.Sort(listOpts.Sort.By, listOpts.Sort.Desc); err != nil {
-			return fmt.Errorf("failed to sort object descriptors: %w", err)
-		}
-
-		sortedObjectGUIDs, err := objectDescriptors.GUIDs()
-		if err != nil {
-			return fmt.Errorf("failed to get sorted object GUIDs: %w", err)
-		}
-
-		listResult, err := k.objectListMapper.GUIDsToObjectList(ctx, listObjectGVK, sortedObjectGUIDs)
-		if err != nil {
-			return fmt.Errorf("failed to map sorted object GUIDs to objects: %w", err)
-		}
-
-		if err := transferItems(listResult, list); err != nil {
-			return fmt.Errorf("failed to copy list items: %w", err)
-		}
-
-		return nil
-
-	}
-
-	return userClient.List(ctx, list, listOpts.AsClientListOptions())
+	return userClient.List(ctx, list, opts...)
 }
 
 func getObjectListItemsField(listObj client.ObjectList) (reflect.Value, error) {
