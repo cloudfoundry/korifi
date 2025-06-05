@@ -425,4 +425,67 @@ var _ = Describe("IndexValues", func() {
 			})
 		})
 	})
+
+	Describe("DefaultIfEmpty", func() {
+		var (
+			indexingFunc   values.IndexValueFunc
+			defaultingFunc values.IndexValueFunc
+		)
+
+		BeforeEach(func() {
+			indexingFunc = func(obj map[string]any) (*string, error) {
+				return tools.PtrTo("foo"), nil
+			}
+
+			defaultingFunc = func(map[string]any) (*string, error) {
+				return tools.PtrTo("bar"), nil
+			}
+		})
+
+		JustBeforeEach(func() {
+			result, err = values.DefaultIfEmpty(indexingFunc, defaultingFunc)(map[string]any{})
+		})
+
+		It("returns the previous value", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(PointTo(Equal("foo")))
+		})
+
+		When("the previous value is nil", func() {
+			BeforeEach(func() {
+				indexingFunc = func(obj map[string]any) (*string, error) {
+					return nil, nil
+				}
+			})
+
+			It("returns the default value", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result).To(PointTo(Equal("bar")))
+			})
+
+			When("the defaulting func returns an error", func() {
+				BeforeEach(func() {
+					defaultingFunc = func(obj map[string]any) (*string, error) {
+						return nil, errors.New("bar")
+					}
+				})
+
+				It("returns an error", func() {
+					Expect(err).To(MatchError(ContainSubstring("bar")))
+				})
+			})
+		})
+
+		When("the previous func returns an error", func() {
+			BeforeEach(func() {
+				indexingFunc = func(obj map[string]any) (*string, error) {
+					return nil, errors.New("foo")
+				}
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("foo")))
+			})
+		})
+	})
 })

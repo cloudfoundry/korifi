@@ -40,6 +40,14 @@ func NewWebhook() *LabelIndexerWebhook {
 				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
 				LabelRule{Label: korifiv1alpha1.CFAppDisplayNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.displayName")))},
+				LabelRule{
+					Label: korifiv1alpha1.CFAppDeploymentStatusKey,
+					IndexingFunc: Map(DefaultIfEmpty(Unquote(SingleValue(JSONValue("$.status.conditions[?@.type == \"Ready\"].status"))), ConstantValue(string(metav1.ConditionFalse))),
+						map[string]IndexValueFunc{
+							string(metav1.ConditionFalse): ConstantValue(korifiv1alpha1.DeploymentStatusValueActive),
+							string(metav1.ConditionTrue):  ConstantValue(korifiv1alpha1.DeploymentStatusValueFinalized),
+						}),
+				},
 			},
 			"CFBuild": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},

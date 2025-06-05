@@ -142,6 +142,21 @@ func Map(prev IndexValueFunc, valuesMap map[string]IndexValueFunc) IndexValueFun
 	}
 }
 
+func DefaultIfEmpty(prev IndexValueFunc, defaultValue IndexValueFunc) IndexValueFunc {
+	return func(obj map[string]any) (*string, error) {
+		prevValue, err := prev(obj)
+		if err != nil {
+			return nil, err
+		}
+
+		if prevValue == nil {
+			return defaultValue(obj)
+		}
+
+		return prevValue, nil
+	}
+}
+
 func marshal(value any) (*string, error) {
 	valueBytes, err := json.Marshal(value)
 	if err != nil {

@@ -356,8 +356,9 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 				CFAppRevisionKey: CFAppRevisionValue,
 			},
 			Labels: map[string]string{
-				korifiv1alpha1.SpaceGUIDKey: space,
-				korifiv1alpha1.GUIDLabelKey: guid,
+				korifiv1alpha1.SpaceGUIDKey:             space,
+				korifiv1alpha1.GUIDLabelKey:             guid,
+				korifiv1alpha1.CFAppDeploymentStatusKey: korifiv1alpha1.DeploymentStatusValueActive,
 			},
 		},
 		Spec: korifiv1alpha1.CFAppSpec{
