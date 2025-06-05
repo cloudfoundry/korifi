@@ -280,18 +280,13 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleServiceAccou
 }
 
 func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info, message ListRolesMessage) ([]RoleRecord, error) {
-	authorisedSpaceNamespaces, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
-	}
-	authorizedOrgNamespaces, err := authorizedOrgNamespaces(ctx, authInfo, r.namespacePermissions)
+	authorizedNamespaces, err := getAuthorizedNamespaces(ctx, authInfo, r.namespacePermissions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
-	nsList := authorisedSpaceNamespaces.Chain(authorizedOrgNamespaces).Collect()
 	roleBindings := []rbacv1.RoleBinding{}
-	for _, ns := range nsList {
+	for _, ns := range authorizedNamespaces {
 		roleBindingsList := &rbacv1.RoleBindingList{}
 		err := r.klient.List(ctx, roleBindingsList, InNamespace(ns))
 		if err != nil {

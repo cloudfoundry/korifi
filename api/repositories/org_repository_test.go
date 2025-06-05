@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
@@ -60,7 +61,7 @@ var _ = Describe("OrgRepository", func() {
 				namespace := &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:   cfOrg.Name,
-						Labels: map[string]string{korifiv1alpha1.OrgNameKey: cfOrg.Spec.DisplayName},
+						Labels: map[string]string{korifiv1alpha1.CFOrgDisplayNameKey: cfOrg.Spec.DisplayName},
 					},
 				}
 				Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
@@ -112,7 +113,7 @@ var _ = Describe("OrgRepository", func() {
 				Expect(orgRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
 				Expect(orgRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 				Expect(orgRecord.DeletedAt).To(BeNil())
-				Expect(orgRecord.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
+				Expect(orgRecord.Labels).To(HaveKeyWithValue("test-label-key", "test-label-val"))
 				Expect(orgRecord.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
 
@@ -123,7 +124,7 @@ var _ = Describe("OrgRepository", func() {
 				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: rootNamespace, Name: orgRecord.GUID}, cfOrg)).To(Succeed())
 
 				Expect(cfOrg.Spec.DisplayName).To(Equal(orgGUID))
-				Expect(cfOrg.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
+				Expect(cfOrg.Labels).To(HaveKeyWithValue("test-label-key", "test-label-val"))
 				Expect(cfOrg.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
 			})
 
@@ -163,101 +164,49 @@ var _ = Describe("OrgRepository", func() {
 	})
 
 	Describe("ListOrgs", func() {
-		var cfOrg1, cfOrg2, cfOrg3 *korifiv1alpha1.CFOrg
+		var (
+			cfOrg1, cfOrg2, cfOrg3 *korifiv1alpha1.CFOrg
+			listMessage            repositories.ListOrgsMessage
+			orgs                   []repositories.OrgRecord
+			listErr                error
+		)
 
 		BeforeEach(func() {
 			cfOrg1 = createOrgWithCleanup(ctx, prefixedGUID("org1"))
-			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg1.Name)
 			cfOrg2 = createOrgWithCleanup(ctx, prefixedGUID("org2"))
-			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg2.Name)
 			cfOrg3 = createOrgWithCleanup(ctx, prefixedGUID("org3"))
-			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg3.Name)
 			createOrgWithCleanup(ctx, prefixedGUID("org4"))
+			listMessage = repositories.ListOrgsMessage{}
 		})
 
-		It("returns the 3 orgs", func() {
-			orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{})
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(orgs).To(ConsistOf(
-				MatchFields(IgnoreExtras, Fields{
-					"Name": Equal(cfOrg1.Spec.DisplayName),
-					"GUID": Equal(cfOrg1.Name),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name": Equal(cfOrg2.Spec.DisplayName),
-					"GUID": Equal(cfOrg2.Name),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name": Equal(cfOrg3.Spec.DisplayName),
-					"GUID": Equal(cfOrg3.Name),
-				}),
-			))
+		JustBeforeEach(func() {
+			orgs, listErr = orgRepo.ListOrgs(ctx, authInfo, listMessage)
 		})
 
-		When("the org is not ready", func() {
+		It("returns an empty list (as no roles assigned)", func() {
+			Expect(listErr).NotTo(HaveOccurred())
+			Expect(orgs).To(BeEmpty())
+		})
+
+		When("fetching authorized namespaces fails", func() {
 			BeforeEach(func() {
-				meta.SetStatusCondition(&(cfOrg1.Status.Conditions), metav1.Condition{
-					Type:    korifiv1alpha1.StatusConditionReady,
-					Status:  metav1.ConditionFalse,
-					Reason:  "because",
-					Message: "because",
-				})
-				Expect(k8sClient.Status().Update(ctx, cfOrg1)).To(Succeed())
-
-				meta.SetStatusCondition(&(cfOrg2.Status.Conditions), metav1.Condition{
-					Type:    korifiv1alpha1.StatusConditionReady,
-					Status:  metav1.ConditionUnknown,
-					Reason:  "because",
-					Message: "because",
-				})
-				Expect(k8sClient.Status().Update(ctx, cfOrg2)).To(Succeed())
+				authInfo = authorization.Info{}
 			})
 
-			It("does not list it", func() {
-				orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{})
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(orgs).NotTo(ContainElement(
-					MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(cfOrg1.Name),
-					}),
-				))
-				Expect(orgs).NotTo(ContainElement(
-					MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(cfOrg2.Name),
-					}),
-				))
-				Expect(orgs).To(ContainElement(
-					MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(cfOrg3.Name),
-					}),
-				))
+			It("returns the error", func() {
+				Expect(listErr).To(MatchError(ContainSubstring("failed to get identity")))
 			})
 		})
 
-		When("we filter for names org1 and org3", func() {
-			It("returns just those", func() {
-				orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{Names: []string{cfOrg1.Spec.DisplayName, cfOrg3.Spec.DisplayName}})
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(orgs).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{
-						"Name": Equal(cfOrg1.Spec.DisplayName),
-						"GUID": Equal(cfOrg1.Name),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"Name": Equal(cfOrg3.Spec.DisplayName),
-						"GUID": Equal(cfOrg3.Name),
-					}),
-				))
+		When("the user is an org user", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg1.Name)
+				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg2.Name)
+				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg3.Name)
 			})
-		})
 
-		When("we filter for guids org1 and org2", func() {
-			It("returns just those", func() {
-				orgs, err := orgRepo.ListOrgs(ctx, authInfo, repositories.ListOrgsMessage{GUIDs: []string{cfOrg1.Name, cfOrg2.Name}})
-				Expect(err).NotTo(HaveOccurred())
+			It("returns the orgs", func() {
+				Expect(listErr).NotTo(HaveOccurred())
 
 				Expect(orgs).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
@@ -268,19 +217,71 @@ var _ = Describe("OrgRepository", func() {
 						"Name": Equal(cfOrg2.Spec.DisplayName),
 						"GUID": Equal(cfOrg2.Name),
 					}),
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Equal(cfOrg3.Spec.DisplayName),
+						"GUID": Equal(cfOrg3.Name),
+					}),
 				))
 			})
-		})
 
-		When("fetching authorized namespaces fails", func() {
-			var listErr error
+			When("listing by names", func() {
+				BeforeEach(func() {
+					listMessage = repositories.ListOrgsMessage{
+						Names: []string{cfOrg2.Spec.DisplayName},
+					}
+				})
 
-			BeforeEach(func() {
-				_, listErr = orgRepo.ListOrgs(ctx, authorization.Info{}, repositories.ListOrgsMessage{Names: []string{cfOrg1.Spec.DisplayName, cfOrg3.Spec.DisplayName}})
+				It("returns the orgs with matching names", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+
+					Expect(orgs).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"GUID": Equal(cfOrg2.Name),
+						}),
+					))
+				})
 			})
 
-			It("returns the error", func() {
-				Expect(listErr).To(MatchError(ContainSubstring("failed to get identity")))
+			Describe("filter parameters to list options", func() {
+				var fakeKlient *fake.Klient
+
+				BeforeEach(func() {
+					fakeKlient = new(fake.Klient)
+					orgRepo = repositories.NewOrgRepo(fakeKlient, rootNamespace, nsPerms, conditionAwaiter)
+
+					listMessage = repositories.ListOrgsMessage{
+						GUIDs: []string{cfOrg2.Name},
+						Names: []string{"a1", "a2"},
+					}
+				})
+
+				It("translates filter parameters to klient list options", func() {
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{cfOrg2.Name}),
+						repositories.WithLabelIn(korifiv1alpha1.CFOrgDisplayNameKey, tools.EncodeValuesToSha224("a1", "a2")),
+						repositories.WithLabel(korifiv1alpha1.ReadyLabelKey, string(metav1.ConditionTrue)),
+						repositories.InNamespace(rootNamespace),
+					))
+				})
+
+				When("the list message does not filter by org GUIDs", func() {
+					BeforeEach(func() {
+						listMessage.GUIDs = nil
+					})
+
+					It("filters orgs authorised orgs only", func() {
+						Expect(fakeKlient.ListCallCount()).To(Equal(1))
+						_, _, listOptions := fakeKlient.ListArgsForCall(0)
+						Expect(listOptions).To(ContainElement(
+							MatchAllFields(Fields{
+								"Key":    Equal(korifiv1alpha1.GUIDLabelKey),
+								"Values": ConsistOf(cfOrg1.Name, cfOrg2.Name, cfOrg3.Name),
+							}),
+						))
+					})
+				})
 			})
 		})
 	})
@@ -291,9 +292,7 @@ var _ = Describe("OrgRepository", func() {
 		BeforeEach(func() {
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("the-org"))
 			Expect(k8s.PatchResource(ctx, k8sClient, cfOrg, func() {
-				cfOrg.Labels = map[string]string{
-					"test-label-key": "test-label-val",
-				}
+				cfOrg.Labels["test-label-key"] = "test-label-val"
 				cfOrg.Annotations = map[string]string{
 					"test-annotation-key": "test-annotation-val",
 				}
@@ -309,8 +308,8 @@ var _ = Describe("OrgRepository", func() {
 				orgRecord, err := orgRepo.GetOrg(ctx, authInfo, cfOrg.Name)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(orgRecord.Name).To(Equal(cfOrg.Spec.DisplayName))
-				Expect(orgRecord.Labels).To(Equal(map[string]string{"test-label-key": "test-label-val"}))
-				Expect(orgRecord.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
+				Expect(orgRecord.Labels).To(HaveKeyWithValue("test-label-key", "test-label-val"))
+				Expect(orgRecord.Annotations).To(HaveKeyWithValue("test-annotation-key", "test-annotation-val"))
 			})
 		})
 
@@ -521,11 +520,9 @@ var _ = Describe("OrgRepository", func() {
 				It("returns the updated org record", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(orgRecord.GUID).To(Equal(orgGUID))
-					Expect(orgRecord.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
+					Expect(orgRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key-one", "value-one"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(orgRecord.Annotations).To(Equal(
 						map[string]string{
@@ -540,11 +537,9 @@ var _ = Describe("OrgRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFOrg := new(korifiv1alpha1.CFOrg)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), updatedCFOrg)).To(Succeed())
-					Expect(updatedCFOrg.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
+					Expect(updatedCFOrg.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key-one", "value-one"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(updatedCFOrg.Annotations).To(Equal(
 						map[string]string{
@@ -585,12 +580,10 @@ var _ = Describe("OrgRepository", func() {
 				It("returns the updated org record", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(orgRecord.GUID).To(Equal(cfOrg.Name))
-					Expect(orgRecord.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(orgRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(orgRecord.Annotations).To(Equal(
 						map[string]string{
@@ -606,13 +599,12 @@ var _ = Describe("OrgRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFOrg := new(korifiv1alpha1.CFOrg)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfOrg), updatedCFOrg)).To(Succeed())
-					Expect(updatedCFOrg.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(updatedCFOrg.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
+
 					Expect(updatedCFOrg.Annotations).To(Equal(
 						map[string]string{
 							"before-key-one": "value-one",

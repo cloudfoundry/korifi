@@ -37,7 +37,7 @@ func TestWorkloadsWebhooks(t *testing.T) {
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Finalizer Webhook Integration Test Suite")
+	RunSpecs(t, "Label Indexer Webhook Integration Test Suite")
 }
 
 var _ = BeforeSuite(func() {

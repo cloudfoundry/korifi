@@ -560,7 +560,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(serviceInstanceRecord.Name).To(Equal("new-name"))
 				Expect(serviceInstanceRecord.Tags).To(ConsistOf("new"))
-				Expect(serviceInstanceRecord.Labels).To(HaveLen(2))
 				Expect(serviceInstanceRecord.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
 				Expect(serviceInstanceRecord.Labels).To(HaveKeyWithValue("new-label", "new-label-value"))
 				Expect(serviceInstanceRecord.Annotations).To(HaveLen(2))
@@ -576,7 +575,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
 					g.Expect(serviceInstance.Spec.DisplayName).To(Equal("new-name"))
 					g.Expect(serviceInstance.Spec.Tags).To(ConsistOf("new"))
-					g.Expect(serviceInstance.Labels).To(HaveLen(2))
 					g.Expect(serviceInstance.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
 					g.Expect(serviceInstance.Labels).To(HaveKeyWithValue("new-label", "new-label-value"))
 					g.Expect(serviceInstance.Annotations).To(HaveLen(2))
@@ -1017,7 +1015,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(record.SpaceGUID).To(Equal(serviceInstance.Namespace))
 				Expect(record.Tags).To(Equal(serviceInstance.Spec.Tags))
 				Expect(record.Type).To(Equal(string(serviceInstance.Spec.Type)))
-				Expect(record.Labels).To(Equal(map[string]string{"a-label": "a-label-value"}))
+				Expect(record.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
 				Expect(record.Annotations).To(Equal(map[string]string{"an-annotation": "an-annotation-value"}))
 				Expect(record.Relationships()).To(Equal(map[string]string{
 					"space": serviceInstance.Namespace,

@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -66,20 +67,52 @@ func getLabelOrAnnotation(mapObj map[string]string, key string) string {
 	return mapObj[key]
 }
 
-func authorizedSpaceNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) (itx.Iterator[string], error) {
+func getAuthorizedSpaceNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) ([]string, error) {
 	nsList, err := namespacePermissions.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
-	return itx.From(maps.Keys(nsList)), nil
+	return slices.Collect(maps.Keys(nsList)), nil
 }
 
-func authorizedOrgNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) (itx.Iterator[string], error) {
+func getAuthorizedOrgNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) ([]string, error) {
 	nsList, err := namespacePermissions.GetAuthorizedOrgNamespaces(ctx, authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces for orgs with user role bindings: %w", err)
 	}
 
-	return itx.From(maps.Keys(nsList)), nil
+	return slices.Collect(maps.Keys(nsList)), nil
+}
+
+func getAuthorizedNamespaces(ctx context.Context, authInfo authorization.Info, namespacePermissions *authorization.NamespacePermissions) ([]string, error) {
+	authorizedOrgNamespaces, err := getAuthorizedOrgNamespaces(ctx, authInfo, namespacePermissions)
+	if err != nil {
+		return nil, err
+	}
+
+	authorizedSpaceNamespaces, err := getAuthorizedSpaceNamespaces(ctx, authInfo, namespacePermissions)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(authorizedOrgNamespaces, authorizedSpaceNamespaces...), nil
+}
+
+func getCreatedUpdatedAt(obj metav1.Object) (time.Time, *time.Time, error) {
+	createdAt, err := time.Parse(korifiv1alpha1.LabelDateFormat, obj.GetLabels()[korifiv1alpha1.CreatedAtLabelKey])
+	if err != nil {
+		return time.Time{}, nil, fmt.Errorf("failed to parse %q label: %w", korifiv1alpha1.CreatedAtLabelKey, err)
+	}
+
+	var updatedAt *time.Time
+	if obj.GetLabels()[korifiv1alpha1.UpdatedAtLabelKey] != "" {
+		updateTime, err := time.Parse(korifiv1alpha1.LabelDateFormat, getLabelOrAnnotation(obj.GetLabels(), korifiv1alpha1.UpdatedAtLabelKey))
+		if err != nil {
+			return time.Time{}, nil, fmt.Errorf("failed to parse %q label: %w", korifiv1alpha1.UpdatedAtLabelKey, err)
+		}
+		updatedAt = &updateTime
+	}
+
+	return createdAt, updatedAt, nil
 }

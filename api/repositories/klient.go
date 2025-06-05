@@ -2,8 +2,10 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/tools/k8s"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -25,10 +27,39 @@ type ListOptions struct {
 	Namespace     string
 	FieldSelector fields.Selector
 	Requrements   []labels.Requirement
+	Sort          *SortOpt
+}
+
+func (o ListOptions) AsClientListOptions() *client.ListOptions {
+	return &client.ListOptions{
+		LabelSelector: newLabelSelector(o.Requrements),
+		FieldSelector: o.FieldSelector,
+		Namespace:     o.Namespace,
+	}
+}
+
+func newLabelSelector(requrements []labels.Requirement) labels.Selector {
+	if len(requrements) == 0 {
+		return nil
+	}
+
+	return labels.NewSelector().Add(requrements...)
 }
 
 type ListOption interface {
 	ApplyToList(*ListOptions) error
+}
+
+type NoopListOption struct{}
+
+func (o NoopListOption) ApplyToList(opts *ListOptions) error {
+	return nil
+}
+
+type ErroringListOption string
+
+func (o ErroringListOption) ApplyToList(opts *ListOptions) error {
+	return errors.New(string(o))
 }
 
 type LabelOpt struct {
@@ -124,5 +155,39 @@ type MatchingFields fields.Set
 func (m MatchingFields) ApplyToList(opts *ListOptions) error {
 	sel := fields.Set(m).AsSelector()
 	opts.FieldSelector = sel
+	return nil
+}
+
+type Nothing struct{}
+
+func (o Nothing) ApplyToList(opts *ListOptions) error {
+	matchNothingRequirements, _ := k8s.MatchNotingSelector().Requirements()
+	opts.Requrements = append(opts.Requrements, matchNothingRequirements...)
+
+	return nil
+}
+
+func WithLabelStrictlyIn(key string, values []string) ListOption {
+	if len(values) == 0 {
+		return Nothing{}
+	}
+
+	return WithLabelIn(key, values)
+}
+
+func SortBy(by string, desc bool) ListOption {
+	return SortOpt{
+		By:   by,
+		Desc: desc,
+	}
+}
+
+type SortOpt struct {
+	By   string
+	Desc bool
+}
+
+func (o SortOpt) ApplyToList(opts *ListOptions) error {
+	opts.Sort = &o
 	return nil
 }

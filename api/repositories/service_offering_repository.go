@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -55,7 +56,6 @@ func (r ServiceOfferingRecord) Relationships() map[string]string {
 type ServiceOfferingRepo struct {
 	klient               Klient
 	rootNamespace        string
-	brokerRepo           *ServiceBrokerRepo
 	namespacePermissions *authorization.NamespacePermissions
 }
 
@@ -70,22 +70,23 @@ type DeleteServiceOfferingMessage struct {
 	Purge bool
 }
 
-func (m *ListServiceOfferingMessage) matches(cfServiceOffering korifiv1alpha1.CFServiceOffering) bool {
-	return tools.EmptyOrContains(m.Names, cfServiceOffering.Spec.Name) &&
-		tools.EmptyOrContains(m.GUIDs, cfServiceOffering.Name) &&
-		tools.EmptyOrContains(m.BrokerNames, cfServiceOffering.Labels[korifiv1alpha1.RelServiceBrokerNameLabel])
+func (m *ListServiceOfferingMessage) toListOptions(rootNamespace string) []ListOption {
+	return []ListOption{
+		InNamespace(rootNamespace),
+		WithLabelIn(korifiv1alpha1.CFServiceOfferingNameKey, tools.EncodeValuesToSha224(m.Names...)),
+		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
+		WithLabelIn(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValuesToSha224(m.BrokerNames...)),
+	}
 }
 
 func NewServiceOfferingRepo(
 	klient Klient,
 	rootNamespace string,
-	brokerRepo *ServiceBrokerRepo,
 	namespacePermissions *authorization.NamespacePermissions,
 ) *ServiceOfferingRepo {
 	return &ServiceOfferingRepo{
 		klient:               klient,
 		rootNamespace:        rootNamespace,
-		brokerRepo:           brokerRepo,
 		namespacePermissions: namespacePermissions,
 	}
 }
@@ -107,7 +108,7 @@ func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo a
 
 func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {
 	offeringsList := &korifiv1alpha1.CFServiceOfferingList{}
-	err := r.klient.List(ctx, offeringsList, InNamespace(r.rootNamespace))
+	err := r.klient.List(ctx, offeringsList, message.toListOptions(r.rootNamespace)...)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return []ServiceOfferingRecord{}, nil
@@ -118,7 +119,7 @@ func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo author
 		)
 	}
 
-	return it.TryCollect(it.MapError(itx.FromSlice(offeringsList.Items).Filter(message.matches), offeringToRecord))
+	return it.TryCollect(it.MapError(itx.FromSlice(offeringsList.Items), offeringToRecord))
 }
 
 func (r *ServiceOfferingRepo) DeleteOffering(ctx context.Context, authInfo authorization.Info, message DeleteServiceOfferingMessage) error {
@@ -134,7 +135,7 @@ func (r *ServiceOfferingRepo) DeleteOffering(ctx context.Context, authInfo autho
 	}
 
 	if message.Purge {
-		if err := r.purgeRelatedResources(ctx, authInfo, message.GUID); err != nil {
+		if err := r.purgeRelatedResources(ctx, message.GUID); err != nil {
 			return fmt.Errorf("failed to purge service offering resources: %w", apierrors.FromK8sError(err, ServiceOfferingResourceType))
 		}
 	}
@@ -173,20 +174,34 @@ func offeringToRecord(offering korifiv1alpha1.CFServiceOffering) (ServiceOfferin
 	}, nil
 }
 
-func (r *ServiceOfferingRepo) purgeRelatedResources(ctx context.Context, authInfo authorization.Info, offeringGUID string) error {
+func (r *ServiceOfferingRepo) purgeRelatedResources(ctx context.Context, offeringGUID string) error {
 	planGUIDs, err := r.deleteServicePlans(ctx, offeringGUID)
 	if err != nil {
 		return fmt.Errorf("failed to delete service plans: %w", apierrors.FromK8sError(err, ServicePlanResourceType))
 	}
 
-	authorizedSpaceNamespacesIter, err := authorizedSpaceNamespaces(ctx, authInfo, r.namespacePermissions)
-	if err != nil {
-		return fmt.Errorf("failed to list namespaces: %w", err)
-	}
-
-	serviceInstances, err := r.fetchServiceInstances(ctx, authorizedSpaceNamespacesIter, planGUIDs)
+	serviceInstances, err := r.fetchServiceInstances(ctx, planGUIDs)
 	if err != nil {
 		return fmt.Errorf("failed to list service instances: %w", err)
+	}
+
+	serviceInstanceGUIDs := slices.Collect(it.Map(slices.Values(serviceInstances), func(instance korifiv1alpha1.CFServiceInstance) string {
+		return instance.Name
+	}))
+
+	serviceBindings, err := r.fetchServiceBindings(ctx, serviceInstanceGUIDs)
+	if err != nil {
+		return fmt.Errorf("failed to list service bindings: %w", err)
+	}
+
+	for _, binding := range serviceBindings {
+		err = r.klient.Patch(ctx, &binding, func() error {
+			controllerutil.RemoveFinalizer(&binding, korifiv1alpha1.CFServiceBindingFinalizerName)
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to remove finalizer for service binding: %s, %w", binding.Name, apierrors.FromK8sError(err, ServiceBindingResourceType))
+		}
 	}
 
 	for _, instance := range serviceInstances {
@@ -202,21 +217,6 @@ func (r *ServiceOfferingRepo) purgeRelatedResources(ctx context.Context, authInf
 			return fmt.Errorf("failed to delete service instance: %w", apierrors.FromK8sError(err, ServiceInstanceResourceType))
 		}
 
-	}
-
-	serviceBindings, err := r.fetchServiceBindings(ctx, authorizedSpaceNamespacesIter, planGUIDs)
-	if err != nil {
-		return fmt.Errorf("failed to list service bindings: %w", err)
-	}
-
-	for _, binding := range serviceBindings {
-		err = r.klient.Patch(ctx, &binding, func() error {
-			controllerutil.RemoveFinalizer(&binding, korifiv1alpha1.CFServiceBindingFinalizerName)
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("failed to remove finalizer for service binding: %s, %w", binding.Name, apierrors.FromK8sError(err, ServiceBindingResourceType))
-		}
 	}
 
 	return nil
@@ -240,44 +240,22 @@ func (r *ServiceOfferingRepo) deleteServicePlans(ctx context.Context, offeringGU
 	return planGUIDs, nil
 }
 
-func (r *ServiceOfferingRepo) fetchServiceInstances(ctx context.Context, authorizedNamespaces itx.Iterator[string], planGUIDs []string) ([]korifiv1alpha1.CFServiceInstance, error) {
-	var serviceInstances []korifiv1alpha1.CFServiceInstance
-
-	for _, ns := range authorizedNamespaces.Collect() {
-		instances := new(korifiv1alpha1.CFServiceInstanceList)
-
-		err := r.klient.List(ctx, instances, InNamespace(ns))
-		if err != nil {
-			return []korifiv1alpha1.CFServiceInstance{}, fmt.Errorf("failed to list service instances: %w", err)
-		}
-
-		filtered := itx.FromSlice(instances.Items).Filter(func(serviceInstance korifiv1alpha1.CFServiceInstance) bool {
-			return tools.EmptyOrContains(planGUIDs, serviceInstance.Spec.PlanGUID)
-		}).Collect()
-
-		serviceInstances = append(serviceInstances, filtered...)
+func (r *ServiceOfferingRepo) fetchServiceInstances(ctx context.Context, planGUIDs []string) ([]korifiv1alpha1.CFServiceInstance, error) {
+	instances := new(korifiv1alpha1.CFServiceInstanceList)
+	err := r.klient.List(ctx, instances, WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, planGUIDs))
+	if err != nil {
+		return []korifiv1alpha1.CFServiceInstance{}, fmt.Errorf("failed to list service instances: %w", err)
 	}
 
-	return serviceInstances, nil
+	return instances.Items, nil
 }
 
-func (r *ServiceOfferingRepo) fetchServiceBindings(ctx context.Context, authorizedNamespaces itx.Iterator[string], planGUIDs []string) ([]korifiv1alpha1.CFServiceBinding, error) {
-	var serviceBindings []korifiv1alpha1.CFServiceBinding
-
-	for _, ns := range authorizedNamespaces.Collect() {
-		bindings := new(korifiv1alpha1.CFServiceBindingList)
-
-		err := r.klient.List(ctx, bindings, InNamespace(ns))
-		if err != nil {
-			return []korifiv1alpha1.CFServiceBinding{}, fmt.Errorf("failed to list service bindings: %w", err)
-		}
-
-		filtered := itx.FromSlice(bindings.Items).Filter(func(serviceBinding korifiv1alpha1.CFServiceBinding) bool {
-			return tools.EmptyOrContains(planGUIDs, serviceBinding.Labels[korifiv1alpha1.PlanGUIDLabelKey])
-		}).Collect()
-
-		serviceBindings = append(serviceBindings, filtered...)
+func (r *ServiceOfferingRepo) fetchServiceBindings(ctx context.Context, serviceInstanceGUIDs []string) ([]korifiv1alpha1.CFServiceBinding, error) {
+	bindings := new(korifiv1alpha1.CFServiceBindingList)
+	err := r.klient.List(ctx, bindings, WithLabelStrictlyIn(korifiv1alpha1.CFServiceInstanceGUIDLabelKey, serviceInstanceGUIDs))
+	if err != nil {
+		return []korifiv1alpha1.CFServiceBinding{}, fmt.Errorf("failed to list service bindings: %w", err)
 	}
 
-	return serviceBindings, nil
+	return bindings.Items, nil
 }

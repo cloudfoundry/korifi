@@ -11,7 +11,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -101,18 +100,29 @@ type ListServicePlanMessage struct {
 	Available            *bool
 }
 
-func (m *ListServicePlanMessage) matches(cfServicePlan korifiv1alpha1.CFServicePlan) bool {
-	return tools.EmptyOrContains(m.ServiceOfferingGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel]) &&
-		tools.EmptyOrContains(m.GUIDs, cfServicePlan.Name) &&
-		tools.EmptyOrContains(m.Names, cfServicePlan.Spec.Name) &&
-		tools.EmptyOrContains(m.BrokerNames, cfServicePlan.Labels[korifiv1alpha1.RelServiceBrokerNameLabel]) &&
-		tools.EmptyOrContains(m.BrokerGUIDs, cfServicePlan.Labels[korifiv1alpha1.RelServiceBrokerGUIDLabel]) &&
-		tools.EmptyOrContains(m.ServiceOfferingNames, cfServicePlan.Labels[korifiv1alpha1.RelServiceOfferingNameLabel]) &&
-		tools.NilOrEquals(m.Available, isAvailable(cfServicePlan))
+func (m *ListServicePlanMessage) toListOptions(rootNamespace string) []ListOption {
+	return []ListOption{
+		InNamespace(rootNamespace),
+		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
+		WithLabelIn(korifiv1alpha1.CFServicePlanNameKey, tools.EncodeValuesToSha224(m.Names...)),
+		WithLabelIn(korifiv1alpha1.RelServiceOfferingGUIDLabel, m.ServiceOfferingGUIDs),
+		WithLabelIn(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValuesToSha224(m.BrokerNames...)),
+		WithLabelIn(korifiv1alpha1.RelServiceBrokerGUIDLabel, m.BrokerGUIDs),
+		WithLabelIn(korifiv1alpha1.RelServiceOfferingNameLabel, tools.EncodeValuesToSha224(m.ServiceOfferingNames...)),
+		m.toAvailableListOption(),
+	}
 }
 
-func isAvailable(cfServicePlan korifiv1alpha1.CFServicePlan) bool {
-	return cfServicePlan.Spec.Visibility.Type != korifiv1alpha1.AdminServicePlanVisibilityType
+func (m *ListServicePlanMessage) toAvailableListOption() ListOption {
+	if m.Available == nil {
+		return NoopListOption{}
+	}
+
+	if *m.Available {
+		return WithLabel(korifiv1alpha1.CFServicePlanAvailableKey, "true")
+	}
+
+	return WithLabel(korifiv1alpha1.CFServicePlanAvailableKey, "false")
 }
 
 type ApplyServicePlanVisibilityMessage struct {
@@ -170,11 +180,11 @@ func NewServicePlanRepo(
 
 func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]ServicePlanRecord, error) {
 	cfServicePlans := &korifiv1alpha1.CFServicePlanList{}
-	if err := r.klient.List(ctx, cfServicePlans, InNamespace(r.rootNamespace)); err != nil {
+	if err := r.klient.List(ctx, cfServicePlans, message.toListOptions(r.rootNamespace)...); err != nil {
 		return nil, apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
-	return it.TryCollect(it.MapError(itx.FromSlice(cfServicePlans.Items).Filter(message.matches), func(plan korifiv1alpha1.CFServicePlan) (ServicePlanRecord, error) {
+	return it.TryCollect(it.MapError(slices.Values(cfServicePlans.Items), func(plan korifiv1alpha1.CFServicePlan) (ServicePlanRecord, error) {
 		return r.planToRecord(ctx, authInfo, plan)
 	}))
 }
@@ -314,7 +324,7 @@ func (r *ServicePlanRepo) planToRecord(ctx context.Context, authInfo authorizati
 			Organizations: organizations,
 		},
 		ServiceOfferingGUID: plan.Labels[korifiv1alpha1.RelServiceOfferingGUIDLabel],
-		Available:           isAvailable(plan),
+		Available:           plan.Labels[korifiv1alpha1.CFServicePlanAvailableKey] == "true",
 	}, nil
 }
 

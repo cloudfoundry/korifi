@@ -28,7 +28,7 @@ var _ = Describe("Setting the version annotation", func() {
 			Expect(adminClient.Create(context.Background(), &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   orgNamespace,
-					Labels: map[string]string{korifiv1alpha1.OrgNameKey: orgNamespace},
+					Labels: map[string]string{korifiv1alpha1.CFOrgDisplayNameKey: orgNamespace},
 				},
 			})).To(Succeed())
 

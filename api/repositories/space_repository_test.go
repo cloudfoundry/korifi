@@ -7,6 +7,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
@@ -66,7 +67,7 @@ var _ = Describe("SpaceRepository", func() {
 				namespace := &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:   cfSpace.Name,
-						Labels: map[string]string{korifiv1alpha1.SpaceNameKey: cfSpace.Spec.DisplayName},
+						Labels: map[string]string{korifiv1alpha1.CFSpaceDisplayNameKey: cfSpace.Spec.DisplayName},
 					},
 				}
 				Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
@@ -176,196 +177,141 @@ var _ = Describe("SpaceRepository", func() {
 	})
 
 	Describe("ListSpaces", func() {
-		var cfOrg1, cfOrg2 *korifiv1alpha1.CFOrg
-		var space11, space12, space21, space22 *korifiv1alpha1.CFSpace
+		var (
+			cfOrg          *korifiv1alpha1.CFOrg
+			space1, space2 *korifiv1alpha1.CFSpace
+			spaces         []repositories.SpaceRecord
+			listMessage    repositories.ListSpacesMessage
+			listErr        error
+		)
 
 		BeforeEach(func() {
-			cfOrg1 = createOrgWithCleanup(ctx, prefixedGUID("org1"))
-			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg1.Name)
-			cfOrg2 = createOrgWithCleanup(ctx, prefixedGUID("org2"))
-			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg2.Name)
+			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org1"))
+			createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg.Name)
 
-			space11 = createSpaceWithCleanup(ctx, cfOrg1.Name, "space1")
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space11.Name)
-			space12 = createSpaceWithCleanup(ctx, cfOrg1.Name, "space2")
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space12.Name)
+			space1 = createSpaceWithCleanup(ctx, cfOrg.Name, "space1")
+			space2 = createSpaceWithCleanup(ctx, cfOrg.Name, "space2")
 
-			space21 = createSpaceWithCleanup(ctx, cfOrg2.Name, "space1")
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space21.Name)
-			space22 = createSpaceWithCleanup(ctx, cfOrg2.Name, "space3")
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space22.Name)
-
-			createSpaceWithCleanup(ctx, cfOrg2.Name, "space3")
+			createSpaceWithCleanup(ctx, cfOrg.Name, "space3")
+			listMessage = repositories.ListSpacesMessage{}
 		})
 
-		It("returns the spaces the user has role bindings in", func() {
-			spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(spaces).To(ConsistOf(
-				MatchFields(IgnoreExtras, Fields{
-					"Name":             Equal("space1"),
-					"GUID":             Equal(space11.Name),
-					"OrganizationGUID": Equal(cfOrg1.Name),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name":             Equal("space2"),
-					"GUID":             Equal(space12.Name),
-					"OrganizationGUID": Equal(cfOrg1.Name),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name":             Equal("space1"),
-					"GUID":             Equal(space21.Name),
-					"OrganizationGUID": Equal(cfOrg2.Name),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name":             Equal("space3"),
-					"GUID":             Equal(space22.Name),
-					"OrganizationGUID": Equal(cfOrg2.Name),
-				}),
-			))
+		JustBeforeEach(func() {
+			spaces, listErr = spaceRepo.ListSpaces(ctx, authInfo, listMessage)
 		})
 
-		When("the space anchor is not ready", func() {
+		It("returns an empty list as user has no roles assigned", func() {
+			Expect(listErr).NotTo(HaveOccurred())
+			Expect(spaces).To(BeEmpty())
+		})
+
+		When("the user has space roles", func() {
 			BeforeEach(func() {
-				meta.SetStatusCondition(&(space11.Status.Conditions), metav1.Condition{
-					Type:    korifiv1alpha1.StatusConditionReady,
-					Status:  metav1.ConditionFalse,
-					Reason:  "cus",
-					Message: "cus",
-				})
-				Expect(k8sClient.Status().Update(ctx, space11)).To(Succeed())
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space1.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
 
-			It("does not list it", func() {
-				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
-				Expect(err).NotTo(HaveOccurred())
+			It("returns the spaces the user has role bindings in", func() {
+				Expect(listErr).NotTo(HaveOccurred())
 
-				Expect(spaces).NotTo(ContainElement(
-					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"GUID":             Equal(space11.Name),
-						"OrganizationGUID": Equal(cfOrg1.Name),
-					}),
-				))
-			})
-		})
-
-		When("filtering by org guids", func() {
-			It("only returns the spaces belonging to the specified org guids", func() {
-				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-					OrganizationGUIDs: []string{cfOrg1.Name, "does-not-exist"},
-				})
-				Expect(err).NotTo(HaveOccurred())
 				Expect(spaces).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg1.Name),
+						"GUID":             Equal(space1.Name),
+						"OrganizationGUID": Equal(cfOrg.Name),
 					}),
 					MatchFields(IgnoreExtras, Fields{
 						"Name":             Equal("space2"),
-						"OrganizationGUID": Equal(cfOrg1.Name),
+						"GUID":             Equal(space2.Name),
+						"OrganizationGUID": Equal(cfOrg.Name),
 					}),
 				))
 			})
-		})
 
-		When("filtering by space names", func() {
-			It("only returns the spaces matching the specified names", func() {
-				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-					Names: []string{"space1", "space3", "does-not-exist"},
+			When("filtering by org guids", func() {
+				BeforeEach(func() {
+					anotherOrg := createOrgWithCleanup(ctx, prefixedGUID("another-org"))
+					createRoleBinding(ctx, userName, orgUserRole.Name, anotherOrg.Name)
+					anotherSpace := createSpaceWithCleanup(ctx, anotherOrg.Name, "another-space")
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, anotherSpace.Name)
+
+					listMessage = repositories.ListSpacesMessage{
+						OrganizationGUIDs: []string{cfOrg.Name},
+					}
 				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(spaces).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg1.Name),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg2.Name),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space3"),
-						"OrganizationGUID": Equal(cfOrg2.Name),
-					}),
-				))
-			})
-		})
 
-		When("filtering by space guids", func() {
-			It("only returns the spaces matching the specified guids", func() {
-				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-					GUIDs: []string{space11.Name, space21.Name, "does-not-exist"},
+				It("only returns the spaces belonging to the specified org guids", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(spaces).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"Name":             Equal("space1"),
+							"OrganizationGUID": Equal(cfOrg.Name),
+						}),
+						MatchFields(IgnoreExtras, Fields{
+							"Name":             Equal("space2"),
+							"OrganizationGUID": Equal(cfOrg.Name),
+						}),
+					))
 				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(spaces).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg1.Name),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg2.Name),
-					}),
-				))
 			})
-		})
 
-		When("filtering by org guids, space names and space guids", func() {
-			It("only returns the spaces matching the specified names", func() {
-				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-					OrganizationGUIDs: []string{cfOrg1.Name, cfOrg2.Name},
-					Names:             []string{"space1", "space2", "space4"},
-					GUIDs:             []string{space11.Name, space21.Name},
+			Describe("filter parameters to list options", func() {
+				var fakeKlient *fake.Klient
+
+				BeforeEach(func() {
+					fakeKlient = new(fake.Klient)
+					spaceRepo = repositories.NewSpaceRepo(fakeKlient, orgRepo, nsPerms, conditionAwaiter)
+
+					listMessage = repositories.ListSpacesMessage{
+						GUIDs:             []string{space1.Name},
+						Names:             []string{"a1", "a2"},
+						OrganizationGUIDs: []string{cfOrg.Name, "another-org"},
+					}
 				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(spaces).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg1.Name),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"Name":             Equal("space1"),
-						"OrganizationGUID": Equal(cfOrg2.Name),
-					}),
-				))
-			})
-		})
 
-		When("filtering by space names that don't exist", func() {
-			It("only returns the spaces matching the specified names", func() {
-				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-					Names: []string{"does-not-exist", "still-does-not-exist"},
+				It("translates filter parameters to klient list options", func() {
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{space1.Name}),
+						repositories.WithLabelIn(korifiv1alpha1.CFSpaceDisplayNameKey, tools.EncodeValuesToSha224("a1", "a2")),
+						repositories.WithLabel(korifiv1alpha1.ReadyLabelKey, string(metav1.ConditionTrue)),
+						repositories.InNamespace(cfOrg.Name),
+					))
 				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(spaces).To(BeEmpty())
-			})
-		})
 
-		When("filtering by org guids that don't exist", func() {
-			It("only returns the spaces matching the specified names", func() {
-				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{
-					OrganizationGUIDs: []string{"does-not-exist", "still-does-not-exist"},
+				When("the list message does not filter by space GUIDs", func() {
+					BeforeEach(func() {
+						listMessage.GUIDs = nil
+					})
+
+					It("filters spaces in authorised spaces only", func() {
+						Expect(fakeKlient.ListCallCount()).To(Equal(1))
+						_, _, listOptions := fakeKlient.ListArgsForCall(0)
+						Expect(listOptions).To(ContainElement(
+							MatchAllFields(Fields{
+								"Key":    Equal(korifiv1alpha1.GUIDLabelKey),
+								"Values": ConsistOf(space1.Name, space2.Name),
+							}),
+						))
+					})
 				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(spaces).To(BeEmpty())
-			})
-		})
-
-		When("an org exists with a rolebinding for the user, but without permission to list spaces", func() {
-			var org *korifiv1alpha1.CFOrg
-
-			BeforeEach(func() {
-				org = createOrgWithCleanup(ctx, "org-without-list-space-perm")
-				createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, org.Name)
 			})
 
-			It("returns the 4 spaces", func() {
-				spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
-				Expect(err).NotTo(HaveOccurred())
+			When("an org exists with a rolebinding for the user, but without permission to list spaces", func() {
+				var org *korifiv1alpha1.CFOrg
 
-				Expect(spaces).To(HaveLen(4))
+				BeforeEach(func() {
+					org = createOrgWithCleanup(ctx, "org-without-list-space-perm")
+					createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, org.Name)
+				})
+
+				It("returns the 2 spaces", func() {
+					spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(spaces).To(HaveLen(2))
+				})
 			})
 		})
 	})
@@ -528,11 +474,9 @@ var _ = Describe("SpaceRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(spaceRecord.GUID).To(Equal(spaceGUID))
 					Expect(spaceRecord.OrganizationGUID).To(Equal(orgGUID))
-					Expect(spaceRecord.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
+					Expect(spaceRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key-one", "value-one"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(spaceRecord.Annotations).To(Equal(
 						map[string]string{
@@ -546,11 +490,9 @@ var _ = Describe("SpaceRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFSpace := new(korifiv1alpha1.CFSpace)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), updatedCFSpace)).To(Succeed())
-					Expect(updatedCFSpace.Labels).To(Equal(
-						map[string]string{
-							"key-one": "value-one",
-							"key-two": "value-two",
-						},
+					Expect(updatedCFSpace.Labels).To(SatisfyAll(
+						HaveKeyWithValue("key-one", "value-one"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(updatedCFSpace.Annotations).To(Equal(
 						map[string]string{
@@ -592,12 +534,10 @@ var _ = Describe("SpaceRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					Expect(spaceRecord.GUID).To(Equal(spaceGUID))
 					Expect(spaceRecord.OrganizationGUID).To(Equal(orgGUID))
-					Expect(spaceRecord.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(spaceRecord.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(spaceRecord.Annotations).To(Equal(
 						map[string]string{
@@ -612,12 +552,10 @@ var _ = Describe("SpaceRepository", func() {
 					Expect(patchErr).NotTo(HaveOccurred())
 					updatedCFSpace := new(korifiv1alpha1.CFSpace)
 					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfSpace), updatedCFSpace)).To(Succeed())
-					Expect(updatedCFSpace.Labels).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(updatedCFSpace.Labels).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
 					))
 					Expect(updatedCFSpace.Annotations).To(Equal(
 						map[string]string{

@@ -12,8 +12,13 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels"
+	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	k8sclient "k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/stdr"
@@ -23,7 +28,6 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -43,6 +47,9 @@ const (
 )
 
 func TestRepositories(t *testing.T) {
+	SetDefaultEventuallyTimeout(10 * time.Second)
+	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Repositories Suite")
 }
@@ -72,26 +79,37 @@ var (
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
+	commonLabelsWebhookManifestPath := helpers.GenerateWebhookManifest("code.cloudfoundry.org/korifi/controllers/webhooks/common_labels")
+	DeferCleanup(func() {
+		Expect(os.RemoveAll(filepath.Dir(commonLabelsWebhookManifestPath))).To(Succeed())
+	})
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "helm", "korifi", "controllers", "crds"),
 			filepath.Join("..", "..", "tests", "vendor", "kpack"),
 		},
 		ErrorIfCRDPathMissing: true,
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{commonLabelsWebhookManifestPath},
+		},
 	}
 
 	var err error
 	_, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
-	err = korifiv1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = buildv1alpha2.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
+
+	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
+
+	common_labels.NewWebhook().SetupWebhookWithManager(k8sManager)
+
+	DeferCleanup(helpers.StartK8sManager(k8sManager))
 
 	k8sClient, err = client.NewWithWatch(testEnv.Config, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
 
 	adminRole = createClusterRole(context.Background(), "cf_admin")
 	orgManagerRole = createClusterRole(context.Background(), "cf_org_manager")
@@ -138,12 +156,17 @@ var _ = BeforeEach(func() {
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
-	klientUnfiltered = k8sklient.NewK8sKlient(namespaceRetriever, userClientFactoryUnfiltered)
+	klientUnfiltered = k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, userClientFactoryUnfiltered)
 
 	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-		return authorization.NewSpaceFilteringClient(client, k8sClient, nsPerms)
+		return authorization.NewSpaceFilteringClient(client, k8sClient, authorization.NewSpaceFilteringOpts(nsPerms))
 	})
-	klient = k8sklient.NewK8sKlient(namespaceRetriever, userClientFactory)
+	privilegedClientset, err := k8sclient.NewForConfig(testEnv.Config)
+	Expect(err).NotTo(HaveOccurred())
+	descriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), authorization.NewSpaceFilteringOpts(nsPerms))
+	objectListMapper := descriptors.NewObjectListMapper(userClientFactory)
+
+	klient = k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, objectListMapper, userClientFactory)
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)
@@ -159,6 +182,11 @@ func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alph
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: rootNamespace,
+			Labels: map[string]string{
+				korifiv1alpha1.GUIDLabelKey:        guid,
+				korifiv1alpha1.CFOrgDisplayNameKey: tools.EncodeValueToSha224(displayName),
+				korifiv1alpha1.ReadyLabelKey:       string(metav1.ConditionTrue),
+			},
 		},
 		Spec: korifiv1alpha1.CFOrgSpec{
 			DisplayName: displayName,
@@ -166,19 +194,11 @@ func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alph
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	meta.SetStatusCondition(&(cfOrg.Status.Conditions), metav1.Condition{
-		Type:    korifiv1alpha1.StatusConditionReady,
-		Status:  metav1.ConditionTrue,
-		Reason:  "cus",
-		Message: "cus",
-	})
-	Expect(k8sClient.Status().Update(ctx, cfOrg)).To(Succeed())
-
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cfOrg.Name,
 			Labels: map[string]string{
-				korifiv1alpha1.OrgNameKey: cfOrg.Spec.DisplayName,
+				korifiv1alpha1.CFOrgDisplayNameKey: tools.EncodeValueToSha224(cfOrg.Spec.DisplayName),
 			},
 		},
 	}
@@ -198,6 +218,12 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: orgGUID,
+			Labels: map[string]string{
+				korifiv1alpha1.GUIDLabelKey:          guid,
+				korifiv1alpha1.CFOrgGUIDKey:          orgGUID,
+				korifiv1alpha1.CFSpaceDisplayNameKey: tools.EncodeValueToSha224(name),
+				korifiv1alpha1.ReadyLabelKey:         string(metav1.ConditionTrue),
+			},
 		},
 		Spec: korifiv1alpha1.CFSpaceSpec{
 			DisplayName: name,
@@ -205,20 +231,11 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 	}
 	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 
-	cfSpace.Status.GUID = cfSpace.Name
-	meta.SetStatusCondition(&(cfSpace.Status.Conditions), metav1.Condition{
-		Type:    korifiv1alpha1.StatusConditionReady,
-		Status:  metav1.ConditionTrue,
-		Reason:  "cus",
-		Message: "cus",
-	})
-	Expect(k8sClient.Status().Update(ctx, cfSpace)).To(Succeed())
-
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cfSpace.Name,
 			Labels: map[string]string{
-				korifiv1alpha1.SpaceNameKey: cfSpace.Spec.DisplayName,
+				korifiv1alpha1.CFSpaceDisplayNameKey: tools.EncodeValueToSha224(name),
 			},
 		},
 	}
@@ -328,6 +345,8 @@ func createApp(space string) *korifiv1alpha1.CFApp {
 }
 
 func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
+	GinkgoHelper()
+
 	displayName := uuid.NewString()
 	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{

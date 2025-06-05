@@ -9,8 +9,11 @@ import (
 )
 
 const (
+	LabelDateFormat = "2006-01-02T15-04-05"
+
 	VersionLabelKey = "korifi.cloudfoundry.org/version"
 
+	CFOrgGUIDKey                = "korifi.cloudfoundry.org/org-guid"
 	CFAppGUIDLabelKey           = "korifi.cloudfoundry.org/app-guid"
 	CFAppRevisionKey            = "korifi.cloudfoundry.org/app-rev"
 	CFAppDisplayNameKey         = "korifi.cloudfoundry.org/display-name"
@@ -28,9 +31,13 @@ const (
 	CFRoutePathLabelKey         = "korifi.cloudfoundry.org/route-path"
 	CFTaskGUIDLabelKey          = "korifi.cloudfoundry.org/task-guid"
 
+	ReadyLabelKey           = "korifi.cloudfoundry.org/ready"
 	GUIDLabelKey            = "korifi.cloudfoundry.org/guid"
 	SpaceGUIDKey            = "korifi.cloudfoundry.org/space-guid"
 	ServiceBindingTypeLabel = "korifi.cloudfoundry.org/service-binding-type"
+	CreatedAtLabelKey       = "korifi.cloudfoundry.org/created_at"
+	UpdatedAtLabelKey       = "korifi.cloudfoundry.org/updated_at"
+	PlanGUIDLabelKey        = "korifi.cloudfoundry.org/plan-guid"
 
 	PodIndexLabelKey = "apps.kubernetes.io/pod-index"
 

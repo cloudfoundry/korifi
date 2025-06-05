@@ -1,6 +1,6 @@
 package label_indexer
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes;cfapps;cfbuilds;cfdomains;cfpackages;cfprocesses;cfservicebindings;cfserviceinstances;cftasks,verbs=create;update,versions=v1alpha1,name=mcflabelindexer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes;cfapps;cfbuilds;cfdomains;cfpackages;cfprocesses;cfservicebindings;cfserviceinstances;cftasks;cforgs;cfspaces;cfserviceofferings;cfserviceplans,verbs=create;update,versions=v1alpha1,name=mcflabelindexer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 import (
 	"context"
@@ -60,12 +60,41 @@ func NewWebhook() *LabelIndexerWebhook {
 			},
 			"CFServiceInstance": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+				LabelRule{Label: korifiv1alpha1.PlanGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.planGuid"))},
 			},
 			"CFServiceBinding": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+				LabelRule{Label: korifiv1alpha1.CFServiceInstanceGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.service.name"))},
 			},
 			"CFTask": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+			},
+			"CFOrg": {
+				LabelRule{Label: korifiv1alpha1.CFOrgDisplayNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.displayName")))},
+				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
+				LabelRule{Label: korifiv1alpha1.ReadyLabelKey, IndexingFunc: Unquote(SingleValue(JSONValue("$.status.conditions[?@.type == \"Ready\"].status")))},
+			},
+			"CFSpace": {
+				LabelRule{Label: korifiv1alpha1.CFSpaceDisplayNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.displayName")))},
+				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
+				LabelRule{Label: korifiv1alpha1.CFOrgGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+				LabelRule{Label: korifiv1alpha1.ReadyLabelKey, IndexingFunc: Unquote(SingleValue(JSONValue("$.status.conditions[?@.type == \"Ready\"].status")))},
+			},
+			"CFServiceOffering": {
+				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
+				LabelRule{Label: korifiv1alpha1.CFServiceOfferingNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.name")))},
+			},
+			"CFServicePlan": {
+				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
+				LabelRule{Label: korifiv1alpha1.CFServicePlanNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.name")))},
+				LabelRule{Label: korifiv1alpha1.CFServicePlanAvailableKey, IndexingFunc: Map(
+					Unquote(JSONValue("$.spec.visibility.type")),
+					map[string]IndexValueFunc{
+						korifiv1alpha1.AdminServicePlanVisibilityType:        ConstantValue("false"),
+						korifiv1alpha1.PublicServicePlanVisibilityType:       ConstantValue("true"),
+						korifiv1alpha1.OrganizationServicePlanVisibilityType: ConstantValue("true"),
+					},
+				)},
 			},
 		},
 	}

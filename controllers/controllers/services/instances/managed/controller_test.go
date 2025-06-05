@@ -56,7 +56,7 @@ var _ = Describe("CFServiceInstance", func() {
 				Name: uuid.NewString(),
 				Labels: map[string]string{
 					korifiv1alpha1.SpaceGUIDKey: "space-guid",
-					korifiv1alpha1.OrgGUIDKey:   "org-guid",
+					korifiv1alpha1.CFOrgGUIDKey: "org-guid",
 				},
 			},
 		}
