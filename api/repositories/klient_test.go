@@ -262,6 +262,19 @@ var _ = Describe("Klient", func() {
 					})
 				})
 			})
+
+			Describe("WithPaging", func() {
+				BeforeEach(func() {
+					option = repositories.WithPaging(10, 2)
+				})
+
+				It("sets the paging field on the list option", func() {
+					Expect(listOptions.Paging).To(PointTo(Equal(repositories.PagingOpt{
+						PageSize: 10,
+						Page:     2,
+					})))
+				})
+			})
 		})
 	})
 })

@@ -193,7 +193,7 @@ func (o SortOpt) ApplyToList(opts *ListOptions) error {
 	return nil
 }
 
-func Paging(pageSize int, page int) ListOption {
+func WithPaging(pageSize int, page int) ListOption {
 	return PagingOpt{
 		PageSize: pageSize,
 		Page:     page,

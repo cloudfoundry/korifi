@@ -317,11 +317,6 @@ var _ = Describe("Klient", func() {
 			Expect(userClient.ListCallCount()).To(Equal(1))
 			_, actualObjectList, actualOpts := userClient.ListArgsForCall(0)
 			Expect(actualObjectList).To(Equal(objectList))
-			// Expect(actualOpts).To(ConsistOf(
-			// 	client.InNamespace("ns"),
-			// 	client.MatchingLabels{
-			// 		"my-label": "my-value",
-			// 	}))
 
 			Expect(actualOpts).To(ConsistOf(&client.ListOptions{
 				LabelSelector: parseLabelSelector("my-label=my-value"),
@@ -439,18 +434,6 @@ var _ = Describe("Klient", func() {
 				})
 			})
 		})
-
-		// When("sorting is requested", func() {
-		// 	BeforeEach(func() {
-		// 		listOpts = []repositories.ListOption{
-		// 			repositories.InNamespace("ns"),
-		// 			repositories.WithLabel("my-label", "my-value"),
-		// 			repositories.SortBy("foo", true),
-		// 		}
-		// 	})
-		// })
-
-		// When("paging is requested", func() {})
 
 		When("a list option errors", func() {
 			BeforeEach(func() {
