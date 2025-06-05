@@ -13,10 +13,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	"gopkg.in/square/go-jose.v2"
 )
 
 const audience string = "test-audience"
