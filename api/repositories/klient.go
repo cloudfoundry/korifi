@@ -195,14 +195,14 @@ func (o SortOpt) ApplyToList(opts *ListOptions) error {
 
 func WithPaging(pageSize int, page int) ListOption {
 	return PagingOpt{
-		PageSize: pageSize,
-		Page:     page,
+		PageSize:   pageSize,
+		PageNumber: page,
 	}
 }
 
 type PagingOpt struct {
-	PageSize int
-	Page     int
+	PageSize   int
+	PageNumber int
 }
 
 func (o PagingOpt) ApplyToList(opts *ListOptions) error {

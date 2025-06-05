@@ -326,7 +326,7 @@ var _ = Describe("Klient", func() {
 
 		When("paging is requested", func() {
 			BeforeEach(func() {
-				listOpts = append(listOpts, repositories.Paging(10, 2))
+				listOpts = append(listOpts, repositories.WithPaging(10, 2))
 			})
 
 			It("lists object descriptors with user supplied filltering opts", func() {

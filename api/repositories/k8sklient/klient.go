@@ -139,6 +139,14 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 		return fmt.Errorf("failed to get sorted object GUIDs: %w", err)
 	}
 
+	// TODO
+	// page, err := descriptors.GetPage(objectGUIDs, listOpts.Paging.PageSize, listOpts.Paging.PageNumber)
+	// if err != nil {
+	// 	....
+	// }
+	// objectGUIDs = page.Items
+	//
+
 	listResult, err := k.objectListMapper.GUIDsToObjectList(ctx, listObjectGVK, objectGUIDs)
 	if err != nil {
 		return fmt.Errorf("failed to map sorted object GUIDs to objects: %w", err)
@@ -147,6 +155,9 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 	if err := transferItems(listResult, list); err != nil {
 		return fmt.Errorf("failed to copy list items: %w", err)
 	}
+
+	// TODO
+	// return page.PageInfo, nil
 
 	return nil
 }

@@ -270,8 +270,8 @@ var _ = Describe("Klient", func() {
 
 				It("sets the paging field on the list option", func() {
 					Expect(listOptions.Paging).To(PointTo(Equal(repositories.PagingOpt{
-						PageSize: 10,
-						Page:     2,
+						PageSize:   10,
+						PageNumber: 2,
 					})))
 				})
 			})
