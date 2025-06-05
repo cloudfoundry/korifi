@@ -248,6 +248,10 @@ type securityGroupResource struct {
 	Rules []payloads.SecurityGroupRule
 }
 
+type relationshipDataResource struct {
+	Data []payloads.RelationshipData `json:"data"`
+}
+
 type serviceBrokerResource struct {
 	resource       `json:",inline"`
 	URL            string                              `json:"url"`

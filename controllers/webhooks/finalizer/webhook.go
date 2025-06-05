@@ -1,6 +1,6 @@
 package finalizer
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-finalizer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfapps;cfspaces;cfpackages;cforgs;cfroutes;cfdomains;cfservicebindings;cfserviceinstances,verbs=create,versions=v1alpha1,name=mcffinalizer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-finalizer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfapps;cfspaces;cfpackages;cforgs;cfroutes;cfdomains;cfservicebindings;cfserviceinstances;cfsecuritygroups,verbs=create,versions=v1alpha1,name=mcffinalizer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 import (
 	"context"
@@ -25,6 +25,7 @@ func NewControllersFinalizerWebhook() *ControllersFinalizerWebhook {
 			"CFDomain":          {FinalizerName: korifiv1alpha1.CFDomainFinalizerName, SetPolicy: k8s.Always},
 			"CFServiceInstance": {FinalizerName: korifiv1alpha1.CFServiceInstanceFinalizerName, SetPolicy: k8s.Always},
 			"CFServiceBinding":  {FinalizerName: korifiv1alpha1.CFServiceBindingFinalizerName, SetPolicy: k8s.Always},
+			"CFSecurityGroup":   {FinalizerName: korifiv1alpha1.CFSecurityGroupFinalizerName, SetPolicy: k8s.Always},
 		}),
 	}
 }

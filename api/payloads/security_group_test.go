@@ -92,3 +92,63 @@ var _ = Describe("SecurityGroupCreate", func() {
 		})
 	})
 })
+
+var _ = Describe("SecurityGroupBind", func() {
+	var (
+		bindPayload       payloads.SecurityGroupBind
+		securityGroupBind *payloads.SecurityGroupBind
+		validatorErr      error
+	)
+
+	BeforeEach(func() {
+		securityGroupBind = new(payloads.SecurityGroupBind)
+	})
+
+	Describe("Validation", func() {
+		BeforeEach(func() {
+			bindPayload = payloads.SecurityGroupBind{
+				Data: []payloads.RelationshipData{{GUID: "space1"}, {GUID: "space2"}},
+			}
+		})
+
+		JustBeforeEach(func() {
+			validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(bindPayload), securityGroupBind)
+		})
+
+		It("succeeds with valid payload", func() {
+			Expect(validatorErr).NotTo(HaveOccurred())
+			Expect(securityGroupBind).To(PointTo(Equal(bindPayload)))
+		})
+
+		When("Data is empty", func() {
+			BeforeEach(func() {
+				bindPayload.Data = []payloads.RelationshipData{}
+			})
+			It("returns an error", func() {
+				expectUnprocessableEntityError(validatorErr, "data cannot be blank")
+			})
+		})
+
+		When("Converting to repo message", func() {
+			var message repositories.BindSecurityGroupMessage
+
+			BeforeEach(func() {
+				bindPayload = payloads.SecurityGroupBind{
+					Data: []payloads.RelationshipData{{GUID: "space1"}, {GUID: "space2"}},
+				}
+			})
+
+			JustBeforeEach(func() {
+				message = bindPayload.ToMessage(repositories.SecurityGroupRunningSpaceType, "sg-guid")
+			})
+
+			It("converts the message correctly", func() {
+				Expect(message).To(Equal(repositories.BindSecurityGroupMessage{
+					GUID:     "sg-guid",
+					Spaces:   []string{"space1", "space2"},
+					Workload: repositories.SecurityGroupRunningSpaceType,
+				}))
+			})
+		})
+	})
+})

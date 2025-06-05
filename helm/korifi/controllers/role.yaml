@@ -107,6 +107,7 @@ rules:
   - cfpackages
   - cfprocesses
   - cfroutes
+  - cfsecuritygroups
   - cfservicebindings
   - cfservicebrokers
   - cfserviceinstances
@@ -134,6 +135,7 @@ rules:
   - cforgs/finalizers
   - cfprocesses/finalizers
   - cfroutes/finalizers
+  - cfsecuritygroups/finalizers
   - cfservicebindings/finalizers
   - cfserviceinstances/finalizers
   - cfspaces/finalizers
@@ -158,6 +160,7 @@ rules:
   - cfpackages/status
   - cfprocesses/status
   - cfroutes/status
+  - cfsecuritygroups/status
   - cfservicebindings/status
   - cfservicebrokers/status
   - cfserviceinstances/status
@@ -202,12 +205,6 @@ rules:
 - apiGroups:
   - korifi.cloudfoundry.org
   resources:
-  - cfsecuritygroups
-  verbs:
-  - create
-- apiGroups:
-  - korifi.cloudfoundry.org
-  resources:
   - runnerinfos/status
   verbs:
   - get
@@ -247,6 +244,22 @@ rules:
   - podsecuritypolicies
   verbs:
   - use
+- apiGroups:
+  - projectcalico.org
+  resources:
+  - globalnetworkpolicies
+  - networkpolicies
+  - tier.globalnetworkpolicies
+  - tier.networkpolicies
+  - tiers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
