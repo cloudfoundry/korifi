@@ -65,6 +65,8 @@ func NewWebhook() *LabelIndexerWebhook {
 			},
 			"CFProcess": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
+				LabelRule{Label: korifiv1alpha1.CFAppGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.appRef.name"))},
+				LabelRule{Label: korifiv1alpha1.CFProcessTypeLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.processType"))},
 			},
 			"CFServiceInstance": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},

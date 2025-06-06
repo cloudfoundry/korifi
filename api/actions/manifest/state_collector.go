@@ -92,8 +92,8 @@ func (s StateCollector) CollectState(ctx context.Context, authInfo authorization
 func (s StateCollector) collectProcesses(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) (map[string]repositories.ProcessRecord, error) {
 	existingProcesses := map[string]repositories.ProcessRecord{}
 	procs, err := s.processRepo.ListProcesses(ctx, authInfo, repositories.ListProcessesMessage{
-		AppGUIDs:  []string{appGUID},
-		SpaceGUID: spaceGUID,
+		AppGUIDs:   []string{appGUID},
+		SpaceGUIDs: []string{spaceGUID},
 	})
 	if err != nil {
 		return nil, err
