@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -313,6 +314,70 @@ var _ = Describe("ServiceOffering", func() {
 				Expect(actualDeleteMessage.Purge).To(BeTrue())
 
 				Expect(rr).To(HaveHTTPStatus(http.StatusNoContent))
+			})
+		})
+	})
+
+	Describe("PATCH /v3/service_offering/:guid", func() {
+		BeforeEach(func() {
+			serviceOfferingRepo.UpdateServiceOfferingReturns(repositories.ServiceOfferingRecord{
+				GUID: "offering-guid",
+			}, nil)
+
+			payload := payloads.ServiceOfferingUpdate{
+				Metadata: payloads.MetadataPatch{
+					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
+				},
+			}
+
+			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payload)
+		})
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequestWithContext(ctx, "PATCH", "/v3/service_offerings/offering-guid", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			routerBuilder.Build().ServeHTTP(rr, req)
+		})
+
+		It("updates the service offering", func() {
+			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.guid", "offering-guid"),
+				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/service_offerings/offering-guid"),
+			)))
+
+			Expect(serviceOfferingRepo.UpdateServiceOfferingCallCount()).To(Equal(1))
+			_, actualAuthInfo, updateMessage := serviceOfferingRepo.UpdateServiceOfferingArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(updateMessage).To(Equal(repositories.UpdateServiceOfferingMessage{
+				GUID: "offering-guid",
+				MetadataPatch: repositories.MetadataPatch{
+					Labels:      map[string]*string{"foo": tools.PtrTo("bar")},
+					Annotations: map[string]*string{"bar": tools.PtrTo("baz")},
+				},
+			}))
+		})
+
+		When("the request is invalid", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadReturns(errors.New("invalid-request"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the service offering repo returns an error", func() {
+			BeforeEach(func() {
+				serviceOfferingRepo.UpdateServiceOfferingReturns(repositories.ServiceOfferingRecord{}, errors.New("update-so-error"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
