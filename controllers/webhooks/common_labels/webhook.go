@@ -1,6 +1,6 @@
 package common_labels
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-common-labels,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfapps;cfbuilds;cfdomains;cforgs;cfpackages;cfprocesss;cfroutes;cfsecuritygroups;cfservicebindings;cfservicebrokers;cfserviceinstances;cfservices;cfservices;cfspaces;cftasks,verbs=create;update,versions=v1alpha1,name=mcfcommonlabels.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-common-labels,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfapps;cfbuilds;cfdomains;cforgs;cfpackages;cfprocesses;cfroutes;cfsecuritygroups;cfservicebindings;cfservicebrokers;cfserviceinstances;cfserviceofferings;cfserviceplans;cfspaces;cftasks,verbs=create;update,versions=v1alpha1,name=mcfcommonlabels.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 import (
 	"context"

@@ -334,8 +334,8 @@ func (h *App) getProcesses(r *http.Request) (*routing.Response, error) {
 	}
 
 	fetchProcessesForAppMessage := repositories.ListProcessesMessage{
-		AppGUIDs:  []string{appGUID},
-		SpaceGUID: app.SpaceGUID,
+		AppGUIDs:   []string{appGUID},
+		SpaceGUIDs: []string{app.SpaceGUID},
 	}
 
 	processList, err := h.processRepo.ListProcesses(r.Context(), authInfo, fetchProcessesForAppMessage)
@@ -383,8 +383,8 @@ func (h *App) scaleProcess(r *http.Request) (*routing.Response, error) {
 	}
 
 	appProcesses, err := h.processRepo.ListProcesses(r.Context(), authInfo, repositories.ListProcessesMessage{
-		AppGUIDs:  []string{app.GUID},
-		SpaceGUID: app.SpaceGUID,
+		AppGUIDs:   []string{app.GUID},
+		SpaceGUIDs: []string{app.SpaceGUID},
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list processes for app")
@@ -561,7 +561,7 @@ func (h *App) getProcess(r *http.Request) (*routing.Response, error) {
 	process, err := h.getSingleProcess(r.Context(), authInfo, repositories.ListProcessesMessage{
 		AppGUIDs:     []string{appGUID},
 		ProcessTypes: []string{processType},
-		SpaceGUID:    app.SpaceGUID,
+		SpaceGUIDs:   []string{app.SpaceGUID},
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to get process", "AppGUID", appGUID)
@@ -594,7 +594,7 @@ func (h *App) getProcessStats(r *http.Request) (*routing.Response, error) {
 	process, err := h.getSingleProcess(r.Context(), authInfo, repositories.ListProcessesMessage{
 		AppGUIDs:     []string{appGUID},
 		ProcessTypes: []string{processType},
-		SpaceGUID:    app.SpaceGUID,
+		SpaceGUIDs:   []string{app.SpaceGUID},
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to get process")
@@ -698,8 +698,8 @@ func (h *App) restartInstance(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.NewNotFoundError(nil, repositories.AppResourceType), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 	appProcesses, err := h.processRepo.ListProcesses(r.Context(), authInfo, repositories.ListProcessesMessage{
-		AppGUIDs:  []string{appGUID},
-		SpaceGUID: app.SpaceGUID,
+		AppGUIDs:   []string{appGUID},
+		SpaceGUIDs: []string{app.SpaceGUID},
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list processes for app")

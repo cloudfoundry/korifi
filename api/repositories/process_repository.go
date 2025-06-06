@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -107,20 +106,15 @@ type PatchProcessMessage struct {
 type ListProcessesMessage struct {
 	AppGUIDs     []string
 	ProcessTypes []string
-	SpaceGUID    string
+	SpaceGUIDs   []string
 }
 
-func (m *ListProcessesMessage) matches(process korifiv1alpha1.CFProcess) bool {
-	return tools.EmptyOrContains(m.AppGUIDs, process.Spec.AppRef.Name) &&
-		tools.EmptyOrContains(m.ProcessTypes, process.Spec.ProcessType) &&
-		m.matchesNamespace(process.Namespace)
-}
-
-func (m *ListProcessesMessage) matchesNamespace(ns string) bool {
-	if m.SpaceGUID == "" {
-		return true
+func (m *ListProcessesMessage) toListOptions() []ListOption {
+	return []ListOption{
+		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
+		WithLabelIn(korifiv1alpha1.CFProcessTypeLabelKey, m.ProcessTypes),
+		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
 	}
-	return ns == m.SpaceGUID
 }
 
 func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Info, processGUID string) (ProcessRecord, error) {
@@ -134,18 +128,17 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 		return ProcessRecord{}, fmt.Errorf("failed to get process %q: %w", processGUID, apierrors.FromK8sError(err, ProcessResourceType))
 	}
 
-	return cfProcessToProcessRecord(*process), nil
+	return cfProcessToProcessRecord(*process)
 }
 
 func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.Info, message ListProcessesMessage) ([]ProcessRecord, error) {
 	processList := &korifiv1alpha1.CFProcessList{}
-	err := r.klient.List(ctx, processList)
+	err := r.klient.List(ctx, processList, message.toListOptions()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
 	}
 
-	filteredProcesses := itx.FromSlice(processList.Items).Filter(message.matches)
-	return slices.Collect(it.Map(filteredProcesses, cfProcessToProcessRecord)), nil
+	return it.TryCollect(it.MapError(itx.FromSlice(processList.Items), cfProcessToProcessRecord))
 }
 
 func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage ScaleProcessMessage) (ProcessRecord, error) {
@@ -172,7 +165,7 @@ func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.I
 		return ProcessRecord{}, fmt.Errorf("failed to scale process %q: %w", scaleProcessMessage.GUID, apierrors.FromK8sError(err, ProcessResourceType))
 	}
 
-	return cfProcessToProcessRecord(*cfProcess), nil
+	return cfProcessToProcessRecord(*cfProcess)
 }
 
 func (r *ProcessRepo) CreateProcess(ctx context.Context, authInfo authorization.Info, message CreateProcessMessage) error {
@@ -260,10 +253,15 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 		return ProcessRecord{}, apierrors.FromK8sError(err, ProcessResourceType)
 	}
 
-	return cfProcessToProcessRecord(*updatedProcess), nil
+	return cfProcessToProcessRecord(*updatedProcess)
 }
 
-func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord {
+func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) (ProcessRecord, error) {
+	createdAt, updatedAt, err := getCreatedUpdatedAt(&cfProcess)
+	if err != nil {
+		return ProcessRecord{}, fmt.Errorf("failed to parse timestamps for process %q: %w", cfProcess.Name, err)
+	}
+
 	cmd := cfProcess.Spec.Command
 	if cmd == "" {
 		cmd = cfProcess.Spec.DetectedCommand
@@ -288,8 +286,8 @@ func cfProcessToProcessRecord(cfProcess korifiv1alpha1.CFProcess) ProcessRecord 
 		},
 		Labels:          cfProcess.Labels,
 		Annotations:     cfProcess.Annotations,
-		CreatedAt:       cfProcess.CreationTimestamp.Time,
-		UpdatedAt:       getLastUpdatedTime(&cfProcess),
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
 		InstancesStatus: cfProcess.Status.InstancesStatus,
-	}
+	}, nil
 }
