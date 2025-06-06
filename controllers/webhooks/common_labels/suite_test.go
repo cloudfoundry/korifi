@@ -11,11 +11,8 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -29,7 +26,6 @@ var (
 	stopClientCache context.CancelFunc
 	testEnv         *envtest.Environment
 	adminClient     client.Client
-	namespace       string
 )
 
 func TestWorkloadsWebhooks(t *testing.T) {
@@ -73,12 +69,6 @@ var _ = BeforeSuite(func() {
 	stopManager = helpers.StartK8sManager(k8sManager)
 
 	ctx = context.Background()
-	namespace = uuid.NewString()
-	Expect(adminClient.Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	})).To(Succeed())
 })
 
 var _ = AfterSuite(func() {

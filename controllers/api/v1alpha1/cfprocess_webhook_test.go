@@ -43,17 +43,6 @@ var _ = Describe("CFProcessMutatingWebhook", func() {
 		Expect(adminClient.Create(context.Background(), cfProcess)).To(Succeed())
 	})
 
-	Describe("labels", func() {
-		It("adds the labels with details about the process and the app", func() {
-			Expect(cfProcess.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFProcessTypeLabelKey, "test-process-type"))
-			Expect(cfProcess.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFAppGUIDLabelKey, cfAppGUID))
-		})
-
-		It("preserves all other labels", func() {
-			Expect(cfProcess.Labels).To(HaveKeyWithValue("foo", "bar"))
-		})
-	})
-
 	Describe("memory, disk and timeout", func() {
 		It("sets the configured default memory, disk and timeout", func() {
 			Expect(cfProcess.Spec.MemoryMB).To(BeEquivalentTo(defaultMemoryMB))

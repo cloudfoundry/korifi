@@ -6,6 +6,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -40,8 +41,9 @@ var _ = Describe("ProcessRepo", func() {
 				Name:      uuid.NewString(),
 				Namespace: space.Name,
 				Labels: map[string]string{
-					korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
-					korifiv1alpha1.SpaceGUIDKey:      space.Name,
+					korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
+					korifiv1alpha1.SpaceGUIDKey:          space.Name,
+					korifiv1alpha1.CFProcessTypeLabelKey: "web",
 				},
 			},
 			Spec: korifiv1alpha1.CFProcessSpec{
@@ -216,8 +218,9 @@ var _ = Describe("ProcessRepo", func() {
 					Name:      uuid.NewString(),
 					Namespace: space2.Name,
 					Labels: map[string]string{
-						korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
-						korifiv1alpha1.SpaceGUIDKey:      space2.Name,
+						korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
+						korifiv1alpha1.SpaceGUIDKey:          space2.Name,
+						korifiv1alpha1.CFProcessTypeLabelKey: "web",
 					},
 				},
 				Spec: korifiv1alpha1.CFProcessSpec{
@@ -260,15 +263,32 @@ var _ = Describe("ProcessRepo", func() {
 				))
 			})
 
-			When("spaceGUID is supplied", func() {
+			Describe("filtering", func() {
+				var fakeKlient *fake.Klient
+
 				BeforeEach(func() {
-					listProcessesMessage.SpaceGUID = space.Name
+					fakeKlient = new(fake.Klient)
+					processRepo = repositories.NewProcessRepo(fakeKlient)
 				})
 
-				It("returns the matching process in the given space", func() {
-					Expect(processes).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfProcess.Name)}),
-					))
+				Describe("filter parameters to list options", func() {
+					BeforeEach(func() {
+						listProcessesMessage = repositories.ListProcessesMessage{
+							AppGUIDs:     []string{"app-guid", "another-app-guid"},
+							SpaceGUIDs:   []string{"space-guid", "another-space-guid"},
+							ProcessTypes: []string{"web", "worker"},
+						}
+					})
+
+					It("translates filter parameters to klient list options", func() {
+						Expect(fakeKlient.ListCallCount()).To(Equal(1))
+						_, _, listOptions := fakeKlient.ListArgsForCall(0)
+						Expect(listOptions).To(ConsistOf(
+							repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"app-guid", "another-app-guid"}),
+							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"space-guid", "another-space-guid"}),
+							repositories.WithLabelIn(korifiv1alpha1.CFProcessTypeLabelKey, []string{"web", "worker"}),
+						))
+					})
 				})
 			})
 
@@ -279,17 +299,6 @@ var _ = Describe("ProcessRepo", func() {
 
 				It("returns an empty list", func() {
 					Expect(processes).To(BeEmpty())
-				})
-			})
-
-			When("a space exists with a rolebinding for the user, but without permission to list processes", func() {
-				BeforeEach(func() {
-					anotherSpace := createSpaceWithCleanup(ctx, org.Name, "space-without-process-space-perm")
-					createRoleBinding(ctx, userName, rootNamespaceUserRole.Name, anotherSpace.Name)
-				})
-
-				It("returns the processes", func() {
-					Expect(processes).To(HaveLen(2))
 				})
 			})
 		})

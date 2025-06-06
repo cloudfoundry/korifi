@@ -98,7 +98,7 @@ var _ = Describe("StateCollector", func() {
 			Expect(processRepo.ListProcessesCallCount()).To(Equal(1))
 			_, _, listMsg := processRepo.ListProcessesArgsForCall(0)
 			Expect(listMsg.AppGUIDs).To(ConsistOf("app-guid"))
-			Expect(listMsg.SpaceGUID).To(Equal("space-guid"))
+			Expect(listMsg.SpaceGUIDs).To(ConsistOf("space-guid"))
 		})
 
 		It("returns an empty map of processes", func() {

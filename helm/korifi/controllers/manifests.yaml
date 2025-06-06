@@ -75,14 +75,14 @@ webhooks:
           - cfdomains
           - cforgs
           - cfpackages
-          - cfprocesss
+          - cfprocesses
           - cfroutes
           - cfsecuritygroups
           - cfservicebindings
           - cfservicebrokers
           - cfserviceinstances
-          - cfservices
-          - cfservices
+          - cfserviceofferings
+          - cfserviceplans
           - cfspaces
           - cftasks
     sideEffects: None

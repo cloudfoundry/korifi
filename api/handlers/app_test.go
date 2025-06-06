@@ -1059,8 +1059,8 @@ var _ = Describe("App", func() {
 			_, actualAuthInfo, listMsg := processRepo.ListProcessesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(listMsg).To(Equal(repositories.ListProcessesMessage{
-				AppGUIDs:  []string{appGUID},
-				SpaceGUID: spaceGUID,
+				AppGUIDs:   []string{appGUID},
+				SpaceGUIDs: []string{spaceGUID},
 			}))
 		})
 

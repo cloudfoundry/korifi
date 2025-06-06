@@ -238,6 +238,10 @@ var _ = Describe("LabelIndexerWebhook", func() {
 					Name:      uuid.NewString(),
 					Namespace: namespace,
 				},
+				Spec: korifiv1alpha1.CFProcessSpec{
+					AppRef:      corev1.LocalObjectReference{Name: uuid.NewString()},
+					ProcessType: "web",
+				},
 			}
 		})
 
@@ -249,7 +253,9 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(process), process)).To(Succeed())
 				g.Expect(process.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.SpaceGUIDKey: Equal(process.Namespace),
+					korifiv1alpha1.SpaceGUIDKey:          Equal(process.Namespace),
+					korifiv1alpha1.CFAppGUIDLabelKey:     Equal(process.Spec.AppRef.Name),
+					korifiv1alpha1.CFProcessTypeLabelKey: Equal(process.Spec.ProcessType),
 				}))
 			}).Should(Succeed())
 		})

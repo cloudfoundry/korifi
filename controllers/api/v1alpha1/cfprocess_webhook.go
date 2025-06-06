@@ -55,25 +55,11 @@ func (d *CFProcessDefaulter) Default(ctx context.Context, obj runtime.Object) er
 	process := obj.(*CFProcess)
 	cfprocesslog.V(1).Info("mutating CFProcess webhook handler", "name", process.Name)
 
-	d.defaultLabels(process)
 	d.defaultResources(process)
 	d.defaultInstances(process)
 	d.defaultHealthCheck(process)
 
 	return nil
-}
-
-func (d *CFProcessDefaulter) defaultLabels(process *CFProcess) {
-	processLabels := process.GetLabels()
-
-	if processLabels == nil {
-		processLabels = make(map[string]string)
-	}
-
-	processLabels[CFProcessTypeLabelKey] = process.Spec.ProcessType
-	processLabels[CFAppGUIDLabelKey] = process.Spec.AppRef.Name
-
-	process.SetLabels(processLabels)
 }
 
 func (d *CFProcessDefaulter) defaultResources(process *CFProcess) {
