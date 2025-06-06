@@ -192,7 +192,7 @@ func (r *LogRepo) getLogs(
 	}
 
 	podList := corev1.PodList{}
-	err = r.klient.List(ctx, &podList, podListOpts...)
+	_, err = r.klient.List(ctx, &podList, podListOpts...)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, PodResourceType)
 	}

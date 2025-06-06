@@ -24,7 +24,7 @@ func NewPodRepo(klient Klient) *PodRepo {
 
 func (r *PodRepo) DeletePod(ctx context.Context, authInfo authorization.Info, appRevision string, process ProcessRecord, instanceID string) error {
 	podList := corev1.PodList{}
-	err := r.klient.List(ctx, &podList,
+	_, err := r.klient.List(ctx, &podList,
 		InNamespace(process.SpaceGUID),
 		WithLabel("korifi.cloudfoundry.org/app-guid", process.AppGUID),
 		WithLabel("korifi.cloudfoundry.org/version", appRevision),

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -18,7 +19,7 @@ type Klient interface {
 	Get(ctx context.Context, obj client.Object) error
 	Create(ctx context.Context, obj client.Object) error
 	Patch(ctx context.Context, obj client.Object, modify func() error) error
-	List(ctx context.Context, list client.ObjectList, opts ...ListOption) error
+	List(ctx context.Context, list client.ObjectList, opts ...ListOption) (descriptors.PageInfo, error)
 	Watch(ctx context.Context, obj client.ObjectList, opts ...ListOption) (watch.Interface, error)
 	Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error
 }

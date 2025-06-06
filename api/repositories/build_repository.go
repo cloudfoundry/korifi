@@ -78,7 +78,7 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 
 func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	err := b.klient.List(ctx, buildList, InNamespace(spaceGUID), WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, appGUID))
+	_, err := b.klient.List(ctx, buildList, InNamespace(spaceGUID), WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, appGUID))
 	if err != nil {
 		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
@@ -154,7 +154,7 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 
 func (b *BuildRepo) ListBuilds(ctx context.Context, authInfo authorization.Info, message ListBuildsMessage) ([]BuildRecord, error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	err := b.klient.List(ctx, buildList, message.toListOptions()...)
+	_, err := b.klient.List(ctx, buildList, message.toListOptions()...)
 	if err != nil {
 		return []BuildRecord{}, fmt.Errorf("failed to list builds: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}

@@ -13,6 +13,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//counterfeiter:generate -o fake -fake-name ResultSetDescriptor . ResultSetDescriptor
+type ResultSetDescriptor interface {
+	GUIDs() ([]string, error)
+	Sort(column string, desc bool) error
+}
+
 type Client struct {
 	restClient         restclient.Interface
 	spaceFilteringOpts *authorization.SpaceFilteringOpts
@@ -25,7 +31,7 @@ func NewClient(restClient restclient.Interface, spaceFilteringOpts *authorizatio
 	}
 }
 
-func (c *Client) List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (*TableResultSetDescriptor, error) {
+func (c *Client) List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (ResultSetDescriptor, error) {
 	listOpts, err := c.spaceFilteringOpts.Apply(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply space filtering options: %w", err)

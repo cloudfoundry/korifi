@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -48,7 +49,7 @@ type Klient struct {
 	getReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ListStub        func(context.Context, client.ObjectList, ...repositories.ListOption) error
+	ListStub        func(context.Context, client.ObjectList, ...repositories.ListOption) (descriptors.PageInfo, error)
 	listMutex       sync.RWMutex
 	listArgsForCall []struct {
 		arg1 context.Context
@@ -56,10 +57,12 @@ type Klient struct {
 		arg3 []repositories.ListOption
 	}
 	listReturns struct {
-		result1 error
+		result1 descriptors.PageInfo
+		result2 error
 	}
 	listReturnsOnCall map[int]struct {
-		result1 error
+		result1 descriptors.PageInfo
+		result2 error
 	}
 	PatchStub        func(context.Context, client.Object, func() error) error
 	patchMutex       sync.RWMutex
@@ -280,7 +283,7 @@ func (fake *Klient) GetReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Klient) List(arg1 context.Context, arg2 client.ObjectList, arg3 ...repositories.ListOption) error {
+func (fake *Klient) List(arg1 context.Context, arg2 client.ObjectList, arg3 ...repositories.ListOption) (descriptors.PageInfo, error) {
 	fake.listMutex.Lock()
 	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
 	fake.listArgsForCall = append(fake.listArgsForCall, struct {
@@ -296,9 +299,9 @@ func (fake *Klient) List(arg1 context.Context, arg2 client.ObjectList, arg3 ...r
 		return stub(arg1, arg2, arg3...)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *Klient) ListCallCount() int {
@@ -307,7 +310,7 @@ func (fake *Klient) ListCallCount() int {
 	return len(fake.listArgsForCall)
 }
 
-func (fake *Klient) ListCalls(stub func(context.Context, client.ObjectList, ...repositories.ListOption) error) {
+func (fake *Klient) ListCalls(stub func(context.Context, client.ObjectList, ...repositories.ListOption) (descriptors.PageInfo, error)) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = stub
@@ -320,27 +323,30 @@ func (fake *Klient) ListArgsForCall(i int) (context.Context, client.ObjectList, 
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *Klient) ListReturns(result1 error) {
+func (fake *Klient) ListReturns(result1 descriptors.PageInfo, result2 error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	fake.listReturns = struct {
-		result1 error
-	}{result1}
+		result1 descriptors.PageInfo
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *Klient) ListReturnsOnCall(i int, result1 error) {
+func (fake *Klient) ListReturnsOnCall(i int, result1 descriptors.PageInfo, result2 error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	if fake.listReturnsOnCall == nil {
 		fake.listReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 descriptors.PageInfo
+			result2 error
 		})
 	}
 	fake.listReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 descriptors.PageInfo
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *Klient) Patch(arg1 context.Context, arg2 client.Object, arg3 func() error) error {

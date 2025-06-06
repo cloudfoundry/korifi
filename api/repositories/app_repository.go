@@ -298,7 +298,7 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
 	appList := &korifiv1alpha1.CFAppList{}
-	err := f.klient.List(ctx, appList, message.toListOptions()...)
+	_, err := f.klient.List(ctx, appList, message.toListOptions()...)
 	if err != nil {
 		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}

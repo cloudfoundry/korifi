@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/google/uuid"
@@ -21,7 +20,7 @@ var _ = Describe("Client", func() {
 		space *korifiv1alpha1.CFSpace
 
 		descrClient          *descriptors.Client
-		listResultDescriptor k8sklient.ResultSetDescriptor
+		listResultDescriptor descriptors.ResultSetDescriptor
 	)
 
 	BeforeEach(func() {

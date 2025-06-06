@@ -165,7 +165,7 @@ func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authoriz
 
 func (r *DeploymentRepo) ListDeployments(ctx context.Context, authInfo authorization.Info, message ListDeploymentsMessage) ([]DeploymentRecord, error) {
 	appList := &korifiv1alpha1.CFAppList{}
-	err := r.klient.List(ctx, appList, message.toListOptions()...)
+	_, err := r.klient.List(ctx, appList, message.toListOptions()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
@@ -217,7 +217,7 @@ func (r *DeploymentRepo) ensureSupport(ctx context.Context, app *korifiv1alpha1.
 	log := logr.FromContextOrDiscard(ctx).WithName("repo.deployment.ensureSupport")
 
 	var appWorkloadsList korifiv1alpha1.AppWorkloadList
-	err := r.klient.List(ctx, &appWorkloadsList, InNamespace(app.Namespace), WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, app.Name))
+	_, err := r.klient.List(ctx, &appWorkloadsList, InNamespace(app.Namespace), WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, app.Name))
 	if err != nil {
 		return apierrors.FromK8sError(err, DeploymentResourceType)
 	}

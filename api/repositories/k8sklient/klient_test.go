@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
+	descfake "code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -279,14 +280,14 @@ var _ = Describe("Klient", func() {
 
 	Describe("List", func() {
 		var (
-			fakeDescriptor *fake.ResultSetDescriptor
+			fakeDescriptor *descfake.ResultSetDescriptor
 			objectList     *korifiv1alpha1.CFAppList
 			listOpts       []repositories.ListOption
 			pageInfo       descriptors.PageInfo
 		)
 
 		BeforeEach(func() {
-			fakeDescriptor = new(fake.ResultSetDescriptor)
+			fakeDescriptor = new(descfake.ResultSetDescriptor)
 			fakeDescriptor.GUIDsReturns([]string{"guid-1", "guid-2"}, nil)
 			descriptorClient.ListReturns(fakeDescriptor, nil)
 

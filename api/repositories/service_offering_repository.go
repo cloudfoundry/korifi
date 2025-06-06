@@ -108,7 +108,7 @@ func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo a
 
 func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {
 	offeringsList := &korifiv1alpha1.CFServiceOfferingList{}
-	err := r.klient.List(ctx, offeringsList, message.toListOptions(r.rootNamespace)...)
+	_, err := r.klient.List(ctx, offeringsList, message.toListOptions(r.rootNamespace)...)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return []ServiceOfferingRecord{}, nil
@@ -226,7 +226,7 @@ func (r *ServiceOfferingRepo) deleteServicePlans(ctx context.Context, offeringGU
 	var planGUIDs []string
 	plans := &korifiv1alpha1.CFServicePlanList{}
 
-	if err := r.klient.List(ctx, plans, InNamespace(r.rootNamespace), WithLabel(korifiv1alpha1.RelServiceOfferingGUIDLabel, offeringGUID)); err != nil {
+	if _, err := r.klient.List(ctx, plans, InNamespace(r.rootNamespace), WithLabel(korifiv1alpha1.RelServiceOfferingGUIDLabel, offeringGUID)); err != nil {
 		return []string{}, fmt.Errorf("failed to list service plans: %w", err)
 	}
 
@@ -242,7 +242,7 @@ func (r *ServiceOfferingRepo) deleteServicePlans(ctx context.Context, offeringGU
 
 func (r *ServiceOfferingRepo) fetchServiceInstances(ctx context.Context, planGUIDs []string) ([]korifiv1alpha1.CFServiceInstance, error) {
 	instances := new(korifiv1alpha1.CFServiceInstanceList)
-	err := r.klient.List(ctx, instances, WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, planGUIDs))
+	_, err := r.klient.List(ctx, instances, WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, planGUIDs))
 	if err != nil {
 		return []korifiv1alpha1.CFServiceInstance{}, fmt.Errorf("failed to list service instances: %w", err)
 	}
@@ -252,7 +252,7 @@ func (r *ServiceOfferingRepo) fetchServiceInstances(ctx context.Context, planGUI
 
 func (r *ServiceOfferingRepo) fetchServiceBindings(ctx context.Context, serviceInstanceGUIDs []string) ([]korifiv1alpha1.CFServiceBinding, error) {
 	bindings := new(korifiv1alpha1.CFServiceBindingList)
-	err := r.klient.List(ctx, bindings, WithLabelStrictlyIn(korifiv1alpha1.CFServiceInstanceGUIDLabelKey, serviceInstanceGUIDs))
+	_, err := r.klient.List(ctx, bindings, WithLabelStrictlyIn(korifiv1alpha1.CFServiceInstanceGUIDLabelKey, serviceInstanceGUIDs))
 	if err != nil {
 		return []korifiv1alpha1.CFServiceBinding{}, fmt.Errorf("failed to list service bindings: %w", err)
 	}

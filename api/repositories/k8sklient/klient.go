@@ -33,13 +33,7 @@ type K8sKlient struct {
 
 //counterfeiter:generate -o fake -fake-name DescriptorClient . DescriptorClient
 type DescriptorClient interface {
-	List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (ResultSetDescriptor, error)
-}
-
-//counterfeiter:generate -o fake -fake-name ResultSetDescriptor . ResultSetDescriptor
-type ResultSetDescriptor interface {
-	GUIDs() ([]string, error)
-	Sort(column string, desc bool) error
+	List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (descriptors.ResultSetDescriptor, error)
 }
 
 //counterfeiter:generate -o fake -fake-name ObjectListMapper . ObjectListMapper

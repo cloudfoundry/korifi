@@ -175,7 +175,7 @@ func (r *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, r
 
 func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info, message ListRoutesMessage) ([]RouteRecord, error) {
 	cfRouteList := &korifiv1alpha1.CFRouteList{}
-	err := r.klient.List(ctx, cfRouteList, message.toListOptions()...)
+	_, err := r.klient.List(ctx, cfRouteList, message.toListOptions()...)
 	if err != nil {
 		return []RouteRecord{}, fmt.Errorf("failed to list routes: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}

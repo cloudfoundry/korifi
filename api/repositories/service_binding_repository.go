@@ -486,7 +486,7 @@ func (r *ServiceBindingRepo) GetDeletedAt(ctx context.Context, authInfo authoriz
 // nolint:dupl
 func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo authorization.Info, message ListServiceBindingsMessage) ([]ServiceBindingRecord, error) {
 	serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
-	err := r.klient.List(ctx, serviceBindingList, WithLabelSelector(message.LabelSelector))
+	_, err := r.klient.List(ctx, serviceBindingList, WithLabelSelector(message.LabelSelector))
 	if err != nil {
 		return []ServiceBindingRecord{}, fmt.Errorf("failed to list service instances: %w",
 			apierrors.FromK8sError(err, ServiceBindingResourceType),

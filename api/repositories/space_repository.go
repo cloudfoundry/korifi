@@ -144,7 +144,7 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info,
 	cfSpaces := []korifiv1alpha1.CFSpace{}
 	for _, org := range orgNsList {
 		cfSpaceList := new(korifiv1alpha1.CFSpaceList)
-		err = r.klient.List(ctx, cfSpaceList, message.toListOptions(org, slices.Collect(maps.Keys(authorizedSpaceNamespaces)))...)
+		_, err = r.klient.List(ctx, cfSpaceList, message.toListOptions(org, slices.Collect(maps.Keys(authorizedSpaceNamespaces)))...)
 		if k8serrors.IsForbidden(err) {
 			continue
 		}

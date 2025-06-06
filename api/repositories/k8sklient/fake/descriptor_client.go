@@ -6,12 +6,13 @@ import (
 	"sync"
 
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type DescriptorClient struct {
-	ListStub        func(context.Context, schema.GroupVersionKind, ...client.ListOption) (k8sklient.ResultSetDescriptor, error)
+	ListStub        func(context.Context, schema.GroupVersionKind, ...client.ListOption) (descriptors.ResultSetDescriptor, error)
 	listMutex       sync.RWMutex
 	listArgsForCall []struct {
 		arg1 context.Context
@@ -19,18 +20,18 @@ type DescriptorClient struct {
 		arg3 []client.ListOption
 	}
 	listReturns struct {
-		result1 k8sklient.ResultSetDescriptor
+		result1 descriptors.ResultSetDescriptor
 		result2 error
 	}
 	listReturnsOnCall map[int]struct {
-		result1 k8sklient.ResultSetDescriptor
+		result1 descriptors.ResultSetDescriptor
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *DescriptorClient) List(arg1 context.Context, arg2 schema.GroupVersionKind, arg3 ...client.ListOption) (k8sklient.ResultSetDescriptor, error) {
+func (fake *DescriptorClient) List(arg1 context.Context, arg2 schema.GroupVersionKind, arg3 ...client.ListOption) (descriptors.ResultSetDescriptor, error) {
 	fake.listMutex.Lock()
 	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
 	fake.listArgsForCall = append(fake.listArgsForCall, struct {
@@ -57,7 +58,7 @@ func (fake *DescriptorClient) ListCallCount() int {
 	return len(fake.listArgsForCall)
 }
 
-func (fake *DescriptorClient) ListCalls(stub func(context.Context, schema.GroupVersionKind, ...client.ListOption) (k8sklient.ResultSetDescriptor, error)) {
+func (fake *DescriptorClient) ListCalls(stub func(context.Context, schema.GroupVersionKind, ...client.ListOption) (descriptors.ResultSetDescriptor, error)) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = stub
@@ -70,28 +71,28 @@ func (fake *DescriptorClient) ListArgsForCall(i int) (context.Context, schema.Gr
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *DescriptorClient) ListReturns(result1 k8sklient.ResultSetDescriptor, result2 error) {
+func (fake *DescriptorClient) ListReturns(result1 descriptors.ResultSetDescriptor, result2 error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	fake.listReturns = struct {
-		result1 k8sklient.ResultSetDescriptor
+		result1 descriptors.ResultSetDescriptor
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *DescriptorClient) ListReturnsOnCall(i int, result1 k8sklient.ResultSetDescriptor, result2 error) {
+func (fake *DescriptorClient) ListReturnsOnCall(i int, result1 descriptors.ResultSetDescriptor, result2 error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	if fake.listReturnsOnCall == nil {
 		fake.listReturnsOnCall = make(map[int]struct {
-			result1 k8sklient.ResultSetDescriptor
+			result1 descriptors.ResultSetDescriptor
 			result2 error
 		})
 	}
 	fake.listReturnsOnCall[i] = struct {
-		result1 k8sklient.ResultSetDescriptor
+		result1 descriptors.ResultSetDescriptor
 		result2 error
 	}{result1, result2}
 }

@@ -288,7 +288,7 @@ func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info, m
 	roleBindings := []rbacv1.RoleBinding{}
 	for _, ns := range authorizedNamespaces {
 		roleBindingsList := &rbacv1.RoleBindingList{}
-		err := r.klient.List(ctx, roleBindingsList, InNamespace(ns))
+		_, err := r.klient.List(ctx, roleBindingsList, InNamespace(ns))
 		if err != nil {
 			if k8serrors.IsForbidden(err) {
 				continue
@@ -366,7 +366,7 @@ func (r *RoleRepo) DeleteRole(ctx context.Context, authInfo authorization.Info, 
 	}
 
 	roleBindings := &rbacv1.RoleBindingList{}
-	err := r.klient.List(ctx, roleBindings,
+	_, err := r.klient.List(ctx, roleBindings,
 		InNamespace(ns),
 		WithLabel(RoleGuidLabel, deleteMsg.GUID),
 	)

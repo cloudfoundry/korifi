@@ -180,7 +180,7 @@ func NewServicePlanRepo(
 
 func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]ServicePlanRecord, error) {
 	cfServicePlans := &korifiv1alpha1.CFServicePlanList{}
-	if err := r.klient.List(ctx, cfServicePlans, message.toListOptions(r.rootNamespace)...); err != nil {
+	if _, err := r.klient.List(ctx, cfServicePlans, message.toListOptions(r.rootNamespace)...); err != nil {
 		return nil, apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
