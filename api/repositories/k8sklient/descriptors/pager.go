@@ -18,14 +18,18 @@ type Page[T any] struct {
 	Items []T
 }
 
+func SinglePageInfo(itemsCount int) PageInfo {
+	return PageInfo{
+		TotalResults: itemsCount,
+		TotalPages:   1,
+		PageNumber:   1,
+	}
+}
+
 func SinglePage[T any](items []T) Page[T] {
 	return Page[T]{
-		PageInfo: PageInfo{
-			TotalResults: len(items),
-			TotalPages:   1,
-			PageNumber:   1,
-		},
-		Items: items,
+		PageInfo: SinglePageInfo(len(items)),
+		Items:    items,
 	}
 }
 

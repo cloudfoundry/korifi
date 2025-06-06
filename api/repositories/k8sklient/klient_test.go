@@ -15,6 +15,7 @@ import (
 	authfake "code.cloudfoundry.org/korifi/api/authorization/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -281,6 +282,7 @@ var _ = Describe("Klient", func() {
 			fakeDescriptor *fake.ResultSetDescriptor
 			objectList     *korifiv1alpha1.CFAppList
 			listOpts       []repositories.ListOption
+			pageInfo       descriptors.PageInfo
 		)
 
 		BeforeEach(func() {
@@ -304,7 +306,7 @@ var _ = Describe("Klient", func() {
 		})
 
 		JustBeforeEach(func() {
-			err = klient.List(ctx, objectList, listOpts...)
+			pageInfo, err = klient.List(ctx, objectList, listOpts...)
 		})
 
 		It("delegates to the user client", func() {
@@ -326,7 +328,7 @@ var _ = Describe("Klient", func() {
 
 		When("paging is requested", func() {
 			BeforeEach(func() {
-				listOpts = append(listOpts, repositories.WithPaging(10, 2))
+				listOpts = append(listOpts, repositories.WithPaging(1, 2))
 			})
 
 			It("lists object descriptors with user supplied filltering opts", func() {
@@ -370,7 +372,7 @@ var _ = Describe("Klient", func() {
 				})
 			})
 
-			It("maps guids to objects", func() {
+			It("only maps paged guids to objects", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(objectListMapper.GUIDsToObjectListCallCount()).To(Equal(1))
@@ -380,7 +382,7 @@ var _ = Describe("Klient", func() {
 					Version: "v1alpha1",
 					Kind:    "CFAppList",
 				}))
-				Expect(actualGUIDs).To(Equal([]string{"guid-1", "guid-2"}))
+				Expect(actualGUIDs).To(Equal([]string{"guid-2"}))
 			})
 
 			When("mapping the guids to objects fails", func() {
@@ -399,6 +401,14 @@ var _ = Describe("Klient", func() {
 				Expect(objectList.Items).To(Equal([]korifiv1alpha1.CFApp{
 					{ObjectMeta: metav1.ObjectMeta{Name: "guid-1"}},
 					{ObjectMeta: metav1.ObjectMeta{Name: "guid-2"}},
+				}))
+			})
+
+			It("returns page info", func() {
+				Expect(pageInfo).To(Equal(descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   2,
+					PageNumber:   2,
 				}))
 			})
 		})
@@ -422,6 +432,14 @@ var _ = Describe("Klient", func() {
 				Expect(by).To(Equal("foo"))
 				Expect(descending).To(BeTrue())
 				Expect(fakeDescriptor.GUIDsCallCount()).To(Equal(1))
+			})
+
+			It("returns page info", func() {
+				Expect(pageInfo).To(Equal(descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   1,
+					PageNumber:   1,
+				}))
 			})
 
 			When("sorting fails", func() {

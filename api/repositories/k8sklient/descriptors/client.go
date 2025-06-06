@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -26,7 +25,7 @@ func NewClient(restClient restclient.Interface, spaceFilteringOpts *authorizatio
 	}
 }
 
-func (c *Client) List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (k8sklient.ResultSetDescriptor, error) {
+func (c *Client) List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (*TableResultSetDescriptor, error) {
 	listOpts, err := c.spaceFilteringOpts.Apply(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply space filtering options: %w", err)
