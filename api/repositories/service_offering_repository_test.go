@@ -52,7 +52,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 			offeringGUID = uuid.NewString()
 
 			brokerGUID := uuid.NewString()
-			offeringName := uuid.NewString()
 			broker = &korifiv1alpha1.CFServiceBroker{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: rootNamespace,
@@ -62,7 +61,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					Name: offeringName,
+					Name: uuid.NewString(),
 				},
 			}
 			Expect(k8sClient.Create(ctx, broker)).To(Succeed())
@@ -78,7 +77,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Labels: map[string]string{
 						korifiv1alpha1.RelServiceBrokerGUIDLabel: broker.Name,
 						korifiv1alpha1.RelServiceBrokerNameLabel: tools.EncodeValueToSha224(broker.Spec.Name),
-						korifiv1alpha1.CFServiceOfferingNameKey:  tools.EncodeValueToSha224(offeringName),
 						korifiv1alpha1.GUIDLabelKey:              offeringGUID,
 					},
 					Annotations: map[string]string{
@@ -191,7 +189,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Labels: map[string]string{
 						korifiv1alpha1.RelServiceBrokerGUIDLabel: broker.Name,
 						korifiv1alpha1.RelServiceBrokerNameLabel: tools.EncodeValueToSha224(broker.Spec.Name),
-						korifiv1alpha1.CFServiceOfferingNameKey:  tools.EncodeValueToSha224("my-offering"),
 						korifiv1alpha1.GUIDLabelKey:              offeringGUID,
 					},
 					Annotations: map[string]string{
@@ -373,10 +370,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Finalizers: []string{
 						korifiv1alpha1.CFServiceInstanceFinalizerName,
 					},
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey:     space.Name,
-						korifiv1alpha1.PlanGUIDLabelKey: plan.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					PlanGUID: plan.Name,
@@ -389,10 +382,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey:                  space.Name,
-						korifiv1alpha1.CFServiceInstanceGUIDLabelKey: instance.Name,
-					},
 					Finalizers: []string{
 						korifiv1alpha1.CFServiceBindingFinalizerName,
 					},

@@ -15,8 +15,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
 	"code.cloudfoundry.org/korifi/tests/helpers"
-	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	k8sclient "k8s.io/client-go/kubernetes"
 
@@ -28,6 +28,7 @@ import (
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -79,9 +80,13 @@ var (
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	commonLabelsWebhookManifestPath := helpers.GenerateWebhookManifest("code.cloudfoundry.org/korifi/controllers/webhooks/common_labels")
+	webhooksManifest := helpers.GenerateWebhookManifest(
+		"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels",
+		"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer",
+	)
+
 	DeferCleanup(func() {
-		Expect(os.RemoveAll(filepath.Dir(commonLabelsWebhookManifestPath))).To(Succeed())
+		Expect(os.RemoveAll(filepath.Dir(webhooksManifest))).To(Succeed())
 	})
 
 	testEnv = &envtest.Environment{
@@ -91,12 +96,11 @@ var _ = BeforeSuite(func() {
 		},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{commonLabelsWebhookManifestPath},
+			Paths: []string{webhooksManifest},
 		},
 	}
 
-	var err error
-	_, err = testEnv.Start()
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
@@ -105,6 +109,7 @@ var _ = BeforeSuite(func() {
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 
 	common_labels.NewWebhook().SetupWebhookWithManager(k8sManager)
+	label_indexer.NewWebhook().SetupWebhookWithManager(k8sManager)
 
 	DeferCleanup(helpers.StartK8sManager(k8sManager))
 
@@ -182,23 +187,26 @@ func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alph
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: rootNamespace,
-			Labels: map[string]string{
-				korifiv1alpha1.GUIDLabelKey:        guid,
-				korifiv1alpha1.CFOrgDisplayNameKey: tools.EncodeValueToSha224(displayName),
-				korifiv1alpha1.ReadyLabelKey:       string(metav1.ConditionTrue),
-			},
 		},
 		Spec: korifiv1alpha1.CFOrgSpec{
 			DisplayName: displayName,
 		},
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
+	Expect(k8s.Patch(ctx, k8sClient, cfOrg, func() {
+		meta.SetStatusCondition(&cfOrg.Status.Conditions, metav1.Condition{
+			Type:   korifiv1alpha1.StatusConditionReady,
+			Status: metav1.ConditionTrue,
+			Reason: "Ready",
+		})
+		cfOrg.Status.GUID = guid
+	})).To(Succeed())
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cfOrg.Name,
 			Labels: map[string]string{
-				korifiv1alpha1.CFOrgDisplayNameKey: tools.EncodeValueToSha224(cfOrg.Spec.DisplayName),
+				korifiv1alpha1.CFOrgDisplayNameKey: cfOrg.Labels[korifiv1alpha1.CFOrgDisplayNameKey],
 			},
 		},
 	}
@@ -218,24 +226,26 @@ func createSpaceWithCleanup(ctx context.Context, orgGUID, name string) *korifiv1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      guid,
 			Namespace: orgGUID,
-			Labels: map[string]string{
-				korifiv1alpha1.GUIDLabelKey:          guid,
-				korifiv1alpha1.CFOrgGUIDKey:          orgGUID,
-				korifiv1alpha1.CFSpaceDisplayNameKey: tools.EncodeValueToSha224(name),
-				korifiv1alpha1.ReadyLabelKey:         string(metav1.ConditionTrue),
-			},
 		},
 		Spec: korifiv1alpha1.CFSpaceSpec{
 			DisplayName: name,
 		},
 	}
 	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
+	Expect(k8s.Patch(ctx, k8sClient, cfSpace, func() {
+		meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
+			Type:   korifiv1alpha1.StatusConditionReady,
+			Status: metav1.ConditionTrue,
+			Reason: "Ready",
+		})
+		cfSpace.Status.GUID = guid
+	})).To(Succeed())
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cfSpace.Name,
 			Labels: map[string]string{
-				korifiv1alpha1.CFSpaceDisplayNameKey: tools.EncodeValueToSha224(name),
+				korifiv1alpha1.CFSpaceDisplayNameKey: cfSpace.Labels[korifiv1alpha1.CFSpaceDisplayNameKey],
 			},
 		},
 	}
@@ -355,11 +365,6 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 			Annotations: map[string]string{
 				CFAppRevisionKey: CFAppRevisionValue,
 			},
-			Labels: map[string]string{
-				korifiv1alpha1.SpaceGUIDKey:             space,
-				korifiv1alpha1.GUIDLabelKey:             guid,
-				korifiv1alpha1.CFAppDeploymentStatusKey: korifiv1alpha1.DeploymentStatusValueActive,
-			},
 		},
 		Spec: korifiv1alpha1.CFAppSpec{
 			DisplayName:  displayName,
@@ -376,7 +381,7 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 			EnvSecretName: uuid.NewString(),
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+	Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 
 	return cfApp
 }

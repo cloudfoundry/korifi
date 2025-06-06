@@ -66,8 +66,7 @@ var _ = Describe("SpaceRepository", func() {
 
 				namespace := &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:   cfSpace.Name,
-						Labels: map[string]string{korifiv1alpha1.CFSpaceDisplayNameKey: cfSpace.Spec.DisplayName},
+						Name: cfSpace.Name,
 					},
 				}
 				Expect(k8sClient.Create(ctx, namespace)).To(Succeed())

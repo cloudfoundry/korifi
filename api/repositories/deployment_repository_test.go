@@ -8,9 +8,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
-	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"code.cloudfoundry.org/korifi/version"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -38,9 +38,6 @@ var _ = Describe("DeploymentRepository", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfApp.Namespace,
 				Name:      uuid.NewString(),
-				Labels: map[string]string{
-					korifiv1alpha1.CFAppGUIDLabelKey: cfApp.Name,
-				},
 				Annotations: map[string]string{
 					version.KorifiCreationVersionKey: "0.7.2",
 				},
@@ -89,10 +86,14 @@ var _ = Describe("DeploymentRepository", func() {
 				}))
 			})
 
-			When("the deployment is finalized", func() {
+			When("the app is ready", func() {
 				BeforeEach(func() {
-					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-						cfApp.Labels = tools.SetMapValue(cfApp.Labels, korifiv1alpha1.CFAppDeploymentStatusKey, korifiv1alpha1.DeploymentStatusValueFinalized)
+					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+						meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+							Type:   "Ready",
+							Status: metav1.ConditionTrue,
+							Reason: "Deployment",
+						})
 					})).To(Succeed())
 				})
 
@@ -178,8 +179,12 @@ var _ = Describe("DeploymentRepository", func() {
 
 			When("the app is ready", func() {
 				BeforeEach(func() {
-					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-						cfApp.Labels = tools.SetMapValue(cfApp.Labels, korifiv1alpha1.CFAppDeploymentStatusKey, korifiv1alpha1.DeploymentStatusValueFinalized)
+					Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
+						meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+							Type:   "Ready",
+							Status: metav1.ConditionTrue,
+							Reason: "Deployed",
+						})
 					})).To(Succeed())
 				})
 

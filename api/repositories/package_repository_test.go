@@ -491,9 +491,6 @@ var _ = Describe("PackageRepository", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      package1GUID,
 						Namespace: space.Name,
-						Labels: map[string]string{
-							korifiv1alpha1.SpaceGUIDKey: space.Name,
-						},
 					},
 					Spec: korifiv1alpha1.CFPackageSpec{
 						Type: "bits",
@@ -508,9 +505,6 @@ var _ = Describe("PackageRepository", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      package2GUID,
 						Namespace: space2.Name,
-						Labels: map[string]string{
-							korifiv1alpha1.SpaceGUIDKey: space2.Name,
-						},
 					},
 					Spec: korifiv1alpha1.CFPackageSpec{
 						Type: "bits",
@@ -535,9 +529,6 @@ var _ = Describe("PackageRepository", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      noPermissionsPackageGUID,
 						Namespace: noPermissionsSpace.Name,
-						Labels: map[string]string{
-							korifiv1alpha1.SpaceGUIDKey: noPermissionsSpace.Name,
-						},
 					},
 					Spec: korifiv1alpha1.CFPackageSpec{
 						Type: "bits",

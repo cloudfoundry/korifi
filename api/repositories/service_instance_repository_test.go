@@ -710,9 +710,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: space.Name,
 					Name:      "service-instance-1" + uuid.NewString(),
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-1",
@@ -726,9 +723,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: space2.Name,
 					Name:      "service-instance-2" + uuid.NewString(),
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space2.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-2",
@@ -742,9 +736,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: space2.Name,
 					Name:      "service-instance-3" + uuid.NewString(),
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space2.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: "service-instance-3",
@@ -759,9 +750,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: space3.Name,
 					Name:      uuid.NewString(),
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space3.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
 					DisplayName: uuid.NewString(),

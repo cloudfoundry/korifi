@@ -37,9 +37,6 @@ var _ = Describe("DomainRepository", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      domainGUID,
 				Namespace: rootNamespace,
-				Labels: map[string]string{
-					korifiv1alpha1.CFEncodedDomainNameLabelKey: tools.EncodeValueToSha224(domainName),
-				},
 			},
 			Spec: korifiv1alpha1.CFDomainSpec{
 				Name: domainName,

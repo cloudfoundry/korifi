@@ -116,9 +116,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
@@ -201,9 +198,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Type: korifiv1alpha1.CFServiceBindingTypeApp,
@@ -467,9 +461,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
@@ -791,9 +782,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceBindingGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 					Annotations: map[string]string{
 						korifiv1alpha1.ServiceInstanceTypeAnnotation: korifiv1alpha1.UserProvidedType,
 					},
@@ -934,7 +922,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space.Name,
 					Labels: map[string]string{
 						korifiv1alpha1.PlanGUIDLabelKey: "plan-1",
-						korifiv1alpha1.SpaceGUIDKey:     space.Name,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -961,7 +948,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space2.Name,
 					Labels: map[string]string{
 						korifiv1alpha1.PlanGUIDLabelKey: "plan-2",
-						korifiv1alpha1.SpaceGUIDKey:     space2.Name,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -987,7 +973,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space2.Name,
 					Labels: map[string]string{
 						korifiv1alpha1.PlanGUIDLabelKey: "plan-3",
-						korifiv1alpha1.SpaceGUIDKey:     space.Name,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -1010,7 +995,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Namespace: space2.Name,
 					Labels: map[string]string{
 						korifiv1alpha1.PlanGUIDLabelKey: "plan-4",
-						korifiv1alpha1.SpaceGUIDKey:     space.Name,
 					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
@@ -1242,9 +1226,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceBindingGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
@@ -1367,9 +1348,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceBindingGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
 					Service: corev1.ObjectReference{
@@ -1435,8 +1413,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Name:      prefixedGUID("binding"),
 					Namespace: space.Name,
 					Labels: map[string]string{
-						"foo":                       "bar",
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
+						"foo": "bar",
 					},
 					Annotations: map[string]string{
 						"baz": "bat",

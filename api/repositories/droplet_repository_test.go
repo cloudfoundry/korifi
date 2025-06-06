@@ -45,11 +45,8 @@ var _ = Describe("DropletRepository", func() {
 				Name:      uuid.NewString(),
 				Namespace: space.Name,
 				Labels: map[string]string{
-					"key1":                               "val1",
-					"key2":                               "val2",
-					korifiv1alpha1.CFPackageGUIDLabelKey: packageGUID,
-					korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
-					korifiv1alpha1.SpaceGUIDKey:          space.Name,
+					"key1": "val1",
+					"key2": "val2",
 				},
 				Annotations: map[string]string{
 					"key1": "val1",
@@ -198,11 +195,6 @@ var _ = Describe("DropletRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: build.Namespace,
-					Labels: map[string]string{
-						korifiv1alpha1.CFPackageGUIDLabelKey: uuid.NewString(),
-						korifiv1alpha1.CFAppGUIDLabelKey:     uuid.NewString(),
-						korifiv1alpha1.SpaceGUIDKey:          build.Namespace,
-					},
 				},
 				Spec: korifiv1alpha1.CFBuildSpec{
 					Lifecycle: korifiv1alpha1.Lifecycle{
