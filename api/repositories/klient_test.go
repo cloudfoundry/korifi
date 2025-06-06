@@ -274,6 +274,26 @@ var _ = Describe("Klient", func() {
 						PageNumber: 2,
 					})))
 				})
+
+				When("pageSize is 0", func() {
+					BeforeEach(func() {
+						option = repositories.WithPaging(0, 2)
+					})
+
+					It("returns a noop option", func() {
+						Expect(listOptions).To(PointTo(BeZero()))
+					})
+				})
+
+				When("page is 0", func() {
+					BeforeEach(func() {
+						option = repositories.WithPaging(10, 0)
+					})
+
+					It("returns a noop option", func() {
+						Expect(listOptions).To(PointTo(BeZero()))
+					})
+				})
 			})
 		})
 	})

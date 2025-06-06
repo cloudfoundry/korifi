@@ -195,6 +195,10 @@ func (o SortOpt) ApplyToList(opts *ListOptions) error {
 }
 
 func WithPaging(pageSize int, page int) ListOption {
+	if pageSize == 0 || page == 0 {
+		return NoopListOption{}
+	}
+
 	return PagingOpt{
 		PageSize:   pageSize,
 		PageNumber: page,
