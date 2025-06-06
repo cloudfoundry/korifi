@@ -161,7 +161,7 @@ func (k *K8sKlient) fetchObjectGUIDs(ctx context.Context, listObjectGVK schema.G
 
 func pageGUIDs(objectGUIDs []string, listOpts repositories.ListOptions) ([]string, descriptors.PageInfo, error) {
 	if listOpts.Paging == nil {
-		return objectGUIDs, descriptors.SinglePageInfo(len(objectGUIDs)), nil
+		return objectGUIDs, descriptors.SinglePageInfo(len(objectGUIDs), len(objectGUIDs)), nil
 	}
 
 	page, err := descriptors.GetPage(objectGUIDs, listOpts.Paging.PageSize, listOpts.Paging.PageNumber)
@@ -193,7 +193,7 @@ func (k *K8sKlient) listViaUserClient(ctx context.Context, list client.ObjectLis
 		return descriptors.PageInfo{}, err
 	}
 
-	return descriptors.SinglePageInfo(itemsField.Len()), nil
+	return descriptors.SinglePageInfo(itemsField.Len(), itemsField.Len()), nil
 }
 
 func getObjectListItemsField(listObj client.ObjectList) (reflect.Value, error) {

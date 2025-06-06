@@ -19,7 +19,7 @@ var _ = Describe("Pager", func() {
 
 	Describe("SinglePage", func() {
 		JustBeforeEach(func() {
-			page = descriptors.SinglePage(items)
+			page = descriptors.SinglePage(items, 10)
 		})
 
 		It("returns a single page", func() {
@@ -28,6 +28,7 @@ var _ = Describe("Pager", func() {
 					TotalResults: 8,
 					TotalPages:   1,
 					PageNumber:   1,
+					PageSize:     10,
 				},
 				Items: []string{"a", "b", "c", "d", "e", "f", "g", "h"},
 			}))
@@ -57,6 +58,7 @@ var _ = Describe("Pager", func() {
 					TotalResults: 8,
 					TotalPages:   3,
 					PageNumber:   2,
+					PageSize:     3,
 				},
 				Items: []string{"d", "e", "f"},
 			}))
@@ -84,6 +86,7 @@ var _ = Describe("Pager", func() {
 						TotalResults: 8,
 						TotalPages:   4,
 						PageNumber:   2,
+						PageSize:     2,
 					},
 					Items: []string{"c", "d"},
 				}))
@@ -102,6 +105,7 @@ var _ = Describe("Pager", func() {
 						TotalResults: 8,
 						TotalPages:   3,
 						PageNumber:   3,
+						PageSize:     3,
 					},
 					Items: []string{"g", "h"},
 				}))
@@ -120,6 +124,7 @@ var _ = Describe("Pager", func() {
 						TotalResults: 8,
 						TotalPages:   1,
 						PageNumber:   1,
+						PageSize:     8,
 					},
 					Items: []string{"a", "b", "c", "d", "e", "f", "g", "h"},
 				}))
@@ -138,6 +143,7 @@ var _ = Describe("Pager", func() {
 						TotalResults: 8,
 						TotalPages:   1,
 						PageNumber:   1,
+						PageSize:     10,
 					},
 					Items: []string{"a", "b", "c", "d", "e", "f", "g", "h"},
 				}))
@@ -159,8 +165,16 @@ var _ = Describe("Pager", func() {
 				pageNumber = 100
 			})
 
-			It("returns an error", func() {
-				Expect(err).To(MatchError(ContainSubstring("invalid page number")))
+			It("returns an empty page", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(page).To(Equal(descriptors.Page[string]{
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 8,
+						TotalPages:   3,
+						PageNumber:   100,
+						PageSize:     3,
+					},
+				}))
 			})
 		})
 	})

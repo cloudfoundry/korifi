@@ -10,6 +10,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
@@ -176,6 +177,8 @@ type ListAppsMessage struct {
 	SpaceGUIDs    []string
 	LabelSelector string
 	OrderBy       string
+	PerPage       int
+	Page          int
 }
 
 func (m *ListAppsMessage) toListOptions() []ListOption {
@@ -185,6 +188,7 @@ func (m *ListAppsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, tools.EncodeValuesToSha224(m.Names...)),
 		m.toSortOption(),
+		WithPaging(m.PerPage, m.Page),
 	}
 }
 
@@ -296,14 +300,36 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 	return cfAppToAppRecord(*cfApp)
 }
 
+type ListResult[T any] struct {
+	PageInfo descriptors.PageInfo
+	Records  []T
+}
+
 func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
-	appList := &korifiv1alpha1.CFAppList{}
-	_, err := f.klient.List(ctx, appList, message.toListOptions()...)
+	listResult, err := f.ListAppsNew(ctx, authInfo, message)
 	if err != nil {
-		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
+		return nil, err
 	}
 
-	return it.TryCollect(it.MapError(itx.FromSlice(appList.Items), cfAppToAppRecord))
+	return listResult.Records, nil
+}
+
+func (f *AppRepo) ListAppsNew(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) (ListResult[AppRecord], error) {
+	appList := &korifiv1alpha1.CFAppList{}
+	pageInfo, err := f.klient.List(ctx, appList, message.toListOptions()...)
+	if err != nil {
+		return ListResult[AppRecord]{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
+	}
+
+	records, err := it.TryCollect(it.MapError(itx.FromSlice(appList.Items), cfAppToAppRecord))
+	if err != nil {
+		return ListResult[AppRecord]{}, err
+	}
+
+	return ListResult[AppRecord]{
+		PageInfo: pageInfo,
+		Records:  records,
+	}, nil
 }
 
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {

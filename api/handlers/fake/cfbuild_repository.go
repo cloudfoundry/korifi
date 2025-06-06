@@ -350,6 +350,8 @@ func (fake *CFBuildRepository) Invocations() map[string][][]interface{} {
 	defer fake.getBuildMutex.RUnlock()
 	fake.getLatestBuildByAppGUIDMutex.RLock()
 	defer fake.getLatestBuildByAppGUIDMutex.RUnlock()
+	fake.listBuildsMutex.RLock()
+	defer fake.listBuildsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

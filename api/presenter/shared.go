@@ -4,11 +4,14 @@ import (
 	"maps"
 	"net/url"
 	"path"
+	"strconv"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
+	"golang.org/x/exp/constraints"
 )
 
 type Lifecycle struct {
@@ -52,12 +55,12 @@ type ListResponse[T any] struct {
 }
 
 type PaginationData struct {
-	TotalResults int     `json:"total_results"`
-	TotalPages   int     `json:"total_pages"`
-	First        PageRef `json:"first"`
-	Last         PageRef `json:"last"`
-	Next         *int    `json:"next"`
-	Previous     *int    `json:"previous"`
+	TotalResults int      `json:"total_results"`
+	TotalPages   int      `json:"total_pages"`
+	First        PageRef  `json:"first"`
+	Last         PageRef  `json:"last"`
+	Next         *PageRef `json:"next"`
+	Previous     *PageRef `json:"previous"`
 }
 
 type PageRef struct {
@@ -92,6 +95,65 @@ func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL
 		Resources: presenters,
 		Included:  includedResources(includes...),
 	}
+}
+
+func ForListPaged[T, S any](itemPresenter itemPresenter[T, S], listResult repositories.ListResult[T], baseURL, requestURL url.URL, includes ...include.Resource) ListResponse[S] {
+	presenters := []S{}
+	for _, resource := range listResult.Records {
+		presenters = append(presenters, itemPresenter(resource, baseURL))
+	}
+
+	firstQuery := requestURL.Query()
+	firstQuery.Set("page", "1")
+	firstQuery.Set("per_page", strconv.Itoa(listResult.PageInfo.PageSize))
+
+	lastQuery := requestURL.Query()
+	lastQuery.Set("page", strconv.Itoa(listResult.PageInfo.TotalPages))
+	lastQuery.Set("per_page", strconv.Itoa(listResult.PageInfo.PageSize))
+
+	paginationData := PaginationData{
+		TotalResults: listResult.PageInfo.TotalResults,
+		TotalPages:   listResult.PageInfo.TotalPages,
+		First: PageRef{
+			HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(firstQuery.Encode()).build(),
+		},
+		Last: PageRef{
+			HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(lastQuery.Encode()).build(),
+		},
+	}
+
+	if listResult.PageInfo.PageNumber < listResult.PageInfo.TotalPages {
+		nextQuery := requestURL.Query()
+		nextQuery.Set("page", strconv.Itoa(listResult.PageInfo.PageNumber+1))
+		nextQuery.Set("per_page", strconv.Itoa(listResult.PageInfo.PageSize))
+		paginationData.Next = &PageRef{
+			HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(nextQuery.Encode()).build(),
+		}
+	}
+
+	if listResult.PageInfo.PageNumber > 1 {
+		prevPageNumber := min(listResult.PageInfo.PageNumber-1, listResult.PageInfo.TotalPages)
+		previousQuery := requestURL.Query()
+		previousQuery.Set("page", strconv.Itoa(prevPageNumber))
+		previousQuery.Set("per_page", strconv.Itoa(listResult.PageInfo.PageSize))
+		paginationData.Previous = &PageRef{
+			HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(previousQuery.Encode()).build(),
+		}
+	}
+
+	return ListResponse[S]{
+		PaginationData: paginationData,
+		Resources:      presenters,
+		Included:       includedResources(includes...),
+	}
+}
+
+// TODO: move to e.g. tools
+func min[T constraints.Ordered](a, b T) T {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func includedResources(includes ...include.Resource) map[string][]any {

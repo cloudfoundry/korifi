@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 
 	"code.cloudfoundry.org/korifi/api/config"
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tools"
 	jellidation "github.com/jellydator/validation"
 )
 
@@ -87,8 +89,11 @@ type AppList struct {
 	SpaceGUIDs    string
 	OrderBy       string
 	LabelSelector string
+	PerPage       string
+	Page          string
 }
 
+// TODO: validate that page and per_page are ints
 func (a AppList) Validate() error {
 	return jellidation.ValidateStruct(&a,
 		jellidation.Field(&a.OrderBy, validation.OneOfOrderBy("created_at", "updated_at", "name", "state")),
@@ -102,7 +107,18 @@ func (a *AppList) ToMessage() repositories.ListAppsMessage {
 		SpaceGUIDs:    parse.ArrayParam(a.SpaceGUIDs),
 		LabelSelector: a.LabelSelector,
 		OrderBy:       a.OrderBy,
+		Page:          tools.IfZero(parseInt(a.Page), 1),
+		// TODO: page size has to be a helm value
+		PerPage: tools.IfZero(parseInt(a.PerPage), 50),
 	}
+}
+
+func parseInt(s string) int {
+	if s == "" {
+		return 0
+	}
+	i, _ := strconv.Atoi(s)
+	return i
 }
 
 func (a *AppList) SupportedKeys() []string {
@@ -115,6 +131,8 @@ func (a *AppList) DecodeFromURLValues(values url.Values) error {
 	a.SpaceGUIDs = values.Get("space_guids")
 	a.OrderBy = values.Get("order_by")
 	a.LabelSelector = values.Get("label_selector")
+	a.PerPage = values.Get("per_page")
+	a.Page = values.Get("page")
 	return nil
 }
 

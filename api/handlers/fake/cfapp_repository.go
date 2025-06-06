@@ -84,6 +84,21 @@ type CFAppRepository struct {
 		result1 []repositories.AppRecord
 		result2 error
 	}
+	ListAppsNewStub        func(context.Context, authorization.Info, repositories.ListAppsMessage) (repositories.ListResult[repositories.AppRecord], error)
+	listAppsNewMutex       sync.RWMutex
+	listAppsNewArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.ListAppsMessage
+	}
+	listAppsNewReturns struct {
+		result1 repositories.ListResult[repositories.AppRecord]
+		result2 error
+	}
+	listAppsNewReturnsOnCall map[int]struct {
+		result1 repositories.ListResult[repositories.AppRecord]
+		result2 error
+	}
 	PatchAppStub        func(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
 	patchAppMutex       sync.RWMutex
 	patchAppArgsForCall []struct {
@@ -475,6 +490,72 @@ func (fake *CFAppRepository) ListAppsReturnsOnCall(i int, result1 []repositories
 	}{result1, result2}
 }
 
+func (fake *CFAppRepository) ListAppsNew(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListAppsMessage) (repositories.ListResult[repositories.AppRecord], error) {
+	fake.listAppsNewMutex.Lock()
+	ret, specificReturn := fake.listAppsNewReturnsOnCall[len(fake.listAppsNewArgsForCall)]
+	fake.listAppsNewArgsForCall = append(fake.listAppsNewArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.ListAppsMessage
+	}{arg1, arg2, arg3})
+	stub := fake.ListAppsNewStub
+	fakeReturns := fake.listAppsNewReturns
+	fake.recordInvocation("ListAppsNew", []interface{}{arg1, arg2, arg3})
+	fake.listAppsNewMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFAppRepository) ListAppsNewCallCount() int {
+	fake.listAppsNewMutex.RLock()
+	defer fake.listAppsNewMutex.RUnlock()
+	return len(fake.listAppsNewArgsForCall)
+}
+
+func (fake *CFAppRepository) ListAppsNewCalls(stub func(context.Context, authorization.Info, repositories.ListAppsMessage) (repositories.ListResult[repositories.AppRecord], error)) {
+	fake.listAppsNewMutex.Lock()
+	defer fake.listAppsNewMutex.Unlock()
+	fake.ListAppsNewStub = stub
+}
+
+func (fake *CFAppRepository) ListAppsNewArgsForCall(i int) (context.Context, authorization.Info, repositories.ListAppsMessage) {
+	fake.listAppsNewMutex.RLock()
+	defer fake.listAppsNewMutex.RUnlock()
+	argsForCall := fake.listAppsNewArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFAppRepository) ListAppsNewReturns(result1 repositories.ListResult[repositories.AppRecord], result2 error) {
+	fake.listAppsNewMutex.Lock()
+	defer fake.listAppsNewMutex.Unlock()
+	fake.ListAppsNewStub = nil
+	fake.listAppsNewReturns = struct {
+		result1 repositories.ListResult[repositories.AppRecord]
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFAppRepository) ListAppsNewReturnsOnCall(i int, result1 repositories.ListResult[repositories.AppRecord], result2 error) {
+	fake.listAppsNewMutex.Lock()
+	defer fake.listAppsNewMutex.Unlock()
+	fake.ListAppsNewStub = nil
+	if fake.listAppsNewReturnsOnCall == nil {
+		fake.listAppsNewReturnsOnCall = make(map[int]struct {
+			result1 repositories.ListResult[repositories.AppRecord]
+			result2 error
+		})
+	}
+	fake.listAppsNewReturnsOnCall[i] = struct {
+		result1 repositories.ListResult[repositories.AppRecord]
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *CFAppRepository) PatchApp(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchAppMessage) (repositories.AppRecord, error) {
 	fake.patchAppMutex.Lock()
 	ret, specificReturn := fake.patchAppReturnsOnCall[len(fake.patchAppArgsForCall)]
@@ -752,6 +833,8 @@ func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	defer fake.getAppEnvMutex.RUnlock()
 	fake.listAppsMutex.RLock()
 	defer fake.listAppsMutex.RUnlock()
+	fake.listAppsNewMutex.RLock()
+	defer fake.listAppsNewMutex.RUnlock()
 	fake.patchAppMutex.RLock()
 	defer fake.patchAppMutex.RUnlock()
 	fake.patchAppEnvVarsMutex.RLock()

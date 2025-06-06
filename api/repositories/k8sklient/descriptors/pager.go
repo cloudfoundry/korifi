@@ -2,7 +2,6 @@ package descriptors
 
 import (
 	"errors"
-	"fmt"
 
 	"golang.org/x/exp/constraints"
 )
@@ -11,6 +10,7 @@ type PageInfo struct {
 	TotalResults int
 	TotalPages   int
 	PageNumber   int
+	PageSize     int
 }
 
 type Page[T any] struct {
@@ -18,17 +18,18 @@ type Page[T any] struct {
 	Items []T
 }
 
-func SinglePageInfo(itemsCount int) PageInfo {
+func SinglePageInfo(itemsCount int, pageSize int) PageInfo {
 	return PageInfo{
 		TotalResults: itemsCount,
 		TotalPages:   1,
 		PageNumber:   1,
+		PageSize:     pageSize,
 	}
 }
 
-func SinglePage[T any](items []T) Page[T] {
+func SinglePage[T any](items []T, pageSize int) Page[T] {
 	return Page[T]{
-		PageInfo: SinglePageInfo(len(items)),
+		PageInfo: SinglePageInfo(len(items), pageSize),
 		Items:    items,
 	}
 }
@@ -45,7 +46,7 @@ func GetPage[T any](items []T, pageSize int, pageNumber int) (Page[T], error) {
 	}
 
 	if pageSize >= len(items) {
-		return SinglePage(items), nil
+		return SinglePage(items, pageSize), nil
 	}
 
 	totalResults := len(items)
@@ -55,7 +56,14 @@ func GetPage[T any](items []T, pageSize int, pageNumber int) (Page[T], error) {
 		totalPages += 1
 	}
 	if pageNumber > totalPages {
-		return none, fmt.Errorf("invalid page number %d from %d total pages", pageNumber, totalPages)
+		return Page[T]{
+			PageInfo: PageInfo{
+				TotalResults: totalResults,
+				TotalPages:   totalPages,
+				PageNumber:   pageNumber,
+				PageSize:     pageSize,
+			},
+		}, nil
 	}
 
 	// pageNumber is 1-based
@@ -67,6 +75,7 @@ func GetPage[T any](items []T, pageSize int, pageNumber int) (Page[T], error) {
 			TotalResults: totalResults,
 			TotalPages:   totalPages,
 			PageNumber:   pageNumber,
+			PageSize:     pageSize,
 		},
 		Items: items[startIndex:endIndex],
 	}, nil
