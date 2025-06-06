@@ -67,9 +67,6 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
@@ -215,9 +212,6 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1-a",
@@ -335,10 +329,6 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey:                            space.Name,
-						korifiv1alpha1.DestinationAppGUIDLabelPrefix + appGUID: "",
-					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
@@ -460,9 +450,6 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
@@ -537,9 +524,6 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
@@ -570,10 +554,6 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey:              space.Name,
-						korifiv1alpha1.CFRouteIsUnmappedLabelKey: "true",
-					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",
@@ -663,22 +643,6 @@ var _ = Describe("RouteRepository", func() {
 					var err error
 					existingRecord, err = routeRepo.CreateRoute(ctx, authInfo, createRouteMessage)
 					Expect(err).NotTo(HaveOccurred())
-
-					route := &korifiv1alpha1.CFRoute{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      existingRecord.GUID,
-							Namespace: existingRecord.SpaceGUID,
-						},
-					}
-					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(route), route)).To(Succeed())
-					Expect(k8s.Patch(ctx, k8sClient, route, func() {
-						route.Labels = map[string]string{
-							korifiv1alpha1.SpaceGUIDKey:         existingRecord.SpaceGUID,
-							korifiv1alpha1.CFDomainGUIDLabelKey: existingRecord.Domain.GUID,
-							korifiv1alpha1.CFRouteHostLabelKey:  routeHost,
-							korifiv1alpha1.CFRoutePathLabelKey:  tools.EncodeValueToSha224(routePath),
-						}
-					})).To(Succeed())
 				})
 
 				It("doesn't create a new route", func() {
@@ -726,9 +690,6 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host: routeHost,
@@ -1020,9 +981,6 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host: routeHost,
@@ -1104,9 +1062,6 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1-a",
@@ -1306,9 +1261,6 @@ var _ = Describe("RouteRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeGUID,
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1",

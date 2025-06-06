@@ -40,11 +40,6 @@ var _ = Describe("ProcessRepo", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
 				Namespace: space.Name,
-				Labels: map[string]string{
-					korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
-					korifiv1alpha1.SpaceGUIDKey:          space.Name,
-					korifiv1alpha1.CFProcessTypeLabelKey: "web",
-				},
 			},
 			Spec: korifiv1alpha1.CFProcessSpec{
 				AppRef: corev1.LocalObjectReference{
@@ -167,10 +162,6 @@ var _ = Describe("ProcessRepo", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      cfProcess.Name,
 						Namespace: anotherNamespace.Name,
-						Labels: map[string]string{
-							korifiv1alpha1.CFAppGUIDLabelKey: app2GUID,
-							korifiv1alpha1.SpaceGUIDKey:      space.Name,
-						},
 					},
 					Spec: korifiv1alpha1.CFProcessSpec{
 						AppRef: corev1.LocalObjectReference{
@@ -217,11 +208,6 @@ var _ = Describe("ProcessRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: space2.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
-						korifiv1alpha1.SpaceGUIDKey:          space2.Name,
-						korifiv1alpha1.CFProcessTypeLabelKey: "web",
-					},
 				},
 				Spec: korifiv1alpha1.CFProcessSpec{
 					AppRef: corev1.LocalObjectReference{

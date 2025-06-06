@@ -66,8 +66,6 @@ var _ = Describe("ServicePlanRepo", func() {
 					korifiv1alpha1.RelServiceOfferingNameLabel: tools.EncodeValueToSha224("offering-name"),
 					korifiv1alpha1.RelServiceBrokerGUIDLabel:   "broker-guid",
 					korifiv1alpha1.GUIDLabelKey:                planGUID,
-					korifiv1alpha1.CFServicePlanNameKey:        tools.EncodeValueToSha224("my-service-plan"),
-					korifiv1alpha1.CFServicePlanAvailableKey:   "false",
 				},
 				Annotations: map[string]string{
 					"annotation": "annotation-value",
@@ -177,7 +175,7 @@ var _ = Describe("ServicePlanRepo", func() {
 					},
 				}
 				Expect(k8s.PatchResource(ctx, k8sClient, cfServicePlan, func() {
-					cfServicePlan.Labels = tools.SetMapValue(cfServicePlan.Labels, korifiv1alpha1.CFServicePlanAvailableKey, "true")
+					cfServicePlan.Spec.Visibility.Type = korifiv1alpha1.PublicServicePlanVisibilityType
 				})).To(Succeed())
 			})
 
@@ -207,8 +205,6 @@ var _ = Describe("ServicePlanRepo", func() {
 						korifiv1alpha1.RelServiceOfferingNameLabel: tools.EncodeValueToSha224("other-offering-name"),
 						korifiv1alpha1.RelServiceBrokerGUIDLabel:   "other-broker-guid",
 						korifiv1alpha1.GUIDLabelKey:                otherPlanGUID,
-						korifiv1alpha1.CFServicePlanNameKey:        tools.EncodeValueToSha224("other-plan"),
-						korifiv1alpha1.CFServicePlanAvailableKey:   "true",
 					},
 				},
 				Spec: korifiv1alpha1.CFServicePlanSpec{

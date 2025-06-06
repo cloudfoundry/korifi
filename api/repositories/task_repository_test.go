@@ -372,9 +372,6 @@ var _ = Describe("TaskRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      prefixedGUID("task1"),
 					Namespace: space.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFTaskSpec{
 					Command: "echo hello",
@@ -389,9 +386,6 @@ var _ = Describe("TaskRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      prefixedGUID("task2"),
 					Namespace: space2.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space2.Name,
-					},
 				},
 				Spec: korifiv1alpha1.CFTaskSpec{
 					Command: "echo hello",
@@ -465,9 +459,6 @@ var _ = Describe("TaskRepository", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      prefixedGUID("task21"),
 								Namespace: space2.Name,
-								Labels: map[string]string{
-									korifiv1alpha1.SpaceGUIDKey: space2.Name,
-								},
 							},
 							Spec: korifiv1alpha1.CFTaskSpec{
 								Command: "echo hello",

@@ -46,11 +46,6 @@ var _ = Describe("BuildRepository", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
 				Namespace: cfSpace.Name,
-				Labels: map[string]string{
-					korifiv1alpha1.SpaceGUIDKey:          cfSpace.Name,
-					korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
-					korifiv1alpha1.CFPackageGUIDLabelKey: packageGUID,
-				},
 			},
 			Spec: korifiv1alpha1.CFBuildSpec{
 				PackageRef: corev1.LocalObjectReference{
@@ -164,9 +159,6 @@ var _ = Describe("BuildRepository", func() {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      build.Name,
 							Namespace: anotherSpace.Name,
-							Labels: map[string]string{
-								korifiv1alpha1.SpaceGUIDKey: anotherSpace.Name,
-							},
 						},
 						Spec: korifiv1alpha1.CFBuildSpec{
 							Lifecycle: korifiv1alpha1.Lifecycle{
@@ -225,10 +217,6 @@ var _ = Describe("BuildRepository", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      uuid.NewString(),
 						Namespace: cfSpace.Name,
-						Labels: map[string]string{
-							korifiv1alpha1.SpaceGUIDKey:      cfSpace.Name,
-							korifiv1alpha1.CFAppGUIDLabelKey: appGUID,
-						},
 					},
 					Spec: korifiv1alpha1.CFBuildSpec{
 						AppRef: corev1.LocalObjectReference{
@@ -398,11 +386,6 @@ var _ = Describe("BuildRepository", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      uuid.NewString(),
 					Namespace: cfSpace.Name,
-					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey:          cfSpace.Name,
-						korifiv1alpha1.CFAppGUIDLabelKey:     app2GUID,
-						korifiv1alpha1.CFPackageGUIDLabelKey: package2GUID,
-					},
 				},
 				Spec: korifiv1alpha1.CFBuildSpec{
 					PackageRef: corev1.LocalObjectReference{
