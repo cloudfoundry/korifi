@@ -8,9 +8,9 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
-	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"code.cloudfoundry.org/korifi/version"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -21,7 +21,7 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
-var _ = Describe("DeploymentRepository", func() {
+var _ = FDescribe("DeploymentRepository", func() {
 	var (
 		deploymentRepo *repositories.DeploymentRepo
 		cfOrg          *korifiv1alpha1.CFOrg
@@ -89,10 +89,13 @@ var _ = Describe("DeploymentRepository", func() {
 				}))
 			})
 
-			When("the deployment is finalized", func() {
+			When("the app is ready", func() {
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-						cfApp.Labels = tools.SetMapValue(cfApp.Labels, korifiv1alpha1.CFAppDeploymentStatusKey, korifiv1alpha1.DeploymentStatusValueFinalized)
+						meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+							Type:   "Ready",
+							Status: metav1.ConditionTrue,
+						})
 					})).To(Succeed())
 				})
 
@@ -130,6 +133,7 @@ var _ = Describe("DeploymentRepository", func() {
 		})
 
 		JustBeforeEach(func() {
+			Expect(cfApp.Status.Conditions).To(BeEmpty())
 			deployment, createErr = deploymentRepo.CreateDeployment(ctx, authInfo, createDeploymentMessage)
 		})
 
@@ -179,11 +183,14 @@ var _ = Describe("DeploymentRepository", func() {
 			When("the app is ready", func() {
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, k8sClient, cfApp, func() {
-						cfApp.Labels = tools.SetMapValue(cfApp.Labels, korifiv1alpha1.CFAppDeploymentStatusKey, korifiv1alpha1.DeploymentStatusValueFinalized)
+						meta.SetStatusCondition(&cfApp.Status.Conditions, metav1.Condition{
+							Type:   "Ready",
+							Status: metav1.ConditionTrue,
+						})
 					})).To(Succeed())
 				})
 
-				It("creates a finalized deployment", func() {
+				FIt("creates a finalized deployment", func() {
 					Expect(createErr).NotTo(HaveOccurred())
 
 					Expect(deployment.Status.Value).To(Equal(repositories.DeploymentStatusValueFinalized))

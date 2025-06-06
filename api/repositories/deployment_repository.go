@@ -121,6 +121,7 @@ func (r *DeploymentRepo) GetDeployment(ctx context.Context, authInfo authorizati
 }
 
 func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authorization.Info, message CreateDeploymentMessage) (DeploymentRecord, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("repo.deployment.CreateDeployment")
 	app := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: message.AppGUID,
@@ -128,8 +129,10 @@ func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authoriz
 	}
 	err := r.klient.Get(ctx, app)
 	if err != nil {
+		log.Error(err, "failed to get app for deployment", "appGUID", message.AppGUID)
 		return DeploymentRecord{}, apierrors.FromK8sError(err, DeploymentResourceType)
 	}
+	log.Info("found app for deployment", "labels", app.Labels, "statusConditions", app.Status.Conditions)
 
 	if err = r.ensureSupport(ctx, app); err != nil {
 		return DeploymentRecord{}, err
@@ -159,6 +162,7 @@ func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authoriz
 	if err != nil {
 		return DeploymentRecord{}, apierrors.FromK8sError(err, DeploymentResourceType)
 	}
+	log.Info("deployment app after patch", "labels", app.Labels, "statusConditions", app.Status.Conditions)
 
 	return appToDeploymentRecord(*app)
 }

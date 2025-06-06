@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -79,9 +80,13 @@ var (
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	commonLabelsWebhookManifestPath := helpers.GenerateWebhookManifest("code.cloudfoundry.org/korifi/controllers/webhooks/common_labels")
+	webhooksManifest := helpers.GenerateWebhookManifest(
+		"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels",
+		"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer",
+	)
+
 	DeferCleanup(func() {
-		Expect(os.RemoveAll(filepath.Dir(commonLabelsWebhookManifestPath))).To(Succeed())
+		Expect(os.RemoveAll(filepath.Dir(webhooksManifest))).To(Succeed())
 	})
 
 	testEnv = &envtest.Environment{
@@ -91,12 +96,11 @@ var _ = BeforeSuite(func() {
 		},
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{commonLabelsWebhookManifestPath},
+			Paths: []string{webhooksManifest},
 		},
 	}
 
-	var err error
-	_, err = testEnv.Start()
+	_, err := testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
@@ -105,6 +109,7 @@ var _ = BeforeSuite(func() {
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 
 	common_labels.NewWebhook().SetupWebhookWithManager(k8sManager)
+	label_indexer.NewWebhook().SetupWebhookWithManager(k8sManager)
 
 	DeferCleanup(helpers.StartK8sManager(k8sManager))
 
@@ -356,9 +361,9 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 				CFAppRevisionKey: CFAppRevisionValue,
 			},
 			Labels: map[string]string{
-				korifiv1alpha1.SpaceGUIDKey:             space,
-				korifiv1alpha1.GUIDLabelKey:             guid,
-				korifiv1alpha1.CFAppDeploymentStatusKey: korifiv1alpha1.DeploymentStatusValueActive,
+				korifiv1alpha1.SpaceGUIDKey: space,
+				korifiv1alpha1.GUIDLabelKey: guid,
+				// korifiv1alpha1.CFAppDeploymentStatusKey: korifiv1alpha1.DeploymentStatusValueActive,
 			},
 		},
 		Spec: korifiv1alpha1.CFAppSpec{
@@ -376,7 +381,7 @@ func createAppWithGUID(space, guid string) *korifiv1alpha1.CFApp {
 			EnvSecretName: uuid.NewString(),
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), cfApp)).To(Succeed())
+	Expect(k8sClient.Create(ctx, cfApp)).To(Succeed())
 
 	return cfApp
 }
