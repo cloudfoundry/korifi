@@ -305,16 +305,7 @@ type ListResult[T any] struct {
 	Records  []T
 }
 
-func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
-	listResult, err := f.ListAppsNew(ctx, authInfo, message)
-	if err != nil {
-		return nil, err
-	}
-
-	return listResult.Records, nil
-}
-
-func (f *AppRepo) ListAppsNew(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) (ListResult[AppRecord], error) {
+func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) (ListResult[AppRecord], error) {
 	appList := &korifiv1alpha1.CFAppList{}
 	pageInfo, err := f.klient.List(ctx, appList, message.toListOptions()...)
 	if err != nil {

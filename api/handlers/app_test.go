@@ -292,7 +292,7 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps", func() {
 		BeforeEach(func() {
-			appRepo.ListAppsReturns([]repositories.AppRecord{
+			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{
 				{
 					GUID:      "first-test-app-guid",
 					Name:      "first-test-app",
@@ -323,7 +323,7 @@ var _ = Describe("App", func() {
 						},
 					},
 				},
-			}, nil)
+			}}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps?foo=bar", nil)
 		})
@@ -369,7 +369,7 @@ var _ = Describe("App", func() {
 
 		When("no apps can be found", func() {
 			BeforeEach(func() {
-				appRepo.ListAppsReturns([]repositories.AppRecord{}, nil)
+				appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{}, nil)
 			})
 
 			It("returns an empty response", func() {
@@ -384,7 +384,7 @@ var _ = Describe("App", func() {
 
 		When("there is an error fetching apps", func() {
 			BeforeEach(func() {
-				appRepo.ListAppsReturns([]repositories.AppRecord{}, errors.New("unknown!"))
+				appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {

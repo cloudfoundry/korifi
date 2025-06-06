@@ -49,12 +49,12 @@ var _ = Describe("StateCollector", func() {
 
 	Describe("app", func() {
 		BeforeEach(func() {
-			appRepo.ListAppsReturns([]repositories.AppRecord{{
+			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{
 				Name:      "bob",
 				GUID:      "app-guid",
 				EtcdUID:   "etcd-guid",
 				SpaceGUID: "space-guid",
-			}}, nil)
+			}}}, nil)
 		})
 
 		It("sets the app record in the state", func() {
@@ -67,7 +67,7 @@ var _ = Describe("StateCollector", func() {
 
 		When("the app does not exist", func() {
 			BeforeEach(func() {
-				appRepo.ListAppsReturns([]repositories.AppRecord{}, nil)
+				appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{}, nil)
 			})
 
 			It("returns an empty app", func() {
@@ -80,7 +80,7 @@ var _ = Describe("StateCollector", func() {
 
 		When("getting the app fails", func() {
 			BeforeEach(func() {
-				appRepo.ListAppsReturns([]repositories.AppRecord{}, errors.New("get-app-err"))
+				appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{}, errors.New("get-app-err"))
 			})
 
 			It("returns the error", func() {
@@ -91,7 +91,7 @@ var _ = Describe("StateCollector", func() {
 
 	Describe("processes", func() {
 		BeforeEach(func() {
-			appRepo.ListAppsReturns([]repositories.AppRecord{{GUID: "app-guid"}}, nil)
+			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{GUID: "app-guid"}}}, nil)
 		})
 
 		It("lists processes", func() {
@@ -138,7 +138,7 @@ var _ = Describe("StateCollector", func() {
 		var routes []repositories.RouteRecord
 
 		BeforeEach(func() {
-			appRepo.ListAppsReturns([]repositories.AppRecord{{GUID: "app-guid"}}, nil)
+			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{GUID: "app-guid"}}}, nil)
 			routes = []repositories.RouteRecord{
 				{
 					Domain: repositories.DomainRecord{
@@ -187,7 +187,7 @@ var _ = Describe("StateCollector", func() {
 		var serviceBindings []repositories.ServiceBindingRecord
 
 		BeforeEach(func() {
-			appRepo.ListAppsReturns([]repositories.AppRecord{{GUID: "app-guid"}}, nil)
+			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{GUID: "app-guid"}}}, nil)
 			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{{Name: "service-name", GUID: "s-guid"}}, nil)
 			serviceBindings = []repositories.ServiceBindingRecord{
 				{GUID: "sb1-guid", ServiceInstanceGUID: "s-guid"},

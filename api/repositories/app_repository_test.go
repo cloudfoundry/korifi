@@ -169,7 +169,9 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			appList, listErr = appRepo.ListApps(ctx, authInfo, message)
+			var listResult repositories.ListResult[repositories.AppRecord]
+			listResult, listErr = appRepo.ListApps(ctx, authInfo, message)
+			appList = listResult.Records
 		})
 
 		It("lists the apps", func() {

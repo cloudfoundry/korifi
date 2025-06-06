@@ -327,7 +327,7 @@ var _ = Describe("ServiceBinding", func() {
 			serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{
 				{GUID: "service-binding-guid", AppGUID: "app-guid"},
 			}, nil)
-			appRepo.ListAppsReturns([]repositories.AppRecord{{Name: "some-app-name"}}, nil)
+			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{Name: "some-app-name"}}}, nil)
 
 			payload := payloads.ServiceBindingList{
 				AppGUIDs:             "a1,a2",

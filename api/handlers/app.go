@@ -50,8 +50,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFAppRepository . CFAppRepository
 type CFAppRepository interface {
 	GetApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
-	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
-	ListAppsNew(context.Context, authorization.Info, repositories.ListAppsMessage) (repositories.ListResult[repositories.AppRecord], error)
+	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) (repositories.ListResult[repositories.AppRecord], error)
 	PatchAppEnvVars(context.Context, authorization.Info, repositories.PatchAppEnvVarsMessage) (repositories.AppEnvVarsRecord, error)
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 	SetCurrentDroplet(context.Context, authorization.Info, repositories.SetCurrentDropletMessage) (repositories.CurrentDropletRecord, error)
@@ -160,7 +159,7 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	appListResult, err := h.appRepo.ListAppsNew(r.Context(), authInfo, payload.ToMessage())
+	appListResult, err := h.appRepo.ListApps(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app(s) from Kubernetes")
 	}

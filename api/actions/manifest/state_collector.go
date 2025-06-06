@@ -50,7 +50,7 @@ func NewStateCollector(
 }
 
 func (s StateCollector) CollectState(ctx context.Context, authInfo authorization.Info, appName, spaceGUID string) (AppState, error) {
-	appRecords, err := s.appRepo.ListApps(ctx, authInfo, repositories.ListAppsMessage{
+	listResult, err := s.appRepo.ListApps(ctx, authInfo, repositories.ListAppsMessage{
 		Names:      []string{appName},
 		SpaceGUIDs: []string{spaceGUID},
 	})
@@ -58,7 +58,7 @@ func (s StateCollector) CollectState(ctx context.Context, authInfo authorization
 		return AppState{}, apierrors.FromK8sError(err, repositories.AppResourceType)
 	}
 
-	appRecord, err := singleton.Get(appRecords)
+	appRecord, err := singleton.Get(listResult.Records)
 	if err != nil {
 		if errors.As(err, new(apierrors.NotFoundError)) {
 			return AppState{}, nil
