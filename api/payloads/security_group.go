@@ -81,3 +81,23 @@ func (c SecurityGroupCreate) ToMessage() repositories.CreateSecurityGroupMessage
 		Spaces: spaces,
 	}
 }
+
+type SecurityGroupBind struct {
+	Data []RelationshipData `json:"data"`
+}
+
+func (b SecurityGroupBind) Validate() error {
+	return jellidation.ValidateStruct(&b,
+		jellidation.Field(&b.Data, jellidation.Required),
+	)
+}
+
+func (b SecurityGroupBind) ToMessage(workload, guid string) repositories.BindSecurityGroupMessage {
+	return repositories.BindSecurityGroupMessage{
+		GUID: guid,
+		Spaces: slices.Collect(it.Map(slices.Values(b.Data), func(v RelationshipData) string {
+			return v.GUID
+		})),
+		Workload: workload,
+	}
+}

@@ -8,9 +8,16 @@ import (
 )
 
 const (
-	ProtocolTCP = "tcp"
-	ProtocolUDP = "udp"
-	ProtocolALL = "all"
+	ProtocolTCP                    = "tcp"
+	ProtocolUDP                    = "udp"
+	ProtocolALL                    = "all"
+	CFWorkloadTypeApp              = "app"
+	CFWorkloadTypeBuild            = "build"
+	CFSecurityGroupTypeGlobal      = "global"
+	CFSecurityGroupTypeSpaceScoped = "space-scoped"
+	CFSecurityGroupTypeLabel       = "korifi.cloudfoundry.org/security-group-type"
+	CFSecurityGroupFinalizerName   = "cfSecurityGroup.korifi.cloudfoundry.org"
+	CFWorkloadTypeLabelkey         = "korifi.cloudfoundry.org/workload-type"
 )
 
 type SecurityGroupRule struct {

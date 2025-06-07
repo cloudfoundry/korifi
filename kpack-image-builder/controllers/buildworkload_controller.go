@@ -685,7 +685,8 @@ func (r *BuildWorkloadReconciler) reconcileKpackImage(
 		}
 
 		desiredKpackImage.Labels = map[string]string{
-			BuildWorkloadLabelKey: buildWorkload.Name,
+			BuildWorkloadLabelKey:                 buildWorkload.Name,
+			korifiv1alpha1.CFWorkloadTypeLabelkey: korifiv1alpha1.CFWorkloadTypeBuild,
 		}
 
 		desiredKpackImage.Spec = buildv1alpha2.ImageSpec{
