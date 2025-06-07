@@ -16,13 +16,10 @@ import (
 	"github.com/projectcalico/api/pkg/lib/numorstring"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type Reconciler struct {
@@ -49,34 +46,7 @@ func NewReconciler(
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&korifiv1alpha1.CFSecurityGroup{}).
-		Named("cfsecuritygroup").
-		Watches(
-			&korifiv1alpha1.CFSpace{},
-			handler.EnqueueRequestsFromMapFunc(r.spaceUpdatesToSecurityGroups),
-		)
-}
-
-func (r *Reconciler) spaceUpdatesToSecurityGroups(ctx context.Context, o client.Object) []reconcile.Request {
-	securityGroups := korifiv1alpha1.CFSecurityGroupList{}
-	err := r.k8sClient.List(ctx, &securityGroups,
-		client.InNamespace(r.rootNamespace),
-		client.MatchingLabels{korifiv1alpha1.CFSecurityGroupTypeLabel: korifiv1alpha1.CFSecurityGroupTypeGlobal},
-	)
-	if err != nil {
-		return []reconcile.Request{}
-	}
-
-	var requests []reconcile.Request
-	for _, sg := range securityGroups.Items {
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      sg.Name,
-				Namespace: sg.Namespace,
-			},
-		})
-	}
-
-	return requests
+		Named("cfsecuritygroup")
 }
 
 // +kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfsecuritygroups,verbs=get;list;watch;create;update;patch;delete
