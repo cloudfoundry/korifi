@@ -120,7 +120,6 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(app), app)).To(Succeed())
 				g.Expect(app.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.GUIDLabelKey:             Equal(app.Name),
 					korifiv1alpha1.SpaceGUIDKey:             Equal(app.Namespace),
 					korifiv1alpha1.CFAppDisplayNameKey:      Equal("55c637753261f0925cbd0f3e595238aaf9c290fcf2efdbdf6e9b8bd4"), // SHA224 hash of "my-awesome-app"
 					korifiv1alpha1.CFAppDeploymentStatusKey: Equal(korifiv1alpha1.DeploymentStatusValueActive),
@@ -384,7 +383,6 @@ var _ = Describe("LabelIndexerWebhook", func() {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(org), org)).To(Succeed())
 				g.Expect(org.Labels).To(MatchKeys(IgnoreExtras, Keys{
 					korifiv1alpha1.CFOrgDisplayNameKey: Equal("02305ec6ce38ed4d9b654b58bca88c90a824558ecafac09ecc3acbae"), // SHA224 hash of "my-awesome-org"
-					korifiv1alpha1.GUIDLabelKey:        Equal(org.Name),
 					korifiv1alpha1.ReadyLabelKey:       Equal("True"),
 				}))
 			}).Should(Succeed())
@@ -424,7 +422,6 @@ var _ = Describe("LabelIndexerWebhook", func() {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(space), space)).To(Succeed())
 				g.Expect(space.Labels).To(MatchKeys(IgnoreExtras, Keys{
 					korifiv1alpha1.CFSpaceDisplayNameKey: Equal("e2ff2d1641634dc2e43603c6e294926801d785b9715ccd61a26c2aca"), // SHA224 hash of "my-awesome-space"
-					korifiv1alpha1.GUIDLabelKey:          Equal(space.Name),
 					korifiv1alpha1.CFOrgGUIDKey:          Equal(space.Namespace),
 					korifiv1alpha1.ReadyLabelKey:         Equal("True"),
 				}))
@@ -455,7 +452,6 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(offering), offering)).To(Succeed())
 				g.Expect(offering.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.GUIDLabelKey:             Equal(offering.Name),
 					korifiv1alpha1.CFServiceOfferingNameKey: Equal("dfcda624de1c07d0ecde233a93cccc75171934a53876dd616f321cae"), // SHA224 hash of "my-awesome-offering"
 				}))
 			}).Should(Succeed())
@@ -488,7 +484,6 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(plan), plan)).To(Succeed())
 				g.Expect(plan.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.GUIDLabelKey:              Equal(plan.Name),
 					korifiv1alpha1.CFServicePlanNameKey:      Equal("17f65f9393e1826ece32c78a186b397b259ae4317ada0891021d9ea9"), // SHA224 hash of "my-awesome-plan"
 					korifiv1alpha1.CFServicePlanAvailableKey: Equal("true"),
 				}))

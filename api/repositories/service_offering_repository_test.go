@@ -56,9 +56,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: rootNamespace,
 					Name:      brokerGUID,
-					Labels: map[string]string{
-						korifiv1alpha1.GUIDLabelKey: brokerGUID,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
 					Name: uuid.NewString(),
@@ -77,7 +74,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Labels: map[string]string{
 						korifiv1alpha1.RelServiceBrokerGUIDLabel: broker.Name,
 						korifiv1alpha1.RelServiceBrokerNameLabel: tools.EncodeValueToSha224(broker.Spec.Name),
-						korifiv1alpha1.GUIDLabelKey:              offeringGUID,
 					},
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
@@ -172,9 +168,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: rootNamespace,
 					Name:      brokerGUID,
-					Labels: map[string]string{
-						korifiv1alpha1.GUIDLabelKey: brokerGUID,
-					},
 				},
 				Spec: korifiv1alpha1.CFServiceBrokerSpec{
 					Name: uuid.NewString(),
@@ -189,7 +182,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Labels: map[string]string{
 						korifiv1alpha1.RelServiceBrokerGUIDLabel: broker.Name,
 						korifiv1alpha1.RelServiceBrokerNameLabel: tools.EncodeValueToSha224(broker.Spec.Name),
-						korifiv1alpha1.GUIDLabelKey:              offeringGUID,
 					},
 					Annotations: map[string]string{
 						"annotation": "annotation-value",

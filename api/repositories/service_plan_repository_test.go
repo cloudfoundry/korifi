@@ -65,7 +65,6 @@ var _ = Describe("ServicePlanRepo", func() {
 					korifiv1alpha1.RelServiceBrokerNameLabel:   tools.EncodeValueToSha224("broker-name"),
 					korifiv1alpha1.RelServiceOfferingNameLabel: tools.EncodeValueToSha224("offering-name"),
 					korifiv1alpha1.RelServiceBrokerGUIDLabel:   "broker-guid",
-					korifiv1alpha1.GUIDLabelKey:                planGUID,
 				},
 				Annotations: map[string]string{
 					"annotation": "annotation-value",
@@ -204,7 +203,6 @@ var _ = Describe("ServicePlanRepo", func() {
 						korifiv1alpha1.RelServiceBrokerNameLabel:   tools.EncodeValueToSha224("other-broker-name"),
 						korifiv1alpha1.RelServiceOfferingNameLabel: tools.EncodeValueToSha224("other-offering-name"),
 						korifiv1alpha1.RelServiceBrokerGUIDLabel:   "other-broker-guid",
-						korifiv1alpha1.GUIDLabelKey:                otherPlanGUID,
 					},
 				},
 				Spec: korifiv1alpha1.CFServicePlanSpec{
