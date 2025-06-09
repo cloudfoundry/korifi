@@ -11,7 +11,6 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -39,9 +38,12 @@ type ListServiceBrokerMessage struct {
 	GUIDs []string
 }
 
-func (l ListServiceBrokerMessage) matches(b korifiv1alpha1.CFServiceBroker) bool {
-	return tools.EmptyOrContains(l.Names, b.Spec.Name) &&
-		tools.EmptyOrContains(l.GUIDs, b.Name)
+func (m *ListServiceBrokerMessage) toListOptions(rootNamespace string) []ListOption {
+	return []ListOption{
+		InNamespace(rootNamespace),
+		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
+		WithLabelIn(korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
+	}
 }
 
 type UpdateServiceBrokerMessage struct {
@@ -178,7 +180,7 @@ func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization
 
 func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info, message ListServiceBrokerMessage) ([]ServiceBrokerRecord, error) {
 	brokersList := &korifiv1alpha1.CFServiceBrokerList{}
-	err := r.klient.List(ctx, brokersList, InNamespace(r.rootNamespace))
+	err := r.klient.List(ctx, brokersList, message.toListOptions(r.rootNamespace)...)
 	if err != nil {
 		// All authenticated users are allowed to list brokers. Therefore, the
 		// usual pattern of checking for forbidden error and return an empty
@@ -186,9 +188,7 @@ func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo aut
 		return nil, fmt.Errorf("failed to list brokers: %w", apierrors.FromK8sError(err, ServiceBrokerResourceType))
 	}
 
-	brokers := itx.FromSlice(brokersList.Items).Filter(message.matches)
-
-	return slices.Collect(it.Map(brokers, toServiceBrokerRecord)), nil
+	return slices.Collect(it.Map(slices.Values(brokersList.Items), toServiceBrokerRecord)), nil
 }
 
 func (r *ServiceBrokerRepo) GetServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) (ServiceBrokerRecord, error) {

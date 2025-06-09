@@ -525,4 +525,33 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			})
 		})
 	})
+
+	Describe("CFServiceBroker", func() {
+		var broker *korifiv1alpha1.CFServiceBroker
+
+		BeforeEach(func() {
+			broker = &korifiv1alpha1.CFServiceBroker{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: namespace,
+				},
+				Spec: korifiv1alpha1.CFServiceBrokerSpec{
+					Name: "my-broker",
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			Expect(adminClient.Create(ctx, broker)).To(Succeed())
+		})
+
+		It("labels the CFServiceBroker with the expected labels", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(broker), broker)).To(Succeed())
+				g.Expect(broker.Labels).To(MatchKeys(IgnoreExtras, Keys{
+					korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey: Equal("aa9617cd3975446998c91bf393c5c58b3425953b7bdb3f9f1ae8230b"), // SHA224 hash of "my-broker"
+				}))
+			}).Should(Succeed())
+		})
+	})
 })

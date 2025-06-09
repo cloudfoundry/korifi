@@ -147,6 +147,7 @@ webhooks:
           - cfspaces
           - cfserviceofferings
           - cfserviceplans
+          - cfservicebrokers
     sideEffects: None
   - admissionReviewVersions:
       - v1
