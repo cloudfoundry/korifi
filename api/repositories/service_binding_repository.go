@@ -17,7 +17,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -110,11 +109,18 @@ type ListServiceBindingsMessage struct {
 	PlanGUIDs            []string
 }
 
-func (m *ListServiceBindingsMessage) matches(serviceBinding korifiv1alpha1.CFServiceBinding) bool {
-	return tools.EmptyOrContains(m.ServiceInstanceGUIDs, serviceBinding.Spec.Service.Name) &&
-		tools.EmptyOrContains(m.AppGUIDs, serviceBinding.Spec.AppRef.Name) &&
-		tools.EmptyOrContains(m.PlanGUIDs, serviceBinding.Labels[korifiv1alpha1.PlanGUIDLabelKey]) &&
-		tools.ZeroOrEquals(m.Type, serviceBinding.Spec.Type)
+func (m *ListServiceBindingsMessage) toListOptions() []ListOption {
+	opts := []ListOption{
+		WithLabelSelector(m.LabelSelector),
+		WithLabelIn(korifiv1alpha1.CFServiceInstanceGUIDLabelKey, m.ServiceInstanceGUIDs),
+		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
+		WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, m.PlanGUIDs),
+	}
+	if m.Type != "" {
+		opts = append(opts, WithLabel(korifiv1alpha1.CFServiceBindingTypeLabelKey, m.Type))
+	}
+
+	return opts
 }
 
 func (m CreateServiceBindingMessage) toCFServiceBinding(instanceType korifiv1alpha1.InstanceType) *korifiv1alpha1.CFServiceBinding {
@@ -486,15 +492,14 @@ func (r *ServiceBindingRepo) GetDeletedAt(ctx context.Context, authInfo authoriz
 // nolint:dupl
 func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo authorization.Info, message ListServiceBindingsMessage) ([]ServiceBindingRecord, error) {
 	serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
-	err := r.klient.List(ctx, serviceBindingList, WithLabelSelector(message.LabelSelector))
+	err := r.klient.List(ctx, serviceBindingList, message.toListOptions()...)
 	if err != nil {
 		return []ServiceBindingRecord{}, fmt.Errorf("failed to list service instances: %w",
 			apierrors.FromK8sError(err, ServiceBindingResourceType),
 		)
 	}
 
-	filteredServiceBindings := itx.FromSlice(serviceBindingList.Items).Filter(message.matches)
-	return slices.Collect(it.Map(filteredServiceBindings, serviceBindingToRecord)), nil
+	return slices.Collect(it.Map(slices.Values(serviceBindingList.Items), serviceBindingToRecord)), nil
 }
 
 func (r *ServiceBindingRepo) GetServiceBindingParameters(ctx context.Context, authInfo authorization.Info, guid string) (map[string]any, error) {
