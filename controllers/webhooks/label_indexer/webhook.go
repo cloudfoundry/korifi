@@ -74,6 +74,8 @@ func NewWebhook() *LabelIndexerWebhook {
 			"CFServiceBinding": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
 				LabelRule{Label: korifiv1alpha1.CFServiceInstanceGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.service.name"))},
+				LabelRule{Label: korifiv1alpha1.CFAppGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.appRef.name"))},
+				LabelRule{Label: korifiv1alpha1.CFServiceBindingTypeLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.type"))},
 			},
 			"CFTask": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},

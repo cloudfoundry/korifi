@@ -36,6 +36,8 @@ const (
 	ServiceBindingGUIDLabel       = "korifi.cloudfoundry.org/service-binding-guid"
 	CFServiceBindingFinalizerName = "cfServiceBinding.korifi.cloudfoundry.org"
 	CFServiceInstanceGUIDLabelKey = "korifi.cloudfoundry.org/service-instance-guid"
+
+	CFServiceBindingTypeLabelKey = "korifi.cloudfoundry.org/service-binding-type"
 )
 
 // CFServiceBindingSpec defines the desired state of CFServiceBinding

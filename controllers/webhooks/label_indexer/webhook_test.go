@@ -305,6 +305,9 @@ var _ = Describe("LabelIndexerWebhook", func() {
 					Service: corev1.ObjectReference{
 						Name: uuid.NewString(),
 					},
+					AppRef: corev1.LocalObjectReference{
+						Name: uuid.NewString(),
+					},
 				},
 			}
 		})
@@ -319,6 +322,8 @@ var _ = Describe("LabelIndexerWebhook", func() {
 				g.Expect(binding.Labels).To(MatchKeys(IgnoreExtras, Keys{
 					korifiv1alpha1.SpaceGUIDKey:                  Equal(binding.Namespace),
 					korifiv1alpha1.CFServiceInstanceGUIDLabelKey: Equal(binding.Spec.Service.Name),
+					korifiv1alpha1.CFAppGUIDLabelKey:             Equal(binding.Spec.AppRef.Name),
+					korifiv1alpha1.CFServiceBindingTypeLabelKey:  Equal(binding.Spec.Type),
 				}))
 			}).Should(Succeed())
 		})
