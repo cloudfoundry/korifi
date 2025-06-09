@@ -1,6 +1,6 @@
 package label_indexer
 
-//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes;cfapps;cfbuilds;cfdomains;cfpackages;cfprocesses;cfservicebindings;cfserviceinstances;cftasks;cforgs;cfspaces;cfserviceofferings;cfserviceplans,verbs=create;update,versions=v1alpha1,name=mcflabelindexer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfroutes;cfapps;cfbuilds;cfdomains;cfpackages;cfprocesses;cfservicebindings;cfserviceinstances;cftasks;cforgs;cfspaces;cfserviceofferings;cfserviceplans;cfservicebrokers,verbs=create;update,versions=v1alpha1,name=mcflabelindexer.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
 import (
 	"context"
@@ -102,6 +102,9 @@ func NewWebhook() *LabelIndexerWebhook {
 						korifiv1alpha1.OrganizationServicePlanVisibilityType: ConstantValue("true"),
 					},
 				)},
+			},
+			"CFServiceBroker": {
+				LabelRule{Label: korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.name")))},
 			},
 		},
 	}

@@ -5,6 +5,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -255,17 +256,6 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					URL:  "https://first.broker",
 				},
 			})).To(Succeed())
-
-			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceBroker{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: rootNamespace,
-					Name:      "broker-2",
-				},
-				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					Name: "second-broker",
-					URL:  "https://second.broker",
-				},
-			})).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
@@ -277,59 +267,36 @@ var _ = Describe("ServiceBrokerRepo", func() {
 		It("returns a list of brokers", func() {
 			Expect(brokers).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
-					"Name":      Equal("first-broker"),
-					"URL":       Equal("https://first.broker"),
-					"GUID":      Equal("broker-1"),
-					"CreatedAt": Not(BeZero()),
-					"Metadata": MatchFields(IgnoreExtras, Fields{
-						"Labels":      HaveKeyWithValue("broker-label", "broker-label-value"),
-						"Annotations": HaveKeyWithValue("broker-annotation", "broker-annotation-value"),
-					}),
-				}),
-				MatchFields(IgnoreExtras, Fields{
-					"Name":      Equal("second-broker"),
-					"URL":       Equal("https://second.broker"),
-					"GUID":      Equal("broker-2"),
-					"CreatedAt": Not(BeZero()),
+					"GUID": Equal("broker-1"),
 				}),
 			))
 		})
 
-		When("a name filter is applied", func() {
+		Describe("filtering", func() {
+			var fakeKlient *fake.Klient
+
 			BeforeEach(func() {
-				message.Names = []string{"second-broker"}
+				fakeKlient = new(fake.Klient)
+				repo = repositories.NewServiceBrokerRepo(fakeKlient, rootNamespace)
 			})
 
-			It("only returns the matching brokers", func() {
-				Expect(brokers).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{
-						"Name": Equal("second-broker"),
-					}),
-				))
-			})
-		})
+			Describe("filter parameters to list options", func() {
+				BeforeEach(func() {
+					message = repositories.ListServiceBrokerMessage{
+						Names: []string{"first-broker", "second-broker"},
+						GUIDs: []string{"broker-1", "broker-2"},
+					}
+				})
 
-		When("a guid filter is applied", func() {
-			BeforeEach(func() {
-				message.GUIDs = []string{"broker-2"}
-			})
-
-			It("only returns the matching brokers", func() {
-				Expect(brokers).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal("broker-2"),
-					}),
-				))
-			})
-		})
-
-		When("a nonexistent name filter is applied", func() {
-			BeforeEach(func() {
-				message.Names = []string{"no-such-broker"}
-			})
-
-			It("returns an empty list", func() {
-				Expect(brokers).To(BeEmpty())
+				It("translates filter parameters to klient list options", func() {
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.InNamespace(rootNamespace),
+						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"broker-1", "broker-2"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey, tools.EncodeValuesToSha224("first-broker", "second-broker")),
+					))
+				})
 			})
 		})
 	})

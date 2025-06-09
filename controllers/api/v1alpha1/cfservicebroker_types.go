@@ -10,6 +10,8 @@ import (
 const (
 	UsernameCredentialsKey = "username"
 	PasswordCredentialsKey = "password"
+
+	CFServiceBrokerDisplayNameLabelKey = "korifi.cloudfoundry.org/service-broker-display-name"
 )
 
 type CFServiceBrokerSpec struct {
