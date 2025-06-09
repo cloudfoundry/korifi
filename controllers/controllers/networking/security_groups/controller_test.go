@@ -103,7 +103,7 @@ var _ = Describe("CFSecurityGroupReconciler Integration Tests", func() {
 				g.Expect(policy.Spec.Egress[0].Action).To(Equal(v3.Action("Allow")))
 				g.Expect(policy.Spec.Types).To(Equal([]v3.PolicyType{"Egress"}))
 				g.Expect(policy.Spec.Selector).To(Equal("korifi.cloudfoundry.org/workload-type in { 'app' }"))
-				g.Expect(policy.Spec.NamespaceSelector).To(Equal("has(cloudfoundry.org/space-guid)"))
+				g.Expect(policy.Spec.NamespaceSelector).To(Equal("has(korifi.cloudfoundry.org/space-guid)"))
 			}).Should(Succeed())
 		})
 	})
@@ -328,8 +328,20 @@ var _ = Describe("CFSecurityGroupReconciler Integration Tests", func() {
 				},
 				metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
+		})
 
-			_, err = calicoFakeClient.ProjectcalicoV3().GlobalNetworkPolicies().Create(
+		It("removes the orphaned policies", func() {
+			Eventually(func(g Gomega) {
+				policy, err := calicoFakeClient.ProjectcalicoV3().NetworkPolicies(testNamespace).Get(ctx, fmt.Sprintf("default.%s", cfSecurityGroup.Name), metav1.GetOptions{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				g.Expect(policy).To(BeNil())
+			}).Should(Succeed())
+		})
+	})
+
+	When("reverting a global security group", func() {
+		BeforeEach(func() {
+			_, err := calicoFakeClient.ProjectcalicoV3().GlobalNetworkPolicies().Create(
 				ctx,
 				&v3.GlobalNetworkPolicy{
 					ObjectMeta: metav1.ObjectMeta{
@@ -343,10 +355,6 @@ var _ = Describe("CFSecurityGroupReconciler Integration Tests", func() {
 
 		It("removes the orphaned policies", func() {
 			Eventually(func(g Gomega) {
-				policy, err := calicoFakeClient.ProjectcalicoV3().NetworkPolicies(testNamespace).Get(ctx, fmt.Sprintf("default.%s", cfSecurityGroup.Name), metav1.GetOptions{})
-				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
-				g.Expect(policy).To(BeNil())
-
 				globalPolicy, err := calicoFakeClient.ProjectcalicoV3().GlobalNetworkPolicies().Get(ctx, fmt.Sprintf("default.%s", cfSecurityGroup.Name), metav1.GetOptions{})
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 				g.Expect(globalPolicy).To(BeNil())
