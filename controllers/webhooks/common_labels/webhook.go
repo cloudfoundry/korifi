@@ -44,6 +44,8 @@ func (r *CommonLabelsWebhook) Handle(ctx context.Context, req admission.Request)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
+	obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.GUIDLabelKey, obj.GetName()))
+
 	if req.Operation == admissionv1.Create {
 		obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.CreatedAtLabelKey, time.Now().Format(korifiv1alpha1.LabelDateFormat)))
 	}

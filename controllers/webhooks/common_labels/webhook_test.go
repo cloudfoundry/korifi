@@ -131,6 +131,13 @@ func test(testObj client.Object) func() {
 			}).Should(Succeed())
 		})
 
+		It("sets the guid label", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
+				g.Expect(obj.GetLabels()).To(HaveKeyWithValue(korifiv1alpha1.GUIDLabelKey, obj.GetName()))
+			}).Should(Succeed())
+		})
+
 		It("does not set the updated_at label", func() {
 			Consistently(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())

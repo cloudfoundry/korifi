@@ -37,7 +37,6 @@ func NewWebhook() *LabelIndexerWebhook {
 				MultiLabelRule{LabelRules: DestinationAppGuidLabelRules},
 			},
 			"CFApp": {
-				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
 				LabelRule{Label: korifiv1alpha1.CFAppDisplayNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.displayName")))},
 				LabelRule{
@@ -81,21 +80,17 @@ func NewWebhook() *LabelIndexerWebhook {
 			},
 			"CFOrg": {
 				LabelRule{Label: korifiv1alpha1.CFOrgDisplayNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.displayName")))},
-				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
 				LabelRule{Label: korifiv1alpha1.ReadyLabelKey, IndexingFunc: Unquote(SingleValue(JSONValue("$.status.conditions[?@.type == \"Ready\"].status")))},
 			},
 			"CFSpace": {
 				LabelRule{Label: korifiv1alpha1.CFSpaceDisplayNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.displayName")))},
-				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
 				LabelRule{Label: korifiv1alpha1.CFOrgGUIDKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
 				LabelRule{Label: korifiv1alpha1.ReadyLabelKey, IndexingFunc: Unquote(SingleValue(JSONValue("$.status.conditions[?@.type == \"Ready\"].status")))},
 			},
 			"CFServiceOffering": {
-				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
 				LabelRule{Label: korifiv1alpha1.CFServiceOfferingNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.name")))},
 			},
 			"CFServicePlan": {
-				LabelRule{Label: korifiv1alpha1.GUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.name"))},
 				LabelRule{Label: korifiv1alpha1.CFServicePlanNameKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.name")))},
 				LabelRule{Label: korifiv1alpha1.CFServicePlanAvailableKey, IndexingFunc: Map(
 					Unquote(JSONValue("$.spec.visibility.type")),
