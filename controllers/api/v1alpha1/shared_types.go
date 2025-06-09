@@ -16,7 +16,7 @@ const (
 	CFOrgGUIDKey                = "korifi.cloudfoundry.org/org-guid"
 	CFAppGUIDLabelKey           = "korifi.cloudfoundry.org/app-guid"
 	CFAppRevisionKey            = "korifi.cloudfoundry.org/app-rev"
-	CFAppDisplayNameKey         = "korifi.cloudfoundry.org/display-name"
+	DisplayNameLabelKey         = "korifi.cloudfoundry.org/display-name"
 	CFAppLastStopRevisionKey    = "korifi.cloudfoundry.org/last-stop-app-rev"
 	CFAppDefaultRevision        = "0"
 	CFAppDeploymentStatusKey    = "korifi.cloudfoundry.org/deployment-status"
@@ -34,7 +34,7 @@ const (
 
 	ReadyLabelKey           = "korifi.cloudfoundry.org/ready"
 	GUIDLabelKey            = "korifi.cloudfoundry.org/guid"
-	SpaceGUIDKey            = "korifi.cloudfoundry.org/space-guid"
+	SpaceGUIDLabelKey       = "korifi.cloudfoundry.org/space-guid"
 	ServiceBindingTypeLabel = "korifi.cloudfoundry.org/service-binding-type"
 	CreatedAtLabelKey       = "korifi.cloudfoundry.org/created_at"
 	UpdatedAtLabelKey       = "korifi.cloudfoundry.org/updated_at"

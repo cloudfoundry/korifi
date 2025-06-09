@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	CFTaskSequenceIDLabelKey     = "korifi.cloudfoundry.org/task-sequence-id"
 	TaskInitializedConditionType = "Initialized"
 	TaskStartedConditionType     = "Started"
 	TaskSucceededConditionType   = "Succeeded"

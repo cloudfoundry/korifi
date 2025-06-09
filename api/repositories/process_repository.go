@@ -113,7 +113,7 @@ func (m *ListProcessesMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.CFProcessTypeLabelKey, m.ProcessTypes),
-		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
+		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 	}
 }
 

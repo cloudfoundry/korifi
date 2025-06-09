@@ -36,8 +36,8 @@ var _ = Describe("Client", func() {
 					Namespace: rootNamespace,
 					Name:      fmt.Sprintf("app-%d", i),
 					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-						"foo":                       "bar",
+						korifiv1alpha1.SpaceGUIDLabelKey: space.Name,
+						"foo":                            "bar",
 					},
 				},
 				Spec: korifiv1alpha1.CFAppSpec{
@@ -55,7 +55,7 @@ var _ = Describe("Client", func() {
 				Namespace: rootNamespace,
 				Name:      "never-listed-app",
 				Labels: map[string]string{
-					korifiv1alpha1.SpaceGUIDKey: space.Name,
+					korifiv1alpha1.SpaceGUIDLabelKey: space.Name,
 				},
 			},
 			Spec: korifiv1alpha1.CFAppSpec{

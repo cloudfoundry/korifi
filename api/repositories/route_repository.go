@@ -107,7 +107,7 @@ type ListRoutesMessage struct {
 func (m *ListRoutesMessage) toListOptions() []ListOption {
 	listOptions := []ListOption{
 		WithLabelIn(korifiv1alpha1.CFDomainGUIDLabelKey, m.DomainGUIDs),
-		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
+		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFRouteHostLabelKey, m.Hosts),
 		WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224(m.Paths...)),
 	}

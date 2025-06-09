@@ -218,9 +218,9 @@ var _ = Describe("AppRepository", func() {
 						Expect(fakeKlient.ListCallCount()).To(Equal(1))
 						_, _, listOptions := fakeKlient.ListArgsForCall(0)
 						Expect(listOptions).To(ConsistOf(
-							repositories.WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, tools.EncodeValuesToSha224("n1", "n2")),
+							repositories.WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224("n1", "n2")),
 							repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
-							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"sg1", "sg2"}),
+							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
 							repositories.WithLabelSelector("foo=bar"),
 							repositories.SortBy("Display Name", false),
 						))

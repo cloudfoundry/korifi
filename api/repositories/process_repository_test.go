@@ -271,7 +271,7 @@ var _ = Describe("ProcessRepo", func() {
 						_, _, listOptions := fakeKlient.ListArgsForCall(0)
 						Expect(listOptions).To(ConsistOf(
 							repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"app-guid", "another-app-guid"}),
-							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"space-guid", "another-space-guid"}),
+							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"space-guid", "another-space-guid"}),
 							repositories.WithLabelIn(korifiv1alpha1.CFProcessTypeLabelKey, []string{"web", "worker"}),
 						))
 					})

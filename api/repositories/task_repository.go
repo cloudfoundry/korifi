@@ -4,15 +4,14 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/tasks"
-	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -65,9 +64,13 @@ type ListTaskMessage struct {
 	SequenceIDs []int64
 }
 
-func (m *ListTaskMessage) matches(task korifiv1alpha1.CFTask) bool {
-	return tools.EmptyOrContains(m.SequenceIDs, task.Status.SequenceID) &&
-		tools.EmptyOrContains(m.AppGUIDs, task.Spec.AppRef.Name)
+func (m *ListTaskMessage) toListOptions() []ListOption {
+	return []ListOption{
+		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
+		WithLabelIn(korifiv1alpha1.CFTaskSequenceIDLabelKey, slices.Collect(it.Map(slices.Values(m.SequenceIDs), func(id int64) string {
+			return strconv.FormatInt(int64(id), 10)
+		}))),
+	}
 }
 
 type PatchTaskMetadataMessage struct {
@@ -154,13 +157,12 @@ func (r *TaskRepo) awaitCondition(ctx context.Context, task *korifiv1alpha1.CFTa
 
 func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, msg ListTaskMessage) ([]TaskRecord, error) {
 	taskList := &korifiv1alpha1.CFTaskList{}
-	err := r.klient.List(ctx, taskList)
+	err := r.klient.List(ctx, taskList, msg.toListOptions()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks: %w", apierrors.FromK8sError(err, TaskResourceType))
 	}
 
-	filteredTasks := itx.FromSlice(taskList.Items).Filter(msg.matches)
-	return slices.Collect(it.Map(filteredTasks, taskToRecord)), nil
+	return slices.Collect(it.Map(slices.Values(taskList.Items), taskToRecord)), nil
 }
 
 func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, taskGUID string) (TaskRecord, error) {

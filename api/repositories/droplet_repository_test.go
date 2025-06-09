@@ -264,7 +264,7 @@ var _ = Describe("DropletRepository", func() {
 							repositories.WithLabelIn(korifiv1alpha1.CFDropletGUIDLabelKey, []string{"a1", "a2"}),
 							repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
 							repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
-							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"a1", "a2"}),
+							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"a1", "a2"}),
 						))
 					})
 				})

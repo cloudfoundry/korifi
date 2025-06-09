@@ -216,7 +216,7 @@ func (r *Reconciler) provisionServiceInstance(
 		ProvisionRequest: osbapi.ProvisionRequest{
 			ServiceId:  assets.ServiceOffering.Spec.BrokerCatalog.ID,
 			PlanID:     assets.ServicePlan.Spec.BrokerCatalog.ID,
-			SpaceGUID:  namespace.Labels[korifiv1alpha1.SpaceGUIDKey],
+			SpaceGUID:  namespace.Labels[korifiv1alpha1.SpaceGUIDLabelKey],
 			OrgGUID:    namespace.Labels[korifiv1alpha1.CFOrgGUIDKey],
 			Parameters: parametersMap,
 		},
