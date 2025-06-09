@@ -141,6 +141,21 @@ func (r *Reconciler) cleanOrphanedPolicies(ctx context.Context, sg *korifiv1alph
 		}
 	}
 
+	if !sg.Spec.GloballyEnabled.Running && !sg.Spec.GloballyEnabled.Staging {
+		globalPolicy, err := r.calicoClient.ProjectcalicoV3().GlobalNetworkPolicies().Get(ctx, fmt.Sprintf("default.%s", sg.Name), metav1.GetOptions{})
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+
+			return fmt.Errorf("failed to get GlobalNetworkPolicy %s: %w", sg.Name, err)
+		}
+
+		if err = r.calicoClient.ProjectcalicoV3().GlobalNetworkPolicies().Delete(ctx, globalPolicy.Name, metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to delete orphaned GlobalNetworkPolicy %s: %w", globalPolicy.Name, err)
+		}
+	}
+
 	return nil
 }
 
@@ -261,7 +276,7 @@ func (r *Reconciler) securityGroupToGlobalNetworkPolicy(sg *korifiv1alpha1.CFSec
 	policy.Spec.Egress = egressRules
 	policy.Spec.Selector = buildSelector(sg.Spec.GloballyEnabled)
 	policy.Spec.Types = []v3.PolicyType{v3.PolicyTypeEgress}
-	policy.Spec.NamespaceSelector = "has(cloudfoundry.org/space-guid)"
+	policy.Spec.NamespaceSelector = "has(korifi.cloudfoundry.org/space-guid)"
 
 	return nil
 }
