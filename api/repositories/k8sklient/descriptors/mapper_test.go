@@ -39,8 +39,8 @@ var _ = Describe("Mapper", func() {
 					Namespace: space.Name,
 					Name:      fmt.Sprintf("obj-%d", i),
 					Labels: map[string]string{
-						korifiv1alpha1.SpaceGUIDKey: space.Name,
-						korifiv1alpha1.GUIDLabelKey: fmt.Sprintf("obj-%d", i),
+						korifiv1alpha1.SpaceGUIDLabelKey: space.Name,
+						korifiv1alpha1.GUIDLabelKey:      fmt.Sprintf("obj-%d", i),
 					},
 				},
 				Spec: korifiv1alpha1.CFAppSpec{

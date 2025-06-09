@@ -15,7 +15,6 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -142,12 +141,20 @@ type ListServiceInstanceMessage struct {
 	PlanGUIDs     []string
 }
 
-func (m *ListServiceInstanceMessage) matches(serviceInstance korifiv1alpha1.CFServiceInstance) bool {
-	return tools.EmptyOrContains(m.Names, serviceInstance.Spec.DisplayName) &&
-		tools.EmptyOrContains(m.GUIDs, serviceInstance.Name) &&
-		tools.EmptyOrContains(m.PlanGUIDs, serviceInstance.Spec.PlanGUID) &&
-		tools.EmptyOrContains(m.SpaceGUIDs, serviceInstance.Namespace) &&
-		tools.ZeroOrEquals(korifiv1alpha1.InstanceType(m.Type), serviceInstance.Spec.Type)
+func (m *ListServiceInstanceMessage) toListOptions() []ListOption {
+	listOptions := []ListOption{
+		WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
+		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
+		WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, m.PlanGUIDs),
+		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
+		WithLabelSelector(m.LabelSelector),
+	}
+
+	if m.Type != "" {
+		listOptions = append(listOptions, WithLabel(korifiv1alpha1.CFServiceInstanceTypeLabelKey, m.Type))
+	}
+
+	return listOptions
 }
 
 type DeleteServiceInstanceMessage struct {
@@ -406,15 +413,14 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 // nolint:dupl
 func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo authorization.Info, message ListServiceInstanceMessage) ([]ServiceInstanceRecord, error) {
 	serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
-	err := r.klient.List(ctx, serviceInstanceList, WithLabelSelector(message.LabelSelector))
+	err := r.klient.List(ctx, serviceInstanceList, message.toListOptions()...)
 	if err != nil {
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances: %w",
 			apierrors.FromK8sError(err, ServiceInstanceResourceType),
 		)
 	}
 
-	filteredServiceInstances := itx.FromSlice(serviceInstanceList.Items).Filter(message.matches)
-	return r.sorter.Sort(slices.Collect(it.Map(filteredServiceInstances, cfServiceInstanceToRecord)), message.OrderBy), nil
+	return r.sorter.Sort(slices.Collect(it.Map(slices.Values(serviceInstanceList.Items), cfServiceInstanceToRecord)), message.OrderBy), nil
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {

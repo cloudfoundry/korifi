@@ -285,7 +285,7 @@ type cfSpaceMetadataCompiler struct {
 func (c *cfSpaceMetadataCompiler) CompileLabels(cfSpace *korifiv1alpha1.CFSpace) map[string]string {
 	return c.labelCompiler.Compile(map[string]string{
 		korifiv1alpha1.CFSpaceDisplayNameKey: cfSpace.Labels[korifiv1alpha1.CFSpaceDisplayNameKey],
-		korifiv1alpha1.SpaceGUIDKey:          cfSpace.Name,
+		korifiv1alpha1.SpaceGUIDLabelKey:     cfSpace.Name,
 		korifiv1alpha1.CFOrgGUIDKey:          cfSpace.Namespace,
 	})
 }

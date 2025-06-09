@@ -8,6 +8,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
@@ -353,10 +354,7 @@ var _ = Describe("TaskRepository", func() {
 
 	Describe("List Tasks", func() {
 		var (
-			cfApp2      *korifiv1alpha1.CFApp
-			task1       *korifiv1alpha1.CFTask
-			task2       *korifiv1alpha1.CFTask
-			space2      *korifiv1alpha1.CFSpace
+			task        *korifiv1alpha1.CFTask
 			listTaskMsg repositories.ListTaskMessage
 
 			listedTasks []repositories.TaskRecord
@@ -364,11 +362,9 @@ var _ = Describe("TaskRepository", func() {
 		)
 
 		BeforeEach(func() {
-			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
-			cfApp2 = createApp(space2.Name)
 			listTaskMsg = repositories.ListTaskMessage{}
 
-			task1 = &korifiv1alpha1.CFTask{
+			task = &korifiv1alpha1.CFTask{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      prefixedGUID("task1"),
 					Namespace: space.Name,
@@ -380,21 +376,7 @@ var _ = Describe("TaskRepository", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(ctx, task1)).To(Succeed())
-
-			task2 = &korifiv1alpha1.CFTask{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      prefixedGUID("task2"),
-					Namespace: space2.Name,
-				},
-				Spec: korifiv1alpha1.CFTaskSpec{
-					Command: "echo hello",
-					AppRef: corev1.LocalObjectReference{
-						Name: cfApp2.Name,
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, task2)).To(Succeed())
+			Expect(k8sClient.Create(ctx, task)).To(Succeed())
 		})
 
 		JustBeforeEach(func() {
@@ -406,96 +388,39 @@ var _ = Describe("TaskRepository", func() {
 			Expect(listedTasks).To(BeEmpty())
 		})
 
-		When("the user has the space developer role in space2", func() {
+		When("the user has the space developer role", func() {
 			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
 			It("lists tasks from that namespace only", func() {
 				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedTasks).To(HaveLen(1))
-				Expect(listedTasks[0].Name).To(Equal(task2.Name))
+				Expect(listedTasks).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"GUID": Equal(task.Name),
+				})))
+			})
+		})
+
+		Describe("filtering", func() {
+			var fakeKlient *fake.Klient
+
+			BeforeEach(func() {
+				fakeKlient = new(fake.Klient)
+				taskRepo = repositories.NewTaskRepo(fakeKlient, conditionAwaiter)
+
+				listTaskMsg = repositories.ListTaskMessage{
+					AppGUIDs:    []string{"app1", "app2"},
+					SequenceIDs: []int64{1, 2},
+				}
 			})
 
-			When("filtering tasks by apps with permissions for both", func() {
-				BeforeEach(func() {
-					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-				})
-
-				When("the app1 guid is passed as a filter", func() {
-					BeforeEach(func() {
-						listTaskMsg.AppGUIDs = []string{cfApp.Name}
-					})
-
-					It("lists tasks for that app", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(listedTasks).To(HaveLen(1))
-						Expect(listedTasks[0].Name).To(Equal(task1.Name))
-					})
-				})
-
-				When("the app2 guid is passed as a filter", func() {
-					BeforeEach(func() {
-						listTaskMsg.AppGUIDs = []string{cfApp2.Name}
-					})
-
-					It("lists tasks for that app", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(listedTasks).To(HaveLen(1))
-						Expect(listedTasks[0].Name).To(Equal(task2.Name))
-					})
-				})
-
-				When("app guid and sequence IDs are passed as a filter", func() {
-					BeforeEach(func() {
-						Expect(k8s.Patch(ctx, k8sClient, task2, func() {
-							task2.Status.SequenceID = 2
-							task2.Status.DropletRef = corev1.LocalObjectReference{
-								Name: cfApp2.Spec.CurrentDropletRef.Name,
-							}
-						})).To(Succeed())
-
-						task21 := &korifiv1alpha1.CFTask{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      prefixedGUID("task21"),
-								Namespace: space2.Name,
-							},
-							Spec: korifiv1alpha1.CFTaskSpec{
-								Command: "echo hello",
-								AppRef: corev1.LocalObjectReference{
-									Name: cfApp2.Name,
-								},
-							},
-						}
-						Expect(k8sClient.Create(ctx, task21)).To(Succeed())
-						Expect(k8s.Patch(ctx, k8sClient, task21, func() {
-							task21.Status.SequenceID = 21
-							task21.Status.DropletRef = corev1.LocalObjectReference{
-								Name: cfApp2.Spec.CurrentDropletRef.Name,
-							}
-						})).To(Succeed())
-
-						listTaskMsg.AppGUIDs = []string{cfApp2.Name}
-						listTaskMsg.SequenceIDs = []int64{2}
-					})
-
-					It("returns the tasks filtered by sequence ID", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(listedTasks).To(HaveLen(1))
-						Expect(listedTasks[0].Name).To(Equal(task2.Name))
-					})
-				})
-
-				When("filtering by a non-existant app guid", func() {
-					BeforeEach(func() {
-						listTaskMsg.AppGUIDs = []string{"does-not-exist"}
-					})
-
-					It("returns an empty list", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(listedTasks).To(BeEmpty())
-					})
-				})
+			It("translates filter parameters to klient list options", func() {
+				Expect(fakeKlient.ListCallCount()).To(Equal(1))
+				_, _, listOptions := fakeKlient.ListArgsForCall(0)
+				Expect(listOptions).To(ConsistOf(
+					repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"app1", "app2"}),
+					repositories.WithLabelIn(korifiv1alpha1.CFTaskSequenceIDLabelKey, []string{"1", "2"}),
+				))
 			})
 		})
 	})

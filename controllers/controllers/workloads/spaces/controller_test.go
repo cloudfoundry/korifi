@@ -47,7 +47,7 @@ var _ = Describe("CFSpaceReconciler Integration Tests", func() {
 
 			g.Expect(ns.Labels).To(SatisfyAll(
 				HaveKeyWithValue(korifiv1alpha1.CFSpaceDisplayNameKey, cfSpace.Labels[korifiv1alpha1.CFSpaceDisplayNameKey]),
-				HaveKeyWithValue(korifiv1alpha1.SpaceGUIDKey, cfSpace.Name),
+				HaveKeyWithValue(korifiv1alpha1.SpaceGUIDLabelKey, cfSpace.Name),
 				HaveKeyWithValue(korifiv1alpha1.CFOrgGUIDKey, cfSpace.Namespace),
 				HaveKeyWithValue(api.EnforceLevelLabel, string(api.LevelRestricted)),
 			))

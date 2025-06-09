@@ -67,7 +67,7 @@ func (m *ListDropletsMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, m.PackageGUIDs),
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
-		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
+		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFDropletGUIDLabelKey, m.GUIDs),
 	}
 }

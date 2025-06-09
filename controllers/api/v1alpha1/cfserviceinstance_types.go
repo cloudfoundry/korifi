@@ -24,8 +24,9 @@ import (
 )
 
 const (
-	UserProvidedType = "user-provided"
-	ManagedType      = "managed"
+	CFServiceInstanceTypeLabelKey = "korifi.cloudfoundry.org/service-instance-type"
+	UserProvidedType              = "user-provided"
+	ManagedType                   = "managed"
 
 	CFServiceInstanceFinalizerName = "cfServiceInstance.korifi.cloudfoundry.org"
 

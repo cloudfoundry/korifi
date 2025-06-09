@@ -44,7 +44,7 @@ var _ = Describe("LabelIndexerWebhook", func() {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(route), route)).To(Succeed())
 				g.Expect(route.Labels).To(MatchKeys(IgnoreExtras, Keys{
 					korifiv1alpha1.CFDomainGUIDLabelKey:      Equal("example.com"),
-					korifiv1alpha1.SpaceGUIDKey:              Equal(namespace),
+					korifiv1alpha1.SpaceGUIDLabelKey:         Equal(namespace),
 					korifiv1alpha1.CFRouteIsUnmappedLabelKey: Equal("true"),
 					korifiv1alpha1.CFRouteHostLabelKey:       Equal("example"),
 					korifiv1alpha1.CFRoutePathLabelKey:       Equal("4757e8253d1d2e04aa277d3b9178cf69d8383d43fd9f894f9460ebda"), // SHA224 hash of "/example"
@@ -120,8 +120,8 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(app), app)).To(Succeed())
 				g.Expect(app.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.SpaceGUIDKey:             Equal(app.Namespace),
-					korifiv1alpha1.CFAppDisplayNameKey:      Equal("55c637753261f0925cbd0f3e595238aaf9c290fcf2efdbdf6e9b8bd4"), // SHA224 hash of "my-awesome-app"
+					korifiv1alpha1.SpaceGUIDLabelKey:        Equal(app.Namespace),
+					korifiv1alpha1.DisplayNameLabelKey:      Equal("55c637753261f0925cbd0f3e595238aaf9c290fcf2efdbdf6e9b8bd4"), // SHA224 hash of "my-awesome-app"
 					korifiv1alpha1.CFAppDeploymentStatusKey: Equal(korifiv1alpha1.DeploymentStatusValueActive),
 				}))
 			}).Should(Succeed())
@@ -158,7 +158,7 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(build), build)).To(Succeed())
 				g.Expect(build.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.SpaceGUIDKey:          Equal(build.Namespace),
+					korifiv1alpha1.SpaceGUIDLabelKey:     Equal(build.Namespace),
 					korifiv1alpha1.CFDropletGUIDLabelKey: Equal(build.Name),
 					korifiv1alpha1.CFAppGUIDLabelKey:     Equal(build.Spec.AppRef.Name),
 					korifiv1alpha1.CFPackageGUIDLabelKey: Equal(build.Spec.PackageRef.Name),
@@ -221,7 +221,7 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(pkg), pkg)).To(Succeed())
 				g.Expect(pkg.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.SpaceGUIDKey:      Equal(pkg.Namespace),
+					korifiv1alpha1.SpaceGUIDLabelKey: Equal(pkg.Namespace),
 					korifiv1alpha1.CFAppGUIDLabelKey: Equal(pkg.Spec.AppRef.Name),
 				}))
 			}).Should(Succeed())
@@ -252,7 +252,7 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(process), process)).To(Succeed())
 				g.Expect(process.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.SpaceGUIDKey:          Equal(process.Namespace),
+					korifiv1alpha1.SpaceGUIDLabelKey:     Equal(process.Namespace),
 					korifiv1alpha1.CFAppGUIDLabelKey:     Equal(process.Spec.AppRef.Name),
 					korifiv1alpha1.CFProcessTypeLabelKey: Equal(process.Spec.ProcessType),
 				}))
@@ -270,8 +270,9 @@ var _ = Describe("LabelIndexerWebhook", func() {
 					Namespace: namespace,
 				},
 				Spec: korifiv1alpha1.CFServiceInstanceSpec{
-					Type:     "user-provided",
-					PlanGUID: uuid.NewString(),
+					DisplayName: "my-awesome-instance",
+					Type:        "user-provided",
+					PlanGUID:    uuid.NewString(),
 				},
 			}
 		})
@@ -284,8 +285,10 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 				g.Expect(instance.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.SpaceGUIDKey:     Equal(instance.Namespace),
-					korifiv1alpha1.PlanGUIDLabelKey: Equal(instance.Spec.PlanGUID),
+					korifiv1alpha1.SpaceGUIDLabelKey:             Equal(instance.Namespace),
+					korifiv1alpha1.PlanGUIDLabelKey:              Equal(instance.Spec.PlanGUID),
+					korifiv1alpha1.DisplayNameLabelKey:           Equal("cde4cb62774ee709b872a166c62aaf6d4841ee97f424f62f169a4817"), // SHA224 hash of "my-awesome-instance"
+					korifiv1alpha1.CFServiceInstanceTypeLabelKey: Equal("user-provided"),
 				}))
 			}).Should(Succeed())
 		})
@@ -320,7 +323,7 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.SpaceGUIDKey:                  Equal(binding.Namespace),
+					korifiv1alpha1.SpaceGUIDLabelKey:             Equal(binding.Namespace),
 					korifiv1alpha1.CFServiceInstanceGUIDLabelKey: Equal(binding.Spec.Service.Name),
 					korifiv1alpha1.CFAppGUIDLabelKey:             Equal(binding.Spec.AppRef.Name),
 					korifiv1alpha1.CFServiceBindingTypeLabelKey:  Equal(binding.Spec.Type),
@@ -338,18 +341,28 @@ var _ = Describe("LabelIndexerWebhook", func() {
 					Name:      uuid.NewString(),
 					Namespace: namespace,
 				},
+				Spec: korifiv1alpha1.CFTaskSpec{
+					AppRef: corev1.LocalObjectReference{
+						Name: uuid.NewString(),
+					},
+				},
 			}
 		})
 
 		JustBeforeEach(func() {
 			Expect(adminClient.Create(ctx, task)).To(Succeed())
+			Expect(k8s.Patch(ctx, adminClient, task, func() {
+				task.Status.SequenceID = 1
+			})).To(Succeed())
 		})
 
 		It("labels the CFTask with the expected index labels", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(task), task)).To(Succeed())
 				g.Expect(task.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.SpaceGUIDKey: Equal(task.Namespace),
+					korifiv1alpha1.SpaceGUIDLabelKey:        Equal(task.Namespace),
+					korifiv1alpha1.CFAppGUIDLabelKey:        Equal(task.Spec.AppRef.Name),
+					korifiv1alpha1.CFTaskSequenceIDLabelKey: Equal("1"),
 				}))
 			}).Should(Succeed())
 		})

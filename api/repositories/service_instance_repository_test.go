@@ -695,17 +695,14 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 	Describe("ListServiceInstances", func() {
 		var (
-			space2                                                     *korifiv1alpha1.CFSpace
-			cfServiceInstance1, cfServiceInstance2, cfServiceInstance3 *korifiv1alpha1.CFServiceInstance
-			filters                                                    repositories.ListServiceInstanceMessage
-			listErr                                                    error
+			cfServiceInstance1 *korifiv1alpha1.CFServiceInstance
+			filters            repositories.ListServiceInstanceMessage
+			listErr            error
 
 			serviceInstanceList []repositories.ServiceInstanceRecord
 		)
 
 		BeforeEach(func() {
-			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
-
 			cfServiceInstance1 = &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: space.Name,
@@ -718,61 +715,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, cfServiceInstance1)).To(Succeed())
-
-			cfServiceInstance2 = &korifiv1alpha1.CFServiceInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: space2.Name,
-					Name:      "service-instance-2" + uuid.NewString(),
-				},
-				Spec: korifiv1alpha1.CFServiceInstanceSpec{
-					DisplayName: "service-instance-2",
-					Type:        korifiv1alpha1.UserProvidedType,
-					PlanGUID:    "plan-2",
-				},
-			}
-			Expect(k8sClient.Create(ctx, cfServiceInstance2)).To(Succeed())
-
-			cfServiceInstance3 = &korifiv1alpha1.CFServiceInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: space2.Name,
-					Name:      "service-instance-3" + uuid.NewString(),
-				},
-				Spec: korifiv1alpha1.CFServiceInstanceSpec{
-					DisplayName: "service-instance-3",
-					Type:        korifiv1alpha1.UserProvidedType,
-					PlanGUID:    "plan-3",
-				},
-			}
-			Expect(k8sClient.Create(ctx, cfServiceInstance3)).To(Succeed())
-
-			space3 := createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space3"))
-			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: space3.Name,
-					Name:      uuid.NewString(),
-				},
-				Spec: korifiv1alpha1.CFServiceInstanceSpec{
-					DisplayName: uuid.NewString(),
-					Type:        korifiv1alpha1.UserProvidedType,
-				},
-			})).To(Succeed())
-
-			nonCFNamespace := uuid.NewString()
-			Expect(k8sClient.Create(
-				ctx,
-				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nonCFNamespace}},
-			)).To(Succeed())
-
-			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: nonCFNamespace,
-					Name:      "service-instance-4" + uuid.NewString(),
-				},
-				Spec: korifiv1alpha1.CFServiceInstanceSpec{
-					DisplayName: "service-instance-4",
-					Type:        korifiv1alpha1.UserProvidedType,
-				},
-			})).To(Succeed())
 
 			filters = repositories.ListServiceInstanceMessage{OrderBy: "foo"}
 		})
@@ -789,15 +731,12 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		When("user is allowed to list service instances ", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
 
 			It("returns the service instances from the allowed namespaces", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 				Expect(serviceInstanceList).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
 				))
 			})
 
@@ -807,156 +746,51 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				Expect(field).To(Equal("foo"))
 				Expect(sortedServiceInstances).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
 				))
 			})
 
-			When("the name filter is set", func() {
+			Describe("filtering", func() {
+				var fakeKlient *fake.Klient
+
 				BeforeEach(func() {
-					filters = repositories.ListServiceInstanceMessage{
-						Names: []string{
-							cfServiceInstance1.Spec.DisplayName,
-							cfServiceInstance3.Spec.DisplayName,
-						},
-					}
+					fakeKlient = new(fake.Klient)
+					serviceInstanceRepo = repositories.NewServiceInstanceRepo(fakeKlient, conditionAwaiter, sorter, rootNamespace)
 				})
 
-				It("returns only records for the ServiceInstances with matching spec.name fields", func() {
-					Expect(listErr).NotTo(HaveOccurred())
-					Expect(serviceInstanceList).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
-					))
-				})
-			})
-
-			When("the spaceGUID filter is set", func() {
-				BeforeEach(func() {
-					filters = repositories.ListServiceInstanceMessage{
-						SpaceGUIDs: []string{
-							cfServiceInstance2.Namespace,
-							cfServiceInstance3.Namespace,
-						},
-					}
-				})
-
-				It("returns only records for the ServiceInstances within the matching spaces", func() {
-					Expect(listErr).NotTo(HaveOccurred())
-					Expect(serviceInstanceList).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
-					))
-				})
-			})
-
-			When("the type filter is set", func() {
-				When("filtering for managed type", func() {
+				Describe("filter parameters to list options", func() {
 					BeforeEach(func() {
 						filters = repositories.ListServiceInstanceMessage{
-							Type: korifiv1alpha1.ManagedType,
+							Names:         []string{"instance-1", "instance-2"},
+							SpaceGUIDs:    []string{"space-guid-1", "space-guid-2"},
+							GUIDs:         []string{"guid-1", "guid-2"},
+							LabelSelector: "a-label=a-label-value",
+							PlanGUIDs:     []string{"plan-guid-1", "plan-guid-2"},
 						}
 					})
 
-					It("returns no records for the ServiceInstances since all are user-provided", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(serviceInstanceList).To(BeEmpty())
-					})
-				})
-
-				When("filtering for user-provided type", func() {
-					BeforeEach(func() {
-						filters = repositories.ListServiceInstanceMessage{
-							Type: korifiv1alpha1.UserProvidedType,
-						}
-					})
-
-					It("returns all the ServiceInstances records that are user-provided", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(serviceInstanceList).To(ConsistOf(
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance2.Name)}),
-							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
+					It("translates filter parameters to klient list options", func() {
+						Expect(fakeKlient.ListCallCount()).To(Equal(1))
+						_, _, listOptions := fakeKlient.ListArgsForCall(0)
+						Expect(listOptions).To(ConsistOf(
+							repositories.WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224("instance-1", "instance-2")),
+							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"space-guid-1", "space-guid-2"}),
+							repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"guid-1", "guid-2"}),
+							repositories.WithLabelSelector("a-label=a-label-value"),
+							repositories.WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, []string{"plan-guid-1", "plan-guid-2"}),
 						))
 					})
-				})
-			})
 
-			When("the serviceGUID filter is set", func() {
-				BeforeEach(func() {
-					filters = repositories.ListServiceInstanceMessage{
-						GUIDs: []string{cfServiceInstance1.Name, cfServiceInstance3.Name},
-					}
-				})
-				It("returns only records for the ServiceInstances within the matching spaces", func() {
-					Expect(listErr).NotTo(HaveOccurred())
-					Expect(serviceInstanceList).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
-					))
-				})
-			})
-
-			When("filtered by label selector", func() {
-				BeforeEach(func() {
-					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance1, func() {
-						cfServiceInstance1.Labels["foo"] = "FOO1"
-					})).To(Succeed())
-					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance2, func() {
-						cfServiceInstance2.Labels["foo"] = "FOO2"
-					})).To(Succeed())
-					Expect(k8s.PatchResource(ctx, k8sClient, cfServiceInstance3, func() {
-						cfServiceInstance3.Labels["not_foo"] = "NOT_FOO"
-					})).To(Succeed())
-				})
-
-				DescribeTable("valid label selectors",
-					func(selector string, serviceBindingGUIDPrefixes ...string) {
-						serviceInstances, err := serviceInstanceRepo.ListServiceInstances(ctx, authInfo, repositories.ListServiceInstanceMessage{
-							LabelSelector: selector,
+					When("filtering by type", func() {
+						BeforeEach(func() {
+							filters.Type = "managed"
 						})
-						Expect(err).NotTo(HaveOccurred())
 
-						matchers := []any{}
-						for _, prefix := range serviceBindingGUIDPrefixes {
-							matchers = append(matchers, MatchFields(IgnoreExtras, Fields{"GUID": HavePrefix(prefix)}))
-						}
-
-						Expect(serviceInstances).To(ConsistOf(matchers...))
-					},
-					Entry("key", "foo", "service-instance-1", "service-instance-2"),
-					Entry("!key", "!foo", "service-instance-3"),
-					Entry("key=value", "foo=FOO1", "service-instance-1"),
-					Entry("key==value", "foo==FOO2", "service-instance-2"),
-					Entry("key!=value", "foo!=FOO1", "service-instance-2", "service-instance-3"),
-					Entry("key in (value1,value2)", "foo in (FOO1,FOO2)", "service-instance-1", "service-instance-2"),
-					Entry("key notin (value1,value2)", "foo notin (FOO2)", "service-instance-1", "service-instance-3"),
-				)
-
-				When("the label selector is invalid", func() {
-					BeforeEach(func() {
-						filters = repositories.ListServiceInstanceMessage{LabelSelector: "~"}
+						It("adds the type to the list options", func() {
+							Expect(fakeKlient.ListCallCount()).To(Equal(1))
+							_, _, listOptions := fakeKlient.ListArgsForCall(0)
+							Expect(listOptions).To(ContainElement(repositories.WithLabel(korifiv1alpha1.CFServiceInstanceTypeLabelKey, "managed")))
+						})
 					})
-
-					It("returns an error", func() {
-						Expect(listErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.UnprocessableEntityError{}))
-					})
-				})
-			})
-
-			When("filtering by plan guids", func() {
-				BeforeEach(func() {
-					filters = repositories.ListServiceInstanceMessage{
-						PlanGUIDs: []string{"plan-1", "plan-3"},
-					}
-				})
-
-				It("returns only records for the ServiceInstances within the matching plans", func() {
-					Expect(listErr).NotTo(HaveOccurred())
-					Expect(serviceInstanceList).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
-						MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance3.Name)}),
-					))
 				})
 			})
 		})

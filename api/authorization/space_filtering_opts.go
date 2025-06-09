@@ -53,7 +53,7 @@ func (o *SpaceFilteringOpts) buildLabelSelector(ctx context.Context, listOpts *c
 	}
 
 	selector := labels.NewSelector()
-	namespaceRequirement, err := labels.NewRequirement(korifiv1alpha1.SpaceGUIDKey, selection.In, namespaces)
+	namespaceRequirement, err := labels.NewRequirement(korifiv1alpha1.SpaceGUIDLabelKey, selection.In, namespaces)
 	if err != nil {
 		return nil, err
 	}

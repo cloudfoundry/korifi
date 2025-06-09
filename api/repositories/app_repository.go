@@ -182,8 +182,8 @@ func (m *ListAppsMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelSelector(m.LabelSelector),
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.Guids),
-		WithLabelIn(korifiv1alpha1.SpaceGUIDKey, m.SpaceGUIDs),
-		WithLabelIn(korifiv1alpha1.CFAppDisplayNameKey, tools.EncodeValuesToSha224(m.Names...)),
+		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
+		WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
 		m.toSortOption(),
 	}
 }

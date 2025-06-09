@@ -257,58 +257,33 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			Describe("filtering", func() {
+				var fakeKlient *fake.Klient
+
 				BeforeEach(func() {
+					fakeKlient = new(fake.Klient)
+					routeRepo = repositories.NewRouteRepo(fakeKlient)
+
 					message = repositories.ListRoutesMessage{
-						SpaceGUIDs: []string{space.Name},
+						AppGUIDs:    []string{"g1"},
+						SpaceGUIDs:  []string{"sg1", "sg2"},
+						DomainGUIDs: []string{"domainGUID"},
+						Hosts:       []string{"my-subdomain-1-a"},
+						Paths:       []string{"/some/path"},
+						IsUnmapped:  tools.PtrTo(false),
 					}
 				})
 
-				It("returns the routes matching the filter paramters", func() {
-					Expect(routeRecords).To(HaveLen(1))
-					Expect(routeRecords[0].GUID).To(Equal(cfRoute.Name))
-				})
-
-				When("we filter by non-existent space", func() {
-					BeforeEach(func() {
-						message = repositories.ListRoutesMessage{
-							SpaceGUIDs: []string{"non-existent-space"},
-						}
-					})
-
-					It("returns an empty list", func() {
-						Expect(routeRecords).To(BeEmpty())
-					})
-				})
-
-				Describe("filter parameters to list options", func() {
-					var fakeKlient *fake.Klient
-
-					BeforeEach(func() {
-						fakeKlient = new(fake.Klient)
-						routeRepo = repositories.NewRouteRepo(fakeKlient)
-
-						message = repositories.ListRoutesMessage{
-							AppGUIDs:    []string{"g1"},
-							SpaceGUIDs:  []string{"sg1", "sg2"},
-							DomainGUIDs: []string{"domainGUID"},
-							Hosts:       []string{"my-subdomain-1-a"},
-							Paths:       []string{"/some/path"},
-							IsUnmapped:  tools.PtrTo(false),
-						}
-					})
-
-					It("translates filter parameters to klient list options", func() {
-						Expect(fakeKlient.ListCallCount()).To(Equal(1))
-						_, _, listOptions := fakeKlient.ListArgsForCall(0)
-						Expect(listOptions).To(ConsistOf(
-							repositories.WithLabelIn(korifiv1alpha1.CFDomainGUIDLabelKey, []string{"domainGUID"}),
-							repositories.WithLabelIn(korifiv1alpha1.CFRouteHostLabelKey, []string{"my-subdomain-1-a"}),
-							repositories.WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224("/some/path")),
-							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"sg1", "sg2"}),
-							repositories.WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, "false"),
-							repositories.WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix+"g1"),
-						))
-					})
+				It("translates filter parameters to klient list options", func() {
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.CFDomainGUIDLabelKey, []string{"domainGUID"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFRouteHostLabelKey, []string{"my-subdomain-1-a"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224("/some/path")),
+						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
+						repositories.WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, "false"),
+						repositories.WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix+"g1"),
+					))
 				})
 			})
 		})

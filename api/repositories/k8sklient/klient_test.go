@@ -516,7 +516,7 @@ var _ = Describe("Klient", func() {
 
 			BeforeEach(func() {
 				listOpts = []repositories.ListOption{
-					repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDKey, []string{"s1", "s2"}),
+					repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"s1", "s2"}),
 					repositories.WithLabelSelector("foo==bar"),
 					repositories.InNamespace("in-ns"),
 					repositories.MatchingFields{"field": "fieldValue"},
@@ -531,7 +531,7 @@ var _ = Describe("Klient", func() {
 
 				expectedSelector := parseLabelSelector("foo==bar")
 
-				spaceGuidsReqs, err = labels.ParseToRequirements(fmt.Sprintf("%s in (s1,s2)", korifiv1alpha1.SpaceGUIDKey))
+				spaceGuidsReqs, err = labels.ParseToRequirements(fmt.Sprintf("%s in (s1,s2)", korifiv1alpha1.SpaceGUIDLabelKey))
 				Expect(err).NotTo(HaveOccurred())
 				expectedSelector = expectedSelector.Add(spaceGuidsReqs...)
 
