@@ -327,7 +327,7 @@ var _ = Describe("ServiceBinding", func() {
 			serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{
 				{GUID: "service-binding-guid", AppGUID: "app-guid"},
 			}, nil)
-			appRepo.ListAppsReturns([]repositories.AppRecord{{Name: "some-app-name"}}, nil)
+			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{Name: "some-app-name"}}}, nil)
 
 			payload := payloads.ServiceBindingList{
 				AppGUIDs:             "a1,a2",
@@ -354,7 +354,6 @@ var _ = Describe("ServiceBinding", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_credential_bindings?foo=bar"),
 				MatchJSONPath("$.resources[0].guid", "service-binding-guid"),
 			)))
 		})

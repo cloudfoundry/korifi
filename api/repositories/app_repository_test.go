@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/env"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/testutils"
@@ -152,10 +153,10 @@ var _ = Describe("AppRepository", func() {
 
 	Describe("ListApps", func() {
 		var (
-			message repositories.ListAppsMessage
-			appList []repositories.AppRecord
-			cfApp2  *korifiv1alpha1.CFApp
-			listErr error
+			message    repositories.ListAppsMessage
+			listResult repositories.ListResult[repositories.AppRecord]
+			cfApp2     *korifiv1alpha1.CFApp
+			listErr    error
 		)
 
 		BeforeEach(func() {
@@ -169,15 +170,21 @@ var _ = Describe("AppRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			appList, listErr = appRepo.ListApps(ctx, authInfo, message)
+			listResult, listErr = appRepo.ListApps(ctx, authInfo, message)
 		})
 
 		It("lists the apps", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(appList).To(ConsistOf(
+			Expect(listResult.Records).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp.Name)}),
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfApp2.Name)}),
 			))
+			Expect(listResult.PageInfo).To(Equal(descriptors.PageInfo{
+				TotalResults: 2,
+				TotalPages:   1,
+				PageNumber:   1,
+				PageSize:     2,
+			}))
 		})
 
 		Describe("message list options", func() {
@@ -189,7 +196,7 @@ var _ = Describe("AppRepository", func() {
 
 			It("returns the apps matching the filter paramters", func() {
 				Expect(listErr).NotTo(HaveOccurred())
-				Expect(appList).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+				Expect(listResult.Records).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
 					"GUID": Equal(cfApp2.Name),
 				})))
 			})
@@ -210,6 +217,8 @@ var _ = Describe("AppRepository", func() {
 							SpaceGUIDs:    []string{"sg1", "sg2"},
 							LabelSelector: "foo=bar",
 							OrderBy:       "name",
+							Page:          3,
+							PerPage:       4,
 						}
 					})
 
@@ -223,6 +232,7 @@ var _ = Describe("AppRepository", func() {
 							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
 							repositories.WithLabelSelector("foo=bar"),
 							repositories.SortBy("Display Name", false),
+							repositories.WithPaging(4, 3),
 						))
 					})
 				})

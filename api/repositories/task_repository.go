@@ -157,7 +157,7 @@ func (r *TaskRepo) awaitCondition(ctx context.Context, task *korifiv1alpha1.CFTa
 
 func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, msg ListTaskMessage) ([]TaskRecord, error) {
 	taskList := &korifiv1alpha1.CFTaskList{}
-	err := r.klient.List(ctx, taskList, msg.toListOptions()...)
+	_, err := r.klient.List(ctx, taskList, msg.toListOptions()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks: %w", apierrors.FromK8sError(err, TaskResourceType))
 	}

@@ -9,5 +9,5 @@ import (
 type ServiceRouteBinding struct{}
 
 func ForServiceRouteBindingsList(baseURL, requestURL url.URL) ListResponse[any] {
-	return ForList(func(a any, _ url.URL, includes ...include.Resource) any { return a }, []any{}, baseURL, requestURL)
+	return ForListDeprecated(func(a any, _ url.URL, includes ...include.Resource) any { return a }, []any{}, baseURL, requestURL)
 }

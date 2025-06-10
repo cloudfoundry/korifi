@@ -121,7 +121,7 @@ func (h *Deployment) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch deployments from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDeployment, deployments, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForDeployment, deployments, h.serverURL, *r.URL)), nil
 }
 
 func (h *Deployment) UnauthenticatedRoutes() []routing.Route {

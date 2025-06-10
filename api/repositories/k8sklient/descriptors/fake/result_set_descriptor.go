@@ -4,7 +4,7 @@ package fake
 import (
 	"sync"
 
-	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 )
 
 type ResultSetDescriptor struct {
@@ -180,4 +180,4 @@ func (fake *ResultSetDescriptor) recordInvocation(key string, args []interface{}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ k8sklient.ResultSetDescriptor = new(ResultSetDescriptor)
+var _ descriptors.ResultSetDescriptor = new(ResultSetDescriptor)

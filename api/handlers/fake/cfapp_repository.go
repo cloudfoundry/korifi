@@ -69,7 +69,7 @@ type CFAppRepository struct {
 		result1 repositories.AppEnvRecord
 		result2 error
 	}
-	ListAppsStub        func(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
+	ListAppsStub        func(context.Context, authorization.Info, repositories.ListAppsMessage) (repositories.ListResult[repositories.AppRecord], error)
 	listAppsMutex       sync.RWMutex
 	listAppsArgsForCall []struct {
 		arg1 context.Context
@@ -77,11 +77,11 @@ type CFAppRepository struct {
 		arg3 repositories.ListAppsMessage
 	}
 	listAppsReturns struct {
-		result1 []repositories.AppRecord
+		result1 repositories.ListResult[repositories.AppRecord]
 		result2 error
 	}
 	listAppsReturnsOnCall map[int]struct {
-		result1 []repositories.AppRecord
+		result1 repositories.ListResult[repositories.AppRecord]
 		result2 error
 	}
 	PatchAppStub        func(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
@@ -409,7 +409,7 @@ func (fake *CFAppRepository) GetAppEnvReturnsOnCall(i int, result1 repositories.
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) ListApps(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListAppsMessage) ([]repositories.AppRecord, error) {
+func (fake *CFAppRepository) ListApps(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListAppsMessage) (repositories.ListResult[repositories.AppRecord], error) {
 	fake.listAppsMutex.Lock()
 	ret, specificReturn := fake.listAppsReturnsOnCall[len(fake.listAppsArgsForCall)]
 	fake.listAppsArgsForCall = append(fake.listAppsArgsForCall, struct {
@@ -436,7 +436,7 @@ func (fake *CFAppRepository) ListAppsCallCount() int {
 	return len(fake.listAppsArgsForCall)
 }
 
-func (fake *CFAppRepository) ListAppsCalls(stub func(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)) {
+func (fake *CFAppRepository) ListAppsCalls(stub func(context.Context, authorization.Info, repositories.ListAppsMessage) (repositories.ListResult[repositories.AppRecord], error)) {
 	fake.listAppsMutex.Lock()
 	defer fake.listAppsMutex.Unlock()
 	fake.ListAppsStub = stub
@@ -449,28 +449,28 @@ func (fake *CFAppRepository) ListAppsArgsForCall(i int) (context.Context, author
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFAppRepository) ListAppsReturns(result1 []repositories.AppRecord, result2 error) {
+func (fake *CFAppRepository) ListAppsReturns(result1 repositories.ListResult[repositories.AppRecord], result2 error) {
 	fake.listAppsMutex.Lock()
 	defer fake.listAppsMutex.Unlock()
 	fake.ListAppsStub = nil
 	fake.listAppsReturns = struct {
-		result1 []repositories.AppRecord
+		result1 repositories.ListResult[repositories.AppRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFAppRepository) ListAppsReturnsOnCall(i int, result1 []repositories.AppRecord, result2 error) {
+func (fake *CFAppRepository) ListAppsReturnsOnCall(i int, result1 repositories.ListResult[repositories.AppRecord], result2 error) {
 	fake.listAppsMutex.Lock()
 	defer fake.listAppsMutex.Unlock()
 	fake.ListAppsStub = nil
 	if fake.listAppsReturnsOnCall == nil {
 		fake.listAppsReturnsOnCall = make(map[int]struct {
-			result1 []repositories.AppRecord
+			result1 repositories.ListResult[repositories.AppRecord]
 			result2 error
 		})
 	}
 	fake.listAppsReturnsOnCall[i] = struct {
-		result1 []repositories.AppRecord
+		result1 repositories.ListResult[repositories.AppRecord]
 		result2 error
 	}{result1, result2}
 }

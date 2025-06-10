@@ -31,7 +31,6 @@ var _ = Describe("User", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
 					MatchJSONPath("$.pagination.total_results", BeZero()),
-					MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/users"),
 				)))
 			})
 		})
@@ -46,7 +45,6 @@ var _ = Describe("User", func() {
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
 					MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
-					MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/users?usernames=foo,bar"),
 					MatchJSONPath("$.resources[0].username", "foo"),
 					MatchJSONPath("$.resources[1].username", "bar"),
 				)))

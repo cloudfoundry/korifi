@@ -29,7 +29,7 @@ func (h User) list(req *http.Request) (*routing.Response, error) {
 	if len(usernames) > 0 {
 		users = strings.Split(usernames, ",")
 	}
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForUser, users, h.apiBaseURL, *req.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForUser, users, h.apiBaseURL, *req.URL)), nil
 }
 
 func (h User) UnauthenticatedRoutes() []routing.Route {

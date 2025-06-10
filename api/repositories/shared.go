@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,6 +32,11 @@ type RepositoryCreator interface {
 type Awaiter[T runtime.Object] interface {
 	AwaitCondition(context.Context, Klient, client.Object, string) (T, error)
 	AwaitState(context.Context, Klient, client.Object, func(T) error) (T, error)
+}
+
+type ListResult[T any] struct {
+	PageInfo descriptors.PageInfo
+	Records  []T
 }
 
 func getLastUpdatedTime(obj client.Object) *time.Time {

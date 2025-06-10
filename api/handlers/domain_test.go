@@ -296,7 +296,6 @@ var _ = Describe("Domain", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/domains"),
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", "test-domain-guid"),
 				MatchJSONPath("$.resources[0].supported_protocols", ConsistOf("http")),

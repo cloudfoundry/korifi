@@ -28,7 +28,6 @@ var _ = Describe("ServiceRouteBinding", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeZero()),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_route_bindings"),
 			)))
 		})
 	})

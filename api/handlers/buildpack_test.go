@@ -67,7 +67,6 @@ var _ = Describe("Buildpack", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/buildpacks"),
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].filename", "paketo-foopacks/bar@1.0.0"),
 			)))

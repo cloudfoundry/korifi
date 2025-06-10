@@ -178,10 +178,11 @@ func (h *ServiceBinding) list(r *http.Request) (*routing.Response, error) {
 			listAppsMessage.Guids = append(listAppsMessage.Guids, serviceBinding.AppGUID)
 		}
 
-		appRecords, err = h.appRepo.ListApps(r.Context(), authInfo, listAppsMessage)
+		appListResult, err := h.appRepo.ListApps(r.Context(), authInfo, listAppsMessage)
 		if err != nil {
 			return nil, apierrors.LogAndReturn(logger, err, "failed to list "+repositories.AppResourceType)
 		}
+		appRecords = appListResult.Records
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceBindingList(serviceBindingList, appRecords, h.serverURL, *r.URL)), nil

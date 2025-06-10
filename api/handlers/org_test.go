@@ -157,7 +157,6 @@ var _ = Describe("Org", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/organizations?names=a,b"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "a-l-i-c-e"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/organizations/a-l-i-c-e"),
@@ -388,7 +387,6 @@ var _ = Describe("Org", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/organizations/org-guid/domains"),
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", "domain-guid"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/domains/domain-guid"),

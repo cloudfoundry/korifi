@@ -76,7 +76,7 @@ func (h *Task) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list tasks")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForTask, tasks, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForTask, tasks, h.serverURL, *r.URL)), nil
 }
 
 func (h *Task) create(r *http.Request) (*routing.Response, error) {
@@ -134,7 +134,7 @@ func (h *Task) listForApp(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list tasks")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForTask, tasks, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForTask, tasks, h.serverURL, *r.URL)), nil
 }
 
 func (h *Task) cancel(r *http.Request) (*routing.Response, error) {

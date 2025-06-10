@@ -133,7 +133,7 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 
 func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.Info, message ListProcessesMessage) ([]ProcessRecord, error) {
 	processList := &korifiv1alpha1.CFProcessList{}
-	err := r.klient.List(ctx, processList, message.toListOptions()...)
+	_, err := r.klient.List(ctx, processList, message.toListOptions()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
 	}

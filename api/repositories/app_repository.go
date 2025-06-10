@@ -176,6 +176,8 @@ type ListAppsMessage struct {
 	SpaceGUIDs    []string
 	LabelSelector string
 	OrderBy       string
+	PerPage       int
+	Page          int
 }
 
 func (m *ListAppsMessage) toListOptions() []ListOption {
@@ -185,6 +187,7 @@ func (m *ListAppsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
 		m.toSortOption(),
+		WithPaging(m.PerPage, m.Page),
 	}
 }
 
@@ -296,14 +299,22 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 	return cfAppToAppRecord(*cfApp)
 }
 
-func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) ([]AppRecord, error) {
+func (f *AppRepo) ListApps(ctx context.Context, authInfo authorization.Info, message ListAppsMessage) (ListResult[AppRecord], error) {
 	appList := &korifiv1alpha1.CFAppList{}
-	err := f.klient.List(ctx, appList, message.toListOptions()...)
+	pageInfo, err := f.klient.List(ctx, appList, message.toListOptions()...)
 	if err != nil {
-		return []AppRecord{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
+		return ListResult[AppRecord]{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	return it.TryCollect(it.MapError(itx.FromSlice(appList.Items), cfAppToAppRecord))
+	records, err := it.TryCollect(it.MapError(itx.FromSlice(appList.Items), cfAppToAppRecord))
+	if err != nil {
+		return ListResult[AppRecord]{}, err
+	}
+
+	return ListResult[AppRecord]{
+		PageInfo: pageInfo,
+		Records:  records,
+	}, nil
 }
 
 func (f *AppRepo) PatchAppEnvVars(ctx context.Context, authInfo authorization.Info, message PatchAppEnvVarsMessage) (AppEnvVarsRecord, error) {

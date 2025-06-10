@@ -8,6 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,13 +33,7 @@ type K8sKlient struct {
 
 //counterfeiter:generate -o fake -fake-name DescriptorClient . DescriptorClient
 type DescriptorClient interface {
-	List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (ResultSetDescriptor, error)
-}
-
-//counterfeiter:generate -o fake -fake-name ResultSetDescriptor . ResultSetDescriptor
-type ResultSetDescriptor interface {
-	GUIDs() ([]string, error)
-	Sort(column string, desc bool) error
+	List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (descriptors.ResultSetDescriptor, error)
 }
 
 //counterfeiter:generate -o fake -fake-name ObjectListMapper . ObjectListMapper
@@ -109,51 +104,99 @@ func (k *K8sKlient) Patch(ctx context.Context, obj client.Object, modify func() 
 	return nil
 }
 
-func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...repositories.ListOption) error {
+func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...repositories.ListOption) (descriptors.PageInfo, error) {
 	listOpts, err := unpackListOptions(opts...)
 	if err != nil {
-		return toStatusError(list, err)
+		return descriptors.PageInfo{}, toStatusError(list, err)
 	}
 
-	authInfo, _ := authorization.InfoFromContext(ctx)
-	userClient, err := k.userClientFactory.BuildClient(authInfo)
+	if isSimpleList(listOpts) {
+		return k.listViaUserClient(ctx, list, listOpts.AsClientListOptions())
+	}
+
+	listObjectGVK, err := getGVK(list)
 	if err != nil {
-		return fmt.Errorf("failed to build user client: %w", err)
+		return descriptors.PageInfo{}, fmt.Errorf("failed to get GVK for list %T: %w", list, err)
+	}
+
+	objectGUIDs, err := k.fetchObjectGUIDs(ctx, listObjectGVK, listOpts)
+	if err != nil {
+		return descriptors.PageInfo{}, fmt.Errorf("failed to fetch object guids: %w", err)
+	}
+
+	var pageInfo descriptors.PageInfo
+	objectGUIDs, pageInfo, err = pageGUIDs(objectGUIDs, listOpts)
+	if err != nil {
+		return descriptors.PageInfo{}, fmt.Errorf("failed to page object guids: %w", err)
+	}
+
+	listResult, err := k.objectListMapper.GUIDsToObjectList(ctx, listObjectGVK, objectGUIDs)
+	if err != nil {
+		return descriptors.PageInfo{}, fmt.Errorf("failed to map sorted object GUIDs to objects: %w", err)
+	}
+
+	if err := transferItems(listResult, list); err != nil {
+		return descriptors.PageInfo{}, fmt.Errorf("failed to copy list items: %w", err)
+	}
+
+	return pageInfo, nil
+}
+
+func (k *K8sKlient) fetchObjectGUIDs(ctx context.Context, listObjectGVK schema.GroupVersionKind, listOpts repositories.ListOptions) ([]string, error) {
+	objectDescriptors, err := k.descriptorClient.List(ctx, listObjectGVK, listOpts.AsClientListOptions())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list object descriptors: %w", err)
 	}
 
 	if listOpts.Sort != nil {
-		listObjectGVK, err := getGVK(list)
-		if err != nil {
-			return fmt.Errorf("failed to get GVK for list %T: %w", list, err)
-		}
-		objectDescriptors, err := k.descriptorClient.List(ctx, listObjectGVK, listOpts.AsClientListOptions())
-		if err != nil {
-			return fmt.Errorf("failed to list object descriptors: %w", err)
-		}
-
 		if err = objectDescriptors.Sort(listOpts.Sort.By, listOpts.Sort.Desc); err != nil {
-			return fmt.Errorf("failed to sort object descriptors: %w", err)
+			return nil, fmt.Errorf("failed to sort object descriptors: %w", err)
 		}
-
-		sortedObjectGUIDs, err := objectDescriptors.GUIDs()
-		if err != nil {
-			return fmt.Errorf("failed to get sorted object GUIDs: %w", err)
-		}
-
-		listResult, err := k.objectListMapper.GUIDsToObjectList(ctx, listObjectGVK, sortedObjectGUIDs)
-		if err != nil {
-			return fmt.Errorf("failed to map sorted object GUIDs to objects: %w", err)
-		}
-
-		if err := transferItems(listResult, list); err != nil {
-			return fmt.Errorf("failed to copy list items: %w", err)
-		}
-
-		return nil
-
 	}
 
-	return userClient.List(ctx, list, listOpts.AsClientListOptions())
+	objectGUIDs, err := objectDescriptors.GUIDs()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sorted object GUIDs: %w", err)
+	}
+
+	return objectGUIDs, nil
+}
+
+func pageGUIDs(objectGUIDs []string, listOpts repositories.ListOptions) ([]string, descriptors.PageInfo, error) {
+	if listOpts.Paging == nil {
+		return objectGUIDs, descriptors.SinglePageInfo(len(objectGUIDs), len(objectGUIDs)), nil
+	}
+
+	page, err := descriptors.GetPage(objectGUIDs, listOpts.Paging.PageSize, listOpts.Paging.PageNumber)
+	if err != nil {
+		return nil, descriptors.PageInfo{}, fmt.Errorf("failed to page object guids: %w", err)
+	}
+
+	return page.Items, page.PageInfo, nil
+}
+
+func isSimpleList(listOpts repositories.ListOptions) bool {
+	return listOpts.Sort == nil && listOpts.Paging == nil
+}
+
+func (k *K8sKlient) listViaUserClient(ctx context.Context, list client.ObjectList, opts ...client.ListOption) (descriptors.PageInfo, error) {
+	authInfo, _ := authorization.InfoFromContext(ctx)
+	userClient, err := k.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return descriptors.PageInfo{}, fmt.Errorf("failed to build user client: %w", err)
+	}
+
+	err = userClient.List(ctx, list, opts...)
+	if err != nil {
+		return descriptors.PageInfo{}, err
+	}
+
+	itemsField, err := getObjectListItemsField(list)
+	if err != nil {
+		return descriptors.PageInfo{}, err
+	}
+
+	return descriptors.SinglePageInfo(itemsField.Len(), itemsField.Len()), nil
 }
 
 func getObjectListItemsField(listObj client.ObjectList) (reflect.Value, error) {

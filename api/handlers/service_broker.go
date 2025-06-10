@@ -77,7 +77,7 @@ func (h *ServiceBroker) list(r *http.Request) (*routing.Response, error) {
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list service brokers")
 	}
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceBroker, brokers, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForServiceBroker, brokers, h.serverURL, *r.URL)), nil
 }
 
 func (h *ServiceBroker) get(r *http.Request) (*routing.Response, error) {

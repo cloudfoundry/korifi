@@ -172,7 +172,6 @@ var _ = Describe("Package", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/packages?foo=bar"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", packageGUID),
 				MatchJSONPath("$.resources[0].state", Equal("AWAITING_UPLOAD")),
@@ -805,7 +804,6 @@ var _ = Describe("Package", func() {
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/packages/"+packageGUID+"/droplets?not=used"),
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", Equal(dropletGUID)),
 				MatchJSONPath("$.resources[0].state", Equal("STAGED")),

@@ -340,6 +340,7 @@ func main() {
 			podRepo,
 			gaugesCollector,
 			instancesStateCollector,
+			cfg.List.DefaultPageSize,
 		),
 		handlers.NewRoute(
 			*serverURL,

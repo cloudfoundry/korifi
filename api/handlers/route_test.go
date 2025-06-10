@@ -187,7 +187,6 @@ var _ = Describe("Route", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/routes?foo=bar"),
 				MatchJSONPath("$.resources[0].guid", "test-route-guid"),
 				MatchJSONPath("$.resources[0].url", "test-route-host.example.org/some_path"),
 				MatchJSONPath("$.resources[1].guid", "other-test-route-guid"),

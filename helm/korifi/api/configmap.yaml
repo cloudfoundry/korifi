@@ -53,6 +53,8 @@ data:
     {{- if .Values.eksContainerRegistryRoleARN }}
     containerRegistryType: "ECR"
     {{- end }}
+    list:
+      defaultPageSize: {{ .Values.api.list.defaultPageSize }}
     experimental:
       managedServices:
         enabled: {{ .Values.experimental.managedServices.enabled }}

@@ -80,7 +80,7 @@ func (h *Droplet) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to list droplets")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDroplet, droplets, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForDroplet, droplets, h.serverURL, *r.URL)), nil
 }
 
 func (h *Droplet) update(r *http.Request) (*routing.Response, error) {

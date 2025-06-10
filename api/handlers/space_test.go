@@ -180,7 +180,6 @@ var _ = Describe("Space", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/spaces?foo=bar"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "test-space-1-guid"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/spaces/test-space-1-guid"),

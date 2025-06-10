@@ -131,7 +131,7 @@ func (h *Org) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to fetch orgs")
 	}
 
-	resp := routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForOrg, orgs, h.apiBaseURL, *r.URL))
+	resp := routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForOrg, orgs, h.apiBaseURL, *r.URL))
 	notAfter, certParsed := decodePEMNotAfter(authInfo.CertData)
 
 	if !isExpirationValid(notAfter, h.userCertificateExpirationWarningDuration, certParsed) {
@@ -161,7 +161,7 @@ func (h *Org) listDomains(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch domain(s) from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDomain, domainList, h.apiBaseURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForDomain, domainList, h.apiBaseURL, *r.URL)), nil
 }
 
 func (h *Org) defaultDomain(r *http.Request) (*routing.Response, error) {

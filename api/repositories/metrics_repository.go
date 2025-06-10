@@ -36,7 +36,7 @@ type PodMetrics struct {
 
 func (r *MetricsRepo) GetMetrics(ctx context.Context, authInfo authorization.Info, app AppRecord, processGUID string) ([]PodMetrics, error) {
 	podList := &corev1.PodList{}
-	err := r.klient.List(ctx, podList,
+	_, err := r.klient.List(ctx, podList,
 		InNamespace(app.SpaceGUID),
 		WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, app.GUID),
 		WithLabel(korifiv1alpha1.VersionLabelKey, app.Revision),

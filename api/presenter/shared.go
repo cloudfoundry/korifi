@@ -4,9 +4,12 @@ import (
 	"maps"
 	"net/url"
 	"path"
+	"strconv"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 )
@@ -52,12 +55,12 @@ type ListResponse[T any] struct {
 }
 
 type PaginationData struct {
-	TotalResults int     `json:"total_results"`
-	TotalPages   int     `json:"total_pages"`
-	First        PageRef `json:"first"`
-	Last         PageRef `json:"last"`
-	Next         *int    `json:"next"`
-	Previous     *int    `json:"previous"`
+	TotalResults int      `json:"total_results"`
+	TotalPages   int      `json:"total_pages"`
+	First        PageRef  `json:"first"`
+	Last         PageRef  `json:"last"`
+	Next         *PageRef `json:"next"`
+	Previous     *PageRef `json:"previous"`
 }
 
 type PageRef struct {
@@ -73,24 +76,62 @@ type ToOneRelationship struct {
 
 type itemPresenter[T, S any] func(T, url.URL, ...include.Resource) S
 
-func ForList[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL, includes ...include.Resource) ListResponse[S] {
+func ForListDeprecated[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL, includes ...include.Resource) ListResponse[S] {
+	singlePageListResult := repositories.ListResult[T]{
+		PageInfo: descriptors.SinglePageInfo(len(resources), len(resources)),
+		Records:  resources,
+	}
+	return ForList(itemPresenter, singlePageListResult, baseURL, requestURL, includes...)
+}
+
+func ForList[T, S any](itemPresenter itemPresenter[T, S], listResult repositories.ListResult[T], baseURL, requestURL url.URL, includes ...include.Resource) ListResponse[S] {
 	presenters := []S{}
-	for _, resource := range resources {
+	for _, resource := range listResult.Records {
 		presenters = append(presenters, itemPresenter(resource, baseURL))
 	}
-	return ListResponse[S]{
-		PaginationData: PaginationData{
-			TotalResults: len(resources),
-			TotalPages:   1,
-			First: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
-			Last: PageRef{
-				HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(requestURL.RawQuery).build(),
-			},
+
+	firstQuery := requestURL.Query()
+	firstQuery.Set("page", "1")
+	firstQuery.Set("per_page", strconv.Itoa(listResult.PageInfo.PageSize))
+
+	lastQuery := requestURL.Query()
+	lastQuery.Set("page", strconv.Itoa(tools.Max(1, listResult.PageInfo.TotalPages)))
+	lastQuery.Set("per_page", strconv.Itoa(listResult.PageInfo.PageSize))
+
+	paginationData := PaginationData{
+		TotalResults: listResult.PageInfo.TotalResults,
+		TotalPages:   listResult.PageInfo.TotalPages,
+		First: PageRef{
+			HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(firstQuery.Encode()).build(),
 		},
-		Resources: presenters,
-		Included:  includedResources(includes...),
+		Last: PageRef{
+			HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(lastQuery.Encode()).build(),
+		},
+	}
+
+	if listResult.PageInfo.PageNumber < listResult.PageInfo.TotalPages {
+		nextQuery := requestURL.Query()
+		nextQuery.Set("page", strconv.Itoa(listResult.PageInfo.PageNumber+1))
+		nextQuery.Set("per_page", strconv.Itoa(listResult.PageInfo.PageSize))
+		paginationData.Next = &PageRef{
+			HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(nextQuery.Encode()).build(),
+		}
+	}
+
+	if listResult.PageInfo.PageNumber > 1 {
+		prevPageNumber := tools.Min(listResult.PageInfo.PageNumber-1, listResult.PageInfo.TotalPages)
+		previousQuery := requestURL.Query()
+		previousQuery.Set("page", strconv.Itoa(prevPageNumber))
+		previousQuery.Set("per_page", strconv.Itoa(listResult.PageInfo.PageSize))
+		paginationData.Previous = &PageRef{
+			HREF: buildURL(baseURL).appendPath(requestURL.Path).setQuery(previousQuery.Encode()).build(),
+		}
+	}
+
+	return ListResponse[S]{
+		PaginationData: paginationData,
+		Resources:      presenters,
+		Included:       includedResources(includes...),
 	}
 }
 

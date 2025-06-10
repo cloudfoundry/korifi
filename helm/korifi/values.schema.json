@@ -284,6 +284,16 @@
               "type": "string"
             }
           }
+        },
+        "list": {
+          "type": "object",
+          "description": "List behaviour configuration",
+          "properties": {
+            "defaultPageSize": {
+              "description": "Page size in case 'per_page' query parameter is not provided in list queries",
+              "type": "integer"
+            }
+          }
         }
       },
       "required": [

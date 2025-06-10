@@ -80,7 +80,7 @@ func (h *Role) list(r *http.Request) (*routing.Response, error) {
 
 	filteredRoles := filterRoles(payload, roles)
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForRole, filteredRoles, h.apiBaseURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForRole, filteredRoles, h.apiBaseURL, *r.URL)), nil
 }
 
 func filterRoles(roleListFilter *payloads.RoleList, roles []repositories.RoleRecord) []repositories.RoleRecord {
