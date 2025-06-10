@@ -569,7 +569,6 @@ var _ = Describe("ServiceInstance", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_instances?foo=bar"),
 				MatchJSONPath("$.resources[0].guid", "service-inst-guid-1"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/service_instances/service-inst-guid-1"),
 				MatchJSONPath("$.resources[1].guid", "service-inst-guid-2"),
@@ -596,10 +595,6 @@ var _ = Describe("ServiceInstance", func() {
 				Expect(message.GUIDs).To(ConsistOf("g1", "g2"))
 				Expect(message.LabelSelector).To(Equal("label=value"))
 				Expect(message.PlanGUIDs).To(ConsistOf("p1", "p2"))
-			})
-
-			It("correctly sets query parameters in response pagination links", func() {
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_instances?foo=bar")))
 			})
 		})
 

@@ -8,7 +8,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
+	. "code.cloudfoundry.org/korifi/tests/matchers"
 )
 
 type (
@@ -32,7 +35,7 @@ func forRecord(r record, u url.URL, includes ...include.Resource) presentedRecor
 var _ = Describe("Shared", func() {
 	Describe("ForList", func() {
 		var (
-			records           []record
+			listResult        repositories.ListResult[record]
 			includedResources []include.Resource
 			baseURL           *url.URL
 			requestURL        *url.URL
@@ -47,12 +50,20 @@ var _ = Describe("Shared", func() {
 			requestURL, err = url.Parse("https://api.example.org/v3/records?foo=bar")
 			Expect(err).NotTo(HaveOccurred())
 
-			records = []record{{N: 42}, {N: 43}}
+			listResult = repositories.ListResult[record]{
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 10,
+					TotalPages:   5,
+					PageNumber:   3,
+					PageSize:     2,
+				},
+				Records: []record{{N: 42}, {N: 43}},
+			}
 			includedResources = []include.Resource{}
 		})
 
 		JustBeforeEach(func() {
-			response := presenter.ForList(forRecord, records, *baseURL, *requestURL, includedResources...)
+			response := presenter.ForList(forRecord, listResult, *baseURL, *requestURL, includedResources...)
 			var err error
 			output, err = json.Marshal(response)
 			Expect(err).NotTo(HaveOccurred())
@@ -61,16 +72,20 @@ var _ = Describe("Shared", func() {
 		It("returns the expected json", func() {
 			Expect(output).To(MatchJSON(`{
 				"pagination": {
-					"total_results": 2,
-					"total_pages": 1,
+					"total_results": 10,
+					"total_pages": 5,
 					"first": {
-						"href": "https://api.example.org/v3/records?foo=bar"
+						"href": "https://api.example.org/v3/records?foo=bar&page=1&per_page=2"
 					},
 					"last": {
-						"href": "https://api.example.org/v3/records?foo=bar"
+						"href": "https://api.example.org/v3/records?foo=bar&page=5&per_page=2"
 					},
-					"next": null,
-					"previous": null
+					"next": {
+						"href": "https://api.example.org/v3/records?foo=bar&page=4&per_page=2"
+					},
+					"previous": {
+						"href": "https://api.example.org/v3/records?foo=bar&page=2&per_page=2"
+					}
 				},
 				"resources": [
 					{
@@ -83,6 +98,30 @@ var _ = Describe("Shared", func() {
 					}
 				]
 			}`))
+		})
+
+		When("page number is greater than total pages", func() {
+			BeforeEach(func() {
+				listResult.PageInfo.PageNumber = 6
+			})
+
+			It("does not return next", func() {
+				Expect(output).To(MatchJSONPath("$.pagination.next", BeNil()))
+			})
+
+			It("returns previous referencing the last page", func() {
+				Expect(output).To(MatchJSONPath("$.pagination.previous.href", Equal("https://api.example.org/v3/records?foo=bar&page=5&per_page=2")))
+			})
+		})
+
+		When("page number is 1", func() {
+			BeforeEach(func() {
+				listResult.PageInfo.PageNumber = 1
+			})
+
+			It("does not return previous", func() {
+				Expect(output).To(MatchJSONPath("$.pagination.previous", BeNil()))
+			})
 		})
 
 		When("included resources are provided", func() {
@@ -106,16 +145,20 @@ var _ = Describe("Shared", func() {
 			It("returns the expected json", func() {
 				Expect(output).To(MatchJSON(`{
 				  "pagination": {
-					"total_results": 2,
-					"total_pages": 1,
+					"total_results": 10,
+					"total_pages": 5,
 					"first": {
-					  "href": "https://api.example.org/v3/records?foo=bar"
+						"href": "https://api.example.org/v3/records?foo=bar&page=1&per_page=2"
 					},
 					"last": {
-					  "href": "https://api.example.org/v3/records?foo=bar"
+						"href": "https://api.example.org/v3/records?foo=bar&page=5&per_page=2"
 					},
-					"next": null,
-					"previous": null
+					"next": {
+						"href": "https://api.example.org/v3/records?foo=bar&page=4&per_page=2"
+					},
+					"previous": {
+						"href": "https://api.example.org/v3/records?foo=bar&page=2&per_page=2"
+					}
 				  },
 				  "resources": [
 					{
@@ -147,21 +190,25 @@ var _ = Describe("Shared", func() {
 			})
 		})
 
-		When("records are empty", func() {
+		When("there are no results", func() {
 			BeforeEach(func() {
-				records = nil
+				listResult = repositories.ListResult[record]{
+					PageInfo: descriptors.PageInfo{
+						PageSize: 2,
+					},
+				}
 			})
 
 			It("returns an empty response", func() {
 				Expect(output).To(MatchJSON(`{
 					"pagination": {
 						"total_results": 0,
-						"total_pages": 1,
+						"total_pages": 0,
 						"first": {
-							"href": "https://api.example.org/v3/records?foo=bar"
+							"href": "https://api.example.org/v3/records?foo=bar&page=1&per_page=2"
 						},
 						"last": {
-							"href": "https://api.example.org/v3/records?foo=bar"
+							"href": "https://api.example.org/v3/records?foo=bar&page=1&per_page=2"
 						},
 						"next": null,
 						"previous": null

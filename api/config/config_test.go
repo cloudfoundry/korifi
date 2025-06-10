@@ -63,6 +63,9 @@ var _ = Describe("Config", func() {
 					"enabled": true,
 				},
 			},
+			"list": map[string]any{
+				"defaultPageSize": 3,
+			},
 		}
 	})
 
@@ -116,6 +119,7 @@ var _ = Describe("Config", func() {
 			QPS:   1.0,
 			Burst: 2,
 		}))
+		Expect(cfg.List.DefaultPageSize).To(Equal(3))
 	})
 
 	When("the FQDN is not specified", func() {

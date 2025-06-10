@@ -1,8 +1,10 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/jellydator/validation"
@@ -63,4 +65,37 @@ func OneOfOrderBy(orderBys ...string) validation.Rule {
 	}
 
 	return OneOf(allAllowed...)
+}
+
+type multiRule struct {
+	rules []validation.Rule
+}
+
+func (r multiRule) Validate(value interface{}) error {
+	for _, rule := range r.rules {
+		if err := rule.Validate(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func All(rules ...validation.Rule) validation.Rule {
+	return multiRule{rules: rules}
+}
+
+func IntegerMatching(rules ...validation.Rule) validation.RuleFunc {
+	return func(value any) error {
+		s, ok := value.(string)
+		if !ok {
+			return errors.New("value must be a string")
+		}
+
+		intValue, err := strconv.Atoi(s)
+		if err != nil {
+			return errors.New("value must be an integer")
+		}
+
+		return All(append([]validation.Rule{StrictlyRequired}, rules...)...).Validate(intValue)
+	}
 }

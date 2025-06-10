@@ -140,7 +140,7 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 
 func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	err := r.klient.List(ctx, buildList, message.toListOptions()...)
+	_, err := r.klient.List(ctx, buildList, message.toListOptions()...)
 	if err != nil {
 		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}

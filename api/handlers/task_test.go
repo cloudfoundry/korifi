@@ -192,7 +192,6 @@ var _ = Describe("Task", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
-					MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/tasks"),
 					MatchJSONPath("$.resources", HaveLen(2)),
 					MatchJSONPath("$.resources[0].guid", "guid-1"),
 					MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/tasks/guid-1"),
@@ -232,7 +231,6 @@ var _ = Describe("Task", func() {
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 				Expect(rr).To(HaveHTTPBody(SatisfyAll(
-					MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/the-app-guid/tasks?foo=bar"),
 					MatchJSONPath("$.resources", HaveLen(2)),
 					MatchJSONPath("$.resources[0].guid", "guid-1"),
 					MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/tasks/guid-1"),

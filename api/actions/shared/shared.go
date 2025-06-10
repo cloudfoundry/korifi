@@ -21,7 +21,7 @@ type CFProcessRepository interface {
 
 type CFAppRepository interface {
 	GetApp(context.Context, authorization.Info, string) (repositories.AppRecord, error)
-	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) ([]repositories.AppRecord, error)
+	ListApps(context.Context, authorization.Info, repositories.ListAppsMessage) (repositories.ListResult[repositories.AppRecord], error)
 	CreateApp(context.Context, authorization.Info, repositories.CreateAppMessage) (repositories.AppRecord, error)
 	PatchApp(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
 }

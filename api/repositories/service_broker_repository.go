@@ -180,7 +180,7 @@ func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization
 
 func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info, message ListServiceBrokerMessage) ([]ServiceBrokerRecord, error) {
 	brokersList := &korifiv1alpha1.CFServiceBrokerList{}
-	err := r.klient.List(ctx, brokersList, message.toListOptions(r.rootNamespace)...)
+	_, err := r.klient.List(ctx, brokersList, message.toListOptions(r.rootNamespace)...)
 	if err != nil {
 		// All authenticated users are allowed to list brokers. Therefore, the
 		// usual pattern of checking for forbidden error and return an empty

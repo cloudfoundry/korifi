@@ -37,6 +37,8 @@ Here are all the values that can be set for the chart:
   - `lifecycle`: Default lifecycle for apps.
     - `stack` (_String_): Stack.
     - `type` (_String_): Lifecycle type (only `buildpack` accepted currently).
+  - `list`: List behaviour configuration
+    - `defaultPageSize` (_Integer_): Page size in case 'per_page' query parameter is not provided in list queries
   - `nodeSelector`: Node labels for korifi-api pod assignment.
   - `replicas` (_Integer_): Number of replicas.
   - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.

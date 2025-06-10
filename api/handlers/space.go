@@ -99,7 +99,7 @@ func (h *Space) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL, includedResources...)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL, includedResources...)), nil
 }
 
 //nolint:dupl

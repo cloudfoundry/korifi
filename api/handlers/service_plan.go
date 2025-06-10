@@ -91,7 +91,7 @@ func (h *ServicePlan) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServicePlan, servicePlans, h.serverURL, *r.URL, includedResources...)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForServicePlan, servicePlans, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 func (h *ServicePlan) getPlanVisibility(r *http.Request) (*routing.Response, error) {

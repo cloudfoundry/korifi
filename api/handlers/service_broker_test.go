@@ -113,7 +113,6 @@ var _ = Describe("ServiceBroker", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/service_brokers"),
 				MatchJSONPath("$.resources[0].guid", "broker-guid"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/service_brokers/broker-guid"),
 			)))

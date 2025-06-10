@@ -73,6 +73,7 @@ var _ = Describe("App", func() {
 			podRepo,
 			gaugesCollector,
 			instancesStateCollector,
+			50,
 		)
 
 		appRecord = repositories.AppRecord{
@@ -292,7 +293,7 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps", func() {
 		BeforeEach(func() {
-			appRepo.ListAppsReturns([]repositories.AppRecord{
+			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{
 				{
 					GUID:      "first-test-app-guid",
 					Name:      "first-test-app",
@@ -323,7 +324,7 @@ var _ = Describe("App", func() {
 						},
 					},
 				},
-			}, nil)
+			}}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps?foo=bar", nil)
 		})
@@ -340,7 +341,6 @@ var _ = Describe("App", func() {
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps?foo=bar"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "first-test-app-guid"),
 				MatchJSONPath("$.resources[0].state", "STOPPED"),
@@ -369,7 +369,7 @@ var _ = Describe("App", func() {
 
 		When("no apps can be found", func() {
 			BeforeEach(func() {
-				appRepo.ListAppsReturns([]repositories.AppRecord{}, nil)
+				appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{}, nil)
 			})
 
 			It("returns an empty response", func() {
@@ -384,7 +384,7 @@ var _ = Describe("App", func() {
 
 		When("there is an error fetching apps", func() {
 			BeforeEach(func() {
-				appRepo.ListAppsReturns([]repositories.AppRecord{}, errors.New("unknown!"))
+				appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -828,7 +828,6 @@ var _ = Describe("App", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/processes"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "process-1-guid"),
 				MatchJSONPath("$.resources[0].command", "[PRIVATE DATA HIDDEN IN LISTS]"),
@@ -1194,7 +1193,6 @@ var _ = Describe("App", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/routes"),
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", "test-route-guid"),
 				MatchJSONPath("$.resources[0].url", "test-route-host.example.org/some_path"),
@@ -1341,7 +1339,6 @@ var _ = Describe("App", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/"+appGUID+"/droplets"),
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", Equal(dropletGUID)),
 				MatchJSONPath("$.resources[0].relationships.app.data.guid", Equal(appGUID)),
@@ -1747,7 +1744,6 @@ var _ = Describe("App", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/apps/test-app-guid/packages"),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "package-1-guid"),
 				MatchJSONPath("$.resources[0].state", "AWAITING_UPLOAD"),

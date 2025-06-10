@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -18,7 +19,7 @@ type Klient interface {
 	Get(ctx context.Context, obj client.Object) error
 	Create(ctx context.Context, obj client.Object) error
 	Patch(ctx context.Context, obj client.Object, modify func() error) error
-	List(ctx context.Context, list client.ObjectList, opts ...ListOption) error
+	List(ctx context.Context, list client.ObjectList, opts ...ListOption) (descriptors.PageInfo, error)
 	Watch(ctx context.Context, obj client.ObjectList, opts ...ListOption) (watch.Interface, error)
 	Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error
 }
@@ -28,6 +29,7 @@ type ListOptions struct {
 	FieldSelector fields.Selector
 	Requrements   []labels.Requirement
 	Sort          *SortOpt
+	Paging        *PagingOpt
 }
 
 func (o ListOptions) AsClientListOptions() *client.ListOptions {
@@ -189,5 +191,26 @@ type SortOpt struct {
 
 func (o SortOpt) ApplyToList(opts *ListOptions) error {
 	opts.Sort = &o
+	return nil
+}
+
+func WithPaging(pageSize int, page int) ListOption {
+	if pageSize == 0 || page == 0 {
+		return NoopListOption{}
+	}
+
+	return PagingOpt{
+		PageSize:   pageSize,
+		PageNumber: page,
+	}
+}
+
+type PagingOpt struct {
+	PageSize   int
+	PageNumber int
+}
+
+func (o PagingOpt) ApplyToList(opts *ListOptions) error {
+	opts.Paging = &o
 	return nil
 }

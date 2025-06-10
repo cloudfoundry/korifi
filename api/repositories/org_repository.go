@@ -135,7 +135,7 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, message
 	}
 
 	cfOrgList := new(korifiv1alpha1.CFOrgList)
-	err = r.klient.List(ctx, cfOrgList, message.toListOptions(r.rootNamespace, slices.Collect(maps.Keys(authorizedNamespaces)))...)
+	_, err = r.klient.List(ctx, cfOrgList, message.toListOptions(r.rootNamespace, slices.Collect(maps.Keys(authorizedNamespaces)))...)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, OrgResourceType)
 	}

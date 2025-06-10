@@ -413,7 +413,7 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 // nolint:dupl
 func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo authorization.Info, message ListServiceInstanceMessage) ([]ServiceInstanceRecord, error) {
 	serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
-	err := r.klient.List(ctx, serviceInstanceList, message.toListOptions()...)
+	_, err := r.klient.List(ctx, serviceInstanceList, message.toListOptions()...)
 	if err != nil {
 		return []ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances: %w",
 			apierrors.FromK8sError(err, ServiceInstanceResourceType),

@@ -115,7 +115,6 @@ var _ = Describe("Process", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeZero()),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/processes/process-guid/sidecars"),
 			)))
 		})
 
@@ -370,7 +369,6 @@ var _ = Describe("Process", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
-				MatchJSONPath("$.pagination.first.href", "https://api.example.org/v3/processes"),
 				MatchJSONPath("$.resources[0].guid", "process-guid"),
 			)))
 		})

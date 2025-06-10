@@ -130,7 +130,7 @@ func (h *Build) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch builds from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForBuild, buildList, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForBuild, buildList, h.serverURL, *r.URL)), nil
 }
 
 func (h *Build) UnauthenticatedRoutes() []routing.Route {

@@ -338,7 +338,7 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 
 func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {
 	packageList := &korifiv1alpha1.CFPackageList{}
-	err := r.klient.List(ctx, packageList)
+	_, err := r.klient.List(ctx, packageList)
 	if err != nil {
 		return []PackageRecord{}, fmt.Errorf("failed to list packages: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}

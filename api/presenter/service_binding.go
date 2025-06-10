@@ -90,7 +90,7 @@ func ForServiceBindingList(serviceBindingRecords []repositories.ServiceBindingRe
 		}
 	}))
 
-	return ForList(ForServiceBinding, serviceBindingRecords, baseURL, requestURL, includedApps...)
+	return ForListDeprecated(ForServiceBinding, serviceBindingRecords, baseURL, requestURL, includedApps...)
 }
 
 func ForServiceBindingDetails(serviceBindingDetailsRecord repositories.ServiceBindingDetailsRecord) ServiceBindingDetailsResponse {

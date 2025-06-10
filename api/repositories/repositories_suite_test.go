@@ -113,7 +113,13 @@ var _ = BeforeSuite(func() {
 
 	DeferCleanup(helpers.StartK8sManager(k8sManager))
 
-	k8sClient, err = client.NewWithWatch(testEnv.Config, client.Options{Scheme: scheme.Scheme})
+	clientScheme := runtime.NewScheme()
+	Expect(korifiv1alpha1.AddToScheme(clientScheme)).To(Succeed())
+	Expect(buildv1alpha2.AddToScheme(clientScheme)).To(Succeed())
+	Expect(rbacv1.AddToScheme(clientScheme)).To(Succeed())
+	Expect(corev1.AddToScheme(clientScheme)).To(Succeed())
+
+	k8sClient, err = client.NewWithWatch(testEnv.Config, client.Options{Scheme: clientScheme})
 	Expect(err).NotTo(HaveOccurred())
 
 	adminRole = createClusterRole(context.Background(), "cf_admin")

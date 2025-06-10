@@ -49,6 +49,7 @@ type (
 		LogLevel        zapcore.Level `yaml:"logLevel"`
 
 		Experimental Experimental `yaml:"experimental"`
+		List         List         `yaml:"list"`
 	}
 
 	Experimental struct {
@@ -105,6 +106,10 @@ type (
 		RecommendedCLIVersion string                 `yaml:"recommendedCLIVersion"`
 		Custom                map[string]interface{} `yaml:"custom"`
 		SupportAddress        string                 `yaml:"supportAddress"`
+	}
+
+	List struct {
+		DefaultPageSize int `yaml:"defaultPageSize"`
 	}
 )
 

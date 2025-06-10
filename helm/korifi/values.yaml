@@ -69,6 +69,9 @@ api:
     host: ""
     caCert: ""
 
+  list:
+    defaultPageSize: 50
+
 controllers:
   image: cloudfoundry/korifi-controllers:latest
   webhookCertSecret: "korifi-controllers-webhook-cert"

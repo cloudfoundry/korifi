@@ -134,7 +134,7 @@ func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.In
 
 func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) ([]DomainRecord, error) {
 	cfdomainList := &korifiv1alpha1.CFDomainList{}
-	err := r.klient.List(ctx, cfdomainList, message.toListOptions(r.rootNamespace)...)
+	_, err := r.klient.List(ctx, cfdomainList, message.toListOptions(r.rootNamespace)...)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return []DomainRecord{}, nil

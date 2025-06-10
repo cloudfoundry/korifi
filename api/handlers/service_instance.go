@@ -214,7 +214,7 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceInstance, serviceInstances, h.serverURL, *r.URL, includedResources...)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForServiceInstance, serviceInstances, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {

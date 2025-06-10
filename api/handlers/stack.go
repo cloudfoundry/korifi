@@ -46,7 +46,7 @@ func (h *Stack) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch stacks from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForStack, stacks, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForStack, stacks, h.serverURL, *r.URL)), nil
 }
 
 func (h *Stack) UnauthenticatedRoutes() []routing.Route {

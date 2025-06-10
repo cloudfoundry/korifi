@@ -262,6 +262,39 @@ var _ = Describe("Klient", func() {
 					})
 				})
 			})
+
+			Describe("WithPaging", func() {
+				BeforeEach(func() {
+					option = repositories.WithPaging(10, 2)
+				})
+
+				It("sets the paging field on the list option", func() {
+					Expect(listOptions.Paging).To(PointTo(Equal(repositories.PagingOpt{
+						PageSize:   10,
+						PageNumber: 2,
+					})))
+				})
+
+				When("pageSize is 0", func() {
+					BeforeEach(func() {
+						option = repositories.WithPaging(0, 2)
+					})
+
+					It("returns a noop option", func() {
+						Expect(listOptions).To(PointTo(BeZero()))
+					})
+				})
+
+				When("page is 0", func() {
+					BeforeEach(func() {
+						option = repositories.WithPaging(10, 0)
+					})
+
+					It("returns a noop option", func() {
+						Expect(listOptions).To(PointTo(BeZero()))
+					})
+				})
+			})
 		})
 	})
 })
