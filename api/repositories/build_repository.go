@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"sort"
+	"strings"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -50,16 +49,13 @@ func (r BuildRecord) Relationships() map[string]string {
 
 type BuildRepo struct {
 	klient Klient
-	sorter BuildSorter
 }
 
 func NewBuildRepo(
 	klient Klient,
-	sorter BuildSorter,
 ) *BuildRepo {
 	return &BuildRepo{
 		klient: klient,
-		sorter: sorter,
 	}
 }
 
@@ -78,7 +74,7 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 
 func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	_, err := b.klient.List(ctx, buildList, InNamespace(spaceGUID), WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, appGUID))
+	_, err := b.klient.List(ctx, buildList, InNamespace(spaceGUID), WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, appGUID), SortBy("Created At", true))
 	if err != nil {
 		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
@@ -87,14 +83,7 @@ func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo author
 		return BuildRecord{}, apierrors.NewNotFoundError(fmt.Errorf("builds for app %q in space %q not found", appGUID, spaceGUID), BuildResourceType)
 	}
 
-	return b.cfBuildToBuildRecord(sortByAge(buildList.Items)[0]), nil
-}
-
-func sortByAge(builds []korifiv1alpha1.CFBuild) []korifiv1alpha1.CFBuild {
-	sort.Slice(builds, func(i, j int) bool {
-		return !builds[i].CreationTimestamp.Before(&builds[j].CreationTimestamp)
-	})
-	return builds
+	return b.cfBuildToBuildRecord(buildList.Items[0]), nil
 }
 
 func (b *BuildRepo) cfBuildToBuildRecord(cfBuild korifiv1alpha1.CFBuild) BuildRecord {
@@ -152,14 +141,17 @@ func (b *BuildRepo) CreateBuild(ctx context.Context, authInfo authorization.Info
 	return b.cfBuildToBuildRecord(cfBuild), nil
 }
 
-func (b *BuildRepo) ListBuilds(ctx context.Context, authInfo authorization.Info, message ListBuildsMessage) ([]BuildRecord, error) {
+func (b *BuildRepo) ListBuilds(ctx context.Context, authInfo authorization.Info, message ListBuildsMessage) (ListResult[BuildRecord], error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	_, err := b.klient.List(ctx, buildList, message.toListOptions()...)
+	pageInfo, err := b.klient.List(ctx, buildList, message.toListOptions()...)
 	if err != nil {
-		return []BuildRecord{}, fmt.Errorf("failed to list builds: %w", apierrors.FromK8sError(err, BuildResourceType))
+		return ListResult[BuildRecord]{}, fmt.Errorf("failed to list builds: %w", apierrors.FromK8sError(err, BuildResourceType))
 	}
 
-	return b.sorter.Sort(slices.Collect(it.Map(slices.Values(buildList.Items), b.cfBuildToBuildRecord)), message.OrderBy), nil
+	return ListResult[BuildRecord]{
+		Records:  slices.Collect(it.Map(slices.Values(buildList.Items), b.cfBuildToBuildRecord)),
+		PageInfo: pageInfo,
+	}, nil
 }
 
 type CreateBuildMessage struct {
@@ -173,46 +165,12 @@ type CreateBuildMessage struct {
 	Annotations     map[string]string
 }
 
-//counterfeiter:generate -o fake -fake-name BuildSorter . BuildSorter
-type BuildSorter interface {
-	Sort(records []BuildRecord, order string) []BuildRecord
-}
-
-type buildSorter struct {
-	sorter *compare.Sorter[BuildRecord]
-}
-
-func NewBuildSorter() *buildSorter {
-	return &buildSorter{
-		sorter: compare.NewSorter(BuildComparator),
-	}
-}
-
-func (s *buildSorter) Sort(records []BuildRecord, order string) []BuildRecord {
-	return s.sorter.Sort(records, order)
-}
-
-func BuildComparator(fieldName string) func(BuildRecord, BuildRecord) int {
-	return func(d1, d2 BuildRecord) int {
-		switch fieldName {
-		case "created_at":
-			return tools.CompareTimePtr(&d1.CreatedAt, &d2.CreatedAt)
-		case "-created_at":
-			return tools.CompareTimePtr(&d2.CreatedAt, &d1.CreatedAt)
-		case "updated_at":
-			return tools.CompareTimePtr(d1.UpdatedAt, d2.UpdatedAt)
-		case "-updated_at":
-			return tools.CompareTimePtr(d2.UpdatedAt, d1.UpdatedAt)
-		}
-		return 0
-	}
-}
-
 type ListBuildsMessage struct {
 	PackageGUIDs []string
 	AppGUIDs     []string
 	States       []string
 	OrderBy      string
+	Pagination   Pagination
 }
 
 func (m *ListBuildsMessage) toListOptions() []ListOption {
@@ -220,6 +178,28 @@ func (m *ListBuildsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, m.PackageGUIDs),
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.CFBuildStateLabelKey, m.States),
+		WithPaging(m.Pagination),
+		m.toSortOption(),
+	}
+}
+
+func (m *ListBuildsMessage) toSortOption() ListOption {
+	desc := false
+	orderBy := m.OrderBy
+	if strings.HasPrefix(m.OrderBy, "-") {
+		desc = true
+		orderBy = strings.TrimPrefix(m.OrderBy, "-")
+	}
+
+	switch orderBy {
+	case "created_at":
+		return SortBy("Created At", desc)
+	case "updated_at":
+		return SortBy("Updated At", desc)
+	case "":
+		return NoopListOption{}
+	default:
+		return ErroringListOption(fmt.Sprintf("unsupported field for ordering: %q", orderBy))
 	}
 }
 

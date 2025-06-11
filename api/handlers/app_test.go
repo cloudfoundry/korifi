@@ -73,7 +73,6 @@ var _ = Describe("App", func() {
 			podRepo,
 			gaugesCollector,
 			instancesStateCollector,
-			50,
 		)
 
 		appRecord = repositories.AppRecord{

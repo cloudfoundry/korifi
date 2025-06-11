@@ -31,8 +31,7 @@ var _ = Describe("AppList", func() {
 			Entry("order_by state", "order_by=state", payloads.AppList{OrderBy: "state"}),
 			Entry("order_by -state", "order_by=-state", payloads.AppList{OrderBy: "-state"}),
 			Entry("label_selector=foo", "label_selector=foo", payloads.AppList{LabelSelector: "foo"}),
-			Entry("per_page", "per_page=50", payloads.AppList{PerPage: "50"}),
-			Entry("page=3", "page=3", payloads.AppList{Page: "3"}),
+			Entry("page=3", "page=3", payloads.AppList{Pagination: payloads.Pagination{Page: "3"}}),
 		)
 
 		DescribeTable("invalid query",
@@ -42,12 +41,6 @@ var _ = Describe("AppList", func() {
 			},
 			Entry("invalid order_by", "order_by=foo", "value must be one of"),
 			Entry("per_page is not a number", "per_page=foo", "value must be an integer"),
-			Entry("per_page is zero", "per_page=0", "value 0 is not allowed"),
-			Entry("per_page is less than zero", "per_page=-1", "must be no less than 1"),
-			Entry("per_page is greater than 5000", "per_page=5001", "must be no greater than 5000"),
-			Entry("page is not a number", "page=foo", "value must be an integer"),
-			Entry("page is zero", "page=0", "value 0 is not allowed"),
-			Entry("page is less than zero", "page=-1", "must be no less than 1"),
 		)
 	})
 
@@ -64,11 +57,15 @@ var _ = Describe("AppList", func() {
 				SpaceGUIDs:    "s1,s2",
 				OrderBy:       "created_at",
 				LabelSelector: "foo=bar",
+				Pagination: payloads.Pagination{
+					PerPage: "50",
+					Page:    "1",
+				},
 			}
 		})
 
 		JustBeforeEach(func() {
-			message = appList.ToMessage(50)
+			message = appList.ToMessage()
 		})
 
 		It("translates to repository message", func() {
@@ -78,29 +75,11 @@ var _ = Describe("AppList", func() {
 				SpaceGUIDs:    []string{"s1", "s2"},
 				OrderBy:       "created_at",
 				LabelSelector: "foo=bar",
-				Page:          1,
-				PerPage:       50,
+				Pagination: repositories.Pagination{
+					Page:    1,
+					PerPage: payloads.DefaultPageSize,
+				},
 			}))
-		})
-
-		When("per_page is set", func() {
-			BeforeEach(func() {
-				appList.PerPage = "10"
-			})
-
-			It("uses the provided value", func() {
-				Expect(message.PerPage).To(Equal(10))
-			})
-		})
-
-		When("page is set", func() {
-			BeforeEach(func() {
-				appList.Page = "5"
-			})
-
-			It("uses the provided value", func() {
-				Expect(message.Page).To(Equal(5))
-			})
 		})
 	})
 })

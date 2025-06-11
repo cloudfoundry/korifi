@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +17,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 )
@@ -23,19 +25,13 @@ import (
 var _ = Describe("BuildRepository", func() {
 	var (
 		buildRepo *repositories.BuildRepo
-		sorter    *fake.BuildSorter
 
 		cfSpace *korifiv1alpha1.CFSpace
 		build   *korifiv1alpha1.CFBuild
 	)
 
 	BeforeEach(func() {
-		sorter = new(fake.BuildSorter)
-		sorter.SortStub = func(records []repositories.BuildRecord, _ string) []repositories.BuildRecord {
-			return records
-		}
-
-		buildRepo = repositories.NewBuildRepo(klient, sorter)
+		buildRepo = repositories.NewBuildRepo(klient)
 
 		org := createOrgWithCleanup(ctx, uuid.NewString())
 		cfSpace = createSpaceWithCleanup(ctx, org.Name, uuid.NewString())
@@ -202,8 +198,8 @@ var _ = Describe("BuildRepository", func() {
 			record, err = buildRepo.GetLatestBuildByAppGUID(ctx, authInfo, spaceGUID, appGUID)
 		})
 
-		It("returns a forbidden error", func() {
-			Expect(err).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
+		It("returns a not found error", func() {
+			Expect(err).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
 		})
 
 		When("the user is a space developer", func() {
@@ -230,7 +226,7 @@ var _ = Describe("BuildRepository", func() {
 				Expect(k8sClient.Create(ctx, newerBuild)).To(Succeed())
 			})
 
-			It("returns a record for the lastet build for the app", func() {
+			It("returns a record for the latest build for the app", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(record.GUID).To(Equal(newerBuild.Name))
 			})
@@ -243,16 +239,6 @@ var _ = Describe("BuildRepository", func() {
 				It("returns a not found error", func() {
 					Expect(err).To(matchers.WrapErrorAssignableToTypeOf(apierrors.NotFoundError{}))
 				})
-			})
-		})
-
-		When("the namespace doesn't exist", func() {
-			BeforeEach(func() {
-				spaceGUID = "i-dont-exist"
-			})
-
-			It("returns a forbidden error", func() {
-				Expect(err).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
 			})
 		})
 	})
@@ -371,7 +357,7 @@ var _ = Describe("BuildRepository", func() {
 	Describe("ListBuilds", func() {
 		var (
 			anotherBuild *korifiv1alpha1.CFBuild
-			buildRecords []repositories.BuildRecord
+			listResult   repositories.ListResult[repositories.BuildRecord]
 			fetchError   error
 			listMessage  repositories.ListBuildsMessage
 		)
@@ -403,12 +389,12 @@ var _ = Describe("BuildRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			buildRecords, fetchError = buildRepo.ListBuilds(ctx, authInfo, listMessage)
+			listResult, fetchError = buildRepo.ListBuilds(ctx, authInfo, listMessage)
 		})
 
 		It("returns an empty array (as no roles assigned)", func() {
 			Expect(fetchError).NotTo(HaveOccurred())
-			Expect(buildRecords).To(BeEmpty())
+			Expect(listResult.Records).To(BeEmpty())
 		})
 
 		When("the user is a space developer", func() {
@@ -419,7 +405,7 @@ var _ = Describe("BuildRepository", func() {
 			It("returns records for all builds", func() {
 				Expect(fetchError).NotTo(HaveOccurred())
 
-				Expect(buildRecords).To(ConsistOf(
+				Expect(listResult.Records).To(ConsistOf(
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"GUID": Equal(build.Name),
 					}),
@@ -427,7 +413,33 @@ var _ = Describe("BuildRepository", func() {
 						"GUID": Equal(anotherBuild.Name),
 					}),
 				))
+
+				Expect(listResult.PageInfo).To(Equal(descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     2,
+				}))
 			})
+
+			DescribeTable("ordering",
+				func(msg repositories.ListBuildsMessage, match types.GomegaMatcher) {
+					fakeKlient := new(fake.Klient)
+					buildRepo = repositories.NewBuildRepo(fakeKlient)
+
+					_, err := buildRepo.ListBuilds(ctx, authInfo, msg)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(match)
+				},
+				Entry("created_at", repositories.ListBuildsMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
+				Entry("-created_at", repositories.ListBuildsMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
+				Entry("updated_at", repositories.ListBuildsMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
+				Entry("-updated_at", repositories.ListBuildsMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
+				Entry("no ordering", repositories.ListBuildsMessage{OrderBy: ""}, ContainElement(repositories.NoopListOption{})),
+				Entry("notexistent-field", repositories.ListBuildsMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
+			)
 
 			When("filtering", func() {
 				BeforeEach(func() {
@@ -437,33 +449,42 @@ var _ = Describe("BuildRepository", func() {
 				It("returns matching build records", func() {
 					Expect(fetchError).NotTo(HaveOccurred())
 
-					Expect(buildRecords).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					Expect(listResult.Records).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"GUID": Equal(build.Name),
 					})))
 				})
 			})
 
-			Describe("filter parameters to list options", func() {
+			Describe("parameters to list options", func() {
 				var fakeKlient *fake.Klient
 
 				BeforeEach(func() {
 					fakeKlient = new(fake.Klient)
-					buildRepo = repositories.NewBuildRepo(fakeKlient, sorter)
+					buildRepo = repositories.NewBuildRepo(fakeKlient)
 
 					listMessage = repositories.ListBuildsMessage{
 						PackageGUIDs: []string{"p1", "p2"},
 						AppGUIDs:     []string{"a1", "a2"},
 						States:       []string{"s1", "s2"},
+						Pagination: repositories.Pagination{
+							PerPage: 10,
+							Page:    1,
+						},
 					}
 				})
 
-				It("translates filter parameters to klient list options", func() {
+				It("translates  parameters to klient list options", func() {
 					Expect(fakeKlient.ListCallCount()).To(Equal(1))
 					_, _, listOptions := fakeKlient.ListArgsForCall(0)
 					Expect(listOptions).To(ConsistOf(
 						repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
 						repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
 						repositories.WithLabelIn(korifiv1alpha1.CFBuildStateLabelKey, []string{"s1", "s2"}),
+						repositories.NoopListOption{},
+						repositories.WithPaging(repositories.Pagination{
+							PerPage: 10,
+							Page:    1,
+						}),
 					))
 				})
 			})

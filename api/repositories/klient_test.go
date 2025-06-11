@@ -265,7 +265,10 @@ var _ = Describe("Klient", func() {
 
 			Describe("WithPaging", func() {
 				BeforeEach(func() {
-					option = repositories.WithPaging(10, 2)
+					option = repositories.WithPaging(repositories.Pagination{
+						PerPage: 10,
+						Page:    2,
+					})
 				})
 
 				It("sets the paging field on the list option", func() {
@@ -277,7 +280,9 @@ var _ = Describe("Klient", func() {
 
 				When("pageSize is 0", func() {
 					BeforeEach(func() {
-						option = repositories.WithPaging(0, 2)
+						option = repositories.WithPaging(repositories.Pagination{
+							Page: 2,
+						})
 					})
 
 					It("returns a noop option", func() {
@@ -287,7 +292,9 @@ var _ = Describe("Klient", func() {
 
 				When("page is 0", func() {
 					BeforeEach(func() {
-						option = repositories.WithPaging(10, 0)
+						option = repositories.WithPaging(repositories.Pagination{
+							PerPage: 10,
+						})
 					})
 
 					It("returns a noop option", func() {

@@ -18,6 +18,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	authv1 "k8s.io/api/authorization/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
@@ -119,7 +120,8 @@ var _ = BeforeSuite(func() {
 	Expect(rbacv1.AddToScheme(clientScheme)).To(Succeed())
 	Expect(corev1.AddToScheme(clientScheme)).To(Succeed())
 	metav1.AddToGroupVersion(clientScheme, metav1.SchemeGroupVersion)
-	Expect(metav1.AddMetaToScheme(clientScheme))
+	Expect(metav1.AddMetaToScheme(clientScheme)).To(Succeed())
+	Expect(authv1.SchemeBuilder.AddToScheme(clientScheme)).To(Succeed())
 
 	k8sClient, err = client.NewWithWatch(testEnv.Config, client.Options{Scheme: clientScheme})
 	Expect(err).NotTo(HaveOccurred())

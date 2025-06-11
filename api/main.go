@@ -73,7 +73,10 @@ func main() {
 		errorMessage := fmt.Sprintf("Config could not be read: %v", err)
 		panic(errorMessage)
 	}
+
 	payloads.DefaultLifecycleConfig = cfg.DefaultLifecycleConfig
+	payloads.DefaultPageSize = cfg.List.DefaultPageSize
+
 	k8sClientConfig := cfg.GenerateK8sClientConfig(ctrl.GetConfigOrDie())
 
 	logger, atomicLevel, err := tools.NewZapLogger(cfg.LogLevel)
@@ -177,7 +180,6 @@ func main() {
 	)
 	buildRepo := repositories.NewBuildRepo(
 		klient,
-		repositories.NewBuildSorter(),
 	)
 	logRepo := repositories.NewLogRepo(
 		klientUnfiltered,
@@ -321,7 +323,6 @@ func main() {
 			podRepo,
 			gaugesCollector,
 			instancesStateCollector,
-			cfg.List.DefaultPageSize,
 		),
 		handlers.NewRoute(
 			*serverURL,

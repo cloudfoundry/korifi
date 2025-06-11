@@ -39,6 +39,11 @@ type ListResult[T any] struct {
 	Records  []T
 }
 
+type Pagination struct {
+	PerPage int
+	Page    int
+}
+
 func getLastUpdatedTime(obj client.Object) *time.Time {
 	managedFields := obj.GetManagedFields()
 	if len(managedFields) == 0 {

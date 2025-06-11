@@ -55,6 +55,7 @@ type BuildList struct {
 	AppGUIDs     string
 	States       string
 	OrderBy      string
+	Pagination   Pagination
 }
 
 func (b *BuildList) ToMessage() repositories.ListBuildsMessage {
@@ -63,23 +64,25 @@ func (b *BuildList) ToMessage() repositories.ListBuildsMessage {
 		AppGUIDs:     parse.ArrayParam(b.AppGUIDs),
 		States:       parse.ArrayParam(b.States),
 		OrderBy:      b.OrderBy,
+		Pagination:   b.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
-func (p *BuildList) SupportedKeys() []string {
+func (b *BuildList) SupportedKeys() []string {
 	return []string{"package_guids", "app_guids", "states", "order_by", "per_page", "page"}
 }
 
-func (p *BuildList) DecodeFromURLValues(values url.Values) error {
-	p.PackageGUIDs = values.Get("package_guids")
-	p.AppGUIDs = values.Get("app_guids")
-	p.States = values.Get("states")
-	p.OrderBy = values.Get("order_by")
-	return nil
+func (b *BuildList) DecodeFromURLValues(values url.Values) error {
+	b.PackageGUIDs = values.Get("package_guids")
+	b.AppGUIDs = values.Get("app_guids")
+	b.States = values.Get("states")
+	b.OrderBy = values.Get("order_by")
+	return b.Pagination.DecodeFromURLValues(values)
 }
 
-func (p BuildList) Validate() error {
-	return jellidation.ValidateStruct(&p,
-		jellidation.Field(&p.OrderBy, payload_validation.OneOfOrderBy("created_at", "updated_at")),
+func (b BuildList) Validate() error {
+	return jellidation.ValidateStruct(&b,
+		jellidation.Field(&b.OrderBy, payload_validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&b.Pagination),
 	)
 }
