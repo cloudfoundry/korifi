@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -74,27 +73,7 @@ func (m ListDeploymentsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFAppDeploymentStatusKey, slices.Collect(it.Map(slices.Values(m.StatusValues), func(s DeploymentStatusValue) string {
 			return string(s)
 		}))),
-		m.toSortOption(),
-	}
-}
-
-func (m *ListDeploymentsMessage) toSortOption() ListOption {
-	desc := false
-	orderBy := m.OrderBy
-	if strings.HasPrefix(m.OrderBy, "-") {
-		desc = true
-		orderBy = strings.TrimPrefix(m.OrderBy, "-")
-	}
-
-	switch orderBy {
-	case "created_at":
-		return SortBy("Created At", desc)
-	case "updated_at":
-		return SortBy("Updated At", desc)
-	case "":
-		return NoopListOption{}
-	default:
-		return ErroringListOption(fmt.Sprintf("unsupported field for ordering: %q", orderBy))
+		toSortOption(m.OrderBy),
 	}
 }
 
