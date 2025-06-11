@@ -9,7 +9,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/tools"
 	jellidation "github.com/jellydator/validation"
 )
 
@@ -19,6 +18,9 @@ var DefaultLifecycleConfig = config.DefaultLifecycleConfig{
 	Stack:           "cflinuxfs3",
 	StagingMemoryMB: 1024,
 }
+
+// DefaultPageSize is overwritten by main.go
+var DefaultPageSize = 50
 
 type AppCreate struct {
 	Name                 string            `json:"name"`
@@ -88,31 +90,24 @@ type AppList struct {
 	SpaceGUIDs    string
 	OrderBy       string
 	LabelSelector string
-	PerPage       string
-	Page          string
+	Pagination    Pagination
 }
 
 func (a AppList) Validate() error {
 	return jellidation.ValidateStruct(&a,
 		jellidation.Field(&a.OrderBy, validation.OneOfOrderBy("created_at", "updated_at", "name", "state")),
-		jellidation.Field(&a.PerPage, jellidation.When(a.PerPage != "",
-			validation.NotEqual("0"), jellidation.By(validation.IntegerMatching(jellidation.Min(1), jellidation.Max(5000)))),
-		),
-		jellidation.Field(&a.Page, jellidation.When(a.Page != "",
-			validation.NotEqual("0"), jellidation.By(validation.IntegerMatching(jellidation.Min(1)))),
-		),
+		jellidation.Field(&a.Pagination),
 	)
 }
 
-func (a *AppList) ToMessage(defaultPagesize int) repositories.ListAppsMessage {
+func (a *AppList) ToMessage() repositories.ListAppsMessage {
 	return repositories.ListAppsMessage{
 		Names:         parse.ArrayParam(a.Names),
 		Guids:         parse.ArrayParam(a.GUIDs),
 		SpaceGUIDs:    parse.ArrayParam(a.SpaceGUIDs),
 		LabelSelector: a.LabelSelector,
 		OrderBy:       a.OrderBy,
-		Page:          tools.IfZero(parse.Integer(a.Page), 1),
-		PerPage:       tools.IfZero(parse.Integer(a.PerPage), defaultPagesize),
+		Pagination:    a.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
@@ -126,9 +121,7 @@ func (a *AppList) DecodeFromURLValues(values url.Values) error {
 	a.SpaceGUIDs = values.Get("space_guids")
 	a.OrderBy = values.Get("order_by")
 	a.LabelSelector = values.Get("label_selector")
-	a.PerPage = values.Get("per_page")
-	a.Page = values.Get("page")
-	return nil
+	return a.Pagination.DecodeFromURLValues(values)
 }
 
 type AppPatchEnvVars struct {

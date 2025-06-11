@@ -201,7 +201,7 @@ var _ = Describe("AppRepository", func() {
 				})))
 			})
 
-			Describe("filtering", func() {
+			Describe("list options", func() {
 				var fakeKlient *fake.Klient
 
 				BeforeEach(func() {
@@ -209,7 +209,7 @@ var _ = Describe("AppRepository", func() {
 					appRepo = repositories.NewAppRepo(fakeKlient, appAwaiter)
 				})
 
-				Describe("filter parameters to list options", func() {
+				Describe("parameters to list options", func() {
 					BeforeEach(func() {
 						message = repositories.ListAppsMessage{
 							Names:         []string{"n1", "n2"},
@@ -217,12 +217,14 @@ var _ = Describe("AppRepository", func() {
 							SpaceGUIDs:    []string{"sg1", "sg2"},
 							LabelSelector: "foo=bar",
 							OrderBy:       "name",
-							Page:          3,
-							PerPage:       4,
+							Pagination: repositories.Pagination{
+								Page:    3,
+								PerPage: 4,
+							},
 						}
 					})
 
-					It("translates filter parameters to klient list options", func() {
+					It("translates parameters to klient list options", func() {
 						Expect(listErr).NotTo(HaveOccurred())
 						Expect(fakeKlient.ListCallCount()).To(Equal(1))
 						_, _, listOptions := fakeKlient.ListArgsForCall(0)
@@ -232,7 +234,7 @@ var _ = Describe("AppRepository", func() {
 							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
 							repositories.WithLabelSelector("foo=bar"),
 							repositories.SortBy("Display Name", false),
-							repositories.WithPaging(4, 3),
+							repositories.WithPaging(repositories.Pagination{PerPage: 4, Page: 3}),
 						))
 					})
 				})

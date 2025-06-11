@@ -78,7 +78,6 @@ type App struct {
 	podRepo                 PodRepository
 	gaugesCollector         GaugesCollector
 	instancesStateCollector InstancesStateCollector
-	defaultPageSize         int
 }
 
 func NewApp(
@@ -94,7 +93,6 @@ func NewApp(
 	podRepo PodRepository,
 	gaugesCollector GaugesCollector,
 	instancesStateCollector InstancesStateCollector,
-	defaultPageSize int,
 ) *App {
 	return &App{
 		serverURL:               serverURL,
@@ -109,7 +107,6 @@ func NewApp(
 		podRepo:                 podRepo,
 		gaugesCollector:         gaugesCollector,
 		instancesStateCollector: instancesStateCollector,
-		defaultPageSize:         defaultPageSize,
 	}
 }
 
@@ -162,7 +159,7 @@ func (h *App) list(r *http.Request) (*routing.Response, error) { //nolint:dupl
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	appListResult, err := h.appRepo.ListApps(r.Context(), authInfo, payload.ToMessage(h.defaultPageSize))
+	appListResult, err := h.appRepo.ListApps(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app(s) from Kubernetes")
 	}

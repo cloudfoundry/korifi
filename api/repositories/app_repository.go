@@ -176,8 +176,7 @@ type ListAppsMessage struct {
 	SpaceGUIDs    []string
 	LabelSelector string
 	OrderBy       string
-	PerPage       int
-	Page          int
+	Pagination    Pagination
 }
 
 func (m *ListAppsMessage) toListOptions() []ListOption {
@@ -187,7 +186,7 @@ func (m *ListAppsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
 		m.toSortOption(),
-		WithPaging(m.PerPage, m.Page),
+		WithPaging(m.Pagination),
 	}
 }
 

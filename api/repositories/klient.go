@@ -194,14 +194,14 @@ func (o SortOpt) ApplyToList(opts *ListOptions) error {
 	return nil
 }
 
-func WithPaging(pageSize int, page int) ListOption {
-	if pageSize == 0 || page == 0 {
+func WithPaging(pagination Pagination) ListOption {
+	if pagination.PerPage == 0 || pagination.Page == 0 {
 		return NoopListOption{}
 	}
 
 	return PagingOpt{
-		PageSize:   pageSize,
-		PageNumber: page,
+		PageSize:   pagination.PerPage,
+		PageNumber: pagination.Page,
 	}
 }
 

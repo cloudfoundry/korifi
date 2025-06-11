@@ -12,6 +12,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/google/uuid"
@@ -123,8 +124,8 @@ var _ = Describe("Build", func() {
 
 		BeforeEach(func() {
 			buildGUID = uuid.NewString()
-			buildRepo.ListBuildsReturns([]repositories.BuildRecord{
-				{
+			buildRepo.ListBuildsReturns(repositories.ListResult[repositories.BuildRecord]{
+				Records: []repositories.BuildRecord{{
 					GUID:      buildGUID,
 					State:     "STAGING",
 					CreatedAt: createdAt,
@@ -136,6 +137,12 @@ var _ = Describe("Build", func() {
 							Stack:      "",
 						},
 					},
+				}},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     1,
 				},
 			}, nil)
 			var err error
@@ -163,24 +170,19 @@ var _ = Describe("Build", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.BuildList{
 					PackageGUIDs: "p1,p2",
-					AppGUIDs:     "a1,a2",
-					States:       "s1,s2",
 				})
 			})
 
 			It("passes them to the repository", func() {
 				Expect(buildRepo.ListBuildsCallCount()).To(Equal(1))
 				_, _, message := buildRepo.ListBuildsArgsForCall(0)
-
 				Expect(message.PackageGUIDs).To(ConsistOf("p1", "p2"))
-				Expect(message.AppGUIDs).To(ConsistOf("a1", "a2"))
-				Expect(message.States).To(ConsistOf("s1", "s2"))
 			})
 		})
 
 		When("there is some other error fetching the list of builds", func() {
 			BeforeEach(func() {
-				buildRepo.ListBuildsReturns([]repositories.BuildRecord{}, errors.New("unknown!"))
+				buildRepo.ListBuildsReturns(repositories.ListResult[repositories.BuildRecord]{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
