@@ -100,7 +100,7 @@ var _ = BeforeEach(func() {
 	idProvider := authorization.NewCachingIdentityProvider(baseIDProvider, cache.NewExpiring())
 	nsPerms = authorization.NewNamespacePermissions(k8sClient, idProvider)
 
-	userClientFactory = authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper).
+	userClientFactory = authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper, scheme.Scheme).
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		}).

@@ -64,7 +64,7 @@ var _ = BeforeSuite(func() {
 		panic(fmt.Sprintf("could not create dynamic k8s client: %v", err))
 	}
 
-	klient = k8sklient.NewK8sKlient(repositories.NewNamespaceRetriever(dynamicClient), nil, nil, &privilegedClientFactory{})
+	klient = k8sklient.NewK8sKlient(repositories.NewNamespaceRetriever(dynamicClient), nil, nil, &privilegedClientFactory{}, scheme.Scheme)
 })
 
 type privilegedClientFactory struct{}

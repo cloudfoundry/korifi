@@ -123,7 +123,7 @@ func main() {
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
 	nsPermissions := authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider)
 
-	userClientFactoryUnfiltered := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper).
+	userClientFactoryUnfiltered := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper, scheme.Scheme).
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
@@ -131,10 +131,10 @@ func main() {
 	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewSpaceFilteringClient(client, privilegedClient, authorization.NewSpaceFilteringOpts(nsPermissions))
 	})
-	descriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), authorization.NewSpaceFilteringOpts(nsPermissions))
+	descriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), scheme.Scheme, authorization.NewSpaceFilteringOpts(nsPermissions))
 	objectListMapper := descriptors.NewObjectListMapper(userClientFactory)
-	klient := k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, objectListMapper, userClientFactory)
-	klientUnfiltered := k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, objectListMapper, userClientFactoryUnfiltered)
+	klient := k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, objectListMapper, userClientFactory, scheme.Scheme)
+	klientUnfiltered := k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, objectListMapper, userClientFactoryUnfiltered, scheme.Scheme)
 
 	serverURL, err := url.Parse(cfg.ServerURL)
 	if err != nil {
