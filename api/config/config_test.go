@@ -27,13 +27,16 @@ var _ = Describe("Config", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		configMap = map[string]interface{}{
-			"internalPort":      1,
 			"idleTimeout":       2,
 			"readTimeout":       3,
 			"readHeaderTimeout": 4,
 			"writeTimeout":      5,
 
-			"externalFQDN": "api.foo",
+			"externalFQDN": "api.external",
+			"externalPort": 443,
+
+			"internalFQDN": "api.internal",
+			"internalPort": 1443,
 
 			"rootNamespace":                            "root-ns",
 			"builderName":                              "my-builder",
@@ -86,13 +89,14 @@ var _ = Describe("Config", func() {
 
 	It("populates the config", func() {
 		Expect(loadErr).NotTo(HaveOccurred())
-		Expect(cfg.InternalPort).To(Equal(1))
+		Expect(cfg.InternalPort).To(Equal(1443))
 		Expect(cfg.IdleTimeout).To(Equal(2))
 		Expect(cfg.ReadTimeout).To(Equal(3))
 		Expect(cfg.ReadHeaderTimeout).To(Equal(4))
 		Expect(cfg.WriteTimeout).To(Equal(5))
-		Expect(cfg.ExternalFQDN).To(Equal("api.foo"))
-		Expect(cfg.ServerURL).To(Equal("https://api.foo"))
+		Expect(cfg.ExternalFQDN).To(Equal("api.external"))
+		Expect(cfg.InternalFQDN).To(Equal("api.internal"))
+		Expect(cfg.ServerURL).To(Equal("https://api.external:443"))
 		Expect(cfg.RootNamespace).To(Equal("root-ns"))
 		Expect(cfg.BuilderName).To(Equal("my-builder"))
 		Expect(cfg.ContainerRepositoryPrefix).To(Equal("container.registry/my-prefix"))
@@ -220,7 +224,7 @@ var _ = Describe("Config", func() {
 
 		It("populates the server URL", func() {
 			Expect(loadErr).NotTo(HaveOccurred())
-			Expect(cfg.ServerURL).To(Equal("https://api.foo:1234"))
+			Expect(cfg.ServerURL).To(Equal("https://api.external:1234"))
 		})
 	})
 })

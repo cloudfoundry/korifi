@@ -12,14 +12,12 @@ import (
 )
 
 const (
-	defaultExternalProtocol           = "https"
-	OrgRole                 RoleLevel = "org"
-	SpaceRole               RoleLevel = "space"
+	OrgRole   RoleLevel = "org"
+	SpaceRole RoleLevel = "space"
 )
 
 type (
 	APIConfig struct {
-		InternalPort      int `yaml:"internalPort"`
 		IdleTimeout       int `yaml:"idleTimeout"`
 		ReadTimeout       int `yaml:"readTimeout"`
 		ReadHeaderTimeout int `yaml:"readHeaderTimeout"`
@@ -27,6 +25,9 @@ type (
 
 		ExternalFQDN string `yaml:"externalFQDN"`
 		ExternalPort int    `yaml:"externalPort"`
+
+		InternalFQDN string `yaml:"internalFQDN"`
+		InternalPort int    `yaml:"internalPort"`
 
 		ServerURL string
 
@@ -120,10 +121,7 @@ func LoadFromPath(path string) (*APIConfig, error) {
 		return nil, err
 	}
 
-	config.ServerURL, err = config.composeServerURL()
-	if err != nil {
-		return nil, err
-	}
+	config.ServerURL = fmt.Sprintf("https://%s:%d", config.ExternalFQDN, config.ExternalPort)
 
 	return &config, nil
 }
@@ -169,16 +167,6 @@ func (c *APIConfig) GetUserCertificateDuration() time.Duration {
 	}
 	d, _ := time.ParseDuration(c.UserCertificateExpirationWarningDuration)
 	return d
-}
-
-func (c *APIConfig) composeServerURL() (string, error) {
-	toReturn := defaultExternalProtocol + "://" + c.ExternalFQDN
-
-	if c.ExternalPort != 0 {
-		toReturn += ":" + fmt.Sprint(c.ExternalPort)
-	}
-
-	return toReturn, nil
 }
 
 func (c *APIConfig) GenerateK8sClientConfig(k8sClientConfig *rest.Config) *rest.Config {
