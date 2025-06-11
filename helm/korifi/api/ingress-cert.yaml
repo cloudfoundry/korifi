@@ -8,8 +8,11 @@ spec:
   commonName: {{ .Values.api.apiServer.url }}
   dnsNames:
   - {{ .Values.api.apiServer.url }}
+{{- if not .Values.experimental.externalLogCache.enabled }}
+  - korifi-api-svc.{{ .Release.Namespace }}.svc.cluster.local
+{{- end }}
   issuerRef:
     kind: Issuer
-    name: selfsigned-issuer
+    name: korifi-ca-issuer
   secretName: {{ .Values.api.apiServer.ingressCertSecret }}
 {{- end }}

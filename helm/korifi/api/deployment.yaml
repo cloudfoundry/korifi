@@ -23,6 +23,8 @@ spec:
           value: /etc/korifi-api-config
         - name: TLSCONFIG
           value: /etc/korifi-tls-config
+        - name: CACERT
+          value: /etc/korifi-ca-cert
         image: {{ .Values.api.image }}
 {{- if .Values.debug }}
         command:
@@ -49,6 +51,9 @@ spec:
         - mountPath: /etc/korifi-tls-config
           name: korifi-tls-config
           readOnly: true
+        - mountPath: /etc/korifi-ca-cert
+          name: korifi-ca-cert
+          readOnly: true
 {{- if .Values.containerRegistryCACertSecret }}
         - mountPath: /etc/ssl/certs/registry-ca.crt
           name: korifi-registry-ca-cert
@@ -72,6 +77,9 @@ spec:
       - name: korifi-tls-config
         secret:
           secretName: {{ .Values.api.apiServer.ingressCertSecret }}
+      - name: korifi-ca-cert
+        secret:
+          secretName: korifi-selfsigned-ca-secret
 {{- if .Values.containerRegistryCACertSecret }}
       - name: korifi-registry-ca-cert
         secret:

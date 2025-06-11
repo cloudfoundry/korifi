@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"log"
 	"net/http"
@@ -293,32 +294,12 @@ func main() {
 		orgRepo,
 	)
 
-	instancesStateCollector := stats.NewProcessInstanceStateCollector(processRepo)
-	gaugesCollector := stats.NewGaugesCollector(
-		fmt.Sprintf("https://localhost:%d", cfg.InternalPort),
-		&http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402
-			},
-		},
-	)
-
-	logCacheURL := serverURL
-	if cfg.Experimental.ExternalLogCache.Enabled {
-		logCacheURL, err = url.Parse(cfg.Experimental.ExternalLogCache.URL)
-		if err != nil {
-			panic(fmt.Sprintf("could not parse external logcache URL: %v", err))
-		}
-		gaugesCollector = stats.NewGaugesCollector(
-			cfg.Experimental.ExternalLogCache.URL,
-			&http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.Experimental.ExternalLogCache.TrustInsecureLogCache}, // #nosec G402
-				},
-			},
-		)
+	logCacheURL, gaugesCollector, err := wireGaugeCollector(cfg)
+	if err != nil {
+		panic(fmt.Sprintf("could not create log cache client: %v", err))
 	}
 
+	instancesStateCollector := stats.NewProcessInstanceStateCollector(processRepo)
 	apiHandlers := []routing.Routable{
 		handlers.NewRootV3(*serverURL),
 		handlers.NewRoot(*serverURL, cfg.Experimental.UAA, *logCacheURL),
@@ -518,7 +499,6 @@ func main() {
 	routerBuilder.SetMethodNotAllowedHandler(handlers.NotFound)
 
 	portString := fmt.Sprintf(":%v", cfg.InternalPort)
-	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")
 
 	srv := &http.Server{
 		Addr:              portString,
@@ -530,6 +510,7 @@ func main() {
 		ErrorLog:          log.New(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"}, "", 0),
 	}
 
+	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")
 	if tlsFound {
 		ctrl.Log.Info("listening with TLS on " + portString)
 		certPath := filepath.Join(tlsPath, "tls.crt")
@@ -573,4 +554,53 @@ func wireIdentityProvider(client client.Client, restConfig *rest.Config) authori
 	tokenReviewer := authorization.NewTokenReviewer(client)
 	certInspector := authorization.NewCertInspector(restConfig)
 	return authorization.NewCertTokenIdentityProvider(tokenReviewer, certInspector)
+}
+
+func wireGaugeCollector(cfg *config.APIConfig) (*url.URL, handlers.GaugesCollector, error) {
+	if !cfg.Experimental.ExternalLogCache.Enabled {
+		logCacheURL, err := url.Parse(cfg.ServerURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not parse internal log cache URL: %w", err)
+		}
+
+		caCertPath := os.Getenv("CACERT")
+		caPath := filepath.Join(caCertPath, "ca.crt")
+		caBundle, err := os.ReadFile(caPath)
+		if err != nil {
+			panic(fmt.Sprintf("could not read CA bundle from file %s: %v", caPath, err))
+		}
+		trustedCAs := x509.NewCertPool()
+
+		if ok := trustedCAs.AppendCertsFromPEM(caBundle); !ok {
+			panic("could not append CA bundle to trustedCAs cert pool")
+		}
+
+		return logCacheURL, stats.NewGaugesCollector(
+			fmt.Sprintf("https://%s", cfg.InternalFQDN),
+			&http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						MinVersion: tls.VersionTLS12,
+						RootCAs:    trustedCAs,
+					},
+				},
+			},
+		), nil
+	}
+
+	logCacheURL, err := url.Parse(cfg.Experimental.ExternalLogCache.URL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not parse external log cache URL: %w", err)
+	}
+
+	return logCacheURL, stats.NewGaugesCollector(
+		logCacheURL.String(),
+		&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: cfg.Experimental.ExternalLogCache.TrustInsecureLogCache, // #nosec G402
+				},
+			},
+		},
+	), nil
 }

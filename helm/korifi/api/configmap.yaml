@@ -6,7 +6,8 @@ metadata:
 data:
   korifi_api_config.yaml: |
     externalFQDN: {{ .Values.api.apiServer.url }}
-    externalPort: {{ .Values.api.apiServer.port | default 0 }}
+    externalPort: {{ .Values.api.apiServer.port | default 443 }}
+    internalFQDN: korifi-api-svc.{{ .Release.Namespace }}.svc.cluster.local
     internalPort: {{ .Values.api.apiServer.internalPort }}
     idleTimeout: {{ .Values.api.apiServer.timeouts.idle }}
     readTimeout: {{ .Values.api.apiServer.timeouts.read }}

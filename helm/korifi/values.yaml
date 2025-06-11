@@ -42,7 +42,7 @@ api:
   apiServer:
     url: ""
     # To override default port, set port to a non-zero value
-    port: 0
+    port: 443
     internalPort: 9000
     ingressCertSecret: korifi-api-ingress-cert
     timeouts:
