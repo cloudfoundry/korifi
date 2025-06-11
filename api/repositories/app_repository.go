@@ -185,32 +185,8 @@ func (m *ListAppsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.Guids),
 		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
-		m.toSortOption(),
+		toSortOption(m.OrderBy),
 		WithPaging(m.Pagination),
-	}
-}
-
-func (m *ListAppsMessage) toSortOption() ListOption {
-	desc := false
-	orderBy := m.OrderBy
-	if strings.HasPrefix(m.OrderBy, "-") {
-		desc = true
-		orderBy = strings.TrimPrefix(m.OrderBy, "-")
-	}
-
-	switch orderBy {
-	case "name":
-		return SortBy("Display Name", desc)
-	case "state":
-		return SortBy("State", desc)
-	case "created_at":
-		return SortBy("Created At", desc)
-	case "updated_at":
-		return SortBy("Updated At", desc)
-	case "":
-		return NoopListOption{}
-	default:
-		return ErroringListOption(fmt.Sprintf("unsupported field for ordering: %q", orderBy))
 	}
 }
 
