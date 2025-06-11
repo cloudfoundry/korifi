@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,6 +28,7 @@ type K8sKlient struct {
 	descriptorClient   DescriptorClient
 	objectListMapper   ObjectListMapper
 	userClientFactory  authorization.UserClientFactory
+	scheme             *runtime.Scheme
 }
 
 //counterfeiter:generate -o fake -fake-name DescriptorClient . DescriptorClient
@@ -46,12 +46,14 @@ func NewK8sKlient(
 	descriptorClient DescriptorClient,
 	objectListMapper ObjectListMapper,
 	userClientFactory authorization.UserClientFactory,
+	scheme *runtime.Scheme,
 ) *K8sKlient {
 	return &K8sKlient{
 		namespaceRetriever: namespaceRetriever,
 		descriptorClient:   descriptorClient,
 		objectListMapper:   objectListMapper,
 		userClientFactory:  userClientFactory,
+		scheme:             scheme,
 	}
 }
 
@@ -114,7 +116,7 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 		return k.listViaUserClient(ctx, list, listOpts.AsClientListOptions())
 	}
 
-	listObjectGVK, err := getGVK(list)
+	listObjectGVK, err := k.getGVK(list)
 	if err != nil {
 		return descriptors.PageInfo{}, fmt.Errorf("failed to get GVK for list %T: %w", list, err)
 	}
@@ -231,8 +233,8 @@ func transferItems(srcList, destList client.ObjectList) error {
 	return nil
 }
 
-func getGVK(obj runtime.Object) (schema.GroupVersionKind, error) {
-	gvks, _, err := scheme.Scheme.ObjectKinds(obj)
+func (k *K8sKlient) getGVK(obj runtime.Object) (schema.GroupVersionKind, error) {
+	gvks, _, err := k.scheme.ObjectKinds(obj)
 	if err != nil {
 		return schema.GroupVersionKind{}, err
 	}

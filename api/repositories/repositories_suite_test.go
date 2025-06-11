@@ -118,6 +118,8 @@ var _ = BeforeSuite(func() {
 	Expect(buildv1alpha2.AddToScheme(clientScheme)).To(Succeed())
 	Expect(rbacv1.AddToScheme(clientScheme)).To(Succeed())
 	Expect(corev1.AddToScheme(clientScheme)).To(Succeed())
+	metav1.AddToGroupVersion(clientScheme, metav1.SchemeGroupVersion)
+	Expect(metav1.AddMetaToScheme(clientScheme))
 
 	k8sClient, err = client.NewWithWatch(testEnv.Config, client.Options{Scheme: clientScheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -163,21 +165,21 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	namespaceRetriever := repositories.NewNamespaceRetriever(dynamicClient)
 
-	userClientFactoryUnfiltered := authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper).
+	userClientFactoryUnfiltered := authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper, k8sClient.Scheme()).
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
-	klientUnfiltered = k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, userClientFactoryUnfiltered)
+	klientUnfiltered = k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, userClientFactoryUnfiltered, k8sClient.Scheme())
 
 	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewSpaceFilteringClient(client, k8sClient, authorization.NewSpaceFilteringOpts(nsPerms))
 	})
 	privilegedClientset, err := k8sclient.NewForConfig(testEnv.Config)
 	Expect(err).NotTo(HaveOccurred())
-	descriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), authorization.NewSpaceFilteringOpts(nsPerms))
+	descriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), k8sClient.Scheme(), authorization.NewSpaceFilteringOpts(nsPerms))
 	objectListMapper := descriptors.NewObjectListMapper(userClientFactory)
 
-	klient = k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, objectListMapper, userClientFactory)
+	klient = k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, objectListMapper, userClientFactory, k8sClient.Scheme())
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)

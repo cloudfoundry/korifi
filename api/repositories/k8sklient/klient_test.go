@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 var _ = Describe("Klient", func() {
@@ -62,6 +63,7 @@ var _ = Describe("Klient", func() {
 			descriptorClient,
 			objectListMapper,
 			userClientFactory,
+			scheme.Scheme,
 		)
 	})
 

@@ -8,7 +8,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -24,13 +24,15 @@ type UnprivilegedClientFactory struct {
 	config   *rest.Config
 	mapper   meta.RESTMapper
 	wrappers []ClientWrappingFunc
+	scheme   *runtime.Scheme
 }
 
-func NewUnprivilegedClientFactory(config *rest.Config, mapper meta.RESTMapper) UnprivilegedClientFactory {
+func NewUnprivilegedClientFactory(config *rest.Config, mapper meta.RESTMapper, scheme *runtime.Scheme) UnprivilegedClientFactory {
 	return UnprivilegedClientFactory{
 		config:   rest.AnonymousClientConfig(rest.CopyConfig(config)),
 		mapper:   mapper,
 		wrappers: []ClientWrappingFunc{},
+		scheme:   scheme,
 	}
 }
 
@@ -65,7 +67,7 @@ func (f UnprivilegedClientFactory) BuildClient(authInfo Info) (client.WithWatch,
 	}
 
 	userClient, err := client.NewWithWatch(config, client.Options{
-		Scheme: scheme.Scheme,
+		Scheme: f.scheme,
 		Mapper: f.mapper,
 	})
 	if err != nil {

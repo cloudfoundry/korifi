@@ -27,7 +27,7 @@ var _ = Describe("Client", func() {
 		org = createOrg(ctx, uuid.NewString())
 		space = createSpace(ctx, org.Name, uuid.NewString())
 
-		descrClient = descriptors.NewClient(restClient, authorization.NewSpaceFilteringOpts(nsPerms))
+		descrClient = descriptors.NewClient(restClient, k8sClient.Scheme(), authorization.NewSpaceFilteringOpts(nsPerms))
 
 		for i := 0; i < 2; i++ {
 			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFApp{

@@ -17,6 +17,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -40,7 +41,7 @@ var _ = Describe("Unprivileged User Client Factory", func() {
 		Expect(err).NotTo(HaveOccurred())
 		mapper, err := apiutil.NewDynamicRESTMapper(k8sConfig, httpClient)
 		Expect(err).NotTo(HaveOccurred())
-		clientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper)
+		clientFactory = authorization.NewUnprivilegedClientFactory(k8sConfig, mapper, scheme.Scheme)
 	})
 
 	JustBeforeEach(func() {
