@@ -22,7 +22,6 @@ var _ = Describe("Mapper", func() {
 		space *korifiv1alpha1.CFSpace
 
 		mapper      *descriptors.ObjectListMapper
-		mapErr      error
 		objectGUIDs []string
 		objectList  client.ObjectList
 	)
@@ -63,11 +62,15 @@ var _ = Describe("Mapper", func() {
 			Kind:    "CFAppList",
 		}
 
-		objectList, mapErr = mapper.GUIDsToObjectList(ctx, gvk, objectGUIDs)
+		var err error
+		objectList, err = mapper.GUIDsToObjectList(ctx, gvk, objectGUIDs)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("errors due to no permissions on the objects", func() {
-		Expect(mapErr).To(MatchError(ContainSubstring("not found in list")))
+	It("returns an empty list", func() {
+		Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
+		object := objectList.(*korifiv1alpha1.CFAppList)
+		Expect(object.Items).To(BeEmpty())
 	})
 
 	When("the user is allowed to list the objects", func() {
@@ -77,7 +80,6 @@ var _ = Describe("Mapper", func() {
 		})
 
 		It("returns a list of objects ordered in the specified order", func() {
-			Expect(mapErr).NotTo(HaveOccurred())
 			Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
 			object := objectList.(*korifiv1alpha1.CFAppList)
 			Expect(object.Items).To(HaveLen(3))
@@ -95,7 +97,6 @@ var _ = Describe("Mapper", func() {
 		})
 
 		It("returns an empty list", func() {
-			Expect(mapErr).NotTo(HaveOccurred())
 			Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
 			object := objectList.(*korifiv1alpha1.CFAppList)
 			Expect(object.Items).To(BeEmpty())
