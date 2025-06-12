@@ -49,7 +49,7 @@ DockerHub allows only one private repository per free account. In case the Docke
 
 ### Cert-Manager (optional)
 
-[Cert-Manager](https://cert-manager.io) allows us to automatically generate certificates within the cluster. It is required if you want Korifi to generate self-signed certificates for API and workload ingress or for webhooks. In order to do this you have to set the `generateIngressCertificates` and/or `generateWebhookCertificates` values to `true`. Follow the [instructions](https://cert-manager.io/docs/installation/) to install the latest version.
+[Cert-Manager](https://cert-manager.io) allows us to automatically generate certificates within the cluster. It is required if you want Korifi to generate self-signed certificates for API and workload ingress or for internal use, like webhooks. In order to do this you have to set the `generateIngressCertificates` and/or `generateInternalCertificates` values to `true`. Follow the [instructions](https://cert-manager.io/docs/installation/) to install the latest version.
 
 ### Kpack
 
@@ -157,13 +157,14 @@ Make sure the value of `--docker-server` is a valid [URI authority](https://data
 
 Korifi uses two kinds of TLS certificates:
 1. Ingress certificates: if `generateIngressCertificates` is set to `true`, Korifi will generate self-signed certificates and use them for API and workloads ingress.
-1. Webhook certificates: if `generateWebhookCertificates` is set to `true` (the default value), Korifi will generate self-signed certificates and use them for webhooks.
+1. Internal certificates: if `generateInternalCertificates` is set to `true` (the default value), Korifi will generate self-signed certificates and use them for securing internal communication, like webhooks.
 
 A running cert-manager is a prerequisite for generating self-signed certificates.
 
-If you want to generate certificates yourself, set `generateIngressCertificates` and `generateWebhookCertificates` to `false` and point to your own certificates using the following values:
+If you want to generate certificates yourself, set `generateIngressCertificates` and `generateInternalCertificates` to `false` and point to your own certificates using the following values:
 
 1. `api.apiServer.ingressCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the API ingress certificate; defaults to `korifi-api-ingress-cert`.
+1. `api.apiServer.internalCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing a certificate that is valid for `korifi-api-svc.korifi.svc.cluster.local` (the internal dns of the korifi api); defaults to `korifi-api-internal-cert`.
 1. `controllers.workloadsTLSSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the workload ingress certificate; defaults to `korifi-workloads-ingress-cert`.
 1. `controllers.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the controllers deployment; defaults to `korifi-controllers-webhook-cert`.
 1. `kpackImageBuilder.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the kpackImageBuilder deployment; defaults to `korifi-kpack-image-builder-webhook-cert`.

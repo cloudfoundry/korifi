@@ -21,9 +21,11 @@ spec:
       - env:
         - name: APICONFIG
           value: /etc/korifi-api-config
-        - name: TLSCONFIG
-          value: /etc/korifi-tls-config
-        - name: CACERT
+        - name: CERT_PATH
+          value: /etc/korifi-tls
+        - name: INTERNAL_CERT_PATH
+          value: /etc/korifi-tls-internal
+        - name: CA_PATH
           value: /etc/korifi-ca-cert
         image: {{ .Values.api.image }}
 {{- if .Values.debug }}
@@ -48,8 +50,11 @@ spec:
         - mountPath: /etc/korifi-api-config
           name: korifi-api-config
           readOnly: true
-        - mountPath: /etc/korifi-tls-config
-          name: korifi-tls-config
+        - mountPath: /etc/korifi-tls
+          name: korifi-tls
+          readOnly: true
+        - mountPath: /etc/korifi-tls-internal
+          name: korifi-tls-internal
           readOnly: true
         - mountPath: /etc/korifi-ca-cert
           name: korifi-ca-cert
@@ -74,9 +79,12 @@ spec:
       - configMap:
           name: korifi-api-config
         name: korifi-api-config
-      - name: korifi-tls-config
+      - name: korifi-tls
         secret:
           secretName: {{ .Values.api.apiServer.ingressCertSecret }}
+      - name: korifi-tls-internal
+        secret:
+          secretName: {{ .Values.api.apiServer.internalCertSecret }}
       - name: korifi-ca-cert
         secret:
           secretName: korifi-selfsigned-ca-secret

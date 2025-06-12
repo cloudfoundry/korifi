@@ -46,7 +46,7 @@ securityContext:
 
 {{- define "korifi.webhookCaBundle" -}}
 {{- $caBundle := "" -}}
-{{- if not .Values.generateWebhookCertificates -}}
+{{- if not .Values.generateInternalCertificates -}}
 {{- $compValues := index .Values .component -}}
 {{- $webhookCertSecret := $compValues.webhookCertSecret -}}
 {{- $caBundle = index (lookup "v1" "Secret" .Release.Namespace $webhookCertSecret).data "ca.crt" -}}

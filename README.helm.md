@@ -14,6 +14,7 @@ Here are all the values that can be set for the chart:
 - `api`:
   - `apiServer`:
     - `ingressCertSecret` (_String_): The name of the secret containing the TLS certificate for the API ingress.
+    - `internalCertSecret` (_String_): The name of the secret containing the TLS certificate for internal api access. It needs to be valid for 'korifi-api-svc.korifi.svc.cluster.local'.
     - `internalPort` (_Integer_): Port used internally by the API container.
     - `port` (_Integer_): API external port. Defaults to `443`.
     - `timeouts`: HTTP timeouts.
@@ -97,7 +98,7 @@ Here are all the values that can be set for the chart:
     - `enabled` (_Boolean_): Enable UAA support
     - `url` (_String_): The url of a UAA instance
 - `generateIngressCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the API and app endpoints.
-- `generateWebhookCertificates` (_Boolean_): Use `cert-manager` to generate self-signed certificates for the webhooks.
+- `generateInternalCertificates` (_Boolean_): Use `cert-manager` to generate internal self-signed certificates, e.g. for the webhooks.
 - `helm`:
   - `hooksImage` (_String_): Image for the helm hooks containing kubectl
 - `jobTaskRunner`:

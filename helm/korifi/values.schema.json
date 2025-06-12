@@ -26,8 +26,8 @@
       "description": "Use `cert-manager` to generate self-signed certificates for the API and app endpoints.",
       "type": "boolean"
     },
-    "generateWebhookCertificates": {
-      "description": "Use `cert-manager` to generate self-signed certificates for the webhooks.",
+    "generateInternalCertificates": {
+      "description": "Use `cert-manager` to generate internal self-signed certificates, e.g. for the webhooks.",
       "type": "boolean"
     },
     "containerRepositoryPrefix": {
@@ -182,6 +182,10 @@
               "description": "The name of the secret containing the TLS certificate for the API ingress.",
               "type": "string"
             },
+            "internalCertSecret": {
+              "description": "The name of the secret containing the TLS certificate for internal api access. It needs to be valid for 'korifi-api-svc.korifi.svc.cluster.local'.",
+              "type": "string"
+            },
             "timeouts": {
               "type": "object",
               "description": "HTTP timeouts.",
@@ -206,7 +210,7 @@
               "required": ["read", "write", "idle", "readHeader"]
             }
           },
-          "required": ["url", "port", "internalPort", "ingressCertSecret", "timeouts"]
+          "required": ["url", "port", "internalPort", "ingressCertSecret", "internalCertSecret", "timeouts"]
         },
         "image": {
           "description": "Reference to the API container image.",

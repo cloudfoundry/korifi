@@ -1,0 +1,15 @@
+{{- if .Values.generateInternalCertificates }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.api.apiServer.internalCertSecret }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  commonName: korifi-api-svc.{{ .Release.Namespace }}.svc.cluster.local
+  dnsNames:
+  - korifi-api-svc.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: korifi-ca-issuer
+  secretName: {{ .Values.api.apiServer.internalCertSecret }}
+{{- end }}

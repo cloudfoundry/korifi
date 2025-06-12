@@ -1,4 +1,4 @@
-{{- if or (eq .Values.generateIngressCertificates true) (eq .Values.generateWebhookCertificates true) }}
+{{- if or (eq .Values.generateIngressCertificates true) (eq .Values.generateInternalCertificates true) }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
