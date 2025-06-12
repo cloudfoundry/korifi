@@ -140,13 +140,14 @@ func main() {
 
 	clusterWideKlient := k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, clusterWideUserClientFactory, scheme.Scheme)
 
-	descriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), scheme.Scheme, authorization.NewSpaceFilteringOpts(nsPermissions))
+	spaceScopedDescriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), scheme.Scheme, authorization.NewSpaceFilteringOpts(nsPermissions))
 
 	spaceScopedObjectListMapper := descriptors.NewObjectListMapper(spaceScopedUserClientFactory)
-	spaceScopedKlient := k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, spaceScopedObjectListMapper, spaceScopedUserClientFactory, scheme.Scheme)
+	spaceScopedKlient := k8sklient.NewK8sKlient(namespaceRetriever, spaceScopedDescriptorsClient, spaceScopedObjectListMapper, spaceScopedUserClientFactory, scheme.Scheme)
 
+	rootNsDescriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), scheme.Scheme, authorization.NewRootNsFilteringOpts(cfg.RootNamespace))
 	rootNSObjectListMapper := descriptors.NewObjectListMapper(rootNsUserClientFactory)
-	rootNSKlient := k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, rootNSObjectListMapper, rootNsUserClientFactory, scheme.Scheme)
+	rootNSKlient := k8sklient.NewK8sKlient(namespaceRetriever, rootNsDescriptorsClient, rootNSObjectListMapper, rootNsUserClientFactory, scheme.Scheme)
 
 	serverURL, err := url.Parse(cfg.ServerURL)
 	if err != nil {

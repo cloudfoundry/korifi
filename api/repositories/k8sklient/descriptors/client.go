@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"code.cloudfoundry.org/korifi/api/authorization"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -19,22 +18,26 @@ type ResultSetDescriptor interface {
 	Sort(column string, desc bool) error
 }
 
-type Client struct {
-	restClient         restclient.Interface
-	spaceFilteringOpts *authorization.SpaceFilteringOpts
-	scheme             *runtime.Scheme
+type FilteringOpts interface {
+	Apply(ctx context.Context, opts ...client.ListOption) (*client.ListOptions, error)
 }
 
-func NewClient(restClient restclient.Interface, scheme *runtime.Scheme, spaceFilteringOpts *authorization.SpaceFilteringOpts) *Client {
+type Client struct {
+	restClient    restclient.Interface
+	filteringOpts FilteringOpts
+	scheme        *runtime.Scheme
+}
+
+func NewClient(restClient restclient.Interface, scheme *runtime.Scheme, filteringOpts FilteringOpts) *Client {
 	return &Client{
-		restClient:         restClient,
-		scheme:             scheme,
-		spaceFilteringOpts: spaceFilteringOpts,
+		restClient:    restClient,
+		scheme:        scheme,
+		filteringOpts: filteringOpts,
 	}
 }
 
 func (c *Client) List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (ResultSetDescriptor, error) {
-	listOpts, err := c.spaceFilteringOpts.Apply(ctx, opts...)
+	listOpts, err := c.filteringOpts.Apply(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply space filtering options: %w", err)
 	}

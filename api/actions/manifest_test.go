@@ -35,7 +35,9 @@ var _ = Describe("ApplyManifest", func() {
 		normalizer = new(fake.Normalizer)
 		applier = new(fake.Applier)
 
-		domainRepository.ListDomainsReturns([]repositories.DomainRecord{{}}, nil)
+		domainRepository.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{
+			Records: []repositories.DomainRecord{{}},
+		}, nil)
 		stateCollector.CollectStateReturnsOnCall(0, manifest.AppState{
 			App: repositories.AppRecord{
 				GUID: "app1-guid",
@@ -107,7 +109,7 @@ var _ = Describe("ApplyManifest", func() {
 
 	When("the default domain does not exist", func() {
 		BeforeEach(func() {
-			domainRepository.ListDomainsReturns([]repositories.DomainRecord{}, nil)
+			domainRepository.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{}, nil)
 		})
 
 		It("returns an unprocessable entity error", func() {
@@ -117,7 +119,7 @@ var _ = Describe("ApplyManifest", func() {
 
 	When("getting the default domain fails", func() {
 		BeforeEach(func() {
-			domainRepository.ListDomainsReturns(nil, errors.New("get-domain-err"))
+			domainRepository.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{}, errors.New("get-domain-err"))
 		})
 
 		It("returns the error", func() {
