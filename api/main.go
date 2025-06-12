@@ -48,7 +48,6 @@ import (
 	"k8s.io/klog/v2"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -501,7 +500,7 @@ func main() {
 
 	portString := fmt.Sprintf(":%v", cfg.InternalPort)
 
-	srv := &http.Server{
+	if err := (&http.Server{
 		Addr:              portString,
 		Handler:           routerBuilder.Build(),
 		IdleTimeout:       time.Duration(cfg.IdleTimeout * int(time.Second)),
@@ -509,46 +508,32 @@ func main() {
 		ReadHeaderTimeout: time.Duration(cfg.ReadHeaderTimeout * int(time.Second)),
 		WriteTimeout:      time.Duration(cfg.WriteTimeout * int(time.Second)),
 		ErrorLog:          log.New(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"}, "", 0),
+		TLSConfig: &tls.Config{
+			NextProtos: []string{"h2"},
+			MinVersion: tls.VersionTLS12,
+			Certificates: []tls.Certificate{
+				loadCertificate("CERT_PATH"),
+				loadCertificate("INTERNAL_CERT_PATH"),
+			},
+		},
+	}).ListenAndServeTLS("", ""); err != nil {
+		ctrl.Log.Error(err, "error serving TLS")
+		os.Exit(1)
+	}
+}
+
+func loadCertificate(tlsEnvVar string) tls.Certificate {
+	tlsPath := os.Getenv(tlsEnvVar)
+	certPath := filepath.Join(tlsPath, "tls.crt")
+	keyPath := filepath.Join(tlsPath, "tls.key")
+
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		ctrl.Log.Error(err, "could not load TLS certificate", "path", tlsPath)
+		os.Exit(1)
 	}
 
-	tlsPath, tlsFound := os.LookupEnv("TLSCONFIG")
-	if tlsFound {
-		ctrl.Log.Info("listening with TLS on " + portString)
-		certPath := filepath.Join(tlsPath, "tls.crt")
-		keyPath := filepath.Join(tlsPath, "tls.key")
-
-		var certWatcher *certwatcher.CertWatcher
-		certWatcher, err = certwatcher.New(certPath, keyPath)
-		if err != nil {
-			ctrl.Log.Error(err, "error creating TLS watcher")
-			os.Exit(1)
-		}
-
-		go func() {
-			if err2 := certWatcher.Start(context.Background()); err2 != nil {
-				ctrl.Log.Error(err2, "error watching TLS")
-				os.Exit(1)
-			}
-		}()
-
-		srv.TLSConfig = &tls.Config{
-			NextProtos:     []string{"h2"},
-			MinVersion:     tls.VersionTLS12,
-			GetCertificate: certWatcher.GetCertificate,
-		}
-		err = srv.ListenAndServeTLS("", "")
-		if err != nil {
-			ctrl.Log.Error(err, "error serving TLS")
-			os.Exit(1)
-		}
-	} else {
-		ctrl.Log.Info("listening without TLS on " + portString)
-		err := srv.ListenAndServe()
-		if err != nil {
-			ctrl.Log.Error(err, "error serving HTTP")
-			os.Exit(1)
-		}
-	}
+	return cert
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {
@@ -564,25 +549,13 @@ func wireGaugeCollector(cfg *config.APIConfig) (*url.URL, handlers.GaugesCollect
 			return nil, nil, fmt.Errorf("could not parse internal log cache URL: %w", err)
 		}
 
-		caCertPath := os.Getenv("CACERT")
-		caPath := filepath.Join(caCertPath, "ca.crt")
-		caBundle, err := os.ReadFile(caPath)
-		if err != nil {
-			panic(fmt.Sprintf("could not read CA bundle from file %s: %v", caPath, err))
-		}
-		trustedCAs := x509.NewCertPool()
-
-		if ok := trustedCAs.AppendCertsFromPEM(caBundle); !ok {
-			panic("could not append CA bundle to trustedCAs cert pool")
-		}
-
 		return logCacheURL, stats.NewGaugesCollector(
 			fmt.Sprintf("https://%s", cfg.InternalFQDN),
 			&http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
 						MinVersion: tls.VersionTLS12,
-						RootCAs:    trustedCAs,
+						RootCAs:    loadCA("CA_PATH"),
 					},
 				},
 			},
@@ -604,4 +577,19 @@ func wireGaugeCollector(cfg *config.APIConfig) (*url.URL, handlers.GaugesCollect
 			},
 		},
 	), nil
+}
+
+func loadCA(caPathEnv string) *x509.CertPool {
+	caPath := os.Getenv(caPathEnv)
+	caPEM, err := os.ReadFile(filepath.Join(caPath, "ca.crt"))
+	if err != nil {
+		ctrl.Log.Error(err, "could not read CA bundle from file", "path", caPath)
+		os.Exit(1)
+	}
+	trustedCAs := x509.NewCertPool()
+	if ok := trustedCAs.AppendCertsFromPEM(caPEM); !ok {
+		ctrl.Log.Error(err, "could not append CA bundle to trustedCAs cert pool", "path", caPath)
+		os.Exit(1)
+	}
+	return trustedCAs
 }

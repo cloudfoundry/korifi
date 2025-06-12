@@ -9,7 +9,7 @@ eksContainerRegistryRoleARN: ""
 containerRegistryCACertSecret:
 systemImagePullSecrets: []
 generateIngressCertificates: false
-generateWebhookCertificates: true
+generateInternalCertificates: true
 
 reconcilers:
   build: kpack-image-builder
@@ -45,6 +45,7 @@ api:
     port: 443
     internalPort: 9000
     ingressCertSecret: korifi-api-ingress-cert
+    internalCertSecret: korifi-api-internal-cert
     timeouts:
       read: 900
       write: 900
