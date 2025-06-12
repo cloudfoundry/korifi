@@ -11,7 +11,7 @@ import (
 )
 
 type CFDomainRepository struct {
-	ListDomainsStub        func(context.Context, authorization.Info, repositories.ListDomainsMessage) ([]repositories.DomainRecord, error)
+	ListDomainsStub        func(context.Context, authorization.Info, repositories.ListDomainsMessage) (repositories.ListResult[repositories.DomainRecord], error)
 	listDomainsMutex       sync.RWMutex
 	listDomainsArgsForCall []struct {
 		arg1 context.Context
@@ -19,18 +19,18 @@ type CFDomainRepository struct {
 		arg3 repositories.ListDomainsMessage
 	}
 	listDomainsReturns struct {
-		result1 []repositories.DomainRecord
+		result1 repositories.ListResult[repositories.DomainRecord]
 		result2 error
 	}
 	listDomainsReturnsOnCall map[int]struct {
-		result1 []repositories.DomainRecord
+		result1 repositories.ListResult[repositories.DomainRecord]
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFDomainRepository) ListDomains(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListDomainsMessage) ([]repositories.DomainRecord, error) {
+func (fake *CFDomainRepository) ListDomains(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListDomainsMessage) (repositories.ListResult[repositories.DomainRecord], error) {
 	fake.listDomainsMutex.Lock()
 	ret, specificReturn := fake.listDomainsReturnsOnCall[len(fake.listDomainsArgsForCall)]
 	fake.listDomainsArgsForCall = append(fake.listDomainsArgsForCall, struct {
@@ -57,7 +57,7 @@ func (fake *CFDomainRepository) ListDomainsCallCount() int {
 	return len(fake.listDomainsArgsForCall)
 }
 
-func (fake *CFDomainRepository) ListDomainsCalls(stub func(context.Context, authorization.Info, repositories.ListDomainsMessage) ([]repositories.DomainRecord, error)) {
+func (fake *CFDomainRepository) ListDomainsCalls(stub func(context.Context, authorization.Info, repositories.ListDomainsMessage) (repositories.ListResult[repositories.DomainRecord], error)) {
 	fake.listDomainsMutex.Lock()
 	defer fake.listDomainsMutex.Unlock()
 	fake.ListDomainsStub = stub
@@ -70,28 +70,28 @@ func (fake *CFDomainRepository) ListDomainsArgsForCall(i int) (context.Context, 
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFDomainRepository) ListDomainsReturns(result1 []repositories.DomainRecord, result2 error) {
+func (fake *CFDomainRepository) ListDomainsReturns(result1 repositories.ListResult[repositories.DomainRecord], result2 error) {
 	fake.listDomainsMutex.Lock()
 	defer fake.listDomainsMutex.Unlock()
 	fake.ListDomainsStub = nil
 	fake.listDomainsReturns = struct {
-		result1 []repositories.DomainRecord
+		result1 repositories.ListResult[repositories.DomainRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFDomainRepository) ListDomainsReturnsOnCall(i int, result1 []repositories.DomainRecord, result2 error) {
+func (fake *CFDomainRepository) ListDomainsReturnsOnCall(i int, result1 repositories.ListResult[repositories.DomainRecord], result2 error) {
 	fake.listDomainsMutex.Lock()
 	defer fake.listDomainsMutex.Unlock()
 	fake.ListDomainsStub = nil
 	if fake.listDomainsReturnsOnCall == nil {
 		fake.listDomainsReturnsOnCall = make(map[int]struct {
-			result1 []repositories.DomainRecord
+			result1 repositories.ListResult[repositories.DomainRecord]
 			result2 error
 		})
 	}
 	fake.listDomainsReturnsOnCall[i] = struct {
-		result1 []repositories.DomainRecord
+		result1 repositories.ListResult[repositories.DomainRecord]
 		result2 error
 	}{result1, result2}
 }

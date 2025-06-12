@@ -369,7 +369,9 @@ var _ = Describe("Org", func() {
 				Labels:      nil,
 				Annotations: nil,
 			}
-			domainRepo.ListDomainsReturns([]repositories.DomainRecord{*domainRecord}, nil)
+			domainRepo.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{
+				Records: []repositories.DomainRecord{*domainRecord},
+			}, nil)
 			requestURL = "/v3/organizations/org-guid/domains"
 		})
 
@@ -415,7 +417,7 @@ var _ = Describe("Org", func() {
 
 		When("there is an error listing domains", func() {
 			BeforeEach(func() {
-				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, errors.New("unexpected error!"))
+				domainRepo.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{}, errors.New("unexpected error!"))
 			})
 
 			It("returns an error", func() {
@@ -436,10 +438,12 @@ var _ = Describe("Org", func() {
 
 	Describe("Get the default domain", func() {
 		BeforeEach(func() {
-			domainRepo.ListDomainsReturns([]repositories.DomainRecord{{
-				GUID: "the-default-domain-guid",
-				Name: "the-default.domain",
-			}}, nil)
+			domainRepo.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{
+				Records: []repositories.DomainRecord{{
+					GUID: "the-default-domain-guid",
+					Name: "the-default.domain",
+				}},
+			}, nil)
 		})
 
 		JustBeforeEach(func() {
@@ -490,7 +494,7 @@ var _ = Describe("Org", func() {
 
 		When("getting the Domain fails", func() {
 			BeforeEach(func() {
-				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, errors.New("failed to get domain"))
+				domainRepo.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{}, errors.New("failed to get domain"))
 			})
 
 			It("returns an unknown error", func() {
@@ -500,7 +504,10 @@ var _ = Describe("Org", func() {
 
 		When("getting the Domain is forbidden", func() {
 			BeforeEach(func() {
-				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, apierrors.NewForbiddenError(errors.New("boom"), repositories.DomainResourceType))
+				domainRepo.ListDomainsReturns(
+					repositories.ListResult[repositories.DomainRecord]{},
+					apierrors.NewForbiddenError(errors.New("boom"), repositories.DomainResourceType),
+				)
 			})
 
 			It("returns an NotFound error", func() {

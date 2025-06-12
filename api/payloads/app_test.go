@@ -58,7 +58,7 @@ var _ = Describe("AppList", func() {
 				OrderBy:       "created_at",
 				LabelSelector: "foo=bar",
 				Pagination: payloads.Pagination{
-					PerPage: "50",
+					PerPage: "20",
 					Page:    "1",
 				},
 			}
@@ -77,7 +77,7 @@ var _ = Describe("AppList", func() {
 				LabelSelector: "foo=bar",
 				Pagination: repositories.Pagination{
 					Page:    1,
-					PerPage: payloads.DefaultPageSize,
+					PerPage: 20,
 				},
 			}))
 		})

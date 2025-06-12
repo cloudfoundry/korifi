@@ -29,7 +29,7 @@ type CFAppRepository interface {
 //counterfeiter:generate -o fake -fake-name CFDomainRepository . CFDomainRepository
 
 type CFDomainRepository interface {
-	ListDomains(context.Context, authorization.Info, repositories.ListDomainsMessage) ([]repositories.DomainRecord, error)
+	ListDomains(context.Context, authorization.Info, repositories.ListDomainsMessage) (repositories.ListResult[repositories.DomainRecord], error)
 }
 
 //counterfeiter:generate -o fake -fake-name CFRouteRepository . CFRouteRepository

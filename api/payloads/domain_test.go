@@ -1,8 +1,6 @@
 package payloads_test
 
 import (
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
@@ -184,24 +182,51 @@ var _ = Describe("DomainUpdate", func() {
 })
 
 var _ = Describe("DomainList", func() {
-	Describe("decodes from url values", func() {
-		It("succeeds", func() {
-			domainList := payloads.DomainList{}
-			req, err := http.NewRequest("GET", "http://foo.com/bar?names=foo,bar", nil)
-			Expect(err).NotTo(HaveOccurred())
-			err = validator.DecodeAndValidateURLValues(req, &domainList)
+	Describe("Validation", func() {
+		DescribeTable("valid query",
+			func(query string, expectedDomainList payloads.DomainList) {
+				actualDomainList, decodeErr := decodeQuery[payloads.DomainList](query)
 
-			Expect(err).NotTo(HaveOccurred())
-			Expect(domainList.Names).To(Equal("foo,bar"))
-		})
+				Expect(decodeErr).NotTo(HaveOccurred())
+				Expect(*actualDomainList).To(Equal(expectedDomainList))
+			},
+
+			Entry("names", "names=name", payloads.DomainList{Names: "name"}),
+			Entry("order_by created_at", "order_by=created_at", payloads.DomainList{OrderBy: "created_at"}),
+			Entry("order_by -created_at", "order_by=-created_at", payloads.DomainList{OrderBy: "-created_at"}),
+			Entry("order_by updated_at", "order_by=updated_at", payloads.DomainList{OrderBy: "updated_at"}),
+			Entry("order_by -updated_at", "order_by=-updated_at", payloads.DomainList{OrderBy: "-updated_at"}),
+			Entry("page=3", "page=3", payloads.DomainList{Pagination: payloads.Pagination{Page: "3"}}),
+		)
+
+		DescribeTable("invalid query",
+			func(query string, expectedErrMsg string) {
+				_, decodeErr := decodeQuery[payloads.DomainList](query)
+				Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+			},
+			Entry("invalid order_by", "order_by=foo", "value must be one of"),
+			Entry("per_page is not a number", "per_page=foo", "value must be an integer"),
+		)
 	})
 
 	Describe("ToMessage", func() {
-		It("splits names to strings", func() {
+		It("translates to repo message", func() {
 			domainList := payloads.DomainList{
-				Names: "foo,bar",
+				Names:   "foo,bar",
+				OrderBy: "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "3",
+					Page:    "2",
+				},
 			}
-			Expect(domainList.ToMessage().Names).To(ConsistOf("foo", "bar"))
+			Expect(domainList.ToMessage()).To(Equal(repositories.ListDomainsMessage{
+				Names:   []string{"foo", "bar"},
+				OrderBy: "created_at",
+				Pagination: repositories.Pagination{
+					Page:    2,
+					PerPage: 3,
+				},
+			}))
 		})
 	})
 })

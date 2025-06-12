@@ -50,6 +50,7 @@ func (m *ObjectListMapper) GUIDsToObjectList(ctx context.Context, listObjectGVK 
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
+
 	err = userClient.List(ctx, list, client.MatchingLabelsSelector{
 		Selector: labels.NewSelector().Add(*req),
 	})
@@ -76,7 +77,7 @@ func order(ctx context.Context, orderedGUIDs []string, listObjectGVK schema.Grou
 	for _, guid := range orderedGUIDs {
 		item, ok := itemsIndex[guid]
 		if !ok {
-			logger.Info("item not found in list", "guid", guid, "listGVK", listObjectGVK)
+			logger.Info("item not found in list", "guid", guid, "listGVK", listObjectGVK, "itemsIndex", itemsIndex)
 			continue
 		}
 		orderedObjects = append(orderedObjects, item)

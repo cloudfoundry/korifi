@@ -132,7 +132,7 @@ func (a *Applier) createOrUpdateRoute(ctx context.Context, authInfo authorizatio
 		return fmt.Errorf("failed to list domains: %w", err)
 	}
 
-	domain, err := singleton.Get(domains)
+	domain, err := singleton.Get(domains.Records)
 	if err != nil {
 		return err
 	}

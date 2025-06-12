@@ -5,7 +5,8 @@ import (
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	. "code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -17,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	gomegatypes "github.com/onsi/gomega/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,7 +26,7 @@ import (
 
 var _ = Describe("DomainRepository", func() {
 	var (
-		domainRepo *DomainRepo
+		domainRepo *repositories.DomainRepo
 		cfDomain   *korifiv1alpha1.CFDomain
 		domainGUID string
 		domainName string
@@ -44,7 +46,7 @@ var _ = Describe("DomainRepository", func() {
 		}
 		Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
-		domainRepo = NewDomainRepo(rootNSKlient, rootNamespace)
+		domainRepo = repositories.NewDomainRepo(rootNSKlient, rootNamespace)
 	})
 
 	AfterEach(func() {
@@ -54,7 +56,7 @@ var _ = Describe("DomainRepository", func() {
 	Describe("GetDomain", func() {
 		var (
 			searchGUID string
-			domain     DomainRecord
+			domain     repositories.DomainRecord
 			getErr     error
 		)
 
@@ -86,15 +88,15 @@ var _ = Describe("DomainRepository", func() {
 
 	Describe("CreateDomain", func() {
 		var (
-			domainCreate  CreateDomainMessage
-			createdDomain DomainRecord
+			domainCreate  repositories.CreateDomainMessage
+			createdDomain repositories.DomainRecord
 			createErr     error
 		)
 
 		BeforeEach(func() {
-			domainCreate = CreateDomainMessage{
+			domainCreate = repositories.CreateDomainMessage{
 				Name: "my.domain",
-				Metadata: Metadata{
+				Metadata: repositories.Metadata{
 					Labels: map[string]string{
 						"foo": "bar",
 					},
@@ -145,8 +147,8 @@ var _ = Describe("DomainRepository", func() {
 
 	Describe("UpdateDomain", func() {
 		var (
-			updatePayload UpdateDomainMessage
-			updatedDomain DomainRecord
+			updatePayload repositories.UpdateDomainMessage
+			updatedDomain repositories.DomainRecord
 			updateErr     error
 		)
 
@@ -160,9 +162,9 @@ var _ = Describe("DomainRepository", func() {
 				}
 			})).To(Succeed())
 
-			updatePayload = UpdateDomainMessage{
+			updatePayload = repositories.UpdateDomainMessage{
 				GUID: cfDomain.Name,
-				MetadataPatch: MetadataPatch{
+				MetadataPatch: repositories.MetadataPatch{
 					Labels: map[string]*string{
 						"foo": tools.PtrTo("new-foo"),
 					},
@@ -206,85 +208,76 @@ var _ = Describe("DomainRepository", func() {
 
 	Describe("ListDomains", func() {
 		var (
-			domainListMessage ListDomainsMessage
-			domainRecords     []DomainRecord
-			listErr           error
+			domainListMessage repositories.ListDomainsMessage
+			listResult        repositories.ListResult[repositories.DomainRecord]
 		)
 
 		BeforeEach(func() {
-			domainListMessage = ListDomainsMessage{}
-		})
-
-		JustBeforeEach(func() {
-			domainRecords, listErr = domainRepo.ListDomains(ctx, authInfo, domainListMessage)
-		})
-
-		BeforeEach(func() {
+			domainListMessage = repositories.ListDomainsMessage{}
 			createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)
 		})
 
-		var (
-			domainGUID1 string
-			cfDomain1   *korifiv1alpha1.CFDomain
-		)
-
-		BeforeEach(func() {
-			domainGUID1 = uuid.NewString()
-
-			cfDomain1 = &korifiv1alpha1.CFDomain{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      domainGUID1,
-					Namespace: rootNamespace,
-				},
-				Spec: korifiv1alpha1.CFDomainSpec{
-					Name: "domain-1",
-				},
-			}
-			Expect(k8sClient.Create(ctx, cfDomain1)).To(Succeed())
+		JustBeforeEach(func() {
+			var err error
+			listResult, err = domainRepo.ListDomains(ctx, authInfo, domainListMessage)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		AfterEach(func() {
-			Expect(client.IgnoreNotFound(k8sClient.Delete(context.Background(), cfDomain1))).To(Succeed())
-		})
-
-		It("returns an ordered list(oldest to newest) of domainRecords for each CFDomain CR", func() {
-			Expect(listErr).NotTo(HaveOccurred())
-
-			Expect(domainRecords).To(ContainElements(
+		It("returns domain records", func() {
+			Expect(listResult.Records).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID)}),
-				MatchFields(IgnoreExtras, Fields{"GUID": Equal(domainGUID1)}),
 			))
-
-			Expect(domainRecords[0].CreatedAt).To(BeTemporally("<=", domainRecords[1].CreatedAt))
 		})
 
-		When("no CFDomains exist", func() {
+		Describe("list options", func() {
+			var fakeKlient *fake.Klient
+
 			BeforeEach(func() {
-				Expect(k8sClient.Delete(ctx, cfDomain)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, cfDomain1)).To(Succeed())
+				fakeKlient = new(fake.Klient)
+				domainRepo = repositories.NewDomainRepo(fakeKlient, rootNamespace)
 			})
 
-			It("returns an empty list and no error", func() {
-				Expect(listErr).ToNot(HaveOccurred())
-				Expect(domainRecords).To(BeEmpty())
+			Describe("parameters to list options", func() {
+				BeforeEach(func() {
+					domainListMessage = repositories.ListDomainsMessage{
+						Names: []string{"n1", "n2"},
+						Pagination: repositories.Pagination{
+							Page:    3,
+							PerPage: 4,
+						},
+					}
+				})
+
+				It("translates parameters to klient list options", func() {
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.CFEncodedDomainNameLabelKey, tools.EncodeValuesToSha224("n1", "n2")),
+						repositories.WithPaging(repositories.Pagination{PerPage: 4, Page: 3}),
+						repositories.NoopListOption{},
+					))
+				})
 			})
 		})
 
-		When("a filter is provided", func() {
-			BeforeEach(func() {
-				domainListMessage = ListDomainsMessage{
-					Names: []string{domainName},
-				}
-			})
+		DescribeTable("ordering",
+			func(msg repositories.ListDomainsMessage, match gomegatypes.GomegaMatcher) {
+				fakeKlient := new(fake.Klient)
+				domainRepo = repositories.NewDomainRepo(fakeKlient, rootNamespace)
 
-			It("returns a list of domainRecords matching the filter", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-
-				Expect(domainRecords).To(HaveLen(1))
-				Expect(domainRecords[0].GUID).To(Equal(cfDomain.Name))
-				Expect(domainRecords[0].Name).To(Equal(cfDomain.Spec.Name))
-			})
-		})
+				_, err := domainRepo.ListDomains(ctx, authInfo, msg)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fakeKlient.ListCallCount()).To(Equal(1))
+				_, _, listOptions := fakeKlient.ListArgsForCall(0)
+				Expect(listOptions).To(match)
+			},
+			Entry("created_at", repositories.ListDomainsMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
+			Entry("-created_at", repositories.ListDomainsMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
+			Entry("updated_at", repositories.ListDomainsMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
+			Entry("-updated_at", repositories.ListDomainsMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
+			Entry("no ordering", repositories.ListDomainsMessage{OrderBy: ""}, ContainElement(repositories.NoopListOption{})),
+			Entry("notexistent-field", repositories.ListDomainsMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
+		)
 
 		When("the user has no permission to list domains in the root namespace", func() {
 			BeforeEach(func() {
@@ -294,8 +287,7 @@ var _ = Describe("DomainRepository", func() {
 			})
 
 			It("returns an empty list and no error because the user has no permissions", func() {
-				Expect(listErr).ToNot(HaveOccurred())
-				Expect(domainRecords).To(BeEmpty())
+				Expect(listResult.Records).To(BeEmpty())
 			})
 		})
 	})
