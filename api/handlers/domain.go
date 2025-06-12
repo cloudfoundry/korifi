@@ -27,7 +27,7 @@ type CFDomainRepository interface {
 	GetDomain(context.Context, authorization.Info, string) (repositories.DomainRecord, error)
 	CreateDomain(context.Context, authorization.Info, repositories.CreateDomainMessage) (repositories.DomainRecord, error)
 	UpdateDomain(context.Context, authorization.Info, repositories.UpdateDomainMessage) (repositories.DomainRecord, error)
-	ListDomains(context.Context, authorization.Info, repositories.ListDomainsMessage) ([]repositories.DomainRecord, error)
+	ListDomains(context.Context, authorization.Info, repositories.ListDomainsMessage) (repositories.ListResult[repositories.DomainRecord], error)
 	DeleteDomain(context.Context, authorization.Info, string) error
 }
 
@@ -114,17 +114,17 @@ func (h *Domain) list(r *http.Request) (*routing.Response, error) { //nolint:dup
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.domain.list")
 
-	domainListFilter := new(payloads.DomainList)
-	if err := h.requestValidator.DecodeAndValidateURLValues(r, domainListFilter); err != nil {
+	payload := new(payloads.DomainList)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	domainList, err := h.domainRepo.ListDomains(r.Context(), authInfo, domainListFilter.ToMessage())
+	listResult, err := h.domainRepo.ListDomains(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch domain(s) from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForDomain, domainList, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDomain, listResult, h.serverURL, *r.URL)), nil
 }
 
 func (h *Domain) delete(r *http.Request) (*routing.Response, error) {

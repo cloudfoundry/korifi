@@ -156,12 +156,12 @@ func (h *Org) listDomains(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to parse request query parameters")
 	}
 
-	domainList, err := h.domainRepo.ListDomains(r.Context(), authInfo, domainListFilter.ToMessage())
+	listResult, err := h.domainRepo.ListDomains(r.Context(), authInfo, domainListFilter.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch domain(s) from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForDomain, domainList, h.apiBaseURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDomain, listResult, h.apiBaseURL, *r.URL)), nil
 }
 
 func (h *Org) defaultDomain(r *http.Request) (*routing.Response, error) {
@@ -174,14 +174,14 @@ func (h *Org) defaultDomain(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to get organization")
 	}
 
-	domains, err := h.domainRepo.ListDomains(r.Context(), authInfo, repositories.ListDomainsMessage{
+	listResult, err := h.domainRepo.ListDomains(r.Context(), authInfo, repositories.ListDomainsMessage{
 		Names: []string{h.defaultDomainName},
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Unable to list domains")
 	}
 
-	domain, err := singleton.Get(domains)
+	domain, err := singleton.Get(listResult.Records)
 	if err != nil {
 		return nil, err
 	}

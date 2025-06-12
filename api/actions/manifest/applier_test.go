@@ -272,11 +272,13 @@ var _ = Describe("Applier", func() {
 			appInfo.Routes = []payloads.ManifestRoute{
 				{Route: tools.PtrTo("r1.my.domain/my-path")},
 			}
-			domainRepo.ListDomainsReturns([]repositories.DomainRecord{{
-				Namespace: "domain-namespace",
-				Name:      "domain-name",
-				GUID:      "domain-guid",
-			}}, nil)
+			domainRepo.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{
+				Records: []repositories.DomainRecord{{
+					Namespace: "domain-namespace",
+					Name:      "domain-name",
+					GUID:      "domain-guid",
+				}},
+			}, nil)
 
 			routeRepo.GetOrCreateRouteReturns(repositories.RouteRecord{
 				GUID:      "route-guid",
@@ -329,7 +331,7 @@ var _ = Describe("Applier", func() {
 
 		When("listing domains fails", func() {
 			BeforeEach(func() {
-				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, errors.New("get-domain-err"))
+				domainRepo.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{}, errors.New("get-domain-err"))
 			})
 
 			It("returns the error", func() {

@@ -76,7 +76,7 @@ func (a *Manifest) ensureDefaultDomainConfigured(ctx context.Context, authInfo a
 		return apierrors.FromK8sError(err, repositories.DomainResourceType)
 	}
 
-	_, err = singleton.Get(domains)
+	_, err = singleton.Get(domains.Records)
 	if err != nil {
 		return apierrors.AsUnprocessableEntity(
 			err,

@@ -5,9 +5,9 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
-	payload_validation "code.cloudfoundry.org/korifi/api/payloads/validation"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/jellydator/validation"
+	jellidation "github.com/jellydator/validation"
 )
 
 type DomainCreate struct {
@@ -18,10 +18,10 @@ type DomainCreate struct {
 }
 
 func (c DomainCreate) Validate() error {
-	return validation.ValidateStruct(&c,
-		validation.Field(&c.Name, payload_validation.StrictlyRequired),
-		validation.Field(&c.Metadata),
-		validation.Field(&c.Relationships),
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Name, validation.StrictlyRequired),
+		jellidation.Field(&c.Metadata),
+		jellidation.Field(&c.Relationships),
 	)
 }
 
@@ -58,26 +58,38 @@ func (c *DomainUpdate) ToMessage(domainGUID string) repositories.UpdateDomainMes
 }
 
 func (c DomainUpdate) Validate() error {
-	return validation.ValidateStruct(&c,
-		validation.Field(&c.Metadata),
+	return jellidation.ValidateStruct(&c,
+		jellidation.Field(&c.Metadata),
 	)
 }
 
 type DomainList struct {
-	Names string
+	Names      string
+	OrderBy    string
+	Pagination Pagination
 }
 
 func (d *DomainList) ToMessage() repositories.ListDomainsMessage {
 	return repositories.ListDomainsMessage{
-		Names: parse.ArrayParam(d.Names),
+		Names:      parse.ArrayParam(d.Names),
+		OrderBy:    d.OrderBy,
+		Pagination: d.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
 func (d *DomainList) SupportedKeys() []string {
-	return []string{"names", "per_page", "page"}
+	return []string{"names", "order_by", "per_page", "page"}
 }
 
 func (d *DomainList) DecodeFromURLValues(values url.Values) error {
 	d.Names = values.Get("names")
-	return nil
+	d.OrderBy = values.Get("order_by")
+	return d.Pagination.DecodeFromURLValues(values)
+}
+
+func (a DomainList) Validate() error {
+	return jellidation.ValidateStruct(&a,
+		jellidation.Field(&a.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&a.Pagination),
+	)
 }
