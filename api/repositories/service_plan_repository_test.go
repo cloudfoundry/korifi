@@ -32,12 +32,12 @@ var _ = Describe("ServicePlanRepo", func() {
 	)
 
 	BeforeEach(func() {
-		orgRepo = repositories.NewOrgRepo(klient, rootNamespace, nsPerms, &fakeawaiter.FakeAwaiter[
+		orgRepo = repositories.NewOrgRepo(rootNSKlient, rootNamespace, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]{})
-		repo = repositories.NewServicePlanRepo(klient, rootNamespace, orgRepo)
+		repo = repositories.NewServicePlanRepo(rootNSKlient, rootNamespace, orgRepo)
 
 		planGUID = uuid.NewString()
 		metadata, err := korifiv1alpha1.AsRawExtension(map[string]any{

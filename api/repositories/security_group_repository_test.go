@@ -19,7 +19,7 @@ var _ = Describe("SecurityGroupRepo", func() {
 	)
 
 	BeforeEach(func() {
-		repo = repositories.NewSecurityGroupRepo(klient, rootNamespace)
+		repo = repositories.NewSecurityGroupRepo(rootNSKlient, rootNamespace)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 	})

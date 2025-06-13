@@ -73,7 +73,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		)
 
 		repo = repositories.NewServiceBindingRepo(
-			klient,
+			spaceScopedKlient,
 			bindingConditionAwaiter,
 			appConditionAwaiter,
 			paramsClient,

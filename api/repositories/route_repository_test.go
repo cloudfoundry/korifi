@@ -41,7 +41,7 @@ var _ = Describe("RouteRepository", func() {
 
 		routeGUID = prefixedGUID("route1")
 		domainGUID = prefixedGUID("domain")
-		routeRepo = repositories.NewRouteRepo(klient)
+		routeRepo = repositories.NewRouteRepo(spaceScopedKlient)
 
 		cfDomain := &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{

@@ -36,7 +36,7 @@ var _ = Describe("DropletRepository", func() {
 		org := createOrgWithCleanup(ctx, uuid.NewString())
 		space := createSpaceWithCleanup(ctx, org.Name, uuid.NewString())
 
-		dropletRepo = repositories.NewDropletRepo(klient)
+		dropletRepo = repositories.NewDropletRepo(spaceScopedKlient)
 
 		packageGUID := uuid.NewString()
 		appGUID := uuid.NewString()

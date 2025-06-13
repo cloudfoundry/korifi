@@ -31,7 +31,7 @@ var _ = Describe("ProcessRepo", func() {
 	)
 
 	BeforeEach(func() {
-		processRepo = repositories.NewProcessRepo(klient)
+		processRepo = repositories.NewProcessRepo(spaceScopedKlient)
 		org = createOrgWithCleanup(ctx, uuid.NewString())
 		space = createSpaceWithCleanup(ctx, org.Name, uuid.NewString())
 
