@@ -100,9 +100,8 @@ type ListServicePlanMessage struct {
 	Available            *bool
 }
 
-func (m *ListServicePlanMessage) toListOptions(rootNamespace string) []ListOption {
+func (m *ListServicePlanMessage) toListOptions() []ListOption {
 	return []ListOption{
-		InNamespace(rootNamespace),
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
 		WithLabelIn(korifiv1alpha1.CFServicePlanNameKey, tools.EncodeValuesToSha224(m.Names...)),
 		WithLabelIn(korifiv1alpha1.RelServiceOfferingGUIDLabel, m.ServiceOfferingGUIDs),
@@ -180,7 +179,7 @@ func NewServicePlanRepo(
 
 func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]ServicePlanRecord, error) {
 	cfServicePlans := &korifiv1alpha1.CFServicePlanList{}
-	if _, err := r.klient.List(ctx, cfServicePlans, message.toListOptions(r.rootNamespace)...); err != nil {
+	if _, err := r.klient.List(ctx, cfServicePlans, message.toListOptions()...); err != nil {
 		return nil, apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
