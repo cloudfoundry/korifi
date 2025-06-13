@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -132,18 +133,23 @@ var _ = Describe("Droplet", func() {
 
 	Describe("the GET /v3/droplets endpoint", func() {
 		BeforeEach(func() {
-			dropletRepo.ListDropletsReturns([]repositories.DropletRecord{
-				{
-					GUID:  dropletGUID,
-					State: "STAGED",
-					ProcessTypes: map[string]string{
-						"rake": "bundle exec rake",
-						"web":  "bundle exec rackup config.ru -p $PORT",
-					},
+			dropletRepo.ListDropletsReturns(repositories.ListResult[repositories.DropletRecord]{
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 2,
 				},
-				{
-					GUID:  dropletGUID2,
-					State: "STAGED",
+				Records: []repositories.DropletRecord{
+					{
+						GUID:  dropletGUID,
+						State: "STAGED",
+						ProcessTypes: map[string]string{
+							"rake": "bundle exec rake",
+							"web":  "bundle exec rackup config.ru -p $PORT",
+						},
+					},
+					{
+						GUID:  dropletGUID2,
+						State: "STAGED",
+					},
 				},
 			}, nil)
 
@@ -156,8 +162,8 @@ var _ = Describe("Droplet", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(dropletRepo.ListDropletsCallCount()).To(Equal(1))
-			_, _, message := dropletRepo.ListDropletsArgsForCall(0)
-			Expect(message).To(BeZero())
+			_, actualAuthInfo, _ := dropletRepo.ListDropletsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
@@ -167,10 +173,28 @@ var _ = Describe("Droplet", func() {
 			)))
 		})
 
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.DropletList{
+					GUIDs: "g1,g2",
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+
+				Expect(dropletRepo.ListDropletsCallCount()).To(Equal(1))
+				_, _, message := dropletRepo.ListDropletsArgsForCall(0)
+				Expect(message.GUIDs).To(ConsistOf("g1", "g2"))
+			})
+		})
+
 		When("the droplet repo returns an error", func() {
 			BeforeEach(func() {
-				dropletRepo.ListDropletsReturns([]repositories.DropletRecord{}, errors.New("update-droplet-error"))
+				dropletRepo.ListDropletsReturns(repositories.ListResult[repositories.DropletRecord]{}, errors.New("update-droplet-error"))
 			})
+
 			It("returns an error", func() {
 				expectUnknownError()
 			})

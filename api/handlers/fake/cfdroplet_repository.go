@@ -26,7 +26,7 @@ type CFDropletRepository struct {
 		result1 repositories.DropletRecord
 		result2 error
 	}
-	ListDropletsStub        func(context.Context, authorization.Info, repositories.ListDropletsMessage) ([]repositories.DropletRecord, error)
+	ListDropletsStub        func(context.Context, authorization.Info, repositories.ListDropletsMessage) (repositories.ListResult[repositories.DropletRecord], error)
 	listDropletsMutex       sync.RWMutex
 	listDropletsArgsForCall []struct {
 		arg1 context.Context
@@ -34,11 +34,11 @@ type CFDropletRepository struct {
 		arg3 repositories.ListDropletsMessage
 	}
 	listDropletsReturns struct {
-		result1 []repositories.DropletRecord
+		result1 repositories.ListResult[repositories.DropletRecord]
 		result2 error
 	}
 	listDropletsReturnsOnCall map[int]struct {
-		result1 []repositories.DropletRecord
+		result1 repositories.ListResult[repositories.DropletRecord]
 		result2 error
 	}
 	UpdateDropletStub        func(context.Context, authorization.Info, repositories.UpdateDropletMessage) (repositories.DropletRecord, error)
@@ -126,7 +126,7 @@ func (fake *CFDropletRepository) GetDropletReturnsOnCall(i int, result1 reposito
 	}{result1, result2}
 }
 
-func (fake *CFDropletRepository) ListDroplets(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListDropletsMessage) ([]repositories.DropletRecord, error) {
+func (fake *CFDropletRepository) ListDroplets(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListDropletsMessage) (repositories.ListResult[repositories.DropletRecord], error) {
 	fake.listDropletsMutex.Lock()
 	ret, specificReturn := fake.listDropletsReturnsOnCall[len(fake.listDropletsArgsForCall)]
 	fake.listDropletsArgsForCall = append(fake.listDropletsArgsForCall, struct {
@@ -153,7 +153,7 @@ func (fake *CFDropletRepository) ListDropletsCallCount() int {
 	return len(fake.listDropletsArgsForCall)
 }
 
-func (fake *CFDropletRepository) ListDropletsCalls(stub func(context.Context, authorization.Info, repositories.ListDropletsMessage) ([]repositories.DropletRecord, error)) {
+func (fake *CFDropletRepository) ListDropletsCalls(stub func(context.Context, authorization.Info, repositories.ListDropletsMessage) (repositories.ListResult[repositories.DropletRecord], error)) {
 	fake.listDropletsMutex.Lock()
 	defer fake.listDropletsMutex.Unlock()
 	fake.ListDropletsStub = stub
@@ -166,28 +166,28 @@ func (fake *CFDropletRepository) ListDropletsArgsForCall(i int) (context.Context
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFDropletRepository) ListDropletsReturns(result1 []repositories.DropletRecord, result2 error) {
+func (fake *CFDropletRepository) ListDropletsReturns(result1 repositories.ListResult[repositories.DropletRecord], result2 error) {
 	fake.listDropletsMutex.Lock()
 	defer fake.listDropletsMutex.Unlock()
 	fake.ListDropletsStub = nil
 	fake.listDropletsReturns = struct {
-		result1 []repositories.DropletRecord
+		result1 repositories.ListResult[repositories.DropletRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFDropletRepository) ListDropletsReturnsOnCall(i int, result1 []repositories.DropletRecord, result2 error) {
+func (fake *CFDropletRepository) ListDropletsReturnsOnCall(i int, result1 repositories.ListResult[repositories.DropletRecord], result2 error) {
 	fake.listDropletsMutex.Lock()
 	defer fake.listDropletsMutex.Unlock()
 	fake.ListDropletsStub = nil
 	if fake.listDropletsReturnsOnCall == nil {
 		fake.listDropletsReturnsOnCall = make(map[int]struct {
-			result1 []repositories.DropletRecord
+			result1 repositories.ListResult[repositories.DropletRecord]
 			result2 error
 		})
 	}
 	fake.listDropletsReturnsOnCall[i] = struct {
-		result1 []repositories.DropletRecord
+		result1 repositories.ListResult[repositories.DropletRecord]
 		result2 error
 	}{result1, result2}
 }

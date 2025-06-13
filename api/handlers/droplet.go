@@ -24,7 +24,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFDropletRepository . CFDropletRepository
 type CFDropletRepository interface {
 	GetDroplet(context.Context, authorization.Info, string) (repositories.DropletRecord, error)
-	ListDroplets(context.Context, authorization.Info, repositories.ListDropletsMessage) ([]repositories.DropletRecord, error)
+	ListDroplets(context.Context, authorization.Info, repositories.ListDropletsMessage) (repositories.ListResult[repositories.DropletRecord], error)
 	UpdateDroplet(context.Context, authorization.Info, repositories.UpdateDropletMessage) (repositories.DropletRecord, error)
 }
 
@@ -75,12 +75,12 @@ func (h *Droplet) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	droplets, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, payload.ToMessage())
+	listResult, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to list droplets")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForDroplet, droplets, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDroplet, listResult, h.serverURL, *r.URL)), nil
 }
 
 func (h *Droplet) update(r *http.Request) (*routing.Response, error) {
