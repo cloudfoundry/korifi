@@ -48,6 +48,7 @@ import (
 	"k8s.io/klog/v2"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -500,6 +501,9 @@ func main() {
 
 	portString := fmt.Sprintf(":%v", cfg.InternalPort)
 
+	certWatcher := createCertWatcher("CERT_PATH")
+	internalCertWatcher := createCertWatcher("INTERNAL_CERT_PATH")
+
 	if err := (&http.Server{
 		Addr:              portString,
 		Handler:           routerBuilder.Build(),
@@ -511,9 +515,11 @@ func main() {
 		TLSConfig: &tls.Config{
 			NextProtos: []string{"h2"},
 			MinVersion: tls.VersionTLS12,
-			Certificates: []tls.Certificate{
-				loadCertificate("CERT_PATH"),
-				loadCertificate("INTERNAL_CERT_PATH"),
+			GetCertificate: func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				if hello.ServerName == cfg.InternalFQDN {
+					return internalCertWatcher.GetCertificate(hello)
+				}
+				return certWatcher.GetCertificate(hello)
 			},
 		},
 	}).ListenAndServeTLS("", ""); err != nil {
@@ -522,18 +528,26 @@ func main() {
 	}
 }
 
-func loadCertificate(tlsEnvVar string) tls.Certificate {
-	tlsPath := os.Getenv(tlsEnvVar)
+func createCertWatcher(envVar string) *certwatcher.CertWatcher {
+	tlsPath := os.Getenv(envVar)
 	certPath := filepath.Join(tlsPath, "tls.crt")
 	keyPath := filepath.Join(tlsPath, "tls.key")
 
-	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	var certWatcher *certwatcher.CertWatcher
+	certWatcher, err := certwatcher.New(certPath, keyPath)
 	if err != nil {
-		ctrl.Log.Error(err, "could not load TLS certificate", "path", tlsPath)
+		ctrl.Log.Error(err, "error creating TLS watcher")
 		os.Exit(1)
 	}
 
-	return cert
+	go func() {
+		if err2 := certWatcher.Start(context.Background()); err2 != nil {
+			ctrl.Log.Error(err2, "error watching TLS")
+			os.Exit(1)
+		}
+	}()
+
+	return certWatcher
 }
 
 func wireIdentityProvider(client client.Client, restConfig *rest.Config) authorization.IdentityProvider {
