@@ -60,4 +60,12 @@ var _ = Describe("Collections", func() {
 		Entry("Value is present", map[string]int{"a": 1}, "a", 1),
 		Entry("Value is missing", map[string]int{}, "a", -1),
 	)
+
+	DescribeTable("IsZero",
+		func(value string, match types.GomegaMatcher) {
+			Expect(tools.IsZero(value)).To(match)
+		},
+		Entry("zero value", "", BeTrue()),
+		Entry("non-zero-value", "hello", BeFalse()),
+	)
 })

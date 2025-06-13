@@ -28,7 +28,7 @@ func NilOrEquals[E comparable](value *E, expectedValue E) bool {
 }
 
 func ZeroOrEquals[E comparable](value E, expectedValue E) bool {
-	if reflect.ValueOf(value).IsZero() {
+	if IsZero(value) {
 		return true
 	}
 
@@ -49,4 +49,8 @@ func GetMapValue[K comparable, V any](m map[K]V, key K, defaultValue V) V {
 		return value
 	}
 	return defaultValue
+}
+
+func IsZero[T any](value T) bool {
+	return reflect.ValueOf(value).IsZero()
 }

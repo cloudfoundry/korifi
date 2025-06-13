@@ -188,23 +188,8 @@ var _ = Describe("DropletRepository", func() {
 			message = repositories.ListDropletsMessage{}
 
 			Expect(k8s.Patch(ctx, k8sClient, build, func() {
+				build.Status.State = korifiv1alpha1.BuildStateStaged
 				build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{}
-			})).To(Succeed())
-
-			anotherBuild := &korifiv1alpha1.CFBuild{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.NewString(),
-					Namespace: build.Namespace,
-				},
-				Spec: korifiv1alpha1.CFBuildSpec{
-					Lifecycle: korifiv1alpha1.Lifecycle{
-						Type: "buildpack",
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, anotherBuild)).To(Succeed())
-			Expect(k8s.Patch(ctx, k8sClient, anotherBuild, func() {
-				anotherBuild.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{}
 			})).To(Succeed())
 		})
 
@@ -224,49 +209,48 @@ var _ = Describe("DropletRepository", func() {
 
 			It("returns the droplets", func() {
 				Expect(listErr).NotTo(HaveOccurred())
-				Expect(dropletRecords).To(HaveLen(2))
+				Expect(dropletRecords).To(HaveLen(1))
 			})
 
-			Describe("filtering", func() {
+			When("the build has no droplet set yet", func() {
 				BeforeEach(func() {
+					Expect(k8s.Patch(ctx, k8sClient, build, func() {
+						build.Status.State = korifiv1alpha1.BuildStateStaging
+						build.Status.Droplet = nil
+					})).To(Succeed())
+				})
+
+				It("it does not return a droplet for that build", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(dropletRecords).To(BeEmpty())
+				})
+			})
+
+			Describe("filter parameters to list options", func() {
+				var fakeKlient *fake.Klient
+
+				BeforeEach(func() {
+					fakeKlient = new(fake.Klient)
+					dropletRepo = repositories.NewDropletRepo(fakeKlient)
+
 					message = repositories.ListDropletsMessage{
-						PackageGUIDs: []string{build.Spec.PackageRef.Name},
+						GUIDs:        []string{"a1", "a2"},
+						PackageGUIDs: []string{"p1", "p2"},
+						AppGUIDs:     []string{"a1", "a2"},
+						SpaceGUIDs:   []string{"a1", "a2"},
 					}
 				})
 
-				It("returns the builds matching the filter parameters", func() {
+				It("translates filter parameters to klient list options", func() {
 					Expect(listErr).NotTo(HaveOccurred())
-					Expect(dropletRecords).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-						"PackageGUID": Equal(build.Spec.PackageRef.Name),
-					})))
-				})
-
-				Describe("filter parameters to list options", func() {
-					var fakeKlient *fake.Klient
-
-					BeforeEach(func() {
-						fakeKlient = new(fake.Klient)
-						dropletRepo = repositories.NewDropletRepo(fakeKlient)
-
-						message = repositories.ListDropletsMessage{
-							GUIDs:        []string{"a1", "a2"},
-							PackageGUIDs: []string{"p1", "p2"},
-							AppGUIDs:     []string{"a1", "a2"},
-							SpaceGUIDs:   []string{"a1", "a2"},
-						}
-					})
-
-					It("translates filter parameters to klient list options", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(fakeKlient.ListCallCount()).To(Equal(1))
-						_, _, listOptions := fakeKlient.ListArgsForCall(0)
-						Expect(listOptions).To(ConsistOf(
-							repositories.WithLabelIn(korifiv1alpha1.CFDropletGUIDLabelKey, []string{"a1", "a2"}),
-							repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
-							repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
-							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"a1", "a2"}),
-						))
-					})
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.CFDropletGUIDLabelKey, []string{"a1", "a2"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
+						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"a1", "a2"}),
+					))
 				})
 			})
 		})

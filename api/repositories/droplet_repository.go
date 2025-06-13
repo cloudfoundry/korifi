@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -103,6 +104,10 @@ func cfBuildToDroplet(cfBuild *korifiv1alpha1.CFBuild) (DropletRecord, error) {
 }
 
 func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
+	if cfBuild.Status.Droplet == nil {
+		return DropletRecord{}
+	}
+
 	processTypesMap := make(map[string]string)
 	processTypesArrayObject := cfBuild.Status.Droplet.ProcessTypes
 	for index := range processTypesArrayObject {
@@ -145,7 +150,9 @@ func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.I
 		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 
-	return slices.Collect(it.Map(slices.Values(buildList.Items), cfBuildToDropletRecord)), nil
+	return slices.Collect(it.Exclude(it.Map(slices.Values(buildList.Items), cfBuildToDropletRecord), func(d DropletRecord) bool {
+		return tools.IsZero(d)
+	})), nil
 }
 
 type UpdateDropletMessage struct {
