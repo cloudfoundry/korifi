@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/tests/helpers"
+	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +21,20 @@ var _ = Describe("list", func() {
 	}
 
 	BeforeEach(func() {
+		brokerName := uuid.NewString()
+		Expect(helpers.Cf(
+			"create-service-broker",
+			brokerName,
+			"broker-user",
+			"broker-password",
+			sharedData.BrokerURL,
+		)).To(Exit(0))
+		DeferCleanup(func() {
+			broker.NewDeleter(sharedData.RootNamespace).ForBrokerName(brokerName).Delete()
+		})
+
+		Expect(helpers.Cf("enable-service-access", "sample-service", "-b", brokerName)).To(Exit(0))
+
 		Expect(helpers.Cf("run-task", sharedData.BuildpackAppName, "-c", "sleep 120")).To(Exit(0))
 
 		appName := uuid.NewString()
@@ -34,19 +49,29 @@ var _ = Describe("list", func() {
 		listResources,
 		Entry("apps", "apps", Not(BeEmpty())),
 		Entry("builds", "builds", Not(BeEmpty())),
+		Entry("buildpacks", "buildpacks", Not(BeEmpty())),
+		Entry("deployments", "deployments", Not(BeEmpty())),
+		Entry("domains", "domains", Not(BeEmpty())),
+		Entry("droplets", "droplets", Not(BeEmpty())),
+		Entry("orgs", "organizations", Not(BeEmpty())),
 		Entry("packages", "packages", Not(BeEmpty())),
 		Entry("processes", "processes", Not(BeEmpty())),
 		Entry("routes", "routes", Not(BeEmpty())),
+		Entry("routes", "routes", Not(BeEmpty())),
 		Entry("service_instances", "service_instances", Not(BeEmpty())),
 		Entry("service_credential_bindings", "service_credential_bindings", Not(BeEmpty())),
+		Entry("service brokers", "service_brokers", Not(BeEmpty())),
+		Entry("service offerings", "service_offerings", Not(BeEmpty())),
+		Entry("service plans", "service_plans", Not(BeEmpty())),
+		Entry("spaces", "spaces", Not(BeEmpty())),
 		Entry("tasks", "tasks", Not(BeEmpty())),
 	)
 
-	When("the user is not allowed to list", func() {
+	When("the user has no space roles", func() {
 		BeforeEach(func() {
 			serviceAccountFactory := helpers.NewServiceAccountFactory(sharedData.RootNamespace)
 			userName := uuid.NewString()
-			userToken := serviceAccountFactory.CreateServiceAccount(userName)
+			userToken := serviceAccountFactory.CreateRootNsUserServiceAccount(userName)
 			helpers.NewFlock(sharedData.FLockPath).Execute(func() {
 				helpers.AddUserToKubeConfig(userName, userToken)
 			})
@@ -61,16 +86,29 @@ var _ = Describe("list", func() {
 			Expect(helpers.Cf("auth", userName)).To(Exit(0))
 		})
 
-		DescribeTable("unauthorised users get empty resources list",
+		DescribeTable("gets empty resources list for non-global resources",
 			listResources,
 			Entry("apps", "apps", BeEmpty()),
 			Entry("builds", "builds", BeEmpty()),
+			Entry("deployments", "deployments", BeEmpty()),
+			Entry("droplets", "droplets", BeEmpty()),
+			Entry("orgs", "organizations", BeEmpty()),
 			Entry("packages", "packages", BeEmpty()),
 			Entry("processes", "processes", BeEmpty()),
 			Entry("routes", "routes", BeEmpty()),
 			Entry("service_instances", "service_instances", BeEmpty()),
 			Entry("service_credential_bindings", "service_credential_bindings", BeEmpty()),
+			Entry("spaces", "spaces", BeEmpty()),
 			Entry("tasks", "tasks", BeEmpty()),
+		)
+
+		DescribeTable("gets the global resources",
+			listResources,
+			Entry("buildpacks", "buildpacks", Not(BeEmpty())),
+			Entry("domains", "domains", Not(BeEmpty())),
+			Entry("service brokers", "service_brokers", Not(BeEmpty())),
+			Entry("service offerings", "service_offerings", Not(BeEmpty())),
+			Entry("service plans", "service_plans", Not(BeEmpty())),
 		)
 	})
 })

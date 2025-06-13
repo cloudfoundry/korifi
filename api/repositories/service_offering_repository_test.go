@@ -31,9 +31,9 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 	BeforeEach(func() {
 		repo = repositories.NewServiceOfferingRepo(
-			klient,
+			rootNSKlient,
+			spaceScopedKlient,
 			rootNamespace,
-			nsPerms,
 		)
 
 		org = createOrgWithCleanup(ctx, uuid.NewString())
@@ -287,8 +287,8 @@ var _ = Describe("ServiceOfferingRepo", func() {
 				fakeKlient = new(fake.Klient)
 				repo = repositories.NewServiceOfferingRepo(
 					fakeKlient,
+					nil,
 					rootNamespace,
-					nsPerms,
 				)
 				message = repositories.ListServiceOfferingMessage{
 					Names:       []string{"n1", "n2"},

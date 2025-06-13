@@ -53,7 +53,7 @@ var _ = Describe("AppRepository", func() {
 			korifiv1alpha1.CFAppList,
 			*korifiv1alpha1.CFAppList,
 		]{}
-		appRepo = repositories.NewAppRepo(klient, appAwaiter)
+		appRepo = repositories.NewAppRepo(spaceScopedKlient, appAwaiter)
 
 		cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("space1"))

@@ -43,7 +43,7 @@ var _ = Describe("ImageRepository", func() {
 		tags = []string{"foo", "bar"}
 
 		imageRepo = repositories.NewImageRepository(
-			klientUnfiltered,
+			clusterWideKlient,
 			imagePusher,
 			[]string{"push-secret-name"},
 			rootNamespace,

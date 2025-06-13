@@ -15,9 +15,9 @@ const (
 )
 
 type RunnerInfoRepository struct {
-	klient     Klient
-	runnerName string
-	namespace  string
+	klient        Klient
+	runnerName    string
+	rootNamespace string
 }
 
 type RunnerInfoRecord struct {
@@ -27,18 +27,18 @@ type RunnerInfoRecord struct {
 	Capabilities korifiv1alpha1.RunnerInfoCapabilities
 }
 
-func NewRunnerInfoRepository(klient Klient, runnerName string, namespace string) *RunnerInfoRepository {
+func NewRunnerInfoRepository(klient Klient, runnerName string, rootNamespace string) *RunnerInfoRepository {
 	return &RunnerInfoRepository{
-		klient:     klient,
-		runnerName: runnerName,
-		namespace:  namespace,
+		klient:        klient,
+		runnerName:    runnerName,
+		rootNamespace: rootNamespace,
 	}
 }
 
 func (r *RunnerInfoRepository) GetRunnerInfo(ctx context.Context, authInfo authorization.Info, runnerName string) (RunnerInfoRecord, error) {
 	runnerInfo := &korifiv1alpha1.RunnerInfo{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: r.namespace,
+			Namespace: r.rootNamespace,
 			Name:      r.runnerName,
 		},
 	}
