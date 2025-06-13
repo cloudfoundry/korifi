@@ -31,7 +31,7 @@ var _ = Describe("BuildpackRepository", func() {
 			return records
 		}
 
-		buildpackRepo = NewBuildpackRepository(klientUnfiltered, builderName, rootNamespace, sorter)
+		buildpackRepo = NewBuildpackRepository(rootNSKlient, builderName, rootNamespace, sorter)
 	})
 
 	Describe("ListBuildpacks", func() {

@@ -22,7 +22,7 @@ var _ = Describe("RunnerInfoRepository", func() {
 				var runnerInfoRepo *RunnerInfoRepository
 
 				JustBeforeEach(func() {
-					runnerInfoRepo = NewRunnerInfoRepository(klientUnfiltered, runnerName, rootNamespace)
+					runnerInfoRepo = NewRunnerInfoRepository(rootNSKlient, runnerName, rootNamespace)
 					createRunnerInfoWithCleanup(ctx, runnerName, true)
 				})
 
@@ -45,7 +45,7 @@ var _ = Describe("RunnerInfoRepository", func() {
 				noRollingDeployRunner := "rolling-deploy-not-supported"
 
 				JustBeforeEach(func() {
-					noRollingDeployRunnerInfoRepo = NewRunnerInfoRepository(klientUnfiltered, noRollingDeployRunner, rootNamespace)
+					noRollingDeployRunnerInfoRepo = NewRunnerInfoRepository(rootNSKlient, noRollingDeployRunner, rootNamespace)
 					createRunnerInfoWithCleanup(ctx, noRollingDeployRunner, false)
 				})
 

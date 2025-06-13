@@ -44,7 +44,7 @@ var _ = Describe("DomainRepository", func() {
 		}
 		Expect(k8sClient.Create(ctx, cfDomain)).To(Succeed())
 
-		domainRepo = NewDomainRepo(klientUnfiltered, rootNamespace)
+		domainRepo = NewDomainRepo(rootNSKlient, rootNamespace)
 	})
 
 	AfterEach(func() {

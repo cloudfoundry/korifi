@@ -45,7 +45,7 @@ var _ = Describe("TaskRepository", func() {
 			*korifiv1alpha1.CFTaskList,
 		]{}
 		taskRepo = repositories.NewTaskRepo(
-			klient,
+			spaceScopedKlient,
 			conditionAwaiter,
 		)
 

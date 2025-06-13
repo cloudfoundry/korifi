@@ -31,7 +31,7 @@ var _ = Describe("BuildRepository", func() {
 	)
 
 	BeforeEach(func() {
-		buildRepo = repositories.NewBuildRepo(klient)
+		buildRepo = repositories.NewBuildRepo(spaceScopedKlient)
 
 		org := createOrgWithCleanup(ctx, uuid.NewString())
 		cfSpace = createSpaceWithCleanup(ctx, org.Name, uuid.NewString())

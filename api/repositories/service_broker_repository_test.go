@@ -25,7 +25,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 	var repo *repositories.ServiceBrokerRepo
 
 	BeforeEach(func() {
-		repo = repositories.NewServiceBrokerRepo(klient, rootNamespace)
+		repo = repositories.NewServiceBrokerRepo(rootNSKlient, rootNamespace)
 	})
 
 	Describe("Create", func() {
