@@ -222,12 +222,12 @@ func (h *App) listDroplets(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	droplets, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, repositories.ListDropletsMessage{AppGUIDs: []string{appGUID}})
+	dropletListResult, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, repositories.ListDropletsMessage{AppGUIDs: []string{appGUID}})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch droplet from Kubernetes", "dropletGUID", app.DropletGUID)
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForDroplet, droplets, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDroplet, dropletListResult, h.serverURL, *r.URL)), nil
 }
 
 func (h *App) getCurrentDroplet(r *http.Request) (*routing.Response, error) {

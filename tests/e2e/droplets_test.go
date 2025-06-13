@@ -85,6 +85,7 @@ var _ = Describe("Droplets", func() {
 			pkgGUID := createBitsPackage(appGUID)
 			uploadTestApp(pkgGUID, defaultAppBitsFile)
 			anotherBuildGUID = createBuild(pkgGUID)
+			waitForDroplet(anotherBuildGUID)
 			listResult = resourceList[resource]{}
 		})
 

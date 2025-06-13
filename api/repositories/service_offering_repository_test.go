@@ -31,9 +31,9 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 	BeforeEach(func() {
 		repo = repositories.NewServiceOfferingRepo(
-			klient,
+			rootNSKlient,
+			spaceScopedKlient,
 			rootNamespace,
-			nsPerms,
 		)
 
 		org = createOrgWithCleanup(ctx, uuid.NewString())
@@ -287,8 +287,8 @@ var _ = Describe("ServiceOfferingRepo", func() {
 				fakeKlient = new(fake.Klient)
 				repo = repositories.NewServiceOfferingRepo(
 					fakeKlient,
+					nil,
 					rootNamespace,
-					nsPerms,
 				)
 				message = repositories.ListServiceOfferingMessage{
 					Names:       []string{"n1", "n2"},
@@ -302,7 +302,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 				Expect(fakeKlient.ListCallCount()).To(Equal(1))
 				_, _, listOptions := fakeKlient.ListArgsForCall(0)
 				Expect(listOptions).To(ConsistOf(
-					repositories.InNamespace(rootNamespace),
 					repositories.WithLabelIn(korifiv1alpha1.CFServiceOfferingNameKey, tools.EncodeValuesToSha224("n1", "n2")),
 					repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
 					repositories.WithLabelIn(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValuesToSha224("b1", "b2")),

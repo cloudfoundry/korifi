@@ -56,7 +56,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		}
 
 		serviceInstanceRepo = repositories.NewServiceInstanceRepo(
-			klient,
+			spaceScopedKlient,
 			conditionAwaiter,
 			sorter,
 			rootNamespace,

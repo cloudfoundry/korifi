@@ -72,6 +72,35 @@ func (f *ServiceAccountFactory) CreateAdminServiceAccount(adminServiceAccount st
 	return adminServiceAccountToken
 }
 
+func (f *ServiceAccountFactory) CreateRootNsUserServiceAccount(rootNsUser string) string {
+	GinkgoHelper()
+
+	serviceAccount, rootNsUserServiceAccountToken := f.createServiceAccount(rootNsUser)
+
+	rootNsUserRoleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: f.rootNamespace,
+			Name:      rootNsUser,
+			Annotations: map[string]string{
+				"cloudfoundry.org/propagate-cf-role": "false",
+			},
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      rbacv1.ServiceAccountKind,
+			Name:      rootNsUser,
+			Namespace: f.rootNamespace,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: "korifi-controllers-root-namespace-user",
+		},
+	}
+	Expect(controllerutil.SetOwnerReference(serviceAccount, rootNsUserRoleBinding, scheme.Scheme)).To(Succeed())
+	Expect(f.k8sClient.Create(context.Background(), rootNsUserRoleBinding)).To(Succeed())
+
+	return rootNsUserServiceAccountToken
+}
+
 func (f *ServiceAccountFactory) createServiceAccount(name string) (*corev1.ServiceAccount, string) {
 	GinkgoHelper()
 

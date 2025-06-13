@@ -55,7 +55,7 @@ var _ = Describe("PackageRepository", func() {
 		}
 
 		packageRepo = repositories.NewPackageRepo(
-			klient,
+			spaceScopedKlient,
 			repoCreator,
 			"container.registry/foo/my/prefix-",
 			conditionAwaiter,

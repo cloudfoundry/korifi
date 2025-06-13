@@ -271,7 +271,9 @@ var _ = Describe("Domain", func() {
 				Labels:      nil,
 				Annotations: nil,
 			}
-			domainRepo.ListDomainsReturns([]repositories.DomainRecord{*domainRecord}, nil)
+			domainRepo.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{
+				Records: []repositories.DomainRecord{*domainRecord},
+			}, nil)
 
 			payload := &payloads.DomainList{Names: "bob,alice"}
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(payload)
@@ -288,14 +290,11 @@ var _ = Describe("Domain", func() {
 
 			Expect(domainRepo.ListDomainsCallCount()).To(Equal(1))
 			_, _, listMessage := domainRepo.ListDomainsArgsForCall(0)
-			Expect(listMessage).To(Equal(repositories.ListDomainsMessage{
-				Names: []string{"bob", "alice"},
-			}))
+			Expect(listMessage.Names).To(ConsistOf("bob", "alice"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", "test-domain-guid"),
 				MatchJSONPath("$.resources[0].supported_protocols", ConsistOf("http")),
@@ -304,7 +303,7 @@ var _ = Describe("Domain", func() {
 
 		When("no domain exists", func() {
 			BeforeEach(func() {
-				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, nil)
+				domainRepo.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{}, nil)
 			})
 
 			It("returns status 200 OK", func() {
@@ -319,7 +318,7 @@ var _ = Describe("Domain", func() {
 
 		When("there is an error listing domains", func() {
 			BeforeEach(func() {
-				domainRepo.ListDomainsReturns([]repositories.DomainRecord{}, errors.New("unexpected error!"))
+				domainRepo.ListDomainsReturns(repositories.ListResult[repositories.DomainRecord]{}, errors.New("unexpected error!"))
 			})
 
 			It("returns an error", func() {

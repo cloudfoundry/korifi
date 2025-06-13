@@ -60,8 +60,9 @@ var (
 	ctx                   context.Context
 	testEnv               *envtest.Environment
 	k8sClient             client.WithWatch
-	klient                repositories.Klient
-	klientUnfiltered      repositories.Klient
+	spaceScopedKlient     repositories.Klient
+	rootNSKlient          repositories.Klient
+	clusterWideKlient     repositories.Klient
 	userName              string
 	authInfo              authorization.Info
 	rootNamespace         string
@@ -167,21 +168,28 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	namespaceRetriever := repositories.NewNamespaceRetriever(dynamicClient)
 
-	userClientFactoryUnfiltered := authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper, k8sClient.Scheme()).
+	privilegedClientset, err := k8sclient.NewForConfig(testEnv.Config)
+	Expect(err).NotTo(HaveOccurred())
+
+	descriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), k8sClient.Scheme(), authorization.NewSpaceFilteringOpts(nsPerms))
+
+	clusterWideUserClientFactory := authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper, k8sClient.Scheme()).
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
-	klientUnfiltered = k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, userClientFactoryUnfiltered, k8sClient.Scheme())
+	clusterWideKlient = k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, clusterWideUserClientFactory, k8sClient.Scheme())
 
-	userClientFactory := userClientFactoryUnfiltered.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+	spaceScopedUserClientFactory := clusterWideUserClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewSpaceFilteringClient(client, k8sClient, authorization.NewSpaceFilteringOpts(nsPerms))
 	})
-	privilegedClientset, err := k8sclient.NewForConfig(testEnv.Config)
-	Expect(err).NotTo(HaveOccurred())
-	descriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), k8sClient.Scheme(), authorization.NewSpaceFilteringOpts(nsPerms))
-	objectListMapper := descriptors.NewObjectListMapper(userClientFactory)
+	spaceScopedObjectListMapper := descriptors.NewObjectListMapper(spaceScopedUserClientFactory)
+	spaceScopedKlient = k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, spaceScopedObjectListMapper, spaceScopedUserClientFactory, k8sClient.Scheme())
 
-	klient = k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, objectListMapper, userClientFactory, k8sClient.Scheme())
+	rootNsUserClientFactory := clusterWideUserClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+		return authorization.NewRootNSFilteringClient(client, rootNamespace)
+	})
+	rootNSObjectListMapper := descriptors.NewObjectListMapper(rootNsUserClientFactory)
+	rootNSKlient = k8sklient.NewK8sKlient(namespaceRetriever, descriptorsClient, rootNSObjectListMapper, rootNsUserClientFactory, k8sClient.Scheme())
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)

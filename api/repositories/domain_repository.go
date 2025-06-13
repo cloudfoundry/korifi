@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"sort"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -63,13 +62,16 @@ type UpdateDomainMessage struct {
 }
 
 type ListDomainsMessage struct {
-	Names []string
+	Names      []string
+	OrderBy    string
+	Pagination Pagination
 }
 
-func (m *ListDomainsMessage) toListOptions(rootNamespace string) []ListOption {
+func (m *ListDomainsMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.CFEncodedDomainNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
-		InNamespace(rootNamespace),
+		toSortOption(m.OrderBy),
+		WithPaging(m.Pagination),
 	}
 }
 
@@ -132,22 +134,20 @@ func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.In
 	return cfDomainToDomainRecord(*domain), nil
 }
 
-func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) ([]DomainRecord, error) {
+func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) (ListResult[DomainRecord], error) {
 	cfdomainList := &korifiv1alpha1.CFDomainList{}
-	_, err := r.klient.List(ctx, cfdomainList, message.toListOptions(r.rootNamespace)...)
+	pageInfo, err := r.klient.List(ctx, cfdomainList, message.toListOptions()...)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return []DomainRecord{}, nil
+			return ListResult[DomainRecord]{}, nil
 		}
-		return []DomainRecord{}, fmt.Errorf("failed to list domains in namespace %s: %w", r.rootNamespace, apierrors.FromK8sError(err, DomainResourceType))
+		return ListResult[DomainRecord]{}, fmt.Errorf("failed to list domains in namespace %s: %w", r.rootNamespace, apierrors.FromK8sError(err, DomainResourceType))
 	}
 
-	domainRecords := slices.Collect(it.Map(slices.Values(cfdomainList.Items), cfDomainToDomainRecord))
-	sort.Slice(domainRecords, func(i, j int) bool {
-		return domainRecords[i].CreatedAt.Before(domainRecords[j].CreatedAt)
-	})
-
-	return domainRecords, nil
+	return ListResult[DomainRecord]{
+		Records:  slices.Collect(it.Map(slices.Values(cfdomainList.Items), cfDomainToDomainRecord)),
+		PageInfo: pageInfo,
+	}, nil
 }
 
 func (r *DomainRepo) DeleteDomain(ctx context.Context, authInfo authorization.Info, domainGUID string) error {

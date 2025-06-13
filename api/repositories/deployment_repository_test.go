@@ -44,7 +44,7 @@ var _ = Describe("DeploymentRepository", func() {
 			},
 		})).To(Succeed())
 
-		deploymentRepo = repositories.NewDeploymentRepo(klient)
+		deploymentRepo = repositories.NewDeploymentRepo(spaceScopedKlient)
 	})
 
 	Describe("GetDeployment", func() {

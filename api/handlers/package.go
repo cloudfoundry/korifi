@@ -224,7 +224,7 @@ func (h Package) listDroplets(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching droplet list with repository")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForDroplet, dropletList, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDroplet, dropletList, h.serverURL, *r.URL)), nil
 }
 
 func (h *Package) UnauthenticatedRoutes() []routing.Route {

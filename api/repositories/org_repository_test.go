@@ -41,7 +41,7 @@ var _ = Describe("OrgRepository", func() {
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,
 		]{}
-		orgRepo = repositories.NewOrgRepo(klient, rootNamespace, nsPerms, conditionAwaiter)
+		orgRepo = repositories.NewOrgRepo(rootNSKlient, rootNamespace, nsPerms, conditionAwaiter)
 	})
 
 	Describe("CreateOrg", func() {
@@ -262,7 +262,6 @@ var _ = Describe("OrgRepository", func() {
 						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{cfOrg2.Name}),
 						repositories.WithLabelIn(korifiv1alpha1.CFOrgDisplayNameKey, tools.EncodeValuesToSha224("a1", "a2")),
 						repositories.WithLabel(korifiv1alpha1.ReadyLabelKey, string(metav1.ConditionTrue)),
-						repositories.InNamespace(rootNamespace),
 					))
 				})
 
