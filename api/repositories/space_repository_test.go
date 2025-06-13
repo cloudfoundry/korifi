@@ -35,7 +35,7 @@ var _ = Describe("SpaceRepository", func() {
 	)
 
 	BeforeEach(func() {
-		orgRepo = repositories.NewOrgRepo(spaceScopedKlient, rootNamespace, nsPerms, &fakeawaiter.FakeAwaiter[
+		orgRepo = repositories.NewOrgRepo(rootNSKlient, rootNamespace, nsPerms, &fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFOrg,
 			korifiv1alpha1.CFOrgList,
 			*korifiv1alpha1.CFOrgList,

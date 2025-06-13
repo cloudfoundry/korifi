@@ -33,7 +33,7 @@ type ListOrgsMessage struct {
 	GUIDs []string
 }
 
-func (m *ListOrgsMessage) toListOptions(rootNamespace string, authorizedOrgGuids []string) []ListOption {
+func (m *ListOrgsMessage) toListOptions(authorizedOrgGuids []string) []ListOption {
 	selectedGuids := authorizedOrgGuids
 	if len(m.GUIDs) != 0 {
 		selectedGuids = slices.Collect(it.Filter(slices.Values(selectedGuids), func(guid string) bool {
@@ -45,7 +45,6 @@ func (m *ListOrgsMessage) toListOptions(rootNamespace string, authorizedOrgGuids
 		WithLabelStrictlyIn(korifiv1alpha1.GUIDLabelKey, selectedGuids),
 		WithLabelIn(korifiv1alpha1.CFOrgDisplayNameKey, tools.EncodeValuesToSha224(m.Names...)),
 		WithLabel(korifiv1alpha1.ReadyLabelKey, string(metav1.ConditionTrue)),
-		InNamespace(rootNamespace),
 	}
 }
 
@@ -135,7 +134,7 @@ func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, message
 	}
 
 	cfOrgList := new(korifiv1alpha1.CFOrgList)
-	_, err = r.klient.List(ctx, cfOrgList, message.toListOptions(r.rootNamespace, slices.Collect(maps.Keys(authorizedNamespaces)))...)
+	_, err = r.klient.List(ctx, cfOrgList, message.toListOptions(slices.Collect(maps.Keys(authorizedNamespaces)))...)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, OrgResourceType)
 	}

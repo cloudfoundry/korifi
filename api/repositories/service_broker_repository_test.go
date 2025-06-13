@@ -292,7 +292,6 @@ var _ = Describe("ServiceBrokerRepo", func() {
 					Expect(fakeKlient.ListCallCount()).To(Equal(1))
 					_, _, listOptions := fakeKlient.ListArgsForCall(0)
 					Expect(listOptions).To(ConsistOf(
-						repositories.InNamespace(rootNamespace),
 						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"broker-1", "broker-2"}),
 						repositories.WithLabelIn(korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey, tools.EncodeValuesToSha224("first-broker", "second-broker")),
 					))

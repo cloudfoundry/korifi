@@ -66,10 +66,9 @@ type ListDomainsMessage struct {
 	Names []string
 }
 
-func (m *ListDomainsMessage) toListOptions(rootNamespace string) []ListOption {
+func (m *ListDomainsMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.CFEncodedDomainNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
-		InNamespace(rootNamespace),
 	}
 }
 
@@ -134,7 +133,7 @@ func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.In
 
 func (r *DomainRepo) ListDomains(ctx context.Context, authInfo authorization.Info, message ListDomainsMessage) ([]DomainRecord, error) {
 	cfdomainList := &korifiv1alpha1.CFDomainList{}
-	_, err := r.klient.List(ctx, cfdomainList, message.toListOptions(r.rootNamespace)...)
+	_, err := r.klient.List(ctx, cfdomainList, message.toListOptions()...)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return []DomainRecord{}, nil
