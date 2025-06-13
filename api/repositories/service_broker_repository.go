@@ -38,9 +38,8 @@ type ListServiceBrokerMessage struct {
 	GUIDs []string
 }
 
-func (m *ListServiceBrokerMessage) toListOptions(rootNamespace string) []ListOption {
+func (m *ListServiceBrokerMessage) toListOptions() []ListOption {
 	return []ListOption{
-		InNamespace(rootNamespace),
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
 		WithLabelIn(korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
 	}
@@ -180,7 +179,7 @@ func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization
 
 func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info, message ListServiceBrokerMessage) ([]ServiceBrokerRecord, error) {
 	brokersList := &korifiv1alpha1.CFServiceBrokerList{}
-	_, err := r.klient.List(ctx, brokersList, message.toListOptions(r.rootNamespace)...)
+	_, err := r.klient.List(ctx, brokersList, message.toListOptions()...)
 	if err != nil {
 		// All authenticated users are allowed to list brokers. Therefore, the
 		// usual pattern of checking for forbidden error and return an empty

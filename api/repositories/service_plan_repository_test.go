@@ -264,7 +264,6 @@ var _ = Describe("ServicePlanRepo", func() {
 				Expect(fakeKlient.ListCallCount()).To(Equal(1))
 				_, _, listOptions := fakeKlient.ListArgsForCall(0)
 				Expect(listOptions).To(ConsistOf(
-					repositories.InNamespace(rootNamespace),
 					repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
 					repositories.WithLabelIn(korifiv1alpha1.CFServicePlanNameKey, tools.EncodeValuesToSha224("n1", "n2")),
 					repositories.WithLabelIn(korifiv1alpha1.RelServiceOfferingGUIDLabel, []string{"sog1", "sog2"}),

@@ -70,9 +70,8 @@ type DeleteServiceOfferingMessage struct {
 	Purge bool
 }
 
-func (m *ListServiceOfferingMessage) toListOptions(rootNamespace string) []ListOption {
+func (m *ListServiceOfferingMessage) toListOptions() []ListOption {
 	return []ListOption{
-		InNamespace(rootNamespace),
 		WithLabelIn(korifiv1alpha1.CFServiceOfferingNameKey, tools.EncodeValuesToSha224(m.Names...)),
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
 		WithLabelIn(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValuesToSha224(m.BrokerNames...)),
@@ -108,7 +107,7 @@ func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo a
 
 func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {
 	offeringsList := &korifiv1alpha1.CFServiceOfferingList{}
-	_, err := r.rootNSKlient.List(ctx, offeringsList, message.toListOptions(r.rootNamespace)...)
+	_, err := r.rootNSKlient.List(ctx, offeringsList, message.toListOptions()...)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			return []ServiceOfferingRecord{}, nil
@@ -226,7 +225,7 @@ func (r *ServiceOfferingRepo) deleteServicePlans(ctx context.Context, offeringGU
 	var planGUIDs []string
 	plans := &korifiv1alpha1.CFServicePlanList{}
 
-	if _, err := r.rootNSKlient.List(ctx, plans, InNamespace(r.rootNamespace), WithLabel(korifiv1alpha1.RelServiceOfferingGUIDLabel, offeringGUID)); err != nil {
+	if _, err := r.rootNSKlient.List(ctx, plans, WithLabel(korifiv1alpha1.RelServiceOfferingGUIDLabel, offeringGUID)); err != nil {
 		return []string{}, fmt.Errorf("failed to list service plans: %w", err)
 	}
 
