@@ -118,7 +118,7 @@ var _ = Describe("LogRepository", func() {
 		}
 
 		userClientsetFactory := authorization.NewUnprivilegedClientsetFactory(testEnv.Config)
-		logRepo = repositories.NewLogRepo(clusterWideKlient, userClientsetFactory, logStreamer.Spy)
+		logRepo = repositories.NewLogRepo(userClientFactory, userClientsetFactory, logStreamer.Spy)
 
 		message = repositories.GetLogsMessage{
 			App: repositories.AppRecord{

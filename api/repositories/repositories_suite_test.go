@@ -57,26 +57,27 @@ func TestRepositories(t *testing.T) {
 }
 
 var (
-	ctx                   context.Context
-	testEnv               *envtest.Environment
-	k8sClient             client.WithWatch
-	spaceScopedKlient     repositories.Klient
-	rootNSKlient          repositories.Klient
-	clusterWideKlient     repositories.Klient
-	userName              string
-	authInfo              authorization.Info
-	rootNamespace         string
-	builderName           string
-	runnerName            string
-	idProvider            authorization.IdentityProvider
-	nsPerms               *authorization.NamespacePermissions
-	adminRole             *rbacv1.ClusterRole
-	spaceDeveloperRole    *rbacv1.ClusterRole
-	spaceManagerRole      *rbacv1.ClusterRole
-	orgManagerRole        *rbacv1.ClusterRole
-	orgUserRole           *rbacv1.ClusterRole
-	spaceAuditorRole      *rbacv1.ClusterRole
-	rootNamespaceUserRole *rbacv1.ClusterRole
+	ctx                          context.Context
+	testEnv                      *envtest.Environment
+	k8sClient                    client.WithWatch
+	userClientFactory            authorization.UnprivilegedClientFactory
+	spaceScopedUserClientFactory authorization.UserClientFactory
+	spaceScopedKlient            repositories.Klient
+	rootNSKlient                 repositories.Klient
+	userName                     string
+	authInfo                     authorization.Info
+	rootNamespace                string
+	builderName                  string
+	runnerName                   string
+	idProvider                   authorization.IdentityProvider
+	nsPerms                      *authorization.NamespacePermissions
+	adminRole                    *rbacv1.ClusterRole
+	spaceDeveloperRole           *rbacv1.ClusterRole
+	spaceManagerRole             *rbacv1.ClusterRole
+	orgManagerRole               *rbacv1.ClusterRole
+	orgUserRole                  *rbacv1.ClusterRole
+	spaceAuditorRole             *rbacv1.ClusterRole
+	rootNamespaceUserRole        *rbacv1.ClusterRole
 )
 
 var _ = BeforeSuite(func() {
@@ -171,21 +172,19 @@ var _ = BeforeEach(func() {
 	privilegedClientset, err := k8sclient.NewForConfig(testEnv.Config)
 	Expect(err).NotTo(HaveOccurred())
 
-	spaceScopedDescriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), k8sClient.Scheme(), authorization.NewSpaceFilteringOpts(nsPerms))
-
-	clusterWideUserClientFactory := authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper, k8sClient.Scheme()).
+	userClientFactory = authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper, k8sClient.Scheme()).
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
-	clusterWideKlient = k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, clusterWideUserClientFactory, k8sClient.Scheme())
 
-	spaceScopedUserClientFactory := clusterWideUserClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+	spaceScopedDescriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), k8sClient.Scheme(), authorization.NewSpaceFilteringOpts(nsPerms))
+	spaceScopedUserClientFactory = userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewSpaceFilteringClient(client, k8sClient, authorization.NewSpaceFilteringOpts(nsPerms))
 	})
 	spaceScopedObjectListMapper := descriptors.NewObjectListMapper(spaceScopedUserClientFactory)
 	spaceScopedKlient = k8sklient.NewK8sKlient(namespaceRetriever, spaceScopedDescriptorsClient, spaceScopedObjectListMapper, spaceScopedUserClientFactory, k8sClient.Scheme())
 
-	rootNsUserClientFactory := clusterWideUserClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+	rootNsUserClientFactory := userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewRootNSFilteringClient(client, rootNamespace)
 	})
 	rootNSObjectListMapper := descriptors.NewObjectListMapper(rootNsUserClientFactory)

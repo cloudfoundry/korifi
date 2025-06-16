@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -20,12 +21,12 @@ const (
 )
 
 type MetricsRepo struct {
-	klient Klient
+	userClientFactory authorization.UserClientFactory
 }
 
-func NewMetricsRepo(klient Klient) *MetricsRepo {
+func NewMetricsRepo(userClientFactory authorization.UserClientFactory) *MetricsRepo {
 	return &MetricsRepo{
-		klient: klient,
+		userClientFactory: userClientFactory,
 	}
 }
 
@@ -35,12 +36,19 @@ type PodMetrics struct {
 }
 
 func (r *MetricsRepo) GetMetrics(ctx context.Context, authInfo authorization.Info, app AppRecord, processGUID string) ([]PodMetrics, error) {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build user client: %w", err)
+	}
+
 	podList := &corev1.PodList{}
-	_, err := r.klient.List(ctx, podList,
-		InNamespace(app.SpaceGUID),
-		WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, app.GUID),
-		WithLabel(korifiv1alpha1.VersionLabelKey, app.Revision),
-		WithLabel(korifiv1alpha1.GUIDLabelKey, processGUID),
+	err = userClient.List(ctx, podList,
+		client.InNamespace(app.SpaceGUID),
+		client.MatchingLabels{
+			korifiv1alpha1.CFAppGUIDLabelKey: app.GUID,
+			korifiv1alpha1.VersionLabelKey:   app.Revision,
+			korifiv1alpha1.GUIDLabelKey:      processGUID,
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
@@ -53,7 +61,7 @@ func (r *MetricsRepo) GetMetrics(ctx context.Context, authInfo authorization.Inf
 				Name:      pod.Name,
 			},
 		}
-		_ = r.klient.Get(ctx, metrics)
+		_ = userClient.Get(ctx, client.ObjectKeyFromObject(metrics), metrics)
 		return PodMetrics{Pod: pod, Metrics: *metrics}
 	})), nil
 }
