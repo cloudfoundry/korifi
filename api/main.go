@@ -127,27 +127,32 @@ func main() {
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
 	nsPermissions := authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider)
 
-	clusterWideUserClientFactory := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper, scheme.Scheme).
+	userClientFactory := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper, scheme.Scheme).
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
-	spaceScopedUserClientFactory := clusterWideUserClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+
+	spaceScopedUserClientFactory := userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewSpaceFilteringClient(client, privilegedClient, authorization.NewSpaceFilteringOpts(nsPermissions))
 	})
-	rootNsUserClientFactory := clusterWideUserClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
+	spaceScopedKlient := k8sklient.NewK8sKlient(
+		namespaceRetriever,
+		descriptors.NewClient(privilegedClientset.RESTClient(), scheme.Scheme, authorization.NewSpaceFilteringOpts(nsPermissions)),
+		descriptors.NewObjectListMapper(spaceScopedUserClientFactory),
+		spaceScopedUserClientFactory,
+		scheme.Scheme,
+	)
+
+	rootNsUserClientFactory := userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewRootNSFilteringClient(client, cfg.RootNamespace)
 	})
-
-	clusterWideKlient := k8sklient.NewK8sKlient(namespaceRetriever, nil, nil, clusterWideUserClientFactory, scheme.Scheme)
-
-	spaceScopedDescriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), scheme.Scheme, authorization.NewSpaceFilteringOpts(nsPermissions))
-
-	spaceScopedObjectListMapper := descriptors.NewObjectListMapper(spaceScopedUserClientFactory)
-	spaceScopedKlient := k8sklient.NewK8sKlient(namespaceRetriever, spaceScopedDescriptorsClient, spaceScopedObjectListMapper, spaceScopedUserClientFactory, scheme.Scheme)
-
-	rootNsDescriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), scheme.Scheme, authorization.NewRootNsFilteringOpts(cfg.RootNamespace))
-	rootNSObjectListMapper := descriptors.NewObjectListMapper(rootNsUserClientFactory)
-	rootNSKlient := k8sklient.NewK8sKlient(namespaceRetriever, rootNsDescriptorsClient, rootNSObjectListMapper, rootNsUserClientFactory, scheme.Scheme)
+	rootNSKlient := k8sklient.NewK8sKlient(
+		namespaceRetriever,
+		descriptors.NewClient(privilegedClientset.RESTClient(), scheme.Scheme, authorization.NewRootNsFilteringOpts(cfg.RootNamespace)),
+		descriptors.NewObjectListMapper(rootNsUserClientFactory),
+		rootNsUserClientFactory,
+		scheme.Scheme,
+	)
 
 	serverURL, err := url.Parse(cfg.ServerURL)
 	if err != nil {
@@ -173,7 +178,7 @@ func main() {
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFSpace, korifiv1alpha1.CFSpaceList](conditionTimeout),
 	)
 	processRepo := repositories.NewProcessRepo(spaceScopedKlient)
-	podRepo := repositories.NewPodRepo(clusterWideKlient)
+	podRepo := repositories.NewPodRepo(userClientFactory)
 	appRepo := repositories.NewAppRepo(
 		spaceScopedKlient,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
@@ -191,7 +196,7 @@ func main() {
 		spaceScopedKlient,
 	)
 	logRepo := repositories.NewLogRepo(
-		clusterWideKlient,
+		userClientFactory,
 		authorization.NewUnprivilegedClientsetFactory(k8sClientConfig),
 		repositories.DefaultLogStreamer,
 	)
@@ -241,7 +246,7 @@ func main() {
 	)
 	imageClient := image.NewClient(privilegedClientset)
 	imageRepo := repositories.NewImageRepository(
-		clusterWideKlient,
+		userClientFactory,
 		imageClient,
 		cfg.PackageRegistrySecretNames,
 		cfg.RootNamespace,
@@ -250,7 +255,7 @@ func main() {
 		spaceScopedKlient,
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFTask, korifiv1alpha1.CFTaskList](conditionTimeout),
 	)
-	metricsRepo := repositories.NewMetricsRepo(clusterWideKlient)
+	metricsRepo := repositories.NewMetricsRepo(userClientFactory)
 	serviceBrokerRepo := repositories.NewServiceBrokerRepo(rootNSKlient, cfg.RootNamespace)
 	serviceOfferingRepo := repositories.NewServiceOfferingRepo(rootNSKlient, spaceScopedKlient, cfg.RootNamespace)
 	servicePlanRepo := repositories.NewServicePlanRepo(rootNSKlient, cfg.RootNamespace, orgRepo)

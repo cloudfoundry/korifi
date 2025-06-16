@@ -30,7 +30,7 @@ var _ = Describe("PodRepository", func() {
 	BeforeEach(func() {
 		instance = "2"
 		appRevision = "1"
-		podRepo = repositories.NewPodRepo(clusterWideKlient)
+		podRepo = repositories.NewPodRepo(userClientFactory)
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space"))
 		appGUID = uuid.NewString()

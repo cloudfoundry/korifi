@@ -22,6 +22,7 @@ var _ = Describe("Droplets", func() {
 		pkgGUID := createBitsPackage(appGUID)
 		uploadTestApp(pkgGUID, defaultAppBitsFile)
 		buildGUID = createBuild(pkgGUID)
+		waitForDroplet(buildGUID)
 	})
 
 	AfterEach(func() {

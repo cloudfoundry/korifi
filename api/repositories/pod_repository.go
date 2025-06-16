@@ -7,28 +7,36 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/BooleanCat/go-functional/v2/it/itx"
 	corev1 "k8s.io/api/core/v1"
 )
 
 type PodRepo struct {
-	klient Klient
+	userClientFactory authorization.UserClientFactory
 }
 
-func NewPodRepo(klient Klient) *PodRepo {
+func NewPodRepo(userClientFactory authorization.UserClientFactory) *PodRepo {
 	return &PodRepo{
-		klient: klient,
+		userClientFactory: userClientFactory,
 	}
 }
 
 func (r *PodRepo) DeletePod(ctx context.Context, authInfo authorization.Info, appRevision string, process ProcessRecord, instanceID string) error {
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return fmt.Errorf("failed to build user client: %w", err)
+	}
+
 	podList := corev1.PodList{}
-	_, err := r.klient.List(ctx, &podList,
-		InNamespace(process.SpaceGUID),
-		WithLabel("korifi.cloudfoundry.org/app-guid", process.AppGUID),
-		WithLabel("korifi.cloudfoundry.org/version", appRevision),
-		WithLabel("korifi.cloudfoundry.org/process-type", process.Type),
+	err = userClient.List(ctx, &podList,
+		client.InNamespace(process.SpaceGUID),
+		client.MatchingLabels{
+			"korifi.cloudfoundry.org/app-guid":     process.AppGUID,
+			"korifi.cloudfoundry.org/version":      appRevision,
+			"korifi.cloudfoundry.org/process-type": process.Type,
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
@@ -46,7 +54,7 @@ func (r *PodRepo) DeletePod(ctx context.Context, authInfo authorization.Info, ap
 		return apierrors.NewUnprocessableEntityError(nil, "multiple pods found")
 	}
 
-	err = r.klient.Delete(ctx, &podsToDelete[0])
+	err = userClient.Delete(ctx, &podsToDelete[0])
 	if err != nil {
 		return fmt.Errorf("failed to 'delete' pod: %w", apierrors.FromK8sError(err, PodResourceType))
 	}

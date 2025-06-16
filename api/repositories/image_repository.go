@@ -26,20 +26,20 @@ type ImagePusher interface {
 }
 
 type ImageRepository struct {
-	klient              Klient
+	userClientFactory   authorization.UserClientFactory
 	pusher              ImagePusher
 	pushSecretNames     []string
 	pushSecretNamespace string
 }
 
 func NewImageRepository(
-	klient Klient,
+	userClientFactory authorization.UserClientFactory,
 	pusher ImagePusher,
 	pushSecretNames []string,
 	pushSecretNamespace string,
 ) *ImageRepository {
 	return &ImageRepository{
-		klient:              klient,
+		userClientFactory:   userClientFactory,
 		pusher:              pusher,
 		pushSecretNames:     pushSecretNames,
 		pushSecretNamespace: pushSecretNamespace,
@@ -83,7 +83,13 @@ func (r *ImageRepository) canIPatchCFPackage(ctx context.Context, authInfo autho
 			},
 		},
 	}
-	if err := r.klient.Create(ctx, &review); err != nil {
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
+	if err != nil {
+		return false, fmt.Errorf("canIPatchCFPackage: failed to build user client: %w", err)
+	}
+
+	if err := userClient.Create(ctx, &review); err != nil {
 		return false, fmt.Errorf("canIPatchCFPackage: failed to create self subject access review: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 

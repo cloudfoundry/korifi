@@ -13,6 +13,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/tools"
 	k8sclient "k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/BooleanCat/go-functional/v2/it"
@@ -65,18 +66,18 @@ var descendingOrder logRecordSortOrder = func(r1, r2 LogRecord) int {
 }
 
 type LogRepo struct {
-	klient               Klient
+	userClientFactory    authorization.UserClientFactory
 	userClientsetFactory authorization.UserClientsetFactory
 	logStreamer          LogStreamer
 }
 
 func NewLogRepo(
-	klient Klient,
+	userClientFactory authorization.UserClientFactory,
 	userClientsetFactory authorization.UserClientsetFactory,
 	logStreamer LogStreamer,
 ) *LogRepo {
 	return &LogRepo{
-		klient:               klient,
+		userClientFactory:    userClientFactory,
 		userClientsetFactory: userClientsetFactory,
 		logStreamer:          logStreamer,
 	}
@@ -136,8 +137,8 @@ func (r *LogRepo) getBuildLogs(
 		authInfo,
 		startTime,
 		limit,
-		InNamespace(build.SpaceGUID),
-		WithLabel(BuildWorkloadLabelKey, build.GUID),
+		client.InNamespace(build.SpaceGUID),
+		client.MatchingLabels{BuildWorkloadLabelKey: build.GUID},
 	)
 	if err != nil {
 		return nil, err
@@ -163,9 +164,11 @@ func (r *LogRepo) getAppLogs(
 		authInfo,
 		startTime,
 		limit,
-		InNamespace(app.SpaceGUID),
-		WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, app.GUID),
-		WithLabel(korifiv1alpha1.VersionLabelKey, app.Revision),
+		client.InNamespace(app.SpaceGUID),
+		client.MatchingLabels{
+			korifiv1alpha1.CFAppGUIDLabelKey: app.GUID,
+			korifiv1alpha1.VersionLabelKey:   app.Revision,
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -184,15 +187,20 @@ func (r *LogRepo) getLogs(
 	authInfo authorization.Info,
 	startTime *int64,
 	limit *int64,
-	podListOpts ...ListOption,
+	podListOpts ...client.ListOption,
 ) (iter.Seq[LogRecord], error) {
 	logClient, err := r.userClientsetFactory.BuildClientset(authInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build user clientset: %w", err)
+	}
+
+	userClient, err := r.userClientFactory.BuildClient(authInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build user client: %w", err)
 	}
 
 	podList := corev1.PodList{}
-	_, err = r.klient.List(ctx, &podList, podListOpts...)
+	err = userClient.List(ctx, &podList, podListOpts...)
 	if err != nil {
 		return nil, apierrors.FromK8sError(err, PodResourceType)
 	}
