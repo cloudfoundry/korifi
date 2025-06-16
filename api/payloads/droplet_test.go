@@ -2,6 +2,7 @@ package payloads_test
 
 import (
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/onsi/gomega/gstruct"
 
@@ -20,6 +21,7 @@ var _ = Describe("DropletList", func() {
 		Entry("guids", "guids=guid", payloads.DropletList{GUIDs: "guid"}),
 		Entry("app_guids", "app_guids=guid", payloads.DropletList{AppGUIDs: "guid"}),
 		Entry("space_guids", "space_guids=guid", payloads.DropletList{SpaceGUIDs: "guid"}),
+		Entry("pagination", "page=3", payloads.DropletList{Pagination: payloads.Pagination{Page: "3"}}),
 	)
 
 	DescribeTable("invalid query",
@@ -28,7 +30,31 @@ var _ = Describe("DropletList", func() {
 			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
 		},
 		Entry("invalid parameter", "foo=bar", "unsupported query parameter: foo"),
+		Entry("invalid pagination", "per_page=foo", "value must be an integer"),
 	)
+
+	Describe("ToMessage", func() {
+		It("translates to repo message", func() {
+			dropletList := payloads.DropletList{
+				GUIDs:      "g1,g2",
+				AppGUIDs:   "ag1,ag2",
+				SpaceGUIDs: "sg1,sg2",
+				Pagination: payloads.Pagination{
+					PerPage: "3",
+					Page:    "2",
+				},
+			}
+			Expect(dropletList.ToMessage()).To(Equal(repositories.ListDropletsMessage{
+				GUIDs:      []string{"g1", "g2"},
+				AppGUIDs:   []string{"ag1", "ag2"},
+				SpaceGUIDs: []string{"sg1", "sg2"},
+				Pagination: repositories.Pagination{
+					Page:    2,
+					PerPage: 3,
+				},
+			}))
+		})
+	})
 })
 
 var _ = Describe("DropletUpdate", func() {

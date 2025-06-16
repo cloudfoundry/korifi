@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -749,27 +750,33 @@ var _ = Describe("Package", func() {
 			}, nil)
 
 			dropletGUID = generateGUID("droplet")
-			dropletRepo.ListDropletsReturns([]repositories.DropletRecord{
-				{
-					GUID:      dropletGUID,
-					State:     "STAGED",
-					CreatedAt: createdAt,
-					UpdatedAt: updatedAt,
-					Lifecycle: repositories.Lifecycle{
-						Type: "buildpack",
-						Data: repositories.LifecycleData{
-							Buildpacks: []string{},
-							Stack:      "",
+			dropletRepo.ListDropletsReturns(repositories.ListResult[repositories.DropletRecord]{
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+				},
+				Records: []repositories.DropletRecord{
+					{
+						GUID:      dropletGUID,
+						State:     "STAGED",
+						CreatedAt: createdAt,
+						UpdatedAt: updatedAt,
+						Lifecycle: repositories.Lifecycle{
+							Type: "buildpack",
+							Data: repositories.LifecycleData{
+								Buildpacks: []string{},
+								Stack:      "",
+							},
 						},
+						Stack: "cflinuxfs3",
+						ProcessTypes: map[string]string{
+							"web": "bundle exec rackup config.ru -p $PORT",
+						},
+						AppGUID:     appGUID,
+						PackageGUID: packageGUID,
 					},
-					Stack: "cflinuxfs3",
-					ProcessTypes: map[string]string{
-						"web": "bundle exec rackup config.ru -p $PORT",
-					},
-					AppGUID:     appGUID,
-					PackageGUID: packageGUID,
 				},
 			}, nil)
+
 			queryString = "?not=used"
 
 			payload := payloads.PackageListDroplets{}
@@ -833,7 +840,7 @@ var _ = Describe("Package", func() {
 
 		When("an error occurs while fetching the droplets for the package", func() {
 			BeforeEach(func() {
-				dropletRepo.ListDropletsReturns([]repositories.DropletRecord{}, errors.New("boom"))
+				dropletRepo.ListDropletsReturns(repositories.ListResult[repositories.DropletRecord]{}, errors.New("boom"))
 			})
 
 			It("returns the error", func() {

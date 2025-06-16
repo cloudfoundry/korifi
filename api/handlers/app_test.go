@@ -13,6 +13,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/stats"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -1316,11 +1317,16 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps/:guid/droplets", func() {
 		BeforeEach(func() {
-			dropletRepo.ListDropletsReturns([]repositories.DropletRecord{{
-				GUID:    dropletGUID,
-				State:   "STAGED",
-				AppGUID: appGUID,
-			}}, nil)
+			dropletRepo.ListDropletsReturns(repositories.ListResult[repositories.DropletRecord]{
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+				},
+				Records: []repositories.DropletRecord{{
+					GUID:    dropletGUID,
+					State:   "STAGED",
+					AppGUID: appGUID,
+				}},
+			}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/droplets", nil)
 		})
@@ -1374,7 +1380,7 @@ var _ = Describe("App", func() {
 		When("the droplet is not accessible", func() {
 			BeforeEach(func() {
 				dropletRepo.ListDropletsReturns(
-					[]repositories.DropletRecord{},
+					repositories.ListResult[repositories.DropletRecord]{},
 					apierrors.NewForbiddenError(nil, repositories.DropletResourceType),
 				)
 			})
@@ -1387,7 +1393,7 @@ var _ = Describe("App", func() {
 		When("there is some other error fetching the droplet", func() {
 			BeforeEach(func() {
 				dropletRepo.ListDropletsReturns(
-					[]repositories.DropletRecord{},
+					repositories.ListResult[repositories.DropletRecord]{},
 					errors.New("unknown!"),
 				)
 			})

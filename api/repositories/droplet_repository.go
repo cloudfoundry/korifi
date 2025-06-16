@@ -61,6 +61,7 @@ type ListDropletsMessage struct {
 	PackageGUIDs []string
 	AppGUIDs     []string
 	SpaceGUIDs   []string
+	Pagination   Pagination
 }
 
 func (m *ListDropletsMessage) toListOptions() []ListOption {
@@ -69,6 +70,8 @@ func (m *ListDropletsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFDropletGUIDLabelKey, m.GUIDs),
+		WithLabel(korifiv1alpha1.CFBuildStateLabelKey, korifiv1alpha1.BuildStateStaged),
+		WithPaging(m.Pagination),
 	}
 }
 
@@ -138,14 +141,17 @@ func cfBuildToDropletRecord(cfBuild korifiv1alpha1.CFBuild) DropletRecord {
 	return result
 }
 
-func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) ([]DropletRecord, error) {
+func (r *DropletRepo) ListDroplets(ctx context.Context, authInfo authorization.Info, message ListDropletsMessage) (ListResult[DropletRecord], error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	_, err := r.klient.List(ctx, buildList, message.toListOptions()...)
+	pageInfo, err := r.klient.List(ctx, buildList, message.toListOptions()...)
 	if err != nil {
-		return []DropletRecord{}, apierrors.FromK8sError(err, BuildResourceType)
+		return ListResult[DropletRecord]{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
 
-	return slices.Collect(it.Map(slices.Values(buildList.Items), cfBuildToDropletRecord)), nil
+	return ListResult[DropletRecord]{
+		Records:  slices.Collect(it.Map(slices.Values(buildList.Items), cfBuildToDropletRecord)),
+		PageInfo: pageInfo,
+	}, nil
 }
 
 type UpdateDropletMessage struct {
