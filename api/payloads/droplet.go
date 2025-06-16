@@ -33,6 +33,7 @@ type DropletList struct {
 	GUIDs      string
 	AppGUIDs   string
 	SpaceGUIDs string
+	Pagination Pagination
 }
 
 func (l *DropletList) SupportedKeys() []string {
@@ -42,22 +43,28 @@ func (l *DropletList) SupportedKeys() []string {
 		"app_guids",
 		"space_guids",
 		"organization_guids",
+		"page",
+		"per_page",
 	}
 }
 
 func (l *DropletList) IgnoredKeys() []*regexp.Regexp {
 	return []*regexp.Regexp{
-		regexp.MustCompile("page"),
-		regexp.MustCompile("per_page"),
 		regexp.MustCompile("order_by"),
 	}
+}
+
+func (l DropletList) Validate() error {
+	return validation.ValidateStruct(&l,
+		validation.Field(&l.Pagination),
+	)
 }
 
 func (l *DropletList) DecodeFromURLValues(values url.Values) error {
 	l.GUIDs = values.Get("guids")
 	l.AppGUIDs = values.Get("app_guids")
 	l.SpaceGUIDs = values.Get("space_guids")
-	return nil
+	return l.Pagination.DecodeFromURLValues(values)
 }
 
 func (l *DropletList) ToMessage() repositories.ListDropletsMessage {
@@ -65,5 +72,6 @@ func (l *DropletList) ToMessage() repositories.ListDropletsMessage {
 		GUIDs:      parse.ArrayParam(l.GUIDs),
 		AppGUIDs:   parse.ArrayParam(l.AppGUIDs),
 		SpaceGUIDs: parse.ArrayParam(l.SpaceGUIDs),
+		Pagination: l.Pagination.ToMessage(DefaultPageSize),
 	}
 }
