@@ -18,6 +18,12 @@ spec:
     - jsonPath: .spec.appRef.name
       name: AppGUID
       type: string
+    - jsonPath: .metadata.labels.korifi\.cloudfoundry\.org/created_at
+      name: Created At
+      type: string
+    - jsonPath: .metadata.labels.korifi\.cloudfoundry\.org/updated_at
+      name: Updated At
+      type: string
     - jsonPath: .status.conditions[?(@.type=='Ready')].status
       name: Ready
       type: string

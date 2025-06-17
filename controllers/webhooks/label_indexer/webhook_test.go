@@ -221,10 +221,32 @@ var _ = Describe("LabelIndexerWebhook", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(pkg), pkg)).To(Succeed())
 				g.Expect(pkg.Labels).To(MatchKeys(IgnoreExtras, Keys{
-					korifiv1alpha1.SpaceGUIDLabelKey: Equal(pkg.Namespace),
-					korifiv1alpha1.CFAppGUIDLabelKey: Equal(pkg.Spec.AppRef.Name),
+					korifiv1alpha1.SpaceGUIDLabelKey:      Equal(pkg.Namespace),
+					korifiv1alpha1.CFAppGUIDLabelKey:      Equal(pkg.Spec.AppRef.Name),
+					korifiv1alpha1.CFPackageStateLabelKey: Equal(korifiv1alpha1.PackageStateAwaitingUpload),
 				}))
 			}).Should(Succeed())
+		})
+
+		When("the package is ready", func() {
+			JustBeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, pkg, func() {
+					meta.SetStatusCondition(&pkg.Status.Conditions, metav1.Condition{
+						Type:   korifiv1alpha1.StatusConditionReady,
+						Status: metav1.ConditionTrue,
+						Reason: "Ready",
+					})
+				})).To(Succeed())
+			})
+
+			It("labels the CFPackage with the ready state label", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(pkg), pkg)).To(Succeed())
+					g.Expect(pkg.Labels).To(MatchKeys(IgnoreExtras, Keys{
+						korifiv1alpha1.CFPackageStateLabelKey: Equal(korifiv1alpha1.PackageStateReady),
+					}))
+				}).Should(Succeed())
+			})
 		})
 	})
 

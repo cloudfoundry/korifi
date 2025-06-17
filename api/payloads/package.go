@@ -90,18 +90,20 @@ func (u *PackageUpdate) ToMessage(packageGUID string) repositories.UpdatePackage
 }
 
 type PackageList struct {
-	GUIDs    string
-	AppGUIDs string
-	States   string
-	OrderBy  string
+	GUIDs      string
+	AppGUIDs   string
+	States     string
+	OrderBy    string
+	Pagination Pagination
 }
 
 func (p *PackageList) ToMessage() repositories.ListPackagesMessage {
 	return repositories.ListPackagesMessage{
-		GUIDs:    parse.ArrayParam(p.GUIDs),
-		AppGUIDs: parse.ArrayParam(p.AppGUIDs),
-		States:   parse.ArrayParam(p.States),
-		OrderBy:  p.OrderBy,
+		GUIDs:      parse.ArrayParam(p.GUIDs),
+		AppGUIDs:   parse.ArrayParam(p.AppGUIDs),
+		States:     parse.ArrayParam(p.States),
+		OrderBy:    p.OrderBy,
+		Pagination: p.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
@@ -114,12 +116,13 @@ func (p *PackageList) DecodeFromURLValues(values url.Values) error {
 	p.AppGUIDs = values.Get("app_guids")
 	p.States = values.Get("states")
 	p.OrderBy = values.Get("order_by")
-	return nil
+	return p.Pagination.DecodeFromURLValues(values)
 }
 
 func (p PackageList) Validate() error {
 	return jellidation.ValidateStruct(&p,
 		jellidation.Field(&p.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&p.Pagination),
 	)
 }
 

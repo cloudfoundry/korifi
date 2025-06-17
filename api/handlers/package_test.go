@@ -129,33 +129,24 @@ var _ = Describe("Package", func() {
 	})
 
 	Describe("the GET /v3/packages endpoint", func() {
-		var anotherPackageGUID string
-
 		BeforeEach(func() {
-			anotherPackageGUID = generateGUID("package2")
-
-			packageRepo.ListPackagesReturns([]repositories.PackageRecord{
-				{
-					GUID:      packageGUID,
-					Type:      "bits",
-					AppGUID:   appGUID,
-					SpaceGUID: spaceGUID,
-					State:     "AWAITING_UPLOAD",
-					CreatedAt: createdAt,
-					UpdatedAt: updatedAt,
-				},
-				{
-					GUID:      anotherPackageGUID,
-					Type:      "bits",
-					AppGUID:   appGUID,
-					SpaceGUID: spaceGUID,
-					State:     "READY",
-					CreatedAt: createdAt,
-					UpdatedAt: updatedAt,
+			packageRepo.ListPackagesReturns(repositories.ListResult[repositories.PackageRecord]{
+				Records: []repositories.PackageRecord{
+					{
+						GUID:      packageGUID,
+						Type:      "bits",
+						AppGUID:   appGUID,
+						SpaceGUID: spaceGUID,
+						State:     "AWAITING_UPLOAD",
+						CreatedAt: createdAt,
+						UpdatedAt: updatedAt,
+					},
 				},
 			}, nil)
 
-			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.PackageList{})
+			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.PackageList{
+				AppGUIDs: appGUID,
+			})
 		})
 
 		JustBeforeEach(func() {
@@ -173,68 +164,16 @@ var _ = Describe("Package", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.resources", HaveLen(2)),
+				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", packageGUID),
-				MatchJSONPath("$.resources[0].state", Equal("AWAITING_UPLOAD")),
-				MatchJSONPath("$.resources[1].guid", anotherPackageGUID),
 			)))
 		})
 
-		When("the 'app_guids' query parameter is provided", func() {
-			BeforeEach(func() {
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.PackageList{
-					AppGUIDs: appGUID,
-				})
-			})
+		It("calls the package repository with expected arguments", func() {
+			_, _, message := packageRepo.ListPackagesArgsForCall(0)
+			Expect(message.AppGUIDs).To(Equal([]string{appGUID}))
 
-			It("calls the package repository with expected arguments", func() {
-				_, _, message := packageRepo.ListPackagesArgsForCall(0)
-				Expect(message).To(Equal(repositories.ListPackagesMessage{
-					AppGUIDs: []string{appGUID},
-				}))
-
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
-		})
-
-		Describe("Order results", func() {
-			BeforeEach(func() {
-				packageRepo.ListPackagesReturns([]repositories.PackageRecord{
-					{
-						GUID:      "1",
-						CreatedAt: time.UnixMilli(3000),
-						UpdatedAt: tools.PtrTo(time.UnixMilli(4000)),
-					},
-					{
-						GUID:      "2",
-						CreatedAt: time.UnixMilli(2000),
-						UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
-					},
-					{
-						GUID:      "3",
-						CreatedAt: time.UnixMilli(1000),
-						UpdatedAt: tools.PtrTo(time.UnixMilli(5000)),
-					},
-				}, nil)
-			})
-		})
-
-		When("the 'states' parameter is sent", func() {
-			BeforeEach(func() {
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(
-					&payloads.PackageList{
-						States: "READY,AWAITING_UPLOAD",
-					},
-				)
-			})
-
-			It("calls repository ListPackage with the correct message object", func() {
-				_, _, message := packageRepo.ListPackagesArgsForCall(0)
-				Expect(message).To(Equal(repositories.ListPackagesMessage{
-					States: []string{"READY", "AWAITING_UPLOAD"},
-				}))
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			})
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
 		When("request is invalid", func() {
@@ -247,24 +186,9 @@ var _ = Describe("Package", func() {
 			})
 		})
 
-		When("no packages exist", func() {
+		When("the package repo returns an error", func() {
 			BeforeEach(func() {
-				packageRepo.ListPackagesReturns([]repositories.PackageRecord{}, nil)
-			})
-
-			It("returns an empty list", func() {
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-				Expect(rr).To(HaveHTTPBody(SatisfyAll(
-					MatchJSONPath("$.pagination.total_results", BeEquivalentTo(0)),
-					MatchJSONPath("$.resources", BeEmpty()),
-				)))
-			})
-		})
-
-		When("there is an unknown issue with the Package Repo", func() {
-			BeforeEach(func() {
-				packageRepo.ListPackagesReturns([]repositories.PackageRecord{}, errors.New("some-error"))
+				packageRepo.ListPackagesReturns(repositories.ListResult[repositories.PackageRecord]{}, errors.New("some-error"))
 			})
 
 			It("returns an error", func() {

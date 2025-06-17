@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	InitializedConditionType string = "Initialized"
+	InitializedConditionType = "Initialized"
 )
 
 //counterfeiter:generate -o fake -fake-name ImageDeleter . ImageDeleter

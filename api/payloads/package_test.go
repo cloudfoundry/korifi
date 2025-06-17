@@ -310,19 +310,7 @@ var _ = Describe("PackageList", func() {
 		Entry("-created_at", "order_by=-created_at", payloads.PackageList{OrderBy: "-created_at"}),
 		Entry("updated_at", "order_by=updated_at", payloads.PackageList{OrderBy: "updated_at"}),
 		Entry("-updated_at", "order_by=-updated_at", payloads.PackageList{OrderBy: "-updated_at"}),
-		Entry("empty", "order_by=", payloads.PackageList{OrderBy: ""}),
-	)
-
-	DescribeTable("ToMessage",
-		func(packageList payloads.PackageList, expectedListPackagesMessage repositories.ListPackagesMessage) {
-			actualListPackagesMessage := packageList.ToMessage()
-
-			Expect(actualListPackagesMessage).To(Equal(expectedListPackagesMessage))
-		},
-		Entry("guids", payloads.PackageList{GUIDs: "g1,g2"}, repositories.ListPackagesMessage{GUIDs: []string{"g1", "g2"}}),
-		Entry("app_guids", payloads.PackageList{AppGUIDs: "ag1,ag2"}, repositories.ListPackagesMessage{AppGUIDs: []string{"ag1", "ag2"}}),
-		Entry("states", payloads.PackageList{States: "s1,s2"}, repositories.ListPackagesMessage{States: []string{"s1", "s2"}}),
-		Entry("empty", payloads.PackageList{}, repositories.ListPackagesMessage{}),
+		Entry("page=3", "page=3", payloads.PackageList{Pagination: payloads.Pagination{Page: "3"}}),
 	)
 
 	DescribeTable("invalid query",
@@ -331,5 +319,43 @@ var _ = Describe("PackageList", func() {
 			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
 		},
 		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+		Entry("page=foo", "page=foo", "value must be an integer"),
 	)
+
+	Describe("ToMessage", func() {
+		var (
+			packageList payloads.PackageList
+			message     repositories.ListPackagesMessage
+		)
+
+		BeforeEach(func() {
+			packageList = payloads.PackageList{
+				GUIDs:    "pg1,pg2",
+				AppGUIDs: "ag1,ag2",
+				States:   "s1,s2",
+				OrderBy:  "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "10",
+					Page:    "4",
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			message = packageList.ToMessage()
+		})
+
+		It("translates to repository message", func() {
+			Expect(message).To(Equal(repositories.ListPackagesMessage{
+				GUIDs:    []string{"pg1", "pg2"},
+				AppGUIDs: []string{"ag1", "ag2"},
+				States:   []string{"s1", "s2"},
+				OrderBy:  "created_at",
+				Pagination: repositories.Pagination{
+					PerPage: 10,
+					Page:    4,
+				},
+			}))
+		})
+	})
 })

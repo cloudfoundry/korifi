@@ -61,6 +61,14 @@ func NewWebhook() *LabelIndexerWebhook {
 			"CFPackage": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
 				LabelRule{Label: korifiv1alpha1.CFAppGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.appRef.name"))},
+				LabelRule{
+					Label: korifiv1alpha1.CFPackageStateLabelKey,
+					IndexingFunc: Map(DefaultIfEmpty(Unquote(SingleValue(JSONValue("$.status.conditions[?@.type == \"Ready\"].status"))), ConstantValue(string(metav1.ConditionFalse))),
+						map[string]IndexValueFunc{
+							string(metav1.ConditionFalse): ConstantValue(korifiv1alpha1.PackageStateAwaitingUpload),
+							string(metav1.ConditionTrue):  ConstantValue(korifiv1alpha1.PackageStateReady),
+						}),
+				},
 			},
 			"CFProcess": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},
