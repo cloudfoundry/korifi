@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -190,16 +191,25 @@ var _ = Describe("Space", func() {
 		When("orgs are included", func() {
 			BeforeEach(func() {
 				requestPath += "&include=organization"
-				orgRepo.ListOrgsReturns([]repositories.OrgRecord{
-					{
-						Name: "test-org-1",
-						GUID: "test-org-1-guid",
+				orgRepo.ListOrgsReturns(repositories.ListResult[repositories.OrgRecord]{
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 2,
+						TotalPages:   1,
+						PageNumber:   1,
+						PageSize:     2,
 					},
-					{
-						Name: "test-org-2",
-						GUID: "test-org-2-guid",
+					Records: []repositories.OrgRecord{
+						{
+							Name: "test-org-1",
+							GUID: "test-org-1-guid",
+						},
+						{
+							Name: "test-org-2",
+							GUID: "test-org-2-guid",
+						},
 					},
 				}, nil)
+
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{IncludeResourceRules: []params.IncludeResourceRule{
 					{
 						RelationshipPath: []string{"organization"},
@@ -408,10 +418,18 @@ var _ = Describe("Space", func() {
 		When("org is included", func() {
 			BeforeEach(func() {
 				requestPath += "?include=organization"
-				orgRepo.ListOrgsReturns([]repositories.OrgRecord{
-					{
-						Name: "test-org-1",
-						GUID: "the-org-guid",
+				orgRepo.ListOrgsReturns(repositories.ListResult[repositories.OrgRecord]{
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 1,
+						TotalPages:   1,
+						PageNumber:   1,
+						PageSize:     1,
+					},
+					Records: []repositories.OrgRecord{
+						{
+							Name: "test-org-1",
+							GUID: "the-org-guid",
+						},
 					},
 				}, nil)
 

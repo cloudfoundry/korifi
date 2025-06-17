@@ -11,7 +11,7 @@ import (
 )
 
 type OrgRepository struct {
-	ListOrgsStub        func(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
+	ListOrgsStub        func(context.Context, authorization.Info, repositories.ListOrgsMessage) (repositories.ListResult[repositories.OrgRecord], error)
 	listOrgsMutex       sync.RWMutex
 	listOrgsArgsForCall []struct {
 		arg1 context.Context
@@ -19,18 +19,18 @@ type OrgRepository struct {
 		arg3 repositories.ListOrgsMessage
 	}
 	listOrgsReturns struct {
-		result1 []repositories.OrgRecord
+		result1 repositories.ListResult[repositories.OrgRecord]
 		result2 error
 	}
 	listOrgsReturnsOnCall map[int]struct {
-		result1 []repositories.OrgRecord
+		result1 repositories.ListResult[repositories.OrgRecord]
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *OrgRepository) ListOrgs(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListOrgsMessage) ([]repositories.OrgRecord, error) {
+func (fake *OrgRepository) ListOrgs(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListOrgsMessage) (repositories.ListResult[repositories.OrgRecord], error) {
 	fake.listOrgsMutex.Lock()
 	ret, specificReturn := fake.listOrgsReturnsOnCall[len(fake.listOrgsArgsForCall)]
 	fake.listOrgsArgsForCall = append(fake.listOrgsArgsForCall, struct {
@@ -57,7 +57,7 @@ func (fake *OrgRepository) ListOrgsCallCount() int {
 	return len(fake.listOrgsArgsForCall)
 }
 
-func (fake *OrgRepository) ListOrgsCalls(stub func(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)) {
+func (fake *OrgRepository) ListOrgsCalls(stub func(context.Context, authorization.Info, repositories.ListOrgsMessage) (repositories.ListResult[repositories.OrgRecord], error)) {
 	fake.listOrgsMutex.Lock()
 	defer fake.listOrgsMutex.Unlock()
 	fake.ListOrgsStub = stub
@@ -70,28 +70,28 @@ func (fake *OrgRepository) ListOrgsArgsForCall(i int) (context.Context, authoriz
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *OrgRepository) ListOrgsReturns(result1 []repositories.OrgRecord, result2 error) {
+func (fake *OrgRepository) ListOrgsReturns(result1 repositories.ListResult[repositories.OrgRecord], result2 error) {
 	fake.listOrgsMutex.Lock()
 	defer fake.listOrgsMutex.Unlock()
 	fake.ListOrgsStub = nil
 	fake.listOrgsReturns = struct {
-		result1 []repositories.OrgRecord
+		result1 repositories.ListResult[repositories.OrgRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *OrgRepository) ListOrgsReturnsOnCall(i int, result1 []repositories.OrgRecord, result2 error) {
+func (fake *OrgRepository) ListOrgsReturnsOnCall(i int, result1 repositories.ListResult[repositories.OrgRecord], result2 error) {
 	fake.listOrgsMutex.Lock()
 	defer fake.listOrgsMutex.Unlock()
 	fake.ListOrgsStub = nil
 	if fake.listOrgsReturnsOnCall == nil {
 		fake.listOrgsReturnsOnCall = make(map[int]struct {
-			result1 []repositories.OrgRecord
+			result1 repositories.ListResult[repositories.OrgRecord]
 			result2 error
 		})
 	}
 	fake.listOrgsReturnsOnCall[i] = struct {
-		result1 []repositories.OrgRecord
+		result1 repositories.ListResult[repositories.OrgRecord]
 		result2 error
 	}{result1, result2}
 }

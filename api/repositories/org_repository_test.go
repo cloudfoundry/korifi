@@ -165,27 +165,24 @@ var _ = Describe("OrgRepository", func() {
 
 	Describe("ListOrgs", func() {
 		var (
-			cfOrg1, cfOrg2, cfOrg3 *korifiv1alpha1.CFOrg
-			listMessage            repositories.ListOrgsMessage
-			orgs                   []repositories.OrgRecord
-			listErr                error
+			cfOrg1      *korifiv1alpha1.CFOrg
+			listMessage repositories.ListOrgsMessage
+			listResult  repositories.ListResult[repositories.OrgRecord]
+			listErr     error
 		)
 
 		BeforeEach(func() {
 			cfOrg1 = createOrgWithCleanup(ctx, prefixedGUID("org1"))
-			cfOrg2 = createOrgWithCleanup(ctx, prefixedGUID("org2"))
-			cfOrg3 = createOrgWithCleanup(ctx, prefixedGUID("org3"))
-			createOrgWithCleanup(ctx, prefixedGUID("org4"))
 			listMessage = repositories.ListOrgsMessage{}
 		})
 
 		JustBeforeEach(func() {
-			orgs, listErr = orgRepo.ListOrgs(ctx, authInfo, listMessage)
+			listResult, listErr = orgRepo.ListOrgs(ctx, authInfo, listMessage)
 		})
 
 		It("returns an empty list (as no roles assigned)", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(orgs).To(BeEmpty())
+			Expect(listResult.Records).To(BeEmpty())
 		})
 
 		When("fetching authorized namespaces fails", func() {
@@ -201,45 +198,17 @@ var _ = Describe("OrgRepository", func() {
 		When("the user is an org user", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg1.Name)
-				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg2.Name)
-				createRoleBinding(ctx, userName, orgUserRole.Name, cfOrg3.Name)
 			})
 
 			It("returns the orgs", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 
-				Expect(orgs).To(ConsistOf(
+				Expect(listResult.Records).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"Name": Equal(cfOrg1.Spec.DisplayName),
 						"GUID": Equal(cfOrg1.Name),
 					}),
-					MatchFields(IgnoreExtras, Fields{
-						"Name": Equal(cfOrg2.Spec.DisplayName),
-						"GUID": Equal(cfOrg2.Name),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"Name": Equal(cfOrg3.Spec.DisplayName),
-						"GUID": Equal(cfOrg3.Name),
-					}),
 				))
-			})
-
-			When("listing by names", func() {
-				BeforeEach(func() {
-					listMessage = repositories.ListOrgsMessage{
-						Names: []string{cfOrg2.Spec.DisplayName},
-					}
-				})
-
-				It("returns the orgs with matching names", func() {
-					Expect(listErr).NotTo(HaveOccurred())
-
-					Expect(orgs).To(ConsistOf(
-						MatchFields(IgnoreExtras, Fields{
-							"GUID": Equal(cfOrg2.Name),
-						}),
-					))
-				})
 			})
 
 			Describe("filter parameters to list options", func() {
@@ -250,8 +219,12 @@ var _ = Describe("OrgRepository", func() {
 					orgRepo = repositories.NewOrgRepo(fakeKlient, rootNamespace, nsPerms, conditionAwaiter)
 
 					listMessage = repositories.ListOrgsMessage{
-						GUIDs: []string{cfOrg2.Name},
+						GUIDs: []string{cfOrg1.Name},
 						Names: []string{"a1", "a2"},
+						Pagination: repositories.Pagination{
+							Page:    2,
+							PerPage: 100,
+						},
 					}
 				})
 
@@ -259,9 +232,13 @@ var _ = Describe("OrgRepository", func() {
 					Expect(fakeKlient.ListCallCount()).To(Equal(1))
 					_, _, listOptions := fakeKlient.ListArgsForCall(0)
 					Expect(listOptions).To(ConsistOf(
-						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{cfOrg2.Name}),
+						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{cfOrg1.Name}),
 						repositories.WithLabelIn(korifiv1alpha1.CFOrgDisplayNameKey, tools.EncodeValuesToSha224("a1", "a2")),
 						repositories.WithLabel(korifiv1alpha1.ReadyLabelKey, string(metav1.ConditionTrue)),
+						repositories.WithPaging(repositories.Pagination{
+							Page:    2,
+							PerPage: 100,
+						}),
 					))
 				})
 
@@ -276,7 +253,7 @@ var _ = Describe("OrgRepository", func() {
 						Expect(listOptions).To(ContainElement(
 							MatchAllFields(Fields{
 								"Key":    Equal(korifiv1alpha1.GUIDLabelKey),
-								"Values": ConsistOf(cfOrg1.Name, cfOrg2.Name, cfOrg3.Name),
+								"Values": ConsistOf(cfOrg1.Name),
 							}),
 						))
 					})

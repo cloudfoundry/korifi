@@ -33,7 +33,7 @@ type SpaceRepository interface {
 
 //counterfeiter:generate -o fake -fake-name OrgRepository . OrgRepository
 type OrgRepository interface {
-	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
+	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) (repositories.ListResult[repositories.OrgRecord], error)
 }
 
 //counterfeiter:generate -o fake -fake-name Resource . Resource
@@ -104,11 +104,12 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 		))
 
 	case "organization":
-		return asResources(r.orgRepo.ListOrgs(
+		listResult, err := r.orgRepo.ListOrgs(
 			ctx,
 			authInfo,
 			repositories.ListOrgsMessage{GUIDs: relatedResourceGUIDs},
-		))
+		)
+		return asResources(listResult.Records, err)
 	}
 
 	return nil, fmt.Errorf("no repository for type %q", relatedResourceType)

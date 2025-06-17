@@ -53,20 +53,28 @@ func (p OrgPatch) ToMessage(orgGUID string) repositories.PatchOrgMessage {
 }
 
 type OrgList struct {
-	Names string
+	Names      string
+	Pagination Pagination
 }
 
-func (d *OrgList) ToMessage() repositories.ListOrgsMessage {
+func (l *OrgList) ToMessage() repositories.ListOrgsMessage {
 	return repositories.ListOrgsMessage{
-		Names: parse.ArrayParam(d.Names),
+		Names:      parse.ArrayParam(l.Names),
+		Pagination: l.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
-func (d *OrgList) SupportedKeys() []string {
+func (l *OrgList) SupportedKeys() []string {
 	return []string{"names", "order_by", "per_page", "page"}
 }
 
-func (d *OrgList) DecodeFromURLValues(values url.Values) error {
-	d.Names = values.Get("names")
-	return nil
+func (l *OrgList) DecodeFromURLValues(values url.Values) error {
+	l.Names = values.Get("names")
+	return l.Pagination.DecodeFromURLValues(values)
+}
+
+func (l OrgList) Validate() error {
+	return validation.ValidateStruct(&l,
+		validation.Field(&l.Pagination),
+	)
 }

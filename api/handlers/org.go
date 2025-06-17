@@ -30,7 +30,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFOrgRepository . CFOrgRepository
 type CFOrgRepository interface {
 	CreateOrg(context.Context, authorization.Info, repositories.CreateOrgMessage) (repositories.OrgRecord, error)
-	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) ([]repositories.OrgRecord, error)
+	ListOrgs(context.Context, authorization.Info, repositories.ListOrgsMessage) (repositories.ListResult[repositories.OrgRecord], error)
 	DeleteOrg(context.Context, authorization.Info, repositories.DeleteOrgMessage) error
 	GetOrg(context.Context, authorization.Info, string) (repositories.OrgRecord, error)
 	PatchOrg(context.Context, authorization.Info, repositories.PatchOrgMessage) (repositories.OrgRecord, error)
@@ -126,12 +126,12 @@ func (h *Org) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	orgs, err := h.orgRepo.ListOrgs(r.Context(), authInfo, listFilter.ToMessage())
+	listResult, err := h.orgRepo.ListOrgs(r.Context(), authInfo, listFilter.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to fetch orgs")
 	}
 
-	resp := routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForOrg, orgs, h.apiBaseURL, *r.URL))
+	resp := routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForOrg, listResult, h.apiBaseURL, *r.URL))
 	notAfter, certParsed := decodePEMNotAfter(authInfo.CertData)
 
 	if !isExpirationValid(notAfter, h.userCertificateExpirationWarningDuration, certParsed) {

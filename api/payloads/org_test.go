@@ -1,9 +1,8 @@
 package payloads_test
 
 import (
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -114,24 +113,42 @@ var _ = Describe("Org", func() {
 	})
 
 	Describe("OrgList", func() {
-		Describe("decoding from url values", func() {
-			It("gets the names param and allows order_by", func() {
-				orgList := payloads.OrgList{}
-				req, err := http.NewRequest("GET", "http://foo.com/bar?names=foo,bar&order_by=name", nil)
-				Expect(err).NotTo(HaveOccurred())
-				err = validator.DecodeAndValidateURLValues(req, &orgList)
+		DescribeTable("valid query",
+			func(query string, expectedOrgList payloads.OrgList) {
+				actualOrgList, decodeErr := decodeQuery[payloads.OrgList](query)
 
-				Expect(err).NotTo(HaveOccurred())
-				Expect(orgList.Names).To(Equal("foo,bar"))
-			})
-		})
+				Expect(decodeErr).NotTo(HaveOccurred())
+				Expect(*actualOrgList).To(Equal(expectedOrgList))
+			},
+			Entry("names", "names=o1,o2", payloads.OrgList{Names: "o1,o2"}),
+			Entry("pagination", "page=3", payloads.OrgList{Pagination: payloads.Pagination{Page: "3"}}),
+		)
+
+		DescribeTable("invalid query",
+			func(query string, expectedErrMsg string) {
+				_, decodeErr := decodeQuery[payloads.OrgList](query)
+				Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+			},
+			Entry("invalid parameter", "foo=bar", "unsupported query parameter: foo"),
+			Entry("invalid pagination", "per_page=foo", "value must be an integer"),
+		)
 
 		Describe("ToMessage", func() {
 			It("splits names to strings", func() {
 				orgList := payloads.OrgList{
 					Names: "foo,bar",
+					Pagination: payloads.Pagination{
+						PerPage: "10",
+						Page:    "2",
+					},
 				}
-				Expect(orgList.ToMessage().Names).To(ConsistOf("foo", "bar"))
+				Expect(orgList.ToMessage()).To(Equal(repositories.ListOrgsMessage{
+					Names: []string{"foo", "bar"},
+					Pagination: repositories.Pagination{
+						PerPage: 10,
+						Page:    2,
+					},
+				}))
 			})
 		})
 	})
