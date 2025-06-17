@@ -22,11 +22,16 @@ rules:
       - cfapps
       - cfbuilds
       - cfdomains
+      - cforgs
       - cfpackages
       - cfprocesses
       - cfroutes
+      - cfsecuritygroups
       - cfservicebindings
+      - cfservicebrokers
       - cfserviceinstances
+      - cfserviceofferings
+      - cfserviceplans
       - cfspaces
       - cftasks
     verbs:

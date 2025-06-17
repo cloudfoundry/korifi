@@ -328,14 +328,14 @@ func (r *ServicePlanRepo) planToRecord(ctx context.Context, authInfo authorizati
 }
 
 func (r *ServicePlanRepo) toVisibilityOrganizations(ctx context.Context, authInfo authorization.Info, orgGUIDs []string) ([]VisibilityOrganization, error) {
-	orgs, err := r.orgRepo.ListOrgs(ctx, authInfo, ListOrgsMessage{
+	listResult, err := r.orgRepo.ListOrgs(ctx, authInfo, ListOrgsMessage{
 		GUIDs: orgGUIDs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list orgs for plan visibility: %w", err)
 	}
 
-	return slices.Collect(it.Map(slices.Values(orgs), func(o OrgRecord) VisibilityOrganization {
+	return slices.Collect(it.Map(slices.Values(listResult.Records), func(o OrgRecord) VisibilityOrganization {
 		return VisibilityOrganization{
 			GUID: o.GUID,
 			Name: o.Name,

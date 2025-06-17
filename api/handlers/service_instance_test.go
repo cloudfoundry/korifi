@@ -152,10 +152,12 @@ var _ = Describe("ServiceInstance", func() {
 					GUID: "service-broker-guid",
 				}}, nil)
 
-				orgRepo.ListOrgsReturns([]repositories.OrgRecord{{
-					Name: "org-name",
-					GUID: "org-guid",
-				}}, nil)
+				orgRepo.ListOrgsReturns(repositories.ListResult[repositories.OrgRecord]{
+					Records: []repositories.OrgRecord{{
+						Name: "org-name",
+						GUID: "org-guid",
+					}},
+				}, nil)
 
 				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{{
 					Name:             "space-name",
@@ -617,10 +619,12 @@ var _ = Describe("ServiceInstance", func() {
 					GUID: "service-broker-guid",
 				}}, nil)
 
-				orgRepo.ListOrgsReturns([]repositories.OrgRecord{{
-					Name: "org-name",
-					GUID: "org-guid",
-				}}, nil)
+				orgRepo.ListOrgsReturns(repositories.ListResult[repositories.OrgRecord]{
+					Records: []repositories.OrgRecord{{
+						Name: "org-name",
+						GUID: "org-guid",
+					}},
+				}, nil)
 
 				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{{
 					Name:             "space-name",

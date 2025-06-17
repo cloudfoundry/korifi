@@ -211,7 +211,9 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 				"organization": "org-guid",
 			})
 
-			orgRepo.ListOrgsReturns([]repositories.OrgRecord{{GUID: "org-guid"}}, nil)
+			orgRepo.ListOrgsReturns(repositories.ListResult[repositories.OrgRecord]{
+				Records: []repositories.OrgRecord{{GUID: "org-guid"}},
+			}, nil)
 		})
 
 		It("returns a list of related orgs", func() {
@@ -221,7 +223,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 
 		When("the underlying repo returns an error", func() {
 			BeforeEach(func() {
-				orgRepo.ListOrgsReturns(nil, errors.New("list-org-error"))
+				orgRepo.ListOrgsReturns(repositories.ListResult[repositories.OrgRecord]{}, errors.New("list-org-error"))
 			})
 
 			It("returns an error", func() {

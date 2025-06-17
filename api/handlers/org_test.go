@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -122,18 +123,26 @@ var _ = Describe("Org", func() {
 
 		BeforeEach(func() {
 			path = "/v3/organizations?names=a,b"
-			orgRepo.ListOrgsReturns([]repositories.OrgRecord{
-				{
-					Name:      "alice",
-					GUID:      "a-l-i-c-e",
-					CreatedAt: now,
-					UpdatedAt: &now,
+			orgRepo.ListOrgsReturns(repositories.ListResult[repositories.OrgRecord]{
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     2,
 				},
-				{
-					Name:      "bob",
-					GUID:      "b-o-b",
-					CreatedAt: now,
-					UpdatedAt: &now,
+				Records: []repositories.OrgRecord{
+					{
+						Name:      "alice",
+						GUID:      "a-l-i-c-e",
+						CreatedAt: now,
+						UpdatedAt: &now,
+					},
+					{
+						Name:      "bob",
+						GUID:      "b-o-b",
+						CreatedAt: now,
+						UpdatedAt: &now,
+					},
 				},
 			}, nil)
 		})
@@ -183,7 +192,7 @@ var _ = Describe("Org", func() {
 
 		When("fetching the orgs fails", func() {
 			BeforeEach(func() {
-				orgRepo.ListOrgsReturns(nil, errors.New("boom!"))
+				orgRepo.ListOrgsReturns(repositories.ListResult[repositories.OrgRecord]{}, errors.New("boom!"))
 			})
 
 			It("returns an error", func() {

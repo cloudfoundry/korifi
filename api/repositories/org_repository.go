@@ -29,8 +29,9 @@ type CreateOrgMessage struct {
 }
 
 type ListOrgsMessage struct {
-	Names []string
-	GUIDs []string
+	Names      []string
+	GUIDs      []string
+	Pagination Pagination
 }
 
 func (m *ListOrgsMessage) toListOptions(authorizedOrgGuids []string) []ListOption {
@@ -45,6 +46,7 @@ func (m *ListOrgsMessage) toListOptions(authorizedOrgGuids []string) []ListOptio
 		WithLabelStrictlyIn(korifiv1alpha1.GUIDLabelKey, selectedGuids),
 		WithLabelIn(korifiv1alpha1.CFOrgDisplayNameKey, tools.EncodeValuesToSha224(m.Names...)),
 		WithLabel(korifiv1alpha1.ReadyLabelKey, string(metav1.ConditionTrue)),
+		WithPaging(m.Pagination),
 	}
 }
 
@@ -127,32 +129,35 @@ func (r *OrgRepo) CreateOrg(ctx context.Context, info authorization.Info, messag
 	return cfOrgToOrgRecord(*cfOrg), nil
 }
 
-func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, message ListOrgsMessage) ([]OrgRecord, error) {
+func (r *OrgRepo) ListOrgs(ctx context.Context, info authorization.Info, message ListOrgsMessage) (ListResult[OrgRecord], error) {
 	authorizedNamespaces, err := r.nsPerms.GetAuthorizedOrgNamespaces(ctx, info)
 	if err != nil {
-		return nil, err
+		return ListResult[OrgRecord]{}, err
 	}
 
 	cfOrgList := new(korifiv1alpha1.CFOrgList)
-	_, err = r.klient.List(ctx, cfOrgList, message.toListOptions(slices.Collect(maps.Keys(authorizedNamespaces)))...)
+	pageInfo, err := r.klient.List(ctx, cfOrgList, message.toListOptions(slices.Collect(maps.Keys(authorizedNamespaces)))...)
 	if err != nil {
-		return nil, apierrors.FromK8sError(err, OrgResourceType)
+		return ListResult[OrgRecord]{}, apierrors.FromK8sError(err, OrgResourceType)
 	}
 
-	return slices.Collect(it.Map(slices.Values(cfOrgList.Items), cfOrgToOrgRecord)), nil
+	return ListResult[OrgRecord]{
+		PageInfo: pageInfo,
+		Records:  slices.Collect(it.Map(slices.Values(cfOrgList.Items), cfOrgToOrgRecord)),
+	}, nil
 }
 
 func (r *OrgRepo) GetOrg(ctx context.Context, info authorization.Info, orgGUID string) (OrgRecord, error) {
-	orgRecords, err := r.ListOrgs(ctx, info, ListOrgsMessage{GUIDs: []string{orgGUID}})
+	listResult, err := r.ListOrgs(ctx, info, ListOrgsMessage{GUIDs: []string{orgGUID}})
 	if err != nil {
 		return OrgRecord{}, err
 	}
 
-	if len(orgRecords) == 0 {
+	if len(listResult.Records) == 0 {
 		return OrgRecord{}, apierrors.NewNotFoundError(nil, OrgResourceType)
 	}
 
-	return orgRecords[0], nil
+	return listResult.Records[0], nil
 }
 
 func (r *OrgRepo) DeleteOrg(ctx context.Context, info authorization.Info, message DeleteOrgMessage) error {
