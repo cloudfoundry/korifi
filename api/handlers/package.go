@@ -30,7 +30,7 @@ const (
 
 type CFPackageRepository interface {
 	GetPackage(context.Context, authorization.Info, string) (repositories.PackageRecord, error)
-	ListPackages(context.Context, authorization.Info, repositories.ListPackagesMessage) ([]repositories.PackageRecord, error)
+	ListPackages(context.Context, authorization.Info, repositories.ListPackagesMessage) (repositories.ListResult[repositories.PackageRecord], error)
 	CreatePackage(context.Context, authorization.Info, repositories.CreatePackageMessage) (repositories.PackageRecord, error)
 	UpdatePackageSource(context.Context, authorization.Info, repositories.UpdatePackageSourceMessage) (repositories.PackageRecord, error)
 	UpdatePackage(context.Context, authorization.Info, repositories.UpdatePackageMessage) (repositories.PackageRecord, error)
@@ -94,12 +94,12 @@ func (h Package) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	records, err := h.packageRepo.ListPackages(r.Context(), authInfo, payload.ToMessage())
+	listResult, err := h.packageRepo.ListPackages(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching package with repository")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForPackage, records, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForPackage, listResult, h.serverURL, *r.URL)), nil
 }
 
 func (h Package) create(r *http.Request) (*routing.Response, error) {

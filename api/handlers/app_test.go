@@ -1737,9 +1737,17 @@ var _ = Describe("App", func() {
 			package2Record.UID = "package-2-guid"
 			package2Record.State = "READY"
 
-			packageRepo.ListPackagesReturns([]repositories.PackageRecord{
-				package1Record,
-				package2Record,
+			packageRepo.ListPackagesReturns(repositories.ListResult[repositories.PackageRecord]{
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     2,
+				},
+				Records: []repositories.PackageRecord{
+					package1Record,
+					package2Record,
+				},
 			}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/packages", nil)
@@ -1778,7 +1786,7 @@ var _ = Describe("App", func() {
 
 		When("there is some error fetching the app's packages", func() {
 			BeforeEach(func() {
-				packageRepo.ListPackagesReturns([]repositories.PackageRecord{}, errors.New("unknown!"))
+				packageRepo.ListPackagesReturns(repositories.ListResult[repositories.PackageRecord]{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {

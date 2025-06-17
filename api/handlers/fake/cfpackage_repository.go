@@ -41,7 +41,7 @@ type CFPackageRepository struct {
 		result1 repositories.PackageRecord
 		result2 error
 	}
-	ListPackagesStub        func(context.Context, authorization.Info, repositories.ListPackagesMessage) ([]repositories.PackageRecord, error)
+	ListPackagesStub        func(context.Context, authorization.Info, repositories.ListPackagesMessage) (repositories.ListResult[repositories.PackageRecord], error)
 	listPackagesMutex       sync.RWMutex
 	listPackagesArgsForCall []struct {
 		arg1 context.Context
@@ -49,11 +49,11 @@ type CFPackageRepository struct {
 		arg3 repositories.ListPackagesMessage
 	}
 	listPackagesReturns struct {
-		result1 []repositories.PackageRecord
+		result1 repositories.ListResult[repositories.PackageRecord]
 		result2 error
 	}
 	listPackagesReturnsOnCall map[int]struct {
-		result1 []repositories.PackageRecord
+		result1 repositories.ListResult[repositories.PackageRecord]
 		result2 error
 	}
 	UpdatePackageStub        func(context.Context, authorization.Info, repositories.UpdatePackageMessage) (repositories.PackageRecord, error)
@@ -222,7 +222,7 @@ func (fake *CFPackageRepository) GetPackageReturnsOnCall(i int, result1 reposito
 	}{result1, result2}
 }
 
-func (fake *CFPackageRepository) ListPackages(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListPackagesMessage) ([]repositories.PackageRecord, error) {
+func (fake *CFPackageRepository) ListPackages(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListPackagesMessage) (repositories.ListResult[repositories.PackageRecord], error) {
 	fake.listPackagesMutex.Lock()
 	ret, specificReturn := fake.listPackagesReturnsOnCall[len(fake.listPackagesArgsForCall)]
 	fake.listPackagesArgsForCall = append(fake.listPackagesArgsForCall, struct {
@@ -249,7 +249,7 @@ func (fake *CFPackageRepository) ListPackagesCallCount() int {
 	return len(fake.listPackagesArgsForCall)
 }
 
-func (fake *CFPackageRepository) ListPackagesCalls(stub func(context.Context, authorization.Info, repositories.ListPackagesMessage) ([]repositories.PackageRecord, error)) {
+func (fake *CFPackageRepository) ListPackagesCalls(stub func(context.Context, authorization.Info, repositories.ListPackagesMessage) (repositories.ListResult[repositories.PackageRecord], error)) {
 	fake.listPackagesMutex.Lock()
 	defer fake.listPackagesMutex.Unlock()
 	fake.ListPackagesStub = stub
@@ -262,28 +262,28 @@ func (fake *CFPackageRepository) ListPackagesArgsForCall(i int) (context.Context
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFPackageRepository) ListPackagesReturns(result1 []repositories.PackageRecord, result2 error) {
+func (fake *CFPackageRepository) ListPackagesReturns(result1 repositories.ListResult[repositories.PackageRecord], result2 error) {
 	fake.listPackagesMutex.Lock()
 	defer fake.listPackagesMutex.Unlock()
 	fake.ListPackagesStub = nil
 	fake.listPackagesReturns = struct {
-		result1 []repositories.PackageRecord
+		result1 repositories.ListResult[repositories.PackageRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFPackageRepository) ListPackagesReturnsOnCall(i int, result1 []repositories.PackageRecord, result2 error) {
+func (fake *CFPackageRepository) ListPackagesReturnsOnCall(i int, result1 repositories.ListResult[repositories.PackageRecord], result2 error) {
 	fake.listPackagesMutex.Lock()
 	defer fake.listPackagesMutex.Unlock()
 	fake.ListPackagesStub = nil
 	if fake.listPackagesReturnsOnCall == nil {
 		fake.listPackagesReturnsOnCall = make(map[int]struct {
-			result1 []repositories.PackageRecord
+			result1 repositories.ListResult[repositories.PackageRecord]
 			result2 error
 		})
 	}
 	fake.listPackagesReturnsOnCall[i] = struct {
-		result1 []repositories.PackageRecord
+		result1 repositories.ListResult[repositories.PackageRecord]
 		result2 error
 	}{result1, result2}
 }

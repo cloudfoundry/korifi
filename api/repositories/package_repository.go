@@ -8,18 +8,14 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
-	"code.cloudfoundry.org/korifi/api/repositories/compare"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/controllers/workloads/packages"
-	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/dockercfg"
 
 	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -45,7 +41,6 @@ type PackageRepo struct {
 	repositoryCreator RepositoryCreator
 	repositoryPrefix  string
 	awaiter           Awaiter[*korifiv1alpha1.CFPackage]
-	sorter            PackageSorter
 }
 
 func NewPackageRepo(
@@ -53,14 +48,12 @@ func NewPackageRepo(
 	repositoryCreator RepositoryCreator,
 	repositoryPrefix string,
 	awaiter Awaiter[*korifiv1alpha1.CFPackage],
-	sorter PackageSorter,
 ) *PackageRepo {
 	return &PackageRepo{
 		klient:            klient,
 		repositoryCreator: repositoryCreator,
 		repositoryPrefix:  repositoryPrefix,
 		awaiter:           awaiter,
-		sorter:            sorter,
 	}
 }
 
@@ -84,68 +77,22 @@ func (r PackageRecord) Relationships() map[string]string {
 	}
 }
 
-//counterfeiter:generate -o fake -fake-name PackageSorter . PackageSorter
-type PackageSorter interface {
-	Sort(records []PackageRecord, order string) []PackageRecord
-}
-
-type packageSorter struct {
-	sorter *compare.Sorter[PackageRecord]
-}
-
-func NewPackageSorter() *packageSorter {
-	return &packageSorter{
-		sorter: compare.NewSorter(PackageComparator),
-	}
-}
-
-func (s *packageSorter) Sort(records []PackageRecord, order string) []PackageRecord {
-	return s.sorter.Sort(records, order)
-}
-
-func PackageComparator(fieldName string) func(PackageRecord, PackageRecord) int {
-	return func(d1, d2 PackageRecord) int {
-		switch fieldName {
-		case "created_at":
-			return tools.CompareTimePtr(&d1.CreatedAt, &d2.CreatedAt)
-		case "-created_at":
-			return tools.CompareTimePtr(&d2.CreatedAt, &d1.CreatedAt)
-		case "updated_at":
-			return tools.CompareTimePtr(d1.UpdatedAt, d2.UpdatedAt)
-		case "-updated_at":
-			return tools.CompareTimePtr(d2.UpdatedAt, d1.UpdatedAt)
-		}
-		return 0
-	}
-}
-
 type ListPackagesMessage struct {
-	GUIDs    []string
-	AppGUIDs []string
-	States   []string
-	OrderBy  string
+	GUIDs      []string
+	AppGUIDs   []string
+	States     []string
+	OrderBy    string
+	Pagination Pagination
 }
 
-func (m *ListPackagesMessage) matches(p korifiv1alpha1.CFPackage) bool {
-	return tools.EmptyOrContains(m.GUIDs, p.Name) &&
-		tools.EmptyOrContains(m.AppGUIDs, p.Spec.AppRef.Name) &&
-		m.matchesState(p)
-}
-
-func (m *ListPackagesMessage) matchesState(p korifiv1alpha1.CFPackage) bool {
-	if len(m.States) == 0 {
-		return true
+func (m *ListPackagesMessage) toListOptions() []ListOption {
+	return []ListOption{
+		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
+		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
+		WithLabelIn(korifiv1alpha1.CFPackageStateLabelKey, m.States),
+		WithPaging(m.Pagination),
+		toSortOption(m.OrderBy),
 	}
-
-	if slices.Contains(m.States, PackageStateReady) && meta.IsStatusConditionTrue(p.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
-		return true
-	}
-
-	if slices.Contains(m.States, PackageStateAwaitingUpload) && !meta.IsStatusConditionTrue(p.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
-		return true
-	}
-
-	return false
 }
 
 type CreatePackageMessage struct {
@@ -336,15 +283,17 @@ func (r *PackageRepo) GetPackage(ctx context.Context, authInfo authorization.Inf
 	return r.cfPackageToPackageRecord(*cfPackage), nil
 }
 
-func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) ([]PackageRecord, error) {
+func (r *PackageRepo) ListPackages(ctx context.Context, authInfo authorization.Info, message ListPackagesMessage) (ListResult[PackageRecord], error) {
 	packageList := &korifiv1alpha1.CFPackageList{}
-	_, err := r.klient.List(ctx, packageList)
+	pageInfo, err := r.klient.List(ctx, packageList, message.toListOptions()...)
 	if err != nil {
-		return []PackageRecord{}, fmt.Errorf("failed to list packages: %w", apierrors.FromK8sError(err, PackageResourceType))
+		return ListResult[PackageRecord]{}, fmt.Errorf("failed to list packages: %w", apierrors.FromK8sError(err, PackageResourceType))
 	}
 
-	filteredPackages := itx.FromSlice(packageList.Items).Filter(message.matches)
-	return r.sorter.Sort(slices.Collect(it.Map(filteredPackages, r.cfPackageToPackageRecord)), message.OrderBy), nil
+	return ListResult[PackageRecord]{
+		PageInfo: pageInfo,
+		Records:  slices.Collect(it.Map(slices.Values(packageList.Items), r.cfPackageToPackageRecord)),
+	}, nil
 }
 
 func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authorization.Info, message UpdatePackageSourceMessage) (PackageRecord, error) {
@@ -381,17 +330,13 @@ func (r *PackageRepo) UpdatePackageSource(ctx context.Context, authInfo authoriz
 }
 
 func (r *PackageRepo) cfPackageToPackageRecord(cfPackage korifiv1alpha1.CFPackage) PackageRecord {
-	state := PackageStateAwaitingUpload
-	if meta.IsStatusConditionTrue(cfPackage.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
-		state = PackageStateReady
-	}
 	return PackageRecord{
 		GUID:        cfPackage.Name,
 		UID:         cfPackage.UID,
 		SpaceGUID:   cfPackage.Namespace,
 		Type:        string(cfPackage.Spec.Type),
 		AppGUID:     cfPackage.Spec.AppRef.Name,
-		State:       state,
+		State:       cfPackage.Labels[korifiv1alpha1.CFPackageStateLabelKey],
 		CreatedAt:   cfPackage.CreationTimestamp.Time,
 		UpdatedAt:   getLastUpdatedTime(&cfPackage),
 		Labels:      cfPackage.Labels,
