@@ -195,35 +195,12 @@ var _ = Describe("ProcessRepo", func() {
 
 	Describe("ListProcesses", func() {
 		var (
-			space2     *korifiv1alpha1.CFSpace
-			cfProcess2 *korifiv1alpha1.CFProcess
-
 			listProcessesMessage repositories.ListProcessesMessage
-			processes            []repositories.ProcessRecord
+			processes            repositories.ListResult[repositories.ProcessRecord]
 		)
 
 		BeforeEach(func() {
-			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
-			cfProcess2 = &korifiv1alpha1.CFProcess{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      uuid.NewString(),
-					Namespace: space2.Name,
-				},
-				Spec: korifiv1alpha1.CFProcessSpec{
-					AppRef: corev1.LocalObjectReference{
-						Name: appGUID,
-					},
-					ProcessType: "web",
-					HealthCheck: korifiv1alpha1.HealthCheck{
-						Type: "process",
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, cfProcess2)).To(Succeed())
-
-			listProcessesMessage = repositories.ListProcessesMessage{
-				AppGUIDs: []string{appGUID},
-			}
+			listProcessesMessage = repositories.ListProcessesMessage{}
 		})
 
 		JustBeforeEach(func() {
@@ -233,58 +210,55 @@ var _ = Describe("ProcessRepo", func() {
 		})
 
 		It("returns an empty list to unauthorized users", func() {
-			Expect(processes).To(BeEmpty())
+			Expect(processes.Records).To(BeEmpty())
 		})
 
 		When("the user is a space developer", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
 			})
 
 			It("returns Process records for the AppGUID we request", func() {
-				Expect(processes).To(ConsistOf(
+				Expect(processes.Records).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfProcess.Name)}),
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfProcess2.Name)}),
 				))
+				Expect(processes.PageInfo.TotalResults).To(Equal(1))
+			})
+		})
+
+		Describe("list options", func() {
+			var fakeKlient *fake.Klient
+
+			BeforeEach(func() {
+				fakeKlient = new(fake.Klient)
+				processRepo = repositories.NewProcessRepo(fakeKlient)
 			})
 
-			Describe("filtering", func() {
-				var fakeKlient *fake.Klient
-
+			Describe("filter parameters to list options", func() {
 				BeforeEach(func() {
-					fakeKlient = new(fake.Klient)
-					processRepo = repositories.NewProcessRepo(fakeKlient)
+					listProcessesMessage = repositories.ListProcessesMessage{
+						AppGUIDs:     []string{"app-guid", "another-app-guid"},
+						SpaceGUIDs:   []string{"space-guid", "another-space-guid"},
+						ProcessTypes: []string{"web", "worker"},
+						Pagination: repositories.Pagination{
+							PerPage: 3,
+							Page:    4,
+						},
+					}
 				})
 
-				Describe("filter parameters to list options", func() {
-					BeforeEach(func() {
-						listProcessesMessage = repositories.ListProcessesMessage{
-							AppGUIDs:     []string{"app-guid", "another-app-guid"},
-							SpaceGUIDs:   []string{"space-guid", "another-space-guid"},
-							ProcessTypes: []string{"web", "worker"},
-						}
-					})
-
-					It("translates filter parameters to klient list options", func() {
-						Expect(fakeKlient.ListCallCount()).To(Equal(1))
-						_, _, listOptions := fakeKlient.ListArgsForCall(0)
-						Expect(listOptions).To(ConsistOf(
-							repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"app-guid", "another-app-guid"}),
-							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"space-guid", "another-space-guid"}),
-							repositories.WithLabelIn(korifiv1alpha1.CFProcessTypeLabelKey, []string{"web", "worker"}),
-						))
-					})
-				})
-			})
-
-			When("no Processes exist for an app", func() {
-				BeforeEach(func() {
-					listProcessesMessage.AppGUIDs = []string{uuid.NewString()}
-				})
-
-				It("returns an empty list", func() {
-					Expect(processes).To(BeEmpty())
+				It("translates filter parameters to klient list options", func() {
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"app-guid", "another-app-guid"}),
+						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"space-guid", "another-space-guid"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFProcessTypeLabelKey, []string{"web", "worker"}),
+						repositories.WithPaging(repositories.Pagination{
+							PerPage: 3,
+							Page:    4,
+						}),
+					))
 				})
 			})
 		})

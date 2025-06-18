@@ -8,6 +8,7 @@ import (
 	. "code.cloudfoundry.org/korifi/api/actions"
 	"code.cloudfoundry.org/korifi/api/actions/fake"
 	sfake "code.cloudfoundry.org/korifi/api/actions/shared/fake"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -289,18 +290,26 @@ var _ = Describe("ProcessStats", func() {
 
 	Describe("FetchAppProcessesStats", func() {
 		BeforeEach(func() {
-			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
-				{
-					GUID:             "process-1-guid",
-					AppGUID:          "the-app-guid",
-					DesiredInstances: 1,
-					Type:             "web",
+			processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     2,
 				},
-				{
-					GUID:             "process-2-guid",
-					AppGUID:          "the-app-guid",
-					DesiredInstances: 1,
-					Type:             "worker",
+				Records: []repositories.ProcessRecord{
+					{
+						GUID:             "process-1-guid",
+						AppGUID:          "the-app-guid",
+						DesiredInstances: 1,
+						Type:             "web",
+					},
+					{
+						GUID:             "process-2-guid",
+						AppGUID:          "the-app-guid",
+						DesiredInstances: 1,
+						Type:             "worker",
+					},
 				},
 			}, nil)
 
@@ -341,7 +350,7 @@ var _ = Describe("ProcessStats", func() {
 
 		When("listing the app processes fails", func() {
 			BeforeEach(func() {
-				processRepo.ListProcessesReturns(nil, errors.New("failed to list processes"))
+				processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{}, errors.New("failed to list processes"))
 			})
 
 			It("return an error", func() {

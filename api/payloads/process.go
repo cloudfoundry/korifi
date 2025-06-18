@@ -48,12 +48,20 @@ func (p ProcessScale) ToRecord() repositories.ProcessScaleValues {
 }
 
 type ProcessList struct {
-	AppGUIDs string
+	AppGUIDs   string
+	Pagination Pagination
+}
+
+func (p ProcessList) Validate() error {
+	return validation.ValidateStruct(&p,
+		validation.Field(&p.Pagination),
+	)
 }
 
 func (p *ProcessList) ToMessage() repositories.ListProcessesMessage {
 	return repositories.ListProcessesMessage{
-		AppGUIDs: parse.ArrayParam(p.AppGUIDs),
+		AppGUIDs:   parse.ArrayParam(p.AppGUIDs),
+		Pagination: p.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
@@ -63,7 +71,7 @@ func (p *ProcessList) SupportedKeys() []string {
 
 func (p *ProcessList) DecodeFromURLValues(values url.Values) error {
 	p.AppGUIDs = values.Get("app_guids")
-	return nil
+	return p.Pagination.DecodeFromURLValues(values)
 }
 
 func (p ProcessPatch) ToProcessPatchMessage(processGUID, spaceGUID string) repositories.PatchProcessMessage {

@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/stats"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -347,9 +348,12 @@ var _ = Describe("Process", func() {
 	Describe("the GET /v3/processes endpoint", func() {
 		BeforeEach(func() {
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ProcessList{})
-			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
-				{
+			processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{
+				Records: []repositories.ProcessRecord{{
 					GUID: "process-guid",
+				}},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
 				},
 			}, nil)
 		})
@@ -401,7 +405,7 @@ var _ = Describe("Process", func() {
 
 		When("listing processes fails", func() {
 			BeforeEach(func() {
-				processRepo.ListProcessesReturns(nil, errors.New("boom"))
+				processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {

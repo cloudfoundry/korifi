@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/actions/shared/fake"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 )
 
 var _ = Describe("StateCollector", func() {
@@ -108,9 +109,17 @@ var _ = Describe("StateCollector", func() {
 
 		When("there are existing processes", func() {
 			BeforeEach(func() {
-				processRepo.ListProcessesReturns([]repositories.ProcessRecord{
-					{GUID: "bob-guid", Type: "bob"},
-					{GUID: "foo-guid", Type: "foo"},
+				processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 2,
+						TotalPages:   1,
+						PageNumber:   1,
+						PageSize:     2,
+					},
+					Records: []repositories.ProcessRecord{
+						{GUID: "bob-guid", Type: "bob"},
+						{GUID: "foo-guid", Type: "foo"},
+					},
 				}, nil)
 			})
 
@@ -125,7 +134,7 @@ var _ = Describe("StateCollector", func() {
 
 		When("list processes fails", func() {
 			BeforeEach(func() {
-				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("list-process-error"))
+				processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{}, errors.New("list-process-error"))
 			})
 
 			It("returns the error", func() {

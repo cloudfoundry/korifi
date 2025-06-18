@@ -31,7 +31,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFProcessRepository . CFProcessRepository
 type CFProcessRepository interface {
 	GetProcess(context.Context, authorization.Info, string) (repositories.ProcessRecord, error)
-	ListProcesses(context.Context, authorization.Info, repositories.ListProcessesMessage) ([]repositories.ProcessRecord, error)
+	ListProcesses(context.Context, authorization.Info, repositories.ListProcessesMessage) (repositories.ListResult[repositories.ProcessRecord], error)
 	GetAppRevision(ctx context.Context, authInfo authorization.Info, appGUID string) (string, error)
 	PatchProcess(context.Context, authorization.Info, repositories.PatchProcessMessage) (repositories.ProcessRecord, error)
 	CreateProcess(context.Context, authorization.Info, repositories.CreateProcessMessage) error
@@ -228,7 +228,7 @@ func (h *Process) list(r *http.Request) (*routing.Response, error) { //nolint:du
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch processes(s) from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcessList(processList, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForProcessSanitized, processList, h.serverURL, *r.URL)), nil
 }
 
 func (h *Process) update(r *http.Request) (*routing.Response, error) {

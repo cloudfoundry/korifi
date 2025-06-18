@@ -107,6 +107,7 @@ type ListProcessesMessage struct {
 	AppGUIDs     []string
 	ProcessTypes []string
 	SpaceGUIDs   []string
+	Pagination   Pagination
 }
 
 func (m *ListProcessesMessage) toListOptions() []ListOption {
@@ -114,6 +115,7 @@ func (m *ListProcessesMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.CFProcessTypeLabelKey, m.ProcessTypes),
 		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
+		WithPaging(m.Pagination),
 	}
 }
 
@@ -131,14 +133,22 @@ func (r *ProcessRepo) GetProcess(ctx context.Context, authInfo authorization.Inf
 	return cfProcessToProcessRecord(*process)
 }
 
-func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.Info, message ListProcessesMessage) ([]ProcessRecord, error) {
+func (r *ProcessRepo) ListProcesses(ctx context.Context, authInfo authorization.Info, message ListProcessesMessage) (ListResult[ProcessRecord], error) {
 	processList := &korifiv1alpha1.CFProcessList{}
-	_, err := r.klient.List(ctx, processList, message.toListOptions()...)
+	pageInfo, err := r.klient.List(ctx, processList, message.toListOptions()...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
+		return ListResult[ProcessRecord]{}, fmt.Errorf("failed to list pods: %w", apierrors.FromK8sError(err, PodResourceType))
 	}
 
-	return it.TryCollect(it.MapError(itx.FromSlice(processList.Items), cfProcessToProcessRecord))
+	records, err := it.TryCollect(it.MapError(itx.FromSlice(processList.Items), cfProcessToProcessRecord))
+	if err != nil {
+		return ListResult[ProcessRecord]{}, fmt.Errorf("failed to convert processes to records: %w", err)
+	}
+
+	return ListResult[ProcessRecord]{
+		PageInfo: pageInfo,
+		Records:  records,
+	}, nil
 }
 
 func (r *ProcessRepo) ScaleProcess(ctx context.Context, authInfo authorization.Info, scaleProcessMessage ScaleProcessMessage) (ProcessRecord, error) {

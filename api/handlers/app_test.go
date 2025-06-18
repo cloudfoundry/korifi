@@ -816,9 +816,11 @@ var _ = Describe("App", func() {
 			process2Record.GUID = "process-2-guid"
 			process2Record.Type = "worker"
 
-			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
-				process1Record,
-				process2Record,
+			processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{
+				Records: []repositories.ProcessRecord{
+					process1Record,
+					process2Record,
+				},
 			}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes", nil)
@@ -858,7 +860,7 @@ var _ = Describe("App", func() {
 
 		When("there is some error fetching the app's processes", func() {
 			BeforeEach(func() {
-				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("unknown!"))
+				processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -869,10 +871,12 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps/:guid/processes/{type}", func() {
 		BeforeEach(func() {
-			processRepo.ListProcessesReturns([]repositories.ProcessRecord{{
-				GUID:    "process-1-guid",
-				Command: "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
-			}}, nil)
+			processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{
+				Records: []repositories.ProcessRecord{{
+					GUID:    "process-1-guid",
+					Command: "bundle exec rackup config.ru -p $PORT -o 0.0.0.0",
+				}},
+			}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/processes/web", nil)
 		})
@@ -913,7 +917,7 @@ var _ = Describe("App", func() {
 
 		When("there is an error fetching processes", func() {
 			BeforeEach(func() {
-				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("some-error"))
+				processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{}, errors.New("some-error"))
 			})
 
 			It("return a process unknown error", func() {
@@ -924,9 +928,11 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps/:guid/processes/{type}/stats", func() {
 		BeforeEach(func() {
-			processRepo.ListProcessesReturns([]repositories.ProcessRecord{{
-				GUID: "process-guid",
-			}}, nil)
+			processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{
+				Records: []repositories.ProcessRecord{{
+					GUID: "process-guid",
+				}},
+			}, nil)
 
 			gaugesCollector.CollectProcessGaugesReturns([]stats.ProcessGauges{{
 				Index:    0,
@@ -988,7 +994,7 @@ var _ = Describe("App", func() {
 
 		When("there is an error fetching the process", func() {
 			BeforeEach(func() {
-				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("some-error"))
+				processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{}, errors.New("some-error"))
 			})
 
 			It("return a process unknown error", func() {
@@ -1021,12 +1027,14 @@ var _ = Describe("App", func() {
 		var payload *payloads.ProcessScale
 
 		BeforeEach(func() {
-			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
-				{
-					GUID:      "process-1-guid",
-					SpaceGUID: spaceGUID,
-					AppGUID:   appGUID,
-					Type:      "web",
+			processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{
+				Records: []repositories.ProcessRecord{
+					{
+						GUID:      "process-1-guid",
+						SpaceGUID: spaceGUID,
+						AppGUID:   appGUID,
+						Type:      "web",
+					},
 				},
 			}, nil)
 
@@ -1126,7 +1134,7 @@ var _ = Describe("App", func() {
 
 		When("listing the app processes fails", func() {
 			BeforeEach(func() {
-				processRepo.ListProcessesReturns([]repositories.ProcessRecord{}, errors.New("boom"))
+				processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{}, errors.New("boom"))
 			})
 
 			It("return an unknown error", func() {
@@ -1861,15 +1869,18 @@ var _ = Describe("App", func() {
 
 	Describe("DELETE /v3/apps/:guid/processes/:process/instances/:instance", func() {
 		BeforeEach(func() {
-			processRepo.ListProcessesReturns([]repositories.ProcessRecord{
-				{
-					GUID:             "process-1-guid",
-					SpaceGUID:        spaceGUID,
-					AppGUID:          appGUID,
-					Type:             "web",
-					DesiredInstances: 1,
+			processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{
+				Records: []repositories.ProcessRecord{
+					{
+						GUID:             "process-1-guid",
+						SpaceGUID:        spaceGUID,
+						AppGUID:          appGUID,
+						Type:             "web",
+						DesiredInstances: 1,
+					},
 				},
 			}, nil)
+
 			req = createHttpRequest("DELETE", "/v3/apps/"+appGUID+"/processes/web/instances/0", nil)
 		})
 
@@ -1902,22 +1913,25 @@ var _ = Describe("App", func() {
 		})
 		When("the app has a worker process", func() {
 			BeforeEach(func() {
-				processRepo.ListProcessesReturns([]repositories.ProcessRecord{
-					{
-						GUID:             "process-1-guid",
-						SpaceGUID:        spaceGUID,
-						AppGUID:          appGUID,
-						Type:             "web",
-						DesiredInstances: 1,
-					},
-					{
-						GUID:             "process-2-guid",
-						SpaceGUID:        spaceGUID,
-						AppGUID:          appGUID,
-						Type:             "worker",
-						DesiredInstances: 2,
+				processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{
+					Records: []repositories.ProcessRecord{
+						{
+							GUID:             "process-1-guid",
+							SpaceGUID:        spaceGUID,
+							AppGUID:          appGUID,
+							Type:             "web",
+							DesiredInstances: 1,
+						},
+						{
+							GUID:             "process-2-guid",
+							SpaceGUID:        spaceGUID,
+							AppGUID:          appGUID,
+							Type:             "worker",
+							DesiredInstances: 2,
+						},
 					},
 				}, nil)
+
 				req = createHttpRequest("DELETE", "/v3/apps/"+appGUID+"/processes/worker/instances/0", nil)
 			})
 

@@ -98,7 +98,7 @@ type ProcessResponseProcessHealthCheckData struct {
 	Timeout *int32 `json:"timeout"`
 }
 
-func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) ProcessResponse {
+func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL, _ ...include.Resource) ProcessResponse {
 	return ProcessResponse{
 		GUID:        responseProcess.GUID,
 		Type:        responseProcess.Type,
@@ -143,10 +143,8 @@ func ForProcess(responseProcess repositories.ProcessRecord, baseURL url.URL) Pro
 	}
 }
 
-func ForProcessList(processRecordList []repositories.ProcessRecord, baseURL, requestURL url.URL, includes ...include.Resource) ListResponse[ProcessResponse] {
-	return ForListDeprecated(func(process repositories.ProcessRecord, baseURL url.URL, includes ...include.Resource) ProcessResponse {
-		processResponse := ForProcess(process, baseURL)
-		processResponse.Command = "[PRIVATE DATA HIDDEN IN LISTS]"
-		return processResponse
-	}, processRecordList, baseURL, requestURL)
+func ForProcessSanitized(responseProcess repositories.ProcessRecord, baseURL url.URL, includes ...include.Resource) ProcessResponse {
+	response := ForProcess(responseProcess, baseURL, includes...)
+	response.Command = "[PRIVATE DATA HIDDEN IN LISTS]"
+	return response
 }
