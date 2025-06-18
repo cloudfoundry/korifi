@@ -13,6 +13,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/tools/singleton"
+	"github.com/BooleanCat/go-functional/v2/it"
 )
 
 type StateCollector struct {
@@ -66,31 +67,30 @@ func (s StateCollector) CollectState(ctx context.Context, authInfo authorization
 		return AppState{}, err
 	}
 
-	existingProcesses, err := s.collectProcesses(ctx, authInfo, appRecord.GUID, spaceGUID)
+	processesByType, err := s.indexProcessesByType(ctx, authInfo, appRecord.GUID, spaceGUID)
 	if err != nil {
 		return AppState{}, err
 	}
 
-	existingAppRoutes, err := s.collectRoutes(ctx, authInfo, appRecord.GUID, spaceGUID)
+	routesByURL, err := s.indexRoutesByURL(ctx, authInfo, appRecord.GUID, spaceGUID)
 	if err != nil {
 		return AppState{}, err
 	}
 
-	existingServiceBindings, err := s.collectServiceBindings(ctx, authInfo, appRecord.GUID)
+	bindingsByServiceName, err := s.indexBindingsByServiceName(ctx, authInfo, appRecord.GUID)
 	if err != nil {
 		return AppState{}, err
 	}
 
 	return AppState{
 		App:             appRecord,
-		Processes:       existingProcesses,
-		Routes:          existingAppRoutes,
-		ServiceBindings: existingServiceBindings,
+		Processes:       processesByType,
+		Routes:          routesByURL,
+		ServiceBindings: bindingsByServiceName,
 	}, nil
 }
 
-func (s StateCollector) collectProcesses(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) (map[string]repositories.ProcessRecord, error) {
-	existingProcesses := map[string]repositories.ProcessRecord{}
+func (s StateCollector) indexProcessesByType(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) (map[string]repositories.ProcessRecord, error) {
 	procs, err := s.processRepo.ListProcesses(ctx, authInfo, repositories.ListProcessesMessage{
 		AppGUIDs:   []string{appGUID},
 		SpaceGUIDs: []string{spaceGUID},
@@ -99,61 +99,70 @@ func (s StateCollector) collectProcesses(ctx context.Context, authInfo authoriza
 		return nil, err
 	}
 
-	for _, p := range procs.Records {
-		existingProcesses[p.Type] = p
-	}
-
-	return existingProcesses, nil
+	return index(procs.Records, func(p repositories.ProcessRecord) string {
+		return p.Type
+	}), nil
 }
 
-func (s StateCollector) collectRoutes(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) (map[string]repositories.RouteRecord, error) {
-	existingAppRoutes := map[string]repositories.RouteRecord{}
+func (s StateCollector) indexRoutesByURL(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) (map[string]repositories.RouteRecord, error) {
 	routes, err := s.routeRepo.ListRoutesForApp(ctx, authInfo, appGUID, spaceGUID)
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range routes {
-		existingAppRoutes[unsplitRoute(r)] = r
-	}
 
-	return existingAppRoutes, nil
+	return index(routes, func(r repositories.RouteRecord) string {
+		return path.Join(fmt.Sprintf("%s.%s", r.Host, r.Domain.Name), r.Path)
+	}), nil
 }
 
-func (s StateCollector) collectServiceBindings(ctx context.Context, authInfo authorization.Info, appGUID string) (map[string]repositories.ServiceBindingRecord, error) {
-	serviceBindings, err := s.serviceBindingRepo.ListServiceBindings(ctx, authInfo, repositories.ListServiceBindingsMessage{
+func (s StateCollector) indexBindingsByServiceName(ctx context.Context, authInfo authorization.Info, appGUID string) (map[string]repositories.ServiceBindingRecord, error) {
+	appBindings, err := s.serviceBindingRepo.ListServiceBindings(ctx, authInfo, repositories.ListServiceBindingsMessage{
 		AppGUIDs: []string{appGUID},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	serviceInstanceGUIDSet := map[string]bool{}
-	for _, sb := range serviceBindings {
-		serviceInstanceGUIDSet[sb.ServiceInstanceGUID] = true
-	}
+	appServiceGUIDs := slices.Collect(it.FilterUnique(it.Map(slices.Values(appBindings), func(sb repositories.ServiceBindingRecord) string {
+		return sb.ServiceInstanceGUID
+	})))
 
-	services, err := s.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, repositories.ListServiceInstanceMessage{GUIDs: slices.Collect(maps.Keys(serviceInstanceGUIDSet))})
+	appServices, err := s.serviceInstanceRepo.ListServiceInstances(ctx, authInfo, repositories.ListServiceInstanceMessage{
+		GUIDs: appServiceGUIDs,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	serviceInstanceGUID2Name := map[string]string{}
-	for _, s := range services {
-		serviceInstanceGUID2Name[s.GUID] = s.Name
-	}
+	appServicesByGUID := index(appServices, func(s repositories.ServiceInstanceRecord) string {
+		return s.GUID
+	})
 
-	existingServiceBindings := map[string]repositories.ServiceBindingRecord{}
-	for _, sb := range serviceBindings {
-		n, ok := serviceInstanceGUID2Name[sb.ServiceInstanceGUID]
+	return tryIndex(appBindings, func(sb repositories.ServiceBindingRecord) (string, error) {
+		instance, ok := appServicesByGUID[sb.ServiceInstanceGUID]
 		if !ok {
-			return nil, fmt.Errorf("no service instance found with guid %q for service binding %q", sb.ServiceInstanceGUID, sb.GUID)
+			return "", fmt.Errorf("no service instance found with guid %q for service binding %q", sb.ServiceInstanceGUID, sb.GUID)
 		}
-		existingServiceBindings[n] = sb
-	}
-
-	return existingServiceBindings, nil
+		return instance.Name, nil
+	})
 }
 
-func unsplitRoute(route repositories.RouteRecord) string {
-	return path.Join(fmt.Sprintf("%s.%s", route.Host, route.Domain.Name), route.Path)
+func index[T any](records []T, keyFunc func(T) string) map[string]T {
+	recordsIter := slices.Values(records)
+	return maps.Collect(it.Zip(
+		it.Map(recordsIter, keyFunc),
+		recordsIter,
+	))
+}
+
+func tryIndex[T any](records []T, keyFunc func(T) (string, error)) (map[string]T, error) {
+	recordsIter := slices.Values(records)
+	recordKeys, err := it.TryCollect(it.MapError(recordsIter, keyFunc))
+	if err != nil {
+		return nil, fmt.Errorf("failed to index records: %w", err)
+	}
+	return maps.Collect(it.Zip(
+		slices.Values(recordKeys),
+		recordsIter,
+	)), nil
 }
