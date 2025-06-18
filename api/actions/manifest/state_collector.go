@@ -99,7 +99,7 @@ func (s StateCollector) collectProcesses(ctx context.Context, authInfo authoriza
 		return nil, err
 	}
 
-	for _, p := range procs {
+	for _, p := range procs.Records {
 		existingProcesses[p.Type] = p
 	}
 

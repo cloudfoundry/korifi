@@ -343,7 +343,7 @@ func (h *App) getProcesses(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app Process(es) from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcessList(processList, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForProcessSanitized, processList, h.serverURL, *r.URL)), nil
 }
 
 func (h *App) getRoutes(r *http.Request) (*routing.Response, error) {
@@ -390,7 +390,7 @@ func (h *App) scaleProcess(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list processes for app")
 	}
 
-	process, hasProcessType := findProcessType(appProcesses, processType)
+	process, hasProcessType := findProcessType(appProcesses.Records, processType)
 	if !hasProcessType {
 		return nil, apierrors.LogAndReturn(logger,
 			apierrors.NewNotFoundError(nil, repositories.ProcessResourceType),
@@ -576,7 +576,7 @@ func (h *App) getSingleProcess(ctx context.Context, authInfo authorization.Info,
 		return repositories.ProcessRecord{}, err
 	}
 
-	return singleton.Get(processes)
+	return singleton.Get(processes.Records)
 }
 
 func (h *App) getProcessStats(r *http.Request) (*routing.Response, error) {
@@ -705,7 +705,7 @@ func (h *App) restartInstance(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list processes for app")
 	}
 
-	process, hasProcessType := findProcessType(appProcesses, processType)
+	process, hasProcessType := findProcessType(appProcesses.Records, processType)
 	if !hasProcessType {
 		return nil, apierrors.LogAndReturn(logger,
 			apierrors.NewNotFoundError(nil, repositories.ProcessResourceType),

@@ -155,7 +155,7 @@ func (a *ProcessStats) FetchAppProcessesStats(ctx context.Context, authInfo auth
 	}
 
 	var podStats []PodStatsRecord
-	for _, process := range appProcesses {
+	for _, process := range appProcesses.Records {
 		podStatsProcess, err := a.FetchStats(ctx, authInfo, process.GUID)
 		if err != nil {
 			return nil, fmt.Errorf("falied to fetch process stats for process %s: %w", process.GUID, err)
