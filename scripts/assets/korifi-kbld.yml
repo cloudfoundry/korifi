@@ -31,3 +31,9 @@ sources:
   docker:
     buildx:
       file: job-task-runner/Dockerfile
+
+- image: cloudfoundry/korifi-migration:latest
+  path: .
+  docker:
+    buildx:
+      file: migration/Dockerfile

@@ -127,6 +127,8 @@ Here are all the values that can be set for the chart:
       - `memory` (_String_): Memory request.
   - `webhookCertSecret` (_String_): A secert containing the CA bundle and the certificate for the webhook server.
 - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
+- `migration`:
+  - `include` (_Boolean_): Deploy the migration component.
 - `networking`: Networking configuration
   - `gatewayClass` (_String_): The name of the GatewayClass Korifi Gateway references
   - `gatewayInfrastructure`: Optional GatewayInfrastructure property of the Gateway, see https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.GatewayInfrastructure for contents
