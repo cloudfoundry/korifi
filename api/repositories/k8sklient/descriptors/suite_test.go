@@ -8,6 +8,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/authorization/testhelpers"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/cache"
+	"k8s.io/client-go/discovery"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
@@ -36,6 +38,7 @@ var (
 	testEnv               *envtest.Environment
 	k8sClient             client.WithWatch
 	restClient            restclient.Interface
+	pluralizer            descriptors.Pluralizer
 	rootNamespace         string
 	authInfo              authorization.Info
 	userClientFactory     authorization.UserClientFactory
@@ -89,6 +92,7 @@ var _ = BeforeEach(func() {
 	clientset, err := k8sclient.NewForConfig(testEnv.Config)
 	Expect(err).NotTo(HaveOccurred())
 	restClient = clientset.RESTClient()
+	pluralizer = descriptors.NewCachingPluralizer(discovery.NewDiscoveryClient(restClient))
 
 	httpClient, err := restclient.HTTPClientFor(testEnv.Config)
 	Expect(err).NotTo(HaveOccurred())

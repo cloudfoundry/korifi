@@ -254,7 +254,7 @@ func unpackListOptions(opts ...repositories.ListOption) (repositories.ListOption
 	return listOpts, nil
 }
 
-func toStatusError(list client.ObjectList, err error) *k8serrors.StatusError {
+func toStatusError(_ client.ObjectList, err error) *k8serrors.StatusError {
 	return &k8serrors.StatusError{
 		ErrStatus: metav1.Status{
 			Message: err.Error(),
