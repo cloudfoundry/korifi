@@ -155,6 +155,10 @@ networking:
   gatewayInfrastructure:
   gatewayClass:
 
+migration:
+  include: true
+  image: cloudfoundry/korifi-migration:latest
+
 experimental:
   routing:
     disableRouteController: false

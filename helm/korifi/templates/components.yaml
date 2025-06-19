@@ -44,8 +44,10 @@
 {{- end }}
 {{- end }}
 
-
-{{- range $path, $_ := .Files.Glob "migrations/*.yaml" }}
+{{- if .Values.migration.include }}
+{{- range $path, $_ := .Files.Glob "migration/*.yaml" }}
 ---
 {{ tpl ($.Files.Get $path) $ctx }}
 {{- end }}
+{{- end }}
+

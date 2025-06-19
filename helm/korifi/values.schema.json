@@ -631,6 +631,16 @@
       },
       "type": "object"
     },
+    "migration": {
+      "properties": {
+        "include": {
+          "description": "Deploy the migration component.",
+          "type": "boolean"
+        }
+      },
+      "required": ["include"],
+      "type": "object"
+    },
     "experimental": {
       "properties": {
         "routing": {

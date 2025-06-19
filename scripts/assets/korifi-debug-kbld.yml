@@ -31,3 +31,10 @@ sources:
   docker:
     buildx:
       file: job-task-runner/remote-debug/Dockerfile
+
+# We do not have a dedicated debug image for migration as we doubt someone would want to debug the migration process.
+- image: cloudfoundry/korifi-migration:latest
+  path: .
+  docker:
+    buildx:
+      file: migration/Dockerfile
