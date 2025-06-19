@@ -18,34 +18,44 @@ type ResultSetDescriptor interface {
 	Sort(column string, desc bool) error
 }
 
+type Pluralizer interface {
+	Pluralize(resourceGVK schema.GroupVersionKind) (string, error)
+}
+
 type FilteringOpts interface {
 	Apply(ctx context.Context, opts ...client.ListOption) (*client.ListOptions, error)
 }
 
 type Client struct {
 	restClient    restclient.Interface
+	pluralizer    Pluralizer
 	filteringOpts FilteringOpts
 	scheme        *runtime.Scheme
 }
 
-func NewClient(restClient restclient.Interface, scheme *runtime.Scheme, filteringOpts FilteringOpts) *Client {
+func NewClient(restClient restclient.Interface, pluralizer Pluralizer, scheme *runtime.Scheme, filteringOpts FilteringOpts) *Client {
 	return &Client{
 		restClient:    restClient,
+		pluralizer:    pluralizer,
 		scheme:        scheme,
 		filteringOpts: filteringOpts,
 	}
 }
 
-func (c *Client) List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (ResultSetDescriptor, error) {
+func (c *Client) List(ctx context.Context, listGVK schema.GroupVersionKind, opts ...client.ListOption) (ResultSetDescriptor, error) {
 	listOpts, err := c.filteringOpts.Apply(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply space filtering options: %w", err)
 	}
 
-	pluralObjectKind := fmt.Sprintf("%ss", strings.ToLower(strings.TrimSuffix(listObjectGVK.Kind, "List")))
+	pluralObjectKind, err := c.pluralizer.Pluralize(toResourceGVK(listGVK))
+	if err != nil {
+		return nil, fmt.Errorf("failed to pluralize %s: %w", listGVK.Kind, err)
+	}
+
 	requestPath := fmt.Sprintf("/apis/%s/%s/%s",
-		listObjectGVK.Group,
-		listObjectGVK.Version,
+		listGVK.Group,
+		listGVK.Version,
 		pluralObjectKind,
 	)
 
@@ -60,8 +70,16 @@ func (c *Client) List(ctx context.Context, listObjectGVK schema.GroupVersionKind
 		VersionedParams(listOpts.AsListOptions(), parameterCodec).
 		Do(ctx).Into(table)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list %s/%s/%s descriptors: %w", listObjectGVK.Group, listObjectGVK.Version, pluralObjectKind, err)
+		return nil, fmt.Errorf("failed to list %s/%s/%s descriptors: %w", listGVK.Group, listGVK.Version, pluralObjectKind, err)
 	}
 
 	return &TableResultSetDescriptor{Table: table}, nil
+}
+
+func toResourceGVK(listGVK schema.GroupVersionKind) schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   listGVK.Group,
+		Version: listGVK.Version,
+		Kind:    strings.TrimSuffix(listGVK.Kind, "List"),
+	}
 }

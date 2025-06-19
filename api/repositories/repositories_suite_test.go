@@ -19,6 +19,7 @@ import (
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	authv1 "k8s.io/api/authorization/v1"
+	"k8s.io/client-go/discovery"
 	k8sclient "k8s.io/client-go/kubernetes"
 
 	"github.com/go-logr/logr"
@@ -169,15 +170,18 @@ var _ = BeforeEach(func() {
 	Expect(err).NotTo(HaveOccurred())
 	namespaceRetriever := repositories.NewNamespaceRetriever(dynamicClient)
 
-	privilegedClientset, err := k8sclient.NewForConfig(testEnv.Config)
+	clientset, err := k8sclient.NewForConfig(testEnv.Config)
 	Expect(err).NotTo(HaveOccurred())
+
+	restClient := clientset.RESTClient()
+	pluralizer := descriptors.NewCachingPluralizer(discovery.NewDiscoveryClient(restClient))
 
 	userClientFactory = authorization.NewUnprivilegedClientFactory(testEnv.Config, mapper, k8sClient.Scheme()).
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 			return k8s.NewRetryingClient(client, k8s.IsForbidden, k8s.NewDefaultBackoff())
 		})
 
-	spaceScopedDescriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), k8sClient.Scheme(), authorization.NewSpaceFilteringOpts(nsPerms))
+	spaceScopedDescriptorsClient := descriptors.NewClient(restClient, pluralizer, k8sClient.Scheme(), authorization.NewSpaceFilteringOpts(nsPerms))
 	spaceScopedUserClientFactory = userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewSpaceFilteringClient(client, k8sClient, authorization.NewSpaceFilteringOpts(nsPerms))
 	})
@@ -188,7 +192,7 @@ var _ = BeforeEach(func() {
 		return authorization.NewRootNSFilteringClient(client, rootNamespace)
 	})
 	rootNSObjectListMapper := descriptors.NewObjectListMapper(rootNsUserClientFactory)
-	rootNsDescriptorsClient := descriptors.NewClient(privilegedClientset.RESTClient(), k8sClient.Scheme(), authorization.NewRootNsFilteringOpts(rootNamespace))
+	rootNsDescriptorsClient := descriptors.NewClient(restClient, pluralizer, k8sClient.Scheme(), authorization.NewRootNsFilteringOpts(rootNamespace))
 	rootNSKlient = k8sklient.NewK8sKlient(namespaceRetriever, rootNsDescriptorsClient, rootNSObjectListMapper, rootNsUserClientFactory, k8sClient.Scheme())
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())

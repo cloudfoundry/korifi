@@ -40,6 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/cache"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -99,14 +100,16 @@ func main() {
 
 	ctrl.Log.Info("starting Korifi API", "version", version.Version)
 
-	privilegedClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
+	k8sClient, err := client.NewWithWatch(k8sClientConfig, client.Options{})
 	if err != nil {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
-	privilegedClientset, err := k8sclient.NewForConfig(k8sClientConfig)
+	clientset, err := k8sclient.NewForConfig(k8sClientConfig)
 	if err != nil {
 		panic(fmt.Sprintf("could not create privileged k8s client: %v", err))
 	}
+	restClient := clientset.RESTClient()
+	pluralizer := descriptors.NewCachingPluralizer(discovery.NewDiscoveryClient(restClient))
 
 	dynamicClient, err := dynamic.NewForConfig(k8sClientConfig)
 	if err != nil {
@@ -123,9 +126,9 @@ func main() {
 		panic(fmt.Sprintf("could not create kubernetes REST mapper: %v", err))
 	}
 
-	identityProvider := wireIdentityProvider(privilegedClient, k8sClientConfig)
+	identityProvider := wireIdentityProvider(k8sClient, k8sClientConfig)
 	cachingIdentityProvider := authorization.NewCachingIdentityProvider(identityProvider, cache.NewExpiring())
-	nsPermissions := authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider)
+	nsPermissions := authorization.NewNamespacePermissions(k8sClient, cachingIdentityProvider)
 
 	userClientFactory := authorization.NewUnprivilegedClientFactory(k8sClientConfig, mapper, scheme.Scheme).
 		WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
@@ -133,11 +136,11 @@ func main() {
 		})
 
 	spaceScopedUserClientFactory := userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
-		return authorization.NewSpaceFilteringClient(client, privilegedClient, authorization.NewSpaceFilteringOpts(nsPermissions))
+		return authorization.NewSpaceFilteringClient(client, k8sClient, authorization.NewSpaceFilteringOpts(nsPermissions))
 	})
 	spaceScopedKlient := k8sklient.NewK8sKlient(
 		namespaceRetriever,
-		descriptors.NewClient(privilegedClientset.RESTClient(), scheme.Scheme, authorization.NewSpaceFilteringOpts(nsPermissions)),
+		descriptors.NewClient(restClient, pluralizer, scheme.Scheme, authorization.NewSpaceFilteringOpts(nsPermissions)),
 		descriptors.NewObjectListMapper(spaceScopedUserClientFactory),
 		spaceScopedUserClientFactory,
 		scheme.Scheme,
@@ -148,7 +151,7 @@ func main() {
 	})
 	rootNSKlient := k8sklient.NewK8sKlient(
 		namespaceRetriever,
-		descriptors.NewClient(privilegedClientset.RESTClient(), scheme.Scheme, authorization.NewRootNsFilteringOpts(cfg.RootNamespace)),
+		descriptors.NewClient(restClient, pluralizer, scheme.Scheme, authorization.NewRootNsFilteringOpts(cfg.RootNamespace)),
 		descriptors.NewObjectListMapper(rootNsUserClientFactory),
 		rootNsUserClientFactory,
 		scheme.Scheme,
@@ -160,8 +163,8 @@ func main() {
 	}
 
 	paramsClient := repositories.NewServiceBrokerClient(
-		osbapi.NewClientFactory(privilegedClient, false),
-		privilegedClient,
+		osbapi.NewClientFactory(k8sClient, false),
+		k8sClient,
 		cfg.RootNamespace,
 	)
 
@@ -237,13 +240,13 @@ func main() {
 	roleRepo := repositories.NewRoleRepo(
 		spaceScopedKlient,
 		spaceRepo,
-		authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider),
-		authorization.NewNamespacePermissions(privilegedClient, cachingIdentityProvider),
+		authorization.NewNamespacePermissions(k8sClient, cachingIdentityProvider),
+		authorization.NewNamespacePermissions(k8sClient, cachingIdentityProvider),
 		cfg.RootNamespace,
 		cfg.RoleMappings,
 		repositories.NewRoleSorter(),
 	)
-	imageClient := image.NewClient(privilegedClientset)
+	imageClient := image.NewClient(clientset)
 	imageRepo := repositories.NewImageRepository(
 		userClientFactory,
 		imageClient,
