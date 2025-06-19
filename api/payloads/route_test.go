@@ -1,10 +1,9 @@
 package payloads_test
 
 import (
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,43 +11,75 @@ import (
 )
 
 var _ = Describe("RouteList", func() {
-	Describe("decode from url values", func() {
+	Describe("Validation", func() {
+		DescribeTable("valid query",
+			func(query string, expectedRouteList payloads.RouteList) {
+				actualRouteList, decodeErr := decodeQuery[payloads.RouteList](query)
+
+				Expect(decodeErr).NotTo(HaveOccurred())
+				Expect(*actualRouteList).To(Equal(expectedRouteList))
+			},
+
+			Entry("app_guids", "app_guids=guid1,guid2", payloads.RouteList{AppGUIDs: "guid1,guid2"}),
+			Entry("space_guids", "space_guids=guid1,guid2", payloads.RouteList{SpaceGUIDs: "guid1,guid2"}),
+			Entry("domain_guids", "domain_guids=guid1,guid2", payloads.RouteList{DomainGUIDs: "guid1,guid2"}),
+			Entry("hosts", "hosts=h1,h2", payloads.RouteList{Hosts: "h1,h2"}),
+			Entry("paths", "paths=h1,h2", payloads.RouteList{Paths: "h1,h2"}),
+			Entry("order_by created_at", "order_by=created_at", payloads.RouteList{OrderBy: "created_at"}),
+			Entry("order_by -created_at", "order_by=-created_at", payloads.RouteList{OrderBy: "-created_at"}),
+			Entry("order_by updated_at", "order_by=updated_at", payloads.RouteList{OrderBy: "updated_at"}),
+			Entry("order_by -updated_at", "order_by=-updated_at", payloads.RouteList{OrderBy: "-updated_at"}),
+			Entry("page=3", "page=3", payloads.RouteList{Pagination: payloads.Pagination{Page: "3"}}),
+		)
+
+		DescribeTable("invalid query",
+			func(query string, expectedErrMsg string) {
+				_, decodeErr := decodeQuery[payloads.RouteList](query)
+				Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+			},
+			Entry("invalid order_by", "order_by=foo", "one of"),
+			Entry("per_page is not a number", "per_page=foo", "value must be an integer"),
+		)
+	})
+
+	Describe("ToMessage", func() {
 		var (
-			routeList payloads.RouteList
-			decodeErr error
-			params    string
+			processList payloads.RouteList
+			message     repositories.ListRoutesMessage
 		)
 
 		BeforeEach(func() {
-			routeList = payloads.RouteList{}
-			params = "app_guids=app_guid&space_guids=space_guid&domain_guids=domain_guid&hosts=host&paths=path"
+			processList = payloads.RouteList{
+				AppGUIDs:    "ag1,ag2",
+				SpaceGUIDs:  "sg1,sg2",
+				DomainGUIDs: "dg1,dg2",
+				Hosts:       "h1,h2",
+				Paths:       "p1,p2",
+				OrderBy:     "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "10",
+					Page:    "4",
+				},
+			}
 		})
 
 		JustBeforeEach(func() {
-			req, err := http.NewRequest("GET", "http://foo.com/bar?"+params, nil)
-			Expect(err).NotTo(HaveOccurred())
-			decodeErr = validator.DecodeAndValidateURLValues(req, &routeList)
+			message = processList.ToMessage()
 		})
 
-		It("succeeds", func() {
-			Expect(decodeErr).NotTo(HaveOccurred())
-			Expect(routeList).To(Equal(payloads.RouteList{
-				AppGUIDs:    "app_guid",
-				SpaceGUIDs:  "space_guid",
-				DomainGUIDs: "domain_guid",
-				Hosts:       "host",
-				Paths:       "path",
+		It("translates to repository message", func() {
+			Expect(message).To(Equal(repositories.ListRoutesMessage{
+				AppGUIDs:    []string{"ag1", "ag2"},
+				SpaceGUIDs:  []string{"sg1", "sg2"},
+				DomainGUIDs: []string{"dg1", "dg2"},
+				Hosts:       []string{"h1", "h2"},
+				Paths:       []string{"p1", "p2"},
+				OrderBy:     "created_at",
+				Pagination: repositories.Pagination{
+					PerPage: 10,
+					Page:    4,
+				},
 			}))
-		})
-
-		When("it contains an invalid key", func() {
-			BeforeEach(func() {
-				params = "foo=bar"
-			})
-
-			It("fails", func() {
-				Expect(decodeErr).To(MatchError("unsupported query parameter: foo"))
-			})
 		})
 	})
 })

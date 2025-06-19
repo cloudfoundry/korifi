@@ -56,6 +56,8 @@ type RouteList struct {
 	DomainGUIDs string
 	Hosts       string
 	Paths       string
+	OrderBy     string
+	Pagination  Pagination
 }
 
 func (p RouteList) ToMessage() repositories.ListRoutesMessage {
@@ -65,11 +67,13 @@ func (p RouteList) ToMessage() repositories.ListRoutesMessage {
 		DomainGUIDs: parse.ArrayParam(p.DomainGUIDs),
 		Hosts:       parse.ArrayParam(p.Hosts),
 		Paths:       parse.ArrayParam(p.Paths),
+		OrderBy:     p.OrderBy,
+		Pagination:  p.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
 func (p RouteList) SupportedKeys() []string {
-	return []string{"app_guids", "space_guids", "domain_guids", "hosts", "paths", "per_page", "page"}
+	return []string{"app_guids", "space_guids", "domain_guids", "hosts", "paths", "order_by", "per_page", "page"}
 }
 
 func (p *RouteList) DecodeFromURLValues(values url.Values) error {
@@ -78,7 +82,15 @@ func (p *RouteList) DecodeFromURLValues(values url.Values) error {
 	p.DomainGUIDs = values.Get("domain_guids")
 	p.Hosts = values.Get("hosts")
 	p.Paths = values.Get("paths")
-	return nil
+	p.OrderBy = values.Get("order_by")
+	return p.Pagination.DecodeFromURLValues(values)
+}
+
+func (p RouteList) Validate() error {
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Pagination),
+		jellidation.Field(&p.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+	)
 }
 
 type RoutePatch struct {

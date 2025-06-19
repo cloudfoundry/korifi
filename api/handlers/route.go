@@ -26,7 +26,7 @@ const (
 
 type CFRouteRepository interface {
 	GetRoute(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
-	ListRoutes(context.Context, authorization.Info, repositories.ListRoutesMessage) ([]repositories.RouteRecord, error)
+	ListRoutes(context.Context, authorization.Info, repositories.ListRoutesMessage) (repositories.ListResult[repositories.RouteRecord], error)
 	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	DeleteRoute(context.Context, authorization.Info, repositories.DeleteRouteMessage) error
@@ -81,17 +81,17 @@ func (h *Route) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.route.list")
 
-	routeListFilter := new(payloads.RouteList)
-	if err := h.requestValidator.DecodeAndValidateURLValues(r, routeListFilter); err != nil {
+	payload := new(payloads.RouteList)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	routes, err := h.lookupRouteAndDomainList(r.Context(), authInfo, routeListFilter.ToMessage())
+	routes, err := h.lookupRouteAndDomainList(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch routes from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForRoute, routes, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForRoute, routes, h.serverURL, *r.URL)), nil
 }
 
 func (h *Route) listDestinations(r *http.Request) (*routing.Response, error) {
@@ -249,26 +249,28 @@ func (h *Route) lookupRouteAndDomain(ctx context.Context, logger logr.Logger, au
 	return route, nil
 }
 
-func (h *Route) lookupRouteAndDomainList(ctx context.Context, authInfo authorization.Info, message repositories.ListRoutesMessage) ([]repositories.RouteRecord, error) {
-	routeRecords, err := h.routeRepo.ListRoutes(ctx, authInfo, message)
+func (h *Route) lookupRouteAndDomainList(ctx context.Context, authInfo authorization.Info, message repositories.ListRoutesMessage) (repositories.ListResult[repositories.RouteRecord], error) {
+	listResult, err := h.routeRepo.ListRoutes(ctx, authInfo, message)
 	if err != nil {
-		return []repositories.RouteRecord{}, err
+		return repositories.ListResult[repositories.RouteRecord]{}, err
 	}
 
+	routeRecords := listResult.Records
 	domainRecords := make(map[string]repositories.DomainRecord)
 	for i, routeRecord := range routeRecords {
 		domainRecord, ok := domainRecords[routeRecord.Domain.GUID]
 		if !ok {
 			domainRecord, err = h.domainRepo.GetDomain(ctx, authInfo, routeRecord.Domain.GUID)
 			if err != nil {
-				return []repositories.RouteRecord{}, err
+				return repositories.ListResult[repositories.RouteRecord]{}, err
 			}
 			domainRecords[routeRecord.Domain.GUID] = domainRecord
 		}
 		routeRecords[i].Domain = domainRecord
 	}
 
-	return routeRecords, nil
+	listResult.Records = routeRecords
+	return listResult, nil
 }
 
 //nolint:dupl

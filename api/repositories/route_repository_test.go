@@ -17,9 +17,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -202,8 +202,8 @@ var _ = Describe("RouteRepository", func() {
 		var (
 			cfRoute *korifiv1alpha1.CFRoute
 
-			routeRecords []repositories.RouteRecord
-			message      repositories.ListRoutesMessage
+			listResult repositories.ListResult[repositories.RouteRecord]
+			message    repositories.ListRoutesMessage
 		)
 
 		BeforeEach(func() {
@@ -237,12 +237,12 @@ var _ = Describe("RouteRepository", func() {
 
 		JustBeforeEach(func() {
 			var err error
-			routeRecords, err = routeRepo.ListRoutes(ctx, authInfo, message)
+			listResult, err = routeRepo.ListRoutes(ctx, authInfo, message)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("returns an empty list as the user is not authorized", func() {
-			Expect(routeRecords).To(BeEmpty())
+			Expect(listResult.Records).To(BeEmpty())
 		})
 
 		When("the user has space developer access", func() {
@@ -251,42 +251,71 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("returns a list of routeRecords for each CFRoute CR", func() {
-				Expect(routeRecords).To(ConsistOf(
+				Expect(listResult.Records).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute.Name)}),
 				))
-			})
-
-			Describe("filtering", func() {
-				var fakeKlient *fake.Klient
-
-				BeforeEach(func() {
-					fakeKlient = new(fake.Klient)
-					routeRepo = repositories.NewRouteRepo(fakeKlient)
-
-					message = repositories.ListRoutesMessage{
-						AppGUIDs:    []string{"g1"},
-						SpaceGUIDs:  []string{"sg1", "sg2"},
-						DomainGUIDs: []string{"domainGUID"},
-						Hosts:       []string{"my-subdomain-1-a"},
-						Paths:       []string{"/some/path"},
-						IsUnmapped:  tools.PtrTo(false),
-					}
-				})
-
-				It("translates filter parameters to klient list options", func() {
-					Expect(fakeKlient.ListCallCount()).To(Equal(1))
-					_, _, listOptions := fakeKlient.ListArgsForCall(0)
-					Expect(listOptions).To(ConsistOf(
-						repositories.WithLabelIn(korifiv1alpha1.CFDomainGUIDLabelKey, []string{"domainGUID"}),
-						repositories.WithLabelIn(korifiv1alpha1.CFRouteHostLabelKey, []string{"my-subdomain-1-a"}),
-						repositories.WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224("/some/path")),
-						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
-						repositories.WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, "false"),
-						repositories.WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix+"g1"),
-					))
-				})
+				Expect(listResult.PageInfo.TotalResults).To(Equal(1))
 			})
 		})
+
+		Describe("parameters to list options", func() {
+			var fakeKlient *fake.Klient
+
+			BeforeEach(func() {
+				fakeKlient = new(fake.Klient)
+				routeRepo = repositories.NewRouteRepo(fakeKlient)
+
+				message = repositories.ListRoutesMessage{
+					AppGUIDs:    []string{"g1"},
+					SpaceGUIDs:  []string{"sg1", "sg2"},
+					DomainGUIDs: []string{"domainGUID"},
+					Hosts:       []string{"my-subdomain-1-a"},
+					Paths:       []string{"/some/path"},
+					IsUnmapped:  tools.PtrTo(false),
+					Pagination: repositories.Pagination{
+						PerPage: 3,
+						Page:    2,
+					},
+				}
+			})
+
+			It("translates filter parameters to klient list options", func() {
+				Expect(fakeKlient.ListCallCount()).To(Equal(1))
+				_, _, listOptions := fakeKlient.ListArgsForCall(0)
+				Expect(listOptions).To(ConsistOf(
+					repositories.WithLabelIn(korifiv1alpha1.CFDomainGUIDLabelKey, []string{"domainGUID"}),
+					repositories.WithLabelIn(korifiv1alpha1.CFRouteHostLabelKey, []string{"my-subdomain-1-a"}),
+					repositories.WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224("/some/path")),
+					repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
+					repositories.WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, "false"),
+					repositories.WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix+"g1"),
+					repositories.NoopListOption{},
+					repositories.WithPaging(repositories.Pagination{
+						PerPage: 3,
+						Page:    2,
+					}),
+				))
+			})
+		})
+
+		DescribeTable("ordering",
+			func(msg repositories.ListRoutesMessage, match types.GomegaMatcher) {
+				fakeKlient := new(fake.Klient)
+				routeRepo = repositories.NewRouteRepo(fakeKlient)
+
+				_, err := routeRepo.ListRoutes(ctx, authInfo, msg)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fakeKlient.ListCallCount()).To(Equal(1))
+				_, _, listOptions := fakeKlient.ListArgsForCall(0)
+				Expect(listOptions).To(match)
+			},
+			Entry("created_at", repositories.ListRoutesMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
+			Entry("-created_at", repositories.ListRoutesMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
+			Entry("updated_at", repositories.ListRoutesMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
+			Entry("-updated_at", repositories.ListRoutesMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
+			Entry("no ordering", repositories.ListRoutesMessage{OrderBy: ""}, ContainElement(repositories.NoopListOption{})),
+			Entry("notexistent-field", repositories.ListRoutesMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
+		)
 	})
 
 	Describe("ListRoutesForApp", func() {
@@ -380,9 +409,13 @@ var _ = Describe("RouteRepository", func() {
 
 			It("creates a new CFRoute CR successfully", func() {
 				Expect(createdRouteErr).NotTo(HaveOccurred())
-				cfRouteLookupKey := types.NamespacedName{Name: createdRouteRecord.GUID, Namespace: space.Name}
-				createdCFRoute := new(korifiv1alpha1.CFRoute)
-				Expect(k8sClient.Get(ctx, cfRouteLookupKey, createdCFRoute)).To(Succeed())
+				createdCFRoute := &korifiv1alpha1.CFRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: space.Name,
+						Name:      createdRouteRecord.GUID,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(createdCFRoute), createdCFRoute)).To(Succeed())
 
 				Expect(createdCFRoute.Spec.Host).To(Equal(createdRouteRecord.Host))
 				Expect(createdCFRoute.Spec.Path).To(Equal(createdRouteRecord.Path))
@@ -596,7 +629,13 @@ var _ = Describe("RouteRepository", func() {
 			})
 
 			It("creates a new CFRoute CR successfully", func() {
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: routeRecord.GUID, Namespace: space.Name}, &korifiv1alpha1.CFRoute{})).To(Succeed())
+				cfRoute := &korifiv1alpha1.CFRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: space.Name,
+						Name:      routeRecord.GUID,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), cfRoute)).To(Succeed())
 			})
 
 			It("returns an RouteRecord with matching fields", func() {
@@ -1005,9 +1044,13 @@ var _ = Describe("RouteRepository", func() {
 
 			It("removes the destination from CFRoute successfully", func() {
 				Expect(removeDestinationErr).NotTo(HaveOccurred())
-				cfRouteLookupKey := types.NamespacedName{Name: routeGUID, Namespace: space.Name}
-				updatedCFRoute := new(korifiv1alpha1.CFRoute)
-				Expect(k8sClient.Get(ctx, cfRouteLookupKey, updatedCFRoute)).To(Succeed())
+				updatedCFRoute := &korifiv1alpha1.CFRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: space.Name,
+						Name:      routeGUID,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(updatedCFRoute), updatedCFRoute)).To(Succeed())
 
 				Expect(updatedCFRoute.Spec.Destinations).To(BeEmpty())
 			})

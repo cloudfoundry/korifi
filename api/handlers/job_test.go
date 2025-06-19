@@ -81,10 +81,12 @@ var _ = Describe("Job", func() {
 
 		When("not all unmapped routes are deleted", func() {
 			BeforeEach(func() {
-				routeRepo.ListRoutesReturns([]repositories.RouteRecord{{
-					GUID:      "route-guid",
-					SpaceGUID: "cf-space-guid",
-				}}, nil)
+				routeRepo.ListRoutesReturns(repositories.ListResult[repositories.RouteRecord]{
+					Records: []repositories.RouteRecord{{
+						GUID:      "route-guid",
+						SpaceGUID: "cf-space-guid",
+					}},
+				}, nil)
 			})
 
 			It("returns a processing status", func() {

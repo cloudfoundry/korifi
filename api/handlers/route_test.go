@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -157,9 +158,14 @@ var _ = Describe("Route", func() {
 			otherRouteRecord := routeRecord
 			otherRouteRecord.GUID = "other-test-route-guid"
 			otherRouteRecord.Host = "other-test-route-host"
-			routeRepo.ListRoutesReturns([]repositories.RouteRecord{
-				routeRecord,
-				otherRouteRecord,
+			routeRepo.ListRoutesReturns(repositories.ListResult[repositories.RouteRecord]{
+				Records: []repositories.RouteRecord{
+					routeRecord,
+					otherRouteRecord,
+				},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 2,
+				},
 			}, nil)
 
 			requestMethod = http.MethodGet
@@ -194,32 +200,9 @@ var _ = Describe("Route", func() {
 			)))
 		})
 
-		When("query parameters are provided", func() {
-			BeforeEach(func() {
-				payload := &payloads.RouteList{
-					AppGUIDs:    "a1,a2",
-					SpaceGUIDs:  "s1,s2",
-					DomainGUIDs: "d1,d2",
-					Hosts:       "h1,h2",
-					Paths:       "p1,p2",
-				}
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(payload)
-			})
-
-			It("filters routes by that", func() {
-				Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
-				_, _, message := routeRepo.ListRoutesArgsForCall(0)
-				Expect(message.AppGUIDs).To(ConsistOf("a1", "a2"))
-				Expect(message.SpaceGUIDs).To(ConsistOf("s1", "s2"))
-				Expect(message.DomainGUIDs).To(ConsistOf("d1", "d2"))
-				Expect(message.Hosts).To(ConsistOf("h1", "h2"))
-				Expect(message.Paths).To(ConsistOf("p1", "p2"))
-			})
-		})
-
 		When("there is a failure Listing Routes", func() {
 			BeforeEach(func() {
-				routeRepo.ListRoutesReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
+				routeRepo.ListRoutesReturns(repositories.ListResult[repositories.RouteRecord]{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -230,16 +213,6 @@ var _ = Describe("Route", func() {
 		When("there is a failure finding a Domain", func() {
 			BeforeEach(func() {
 				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("invalid query parameters are provided", func() {
-			BeforeEach(func() {
-				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("boom!"))
 			})
 
 			It("returns an error", func() {

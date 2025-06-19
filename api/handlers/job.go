@@ -99,7 +99,7 @@ func (h *Job) get(r *http.Request) (*routing.Response, error) {
 			return nil, err
 		}
 
-		if len(unmappedRoutes) != 0 {
+		if len(unmappedRoutes.Records) != 0 {
 			state = repositories.ResourceStateUnknown
 		}
 
