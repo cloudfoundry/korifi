@@ -102,6 +102,8 @@ type ListRoutesMessage struct {
 	Hosts       []string
 	Paths       []string
 	IsUnmapped  *bool
+	OrderBy     string
+	Pagination  Pagination
 }
 
 func (m *ListRoutesMessage) toListOptions() []ListOption {
@@ -110,6 +112,8 @@ func (m *ListRoutesMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFRouteHostLabelKey, m.Hosts),
 		WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224(m.Paths...)),
+		WithPaging(m.Pagination),
+		toSortOption(m.OrderBy),
 	}
 
 	listOptions = append(listOptions, slices.Collect(it.Map(slices.Values(m.AppGUIDs), func(s string) ListOption {
@@ -173,15 +177,17 @@ func (r *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, r
 	return cfRouteToRouteRecord(*route), nil
 }
 
-func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info, message ListRoutesMessage) ([]RouteRecord, error) {
+func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info, message ListRoutesMessage) (ListResult[RouteRecord], error) {
 	cfRouteList := &korifiv1alpha1.CFRouteList{}
-	_, err := r.klient.List(ctx, cfRouteList, message.toListOptions()...)
+	pageInfo, err := r.klient.List(ctx, cfRouteList, message.toListOptions()...)
 	if err != nil {
-		return []RouteRecord{}, fmt.Errorf("failed to list routes: %w", apierrors.FromK8sError(err, RouteResourceType))
+		return ListResult[RouteRecord]{}, fmt.Errorf("failed to list routes: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	appRecords := itx.FromSlice(cfRouteList.Items)
-	return slices.Collect(it.Map(appRecords, cfRouteToRouteRecord)), nil
+	return ListResult[RouteRecord]{
+		PageInfo: pageInfo,
+		Records:  slices.Collect(it.Map(slices.Values(cfRouteList.Items), cfRouteToRouteRecord)),
+	}, nil
 }
 
 func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
@@ -226,10 +232,15 @@ func cfRouteDestinationsToDestinationRecords(cfRoute korifiv1alpha1.CFRoute) []D
 }
 
 func (r *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
-	return r.ListRoutes(ctx, authInfo, ListRoutesMessage{
+	listResult, err := r.ListRoutes(ctx, authInfo, ListRoutesMessage{
 		AppGUIDs:   []string{appGUID},
 		SpaceGUIDs: []string{spaceGUID},
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return listResult.Records, nil
 }
 
 func findEffectiveDestination(destGUID string, effectiveDestinations []korifiv1alpha1.Destination) *korifiv1alpha1.Destination {
@@ -273,7 +284,7 @@ func (r *RouteRepo) DeleteUnmappedRoutes(ctx context.Context, authInfo authoriza
 		return apierrors.FromK8sError(err, RouteResourceType)
 	}
 
-	for _, route := range routes {
+	for _, route := range routes.Records {
 		if err = r.klient.Delete(ctx, &korifiv1alpha1.CFRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      route.GUID,
@@ -406,11 +417,11 @@ func (r *RouteRepo) fetchRouteByFields(ctx context.Context, authInfo authorizati
 		return nil, err
 	}
 
-	if len(matches) == 0 {
+	if len(matches.Records) == 0 {
 		return nil, nil
 	}
 
-	return &matches[0], nil
+	return &matches.Records[0], nil
 }
 
 func destinationRecordsToCFDestinations(destinationRecords []DestinationRecord) []korifiv1alpha1.Destination {
