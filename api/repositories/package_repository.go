@@ -91,7 +91,7 @@ func (m *ListPackagesMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.CFPackageStateLabelKey, m.States),
 		WithPaging(m.Pagination),
-		toSortOption(m.OrderBy),
+		WithOrdering(m.OrderBy),
 	}
 }
 
