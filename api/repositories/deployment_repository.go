@@ -73,7 +73,7 @@ func (m ListDeploymentsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFAppDeploymentStatusKey, slices.Collect(it.Map(slices.Values(m.StatusValues), func(s DeploymentStatusValue) string {
 			return string(s)
 		}))),
-		toSortOption(m.OrderBy),
+		WithOrdering(m.OrderBy),
 	}
 }
 

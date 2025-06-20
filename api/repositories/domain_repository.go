@@ -70,7 +70,7 @@ type ListDomainsMessage struct {
 func (m *ListDomainsMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.CFEncodedDomainNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
-		toSortOption(m.OrderBy),
+		WithOrdering(m.OrderBy),
 		WithPaging(m.Pagination),
 	}
 }

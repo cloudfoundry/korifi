@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -487,25 +486,6 @@ var _ = Describe("PackageRepository", func() {
 			})
 		})
 
-		DescribeTable("ordering",
-			func(msg repositories.ListPackagesMessage, match types.GomegaMatcher) {
-				fakeKlient := new(fake.Klient)
-				packageRepo = repositories.NewPackageRepo(fakeKlient, nil, "", nil)
-
-				_, err := packageRepo.ListPackages(ctx, authInfo, msg)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(fakeKlient.ListCallCount()).To(Equal(1))
-				_, _, listOptions := fakeKlient.ListArgsForCall(0)
-				Expect(listOptions).To(match)
-			},
-			Entry("created_at", repositories.ListPackagesMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
-			Entry("-created_at", repositories.ListPackagesMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
-			Entry("updated_at", repositories.ListPackagesMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
-			Entry("-updated_at", repositories.ListPackagesMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
-			Entry("no ordering", repositories.ListPackagesMessage{OrderBy: ""}, ContainElement(repositories.NoopListOption{})),
-			Entry("notexistent-field", repositories.ListPackagesMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
-		)
-
 		Describe("parameters to list options", func() {
 			var fakeKlient *fake.Klient
 
@@ -532,7 +512,7 @@ var _ = Describe("PackageRepository", func() {
 					repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, listMessage.GUIDs),
 					repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, listMessage.AppGUIDs),
 					repositories.WithLabelIn(korifiv1alpha1.CFPackageStateLabelKey, listMessage.States),
-					repositories.SortBy("Created At", false),
+					repositories.WithOrdering("created_at"),
 					repositories.WithPaging(repositories.Pagination{
 						Page:    2,
 						PerPage: 3,

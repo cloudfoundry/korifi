@@ -185,7 +185,10 @@ func (m *ListAppsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.Guids),
 		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
-		toSortOption(m.OrderBy),
+		WithOrdering(m.OrderBy,
+			"name", "Display Name",
+			"state", "State",
+		),
 		WithPaging(m.Pagination),
 	}
 }
