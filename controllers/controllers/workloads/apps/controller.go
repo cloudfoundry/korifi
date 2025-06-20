@@ -200,8 +200,8 @@ func bindingsReady(bindings []korifiv1alpha1.CFServiceBinding) bool {
 func bindingObjectRefs(bindings []korifiv1alpha1.CFServiceBinding) []korifiv1alpha1.ServiceBinding {
 	return slices.Collect(it.Map(slices.Values(bindings), func(binding korifiv1alpha1.CFServiceBinding) korifiv1alpha1.ServiceBinding {
 		bindingName := binding.Status.MountSecretRef.Name
-		if binding.Spec.DisplayName != nil {
-			bindingName = *binding.Spec.DisplayName
+		if binding.Spec.DisplayName != "" {
+			bindingName = binding.Spec.DisplayName
 		}
 
 		return korifiv1alpha1.ServiceBinding{

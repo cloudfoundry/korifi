@@ -97,7 +97,7 @@ var _ = Describe("ServiceBindingCreate", func() {
 
 	BeforeEach(func() {
 		createPayload = payloads.ServiceBindingCreate{
-			Name: tools.PtrTo(uuid.NewString()),
+			Name: uuid.NewString(),
 			Relationships: &payloads.ServiceBindingRelationships{
 				App: &payloads.Relationship{
 					Data: &payloads.RelationshipData{
@@ -140,7 +140,7 @@ var _ = Describe("ServiceBindingCreate", func() {
 
 		When("name is omitted", func() {
 			BeforeEach(func() {
-				createPayload.Name = nil
+				createPayload.Name = ""
 			})
 
 			It("succeeds", func() {
@@ -161,7 +161,7 @@ var _ = Describe("ServiceBindingCreate", func() {
 
 			When("name field is omitted", func() {
 				BeforeEach(func() {
-					createPayload.Name = nil
+					createPayload.Name = ""
 				})
 
 				It("fails validation", func() {

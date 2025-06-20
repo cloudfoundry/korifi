@@ -71,7 +71,7 @@ var _ = Describe("Builder", func() {
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
 				Type:        "app",
-				DisplayName: &serviceBindingName,
+				DisplayName: serviceBindingName,
 				Service: corev1.ObjectReference{
 					Name: "my-service-instance-guid",
 				},
@@ -113,7 +113,7 @@ var _ = Describe("Builder", func() {
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
 				Type:        "app",
-				DisplayName: &serviceBindingName2,
+				DisplayName: serviceBindingName2,
 				Service: corev1.ObjectReference{
 					Name: "my-service-instance-guid-2",
 				},
@@ -189,7 +189,7 @@ var _ = Describe("Builder", func() {
 		When("the service binding has no name", func() {
 			BeforeEach(func() {
 				helpers.EnsurePatch(controllersClient, serviceBinding, func(s *korifiv1alpha1.CFServiceBinding) {
-					s.Spec.DisplayName = nil
+					s.Spec.DisplayName = ""
 				})
 			})
 

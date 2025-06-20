@@ -95,7 +95,7 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 		BeforeEach(func() {
 			updatedServiceBinding = serviceBinding.DeepCopy()
 			displayName := "display-name"
-			updatedServiceBinding.Spec.DisplayName = &displayName
+			updatedServiceBinding.Spec.DisplayName = displayName
 		})
 
 		JustBeforeEach(func() {

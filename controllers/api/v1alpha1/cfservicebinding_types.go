@@ -43,7 +43,7 @@ const (
 // CFServiceBindingSpec defines the desired state of CFServiceBinding
 type CFServiceBindingSpec struct {
 	// The mutable, user-friendly name of the service binding. Unlike metadata.name, the user can change this field
-	DisplayName *string `json:"displayName,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
 
 	// The Service this binding uses. When created by the korifi API, this will refer to a CFServiceInstance
 	Service v1.ObjectReference `json:"service"`
@@ -87,6 +87,8 @@ type CFServiceBindingStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Created At",type="string",JSONPath=`.metadata.labels.korifi\.cloudfoundry\.org/created_at`
+//+kubebuilder:printcolumn:name="Updated At",type="string",JSONPath=`.metadata.labels.korifi\.cloudfoundry\.org/updated_at`
 //+kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

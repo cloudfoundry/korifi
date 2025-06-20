@@ -107,14 +107,14 @@ func fromServiceBinding(
 	serviceLabel string,
 ) (ServiceDetails, error) {
 	var serviceName string
-	var bindingName *string
+	var bindingName string
 
-	if serviceBinding.Spec.DisplayName != nil {
-		serviceName = *serviceBinding.Spec.DisplayName
+	if serviceBinding.Spec.DisplayName != "" {
+		serviceName = serviceBinding.Spec.DisplayName
 		bindingName = serviceBinding.Spec.DisplayName
 	} else {
 		serviceName = serviceInstance.Spec.DisplayName
-		bindingName = nil
+		bindingName = ""
 	}
 
 	tags := serviceInstance.Spec.Tags

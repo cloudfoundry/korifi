@@ -410,7 +410,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					Namespace: cfApp.Namespace,
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
-					DisplayName: new(string),
 					Service: corev1.ObjectReference{
 						Namespace: cfApp.Namespace,
 						Name:      instance.Name,
@@ -489,7 +488,7 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 			When("the binding has a display name", func() {
 				BeforeEach(func() {
 					Expect(k8s.PatchResource(ctx, adminClient, binding, func() {
-						binding.Spec.DisplayName = tools.PtrTo("custom-binding-name")
+						binding.Spec.DisplayName = "custom-binding-name"
 					})).To(Succeed())
 				})
 

@@ -494,7 +494,7 @@ var _ = Describe("Applier", func() {
 		When("the desired binding has its name specified", func() {
 			BeforeEach(func() {
 				appInfo.Services = []payloads.ManifestApplicationService{
-					{Name: "service-name", BindingName: tools.PtrTo("service-binding")},
+					{Name: "service-name", BindingName: "service-binding"},
 					{Name: "already-bound-service-name"},
 				}
 			})
@@ -506,7 +506,7 @@ var _ = Describe("Applier", func() {
 				_, _, createMsg := serviceBindingRepo.CreateServiceBindingArgsForCall(0)
 				Expect(createMsg).To(Equal(repositories.CreateServiceBindingMessage{
 					Type:                korifiv1alpha1.CFServiceBindingTypeApp,
-					Name:                tools.PtrTo("service-binding"),
+					Name:                "service-binding",
 					ServiceInstanceGUID: "service-guid",
 					AppGUID:             "app-guid",
 					SpaceGUID:           "space-guid",

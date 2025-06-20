@@ -36,7 +36,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		space *korifiv1alpha1.CFSpace
 
 		appGUID                 string
-		bindingName             *string
+		bindingName             string
 		bindingConditionAwaiter *fakeawaiter.FakeAwaiter[
 			*korifiv1alpha1.CFServiceBinding,
 			korifiv1alpha1.CFServiceBindingList,
@@ -82,7 +82,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		org = createOrgWithCleanup(ctx, prefixedGUID("org"))
 		space = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space1"))
 		appGUID = prefixedGUID("app")
-		bindingName = nil
+		bindingName = ""
 
 		app := &korifiv1alpha1.CFApp{
 			ObjectMeta: metav1.ObjectMeta{
@@ -299,7 +299,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				return cfApp, err
 			}
 
-			bindingName = nil
+			bindingName = ""
 		})
 
 		JustBeforeEach(func() {
@@ -350,7 +350,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(serviceBinding.Labels).To(HaveKeyWithValue("servicebinding.io/provisioned-service", "true"))
 				Expect(serviceBinding.Spec).To(Equal(
 					korifiv1alpha1.CFServiceBindingSpec{
-						DisplayName: nil,
 						Service: corev1.ObjectReference{
 							Kind:       "CFServiceInstance",
 							APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
@@ -444,8 +443,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			When("The service binding has a name", func() {
 				BeforeEach(func() {
-					tempName := "some-name-for-a-binding"
-					bindingName = &tempName
+					bindingName = "some-name-for-a-binding"
 				})
 
 				It("creates the binding with the specified name", func() {
@@ -605,7 +603,6 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			createMsg = repositories.CreateServiceBindingMessage{
 				Type:                korifiv1alpha1.CFServiceBindingTypeApp,
-				Name:                nil,
 				ServiceInstanceGUID: cfServiceInstance.Name,
 				AppGUID:             appGUID,
 				SpaceGUID:           space.Name,
@@ -722,7 +719,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			When("the service binding has a name", func() {
 				BeforeEach(func() {
-					createMsg.Name = tools.PtrTo("some-name-for-a-binding")
+					createMsg.Name = "some-name-for-a-binding"
 				})
 
 				It("creates the binding with the specified name", func() {
@@ -734,7 +731,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				BeforeEach(func() {
 					createMsg.Type = korifiv1alpha1.CFServiceBindingTypeKey
 					createMsg.AppGUID = ""
-					createMsg.Name = tools.PtrTo(serviceBindingName)
+					createMsg.Name = serviceBindingName
 					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 				})
 
@@ -742,7 +739,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Expect(serviceBindingRecord.GUID).To(matchers.BeValidUUID())
 					Expect(serviceBindingRecord.AppGUID).To(Equal(""))
 					Expect(serviceBindingRecord.Type).To(Equal(korifiv1alpha1.CFServiceBindingTypeKey))
-					Expect(*(serviceBindingRecord.Name)).To(Equal(serviceBindingName))
+					Expect(serviceBindingRecord.Name).To(Equal(serviceBindingName))
 					Expect(serviceBindingRecord.ServiceInstanceGUID).To(Equal(cfServiceInstance.Name))
 					Expect(serviceBindingRecord.SpaceGUID).To(Equal(space.Name))
 					Expect(serviceBindingRecord.CreatedAt).NotTo(BeZero())
@@ -1344,7 +1341,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					Labels:    map[string]string{"servicebinding.io/provisioned-service": "true"},
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
-					DisplayName: &sbDisplayName,
+					DisplayName: sbDisplayName,
 					AppRef: corev1.LocalObjectReference{
 						Name: appGUID,
 					},

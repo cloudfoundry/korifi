@@ -48,7 +48,7 @@ var _ = Describe("Normalizer", func() {
 			},
 			Services: []payloads.ManifestApplicationService{{
 				Name:        "my-service",
-				BindingName: tools.PtrTo("my-binding"),
+				BindingName: "my-binding",
 			}},
 		}
 		appState = manifest.AppState{
@@ -72,7 +72,7 @@ var _ = Describe("Normalizer", func() {
 			Expect(normalizedAppInfo.Metadata).To(Equal(appInfo.Metadata))
 			Expect(normalizedAppInfo.Services).To(Equal([]payloads.ManifestApplicationService{{
 				Name:        "my-service",
-				BindingName: tools.PtrTo("my-binding"),
+				BindingName: "my-binding",
 			}}))
 		})
 

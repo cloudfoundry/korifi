@@ -14,7 +14,7 @@ type ServiceBindingCreate struct {
 	Relationships *ServiceBindingRelationships `json:"relationships"`
 	Type          string                       `json:"type"`
 	Parameters    map[string]any               `json:"parameters"`
-	Name          *string                      `json:"name"`
+	Name          string                       `json:"name"`
 }
 
 func (p ServiceBindingCreate) ToMessage(spaceGUID string) repositories.CreateServiceBindingMessage {

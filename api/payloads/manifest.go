@@ -69,7 +69,7 @@ type ManifestApplicationProcess struct {
 
 type ManifestApplicationService struct {
 	Name        string         `json:"name" yaml:"name"`
-	BindingName *string        `json:"binding_name" yaml:"binding_name"`
+	BindingName string         `json:"binding_name" yaml:"binding_name"`
 	Parameters  map[string]any `json:"parameters" yaml:"parameters"`
 }
 

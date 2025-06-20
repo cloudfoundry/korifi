@@ -18,7 +18,7 @@ const (
 type ServiceBindingResponse struct {
 	GUID          string                              `json:"guid"`
 	Type          string                              `json:"type"`
-	Name          *string                             `json:"name"`
+	Name          string                              `json:"name"`
 	CreatedAt     string                              `json:"created_at"`
 	UpdatedAt     string                              `json:"updated_at"`
 	LastOperation ServiceBindingLastOperationResponse `json:"last_operation"`

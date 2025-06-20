@@ -25,7 +25,7 @@ type ServiceDetails struct {
 	InstanceGUID   string         `json:"instance_guid"`
 	InstanceName   string         `json:"instance_name"`
 	BindingGUID    string         `json:"binding_guid"`
-	BindingName    *string        `json:"binding_name"`
+	BindingName    string         `json:"binding_name"`
 	Credentials    map[string]any `json:"credentials"`
 	SyslogDrainURL *string        `json:"syslog_drain_url"`
 	VolumeMounts   []string       `json:"volume_mounts"`

@@ -57,7 +57,7 @@ func NewServiceBindingRepo(
 type ServiceBindingRecord struct {
 	GUID                string
 	Type                string
-	Name                *string
+	Name                string
 	AppGUID             string
 	ServiceInstanceGUID string
 	SpaceGUID           string
@@ -90,7 +90,7 @@ type ServiceBindingLastOperation struct {
 
 type CreateServiceBindingMessage struct {
 	Type                string
-	Name                *string
+	Name                string
 	ServiceInstanceGUID string
 	AppGUID             string
 	SpaceGUID           string

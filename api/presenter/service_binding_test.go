@@ -28,7 +28,7 @@ var _ = Describe("Service Binding", func() {
 		record = repositories.ServiceBindingRecord{
 			GUID:                "binding-guid",
 			Type:                "user-provided",
-			Name:                tools.PtrTo("binding-name"),
+			Name:                "binding-name",
 			AppGUID:             "app-guid",
 			ServiceInstanceGUID: "service-instance-guid",
 			SpaceGUID:           "space-guid",
