@@ -113,7 +113,7 @@ func (m *ListRoutesMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFRouteHostLabelKey, m.Hosts),
 		WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224(m.Paths...)),
 		WithPaging(m.Pagination),
-		toSortOption(m.OrderBy),
+		WithOrdering(m.OrderBy),
 	}
 
 	listOptions = append(listOptions, slices.Collect(it.Map(slices.Values(m.AppGUIDs), func(s string) ListOption {

@@ -187,82 +187,61 @@ var _ = Describe("AppRepository", func() {
 			}))
 		})
 
-		Describe("message list options", func() {
+		Describe("list options", func() {
+			var fakeKlient *fake.Klient
+
 			BeforeEach(func() {
-				message = repositories.ListAppsMessage{
-					Guids: []string{cfApp2.Name},
-				}
+				fakeKlient = new(fake.Klient)
+				appRepo = repositories.NewAppRepo(fakeKlient, appAwaiter)
 			})
 
-			It("returns the apps matching the filter paramters", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listResult.Records).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"GUID": Equal(cfApp2.Name),
-				})))
-			})
-
-			Describe("list options", func() {
-				var fakeKlient *fake.Klient
-
+			Describe("parameters to list options", func() {
 				BeforeEach(func() {
-					fakeKlient = new(fake.Klient)
-					appRepo = repositories.NewAppRepo(fakeKlient, appAwaiter)
+					message = repositories.ListAppsMessage{
+						Names:         []string{"n1", "n2"},
+						Guids:         []string{"g1", "g2"},
+						SpaceGUIDs:    []string{"sg1", "sg2"},
+						LabelSelector: "foo=bar",
+						OrderBy:       "created_at",
+						Pagination: repositories.Pagination{
+							Page:    3,
+							PerPage: 4,
+						},
+					}
 				})
 
-				Describe("parameters to list options", func() {
-					BeforeEach(func() {
-						message = repositories.ListAppsMessage{
-							Names:         []string{"n1", "n2"},
-							Guids:         []string{"g1", "g2"},
-							SpaceGUIDs:    []string{"sg1", "sg2"},
-							LabelSelector: "foo=bar",
-							OrderBy:       "name",
-							Pagination: repositories.Pagination{
-								Page:    3,
-								PerPage: 4,
-							},
-						}
-					})
-
-					It("translates parameters to klient list options", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(fakeKlient.ListCallCount()).To(Equal(1))
-						_, _, listOptions := fakeKlient.ListArgsForCall(0)
-						Expect(listOptions).To(ConsistOf(
-							repositories.WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224("n1", "n2")),
-							repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
-							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
-							repositories.WithLabelSelector("foo=bar"),
-							repositories.SortBy("Display Name", false),
-							repositories.WithPaging(repositories.Pagination{PerPage: 4, Page: 3}),
-						))
-					})
-				})
-			})
-
-			DescribeTable("ordering",
-				func(msg repositories.ListAppsMessage, match types.GomegaMatcher) {
-					fakeKlient := new(fake.Klient)
-					appRepo = repositories.NewAppRepo(fakeKlient, appAwaiter)
-
-					_, err := appRepo.ListApps(ctx, authInfo, msg)
-					Expect(err).NotTo(HaveOccurred())
+				It("translates parameters to klient list options", func() {
+					Expect(listErr).NotTo(HaveOccurred())
 					Expect(fakeKlient.ListCallCount()).To(Equal(1))
 					_, _, listOptions := fakeKlient.ListArgsForCall(0)
-					Expect(listOptions).To(match)
-				},
-				Entry("name", repositories.ListAppsMessage{OrderBy: "name"}, ContainElement(repositories.SortBy("Display Name", false))),
-				Entry("-name", repositories.ListAppsMessage{OrderBy: "-name"}, ContainElement(repositories.SortBy("Display Name", true))),
-				Entry("state", repositories.ListAppsMessage{OrderBy: "state"}, ContainElement(repositories.SortBy("State", false))),
-				Entry("-state", repositories.ListAppsMessage{OrderBy: "-state"}, ContainElement(repositories.SortBy("State", true))),
-				Entry("created_at", repositories.ListAppsMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
-				Entry("-created_at", repositories.ListAppsMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
-				Entry("updated_at", repositories.ListAppsMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
-				Entry("-updated_at", repositories.ListAppsMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
-				Entry("no ordering", repositories.ListAppsMessage{OrderBy: ""}, ContainElement(repositories.NoopListOption{})),
-				Entry("notexistent-field", repositories.ListAppsMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
-			)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224("n1", "n2")),
+						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
+						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
+						repositories.WithLabelSelector("foo=bar"),
+						repositories.WithOrdering("created_at"),
+						repositories.WithPaging(repositories.Pagination{PerPage: 4, Page: 3}),
+					))
+				})
+			})
 		})
+
+		DescribeTable("ordering",
+			func(msg repositories.ListAppsMessage, match types.GomegaMatcher) {
+				fakeKlient := new(fake.Klient)
+				appRepo = repositories.NewAppRepo(fakeKlient, appAwaiter)
+
+				_, err := appRepo.ListApps(ctx, authInfo, msg)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fakeKlient.ListCallCount()).To(Equal(1))
+				_, _, listOptions := fakeKlient.ListArgsForCall(0)
+				Expect(listOptions).To(match)
+			},
+			Entry("name", repositories.ListAppsMessage{OrderBy: "name"}, ContainElement(repositories.SortOpt{By: "Display Name", Desc: false})),
+			Entry("-name", repositories.ListAppsMessage{OrderBy: "-name"}, ContainElement(repositories.SortOpt{By: "Display Name", Desc: true})),
+			Entry("state", repositories.ListAppsMessage{OrderBy: "state"}, ContainElement(repositories.SortOpt{By: "State", Desc: false})),
+			Entry("-state", repositories.ListAppsMessage{OrderBy: "-state"}, ContainElement(repositories.SortOpt{By: "State", Desc: true})),
+		)
 	})
 
 	Describe("CreateApp", func() {

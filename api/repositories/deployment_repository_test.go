@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/onsi/gomega/types"
 )
 
 var _ = Describe("DeploymentRepository", func() {
@@ -284,64 +283,29 @@ var _ = Describe("DeploymentRepository", func() {
 				))
 			})
 
-			DescribeTable("ordering",
-				func(msg repositories.ListDeploymentsMessage, match types.GomegaMatcher) {
-					fakeKlient := new(fake.Klient)
+			Describe("list parameters", func() {
+				var fakeKlient *fake.Klient
+
+				BeforeEach(func() {
+					fakeKlient = new(fake.Klient)
 					deploymentRepo = repositories.NewDeploymentRepo(fakeKlient)
 
-					_, err := deploymentRepo.ListDeployments(ctx, authInfo, msg)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(fakeKlient.ListCallCount()).To(Equal(1))
-					_, _, listOptions := fakeKlient.ListArgsForCall(0)
-					Expect(listOptions).To(match)
-				},
-				Entry("no ordering", repositories.ListDeploymentsMessage{}, Not(ContainElement(BeAssignableToTypeOf(repositories.SortOpt{})))),
-				Entry("created_at", repositories.ListDeploymentsMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
-				Entry("-created_at", repositories.ListDeploymentsMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
-				Entry("updated_at", repositories.ListDeploymentsMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
-				Entry("-updated_at", repositories.ListDeploymentsMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
-				Entry("notexistent-field", repositories.ListDeploymentsMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
-			)
-
-			Describe("filtering", func() {
-				Describe("by app guid", func() {
-					BeforeEach(func() {
-						message = repositories.ListDeploymentsMessage{
-							AppGUIDs: []string{cfApp.Name},
-						}
-					})
-
-					It("filters by app guids", func() {
-						Expect(deployments).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-							"GUID": Equal(cfApp.Name),
-						})))
-					})
+					message = repositories.ListDeploymentsMessage{
+						AppGUIDs:     []string{"a1", "a2"},
+						StatusValues: []repositories.DeploymentStatusValue{"ACTIVE"},
+						OrderBy:      "created_at",
+					}
 				})
 
-				Describe("filter parameters to list options", func() {
-					var fakeKlient *fake.Klient
-
-					BeforeEach(func() {
-						fakeKlient = new(fake.Klient)
-						deploymentRepo = repositories.NewDeploymentRepo(fakeKlient)
-
-						message = repositories.ListDeploymentsMessage{
-							AppGUIDs:     []string{"a1", "a2"},
-							StatusValues: []repositories.DeploymentStatusValue{"ACTIVE"},
-							OrderBy:      "created_at",
-						}
-					})
-
-					It("translates filter parameters to klient list options", func() {
-						Expect(listErr).NotTo(HaveOccurred())
-						Expect(fakeKlient.ListCallCount()).To(Equal(1))
-						_, _, listOptions := fakeKlient.ListArgsForCall(0)
-						Expect(listOptions).To(ConsistOf(
-							repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"a1", "a2"}),
-							repositories.WithLabelIn(korifiv1alpha1.CFAppDeploymentStatusKey, []string{"ACTIVE"}),
-							repositories.SortBy("Created At", false),
-						))
-					})
+				It("translates filter parameters to klient list options", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"a1", "a2"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFAppDeploymentStatusKey, []string{"ACTIVE"}),
+						repositories.WithOrdering("created_at"),
+					))
 				})
 			})
 		})

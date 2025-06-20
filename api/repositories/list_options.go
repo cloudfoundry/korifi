@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/tools/k8s"
+	"github.com/BooleanCat/go-functional/v2/it"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -177,11 +181,55 @@ func WithLabelStrictlyIn(key string, values []string) ListOption {
 	return WithLabelIn(key, values)
 }
 
-func SortBy(by string, desc bool) ListOption {
+func WithOrdering(orderBy string, orderByToColumnMappings ...string) ListOption {
+	orderByToColumn, err := asMap(orderByToColumnMappings...)
+	if err != nil {
+		return ErroringListOption(fmt.Sprintf("invalid orderBy to column mappings: %s", err.Error()))
+	}
+
+	desc := false
+	if strings.HasPrefix(orderBy, "-") {
+		desc = true
+		orderBy = strings.TrimPrefix(orderBy, "-")
+	}
+
+	if orderBy == "" {
+		return NoopListOption{}
+	}
+
+	column, ok := orderByToColumn[orderBy]
+	if !ok {
+		return ErroringListOption(fmt.Sprintf("unsupported field for ordering: %q", orderBy))
+	}
+
 	return SortOpt{
-		By:   by,
+		By:   column,
 		Desc: desc,
 	}
+}
+
+func asMap(pairs ...string) (map[string]string, error) {
+	pairs = append(
+		[]string{
+			"created_at", "Created At",
+			"updated_at", "Updated At",
+		},
+		pairs...,
+	)
+
+	if len(pairs)%2 != 0 {
+		return nil, fmt.Errorf("expected even number of key value pairs, got %d elements", len(pairs))
+	}
+
+	indexedPairsIter := it.Enumerate(slices.Values(pairs))
+	keysIter := it.Right(it.Filter2(indexedPairsIter, func(i int, _ string) bool {
+		return i%2 == 0
+	}))
+	valuesIter := it.Right(it.Filter2(indexedPairsIter, func(i int, _ string) bool {
+		return i%2 == 1
+	}))
+
+	return maps.Collect(it.Zip(keysIter, valuesIter)), nil
 }
 
 type SortOpt struct {

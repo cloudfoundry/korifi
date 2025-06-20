@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	gomegatypes "github.com/onsi/gomega/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -240,7 +239,8 @@ var _ = Describe("DomainRepository", func() {
 			Describe("parameters to list options", func() {
 				BeforeEach(func() {
 					domainListMessage = repositories.ListDomainsMessage{
-						Names: []string{"n1", "n2"},
+						Names:   []string{"n1", "n2"},
+						OrderBy: "created_at",
 						Pagination: repositories.Pagination{
 							Page:    3,
 							PerPage: 4,
@@ -253,31 +253,12 @@ var _ = Describe("DomainRepository", func() {
 					_, _, listOptions := fakeKlient.ListArgsForCall(0)
 					Expect(listOptions).To(ConsistOf(
 						repositories.WithLabelIn(korifiv1alpha1.CFEncodedDomainNameLabelKey, tools.EncodeValuesToSha224("n1", "n2")),
+						repositories.WithOrdering("created_at"),
 						repositories.WithPaging(repositories.Pagination{PerPage: 4, Page: 3}),
-						repositories.NoopListOption{},
 					))
 				})
 			})
 		})
-
-		DescribeTable("ordering",
-			func(msg repositories.ListDomainsMessage, match gomegatypes.GomegaMatcher) {
-				fakeKlient := new(fake.Klient)
-				domainRepo = repositories.NewDomainRepo(fakeKlient, rootNamespace)
-
-				_, err := domainRepo.ListDomains(ctx, authInfo, msg)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(fakeKlient.ListCallCount()).To(Equal(1))
-				_, _, listOptions := fakeKlient.ListArgsForCall(0)
-				Expect(listOptions).To(match)
-			},
-			Entry("created_at", repositories.ListDomainsMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
-			Entry("-created_at", repositories.ListDomainsMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
-			Entry("updated_at", repositories.ListDomainsMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
-			Entry("-updated_at", repositories.ListDomainsMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
-			Entry("no ordering", repositories.ListDomainsMessage{OrderBy: ""}, ContainElement(repositories.NoopListOption{})),
-			Entry("notexistent-field", repositories.ListDomainsMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
-		)
 
 		When("the user has no permission to list domains in the root namespace", func() {
 			BeforeEach(func() {

@@ -73,7 +73,11 @@ func (b *BuildRepo) GetBuild(ctx context.Context, authInfo authorization.Info, b
 
 func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo authorization.Info, spaceGUID string, appGUID string) (BuildRecord, error) {
 	buildList := &korifiv1alpha1.CFBuildList{}
-	_, err := b.klient.List(ctx, buildList, InNamespace(spaceGUID), WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, appGUID), SortBy("Created At", true))
+	_, err := b.klient.List(ctx, buildList,
+		InNamespace(spaceGUID),
+		WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, appGUID),
+		WithOrdering("created_at"),
+	)
 	if err != nil {
 		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)
 	}
@@ -178,7 +182,7 @@ func (m *ListBuildsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.CFBuildStateLabelKey, m.States),
 		WithPaging(m.Pagination),
-		toSortOption(m.OrderBy),
+		WithOrdering(m.OrderBy),
 	}
 }
 

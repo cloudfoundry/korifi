@@ -422,7 +422,7 @@ var _ = Describe("Klient", func() {
 
 		When("sorting is requested", func() {
 			BeforeEach(func() {
-				listOpts = append(listOpts, repositories.SortBy("foo", true))
+				listOpts = append(listOpts, repositories.SortOpt{By: "foo", Desc: true})
 			})
 
 			It("uses the descriptor client and the object mapper", func() {

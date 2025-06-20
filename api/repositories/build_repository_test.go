@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
-	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -422,40 +421,7 @@ var _ = Describe("BuildRepository", func() {
 				}))
 			})
 
-			DescribeTable("ordering",
-				func(msg repositories.ListBuildsMessage, match types.GomegaMatcher) {
-					fakeKlient := new(fake.Klient)
-					buildRepo = repositories.NewBuildRepo(fakeKlient)
-
-					_, err := buildRepo.ListBuilds(ctx, authInfo, msg)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(fakeKlient.ListCallCount()).To(Equal(1))
-					_, _, listOptions := fakeKlient.ListArgsForCall(0)
-					Expect(listOptions).To(match)
-				},
-				Entry("created_at", repositories.ListBuildsMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
-				Entry("-created_at", repositories.ListBuildsMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
-				Entry("updated_at", repositories.ListBuildsMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
-				Entry("-updated_at", repositories.ListBuildsMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
-				Entry("no ordering", repositories.ListBuildsMessage{OrderBy: ""}, ContainElement(repositories.NoopListOption{})),
-				Entry("notexistent-field", repositories.ListBuildsMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
-			)
-
-			When("filtering", func() {
-				BeforeEach(func() {
-					listMessage = repositories.ListBuildsMessage{AppGUIDs: []string{build.Spec.AppRef.Name}}
-				})
-
-				It("returns matching build records", func() {
-					Expect(fetchError).NotTo(HaveOccurred())
-
-					Expect(listResult.Records).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"GUID": Equal(build.Name),
-					})))
-				})
-			})
-
-			Describe("parameters to list options", func() {
+			Describe("list parameters", func() {
 				var fakeKlient *fake.Klient
 
 				BeforeEach(func() {
@@ -466,6 +432,7 @@ var _ = Describe("BuildRepository", func() {
 						PackageGUIDs: []string{"p1", "p2"},
 						AppGUIDs:     []string{"a1", "a2"},
 						States:       []string{"s1", "s2"},
+						OrderBy:      "created_at",
 						Pagination: repositories.Pagination{
 							PerPage: 10,
 							Page:    1,
@@ -480,7 +447,7 @@ var _ = Describe("BuildRepository", func() {
 						repositories.WithLabelIn(korifiv1alpha1.CFPackageGUIDLabelKey, []string{"p1", "p2"}),
 						repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
 						repositories.WithLabelIn(korifiv1alpha1.CFBuildStateLabelKey, []string{"s1", "s2"}),
-						repositories.NoopListOption{},
+						repositories.WithOrdering("created_at"),
 						repositories.WithPaging(repositories.Pagination{
 							PerPage: 10,
 							Page:    1,
