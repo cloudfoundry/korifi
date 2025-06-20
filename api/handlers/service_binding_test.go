@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -324,8 +325,16 @@ var _ = Describe("ServiceBinding", func() {
 			requestBody = ""
 			requestPath = "/v3/service_credential_bindings?foo=bar"
 
-			serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{
-				{GUID: "service-binding-guid", AppGUID: "app-guid"},
+			serviceBindingRepo.ListServiceBindingsReturns(repositories.ListResult[repositories.ServiceBindingRecord]{
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     1,
+				},
+				Records: []repositories.ServiceBindingRecord{
+					{GUID: "service-binding-guid", AppGUID: "app-guid"},
+				},
 			}, nil)
 			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{Name: "some-app-name"}}}, nil)
 
@@ -360,7 +369,7 @@ var _ = Describe("ServiceBinding", func() {
 
 		When("there is an error fetching service binding", func() {
 			BeforeEach(func() {
-				serviceBindingRepo.ListServiceBindingsReturns([]repositories.ServiceBindingRecord{}, errors.New("unknown"))
+				serviceBindingRepo.ListServiceBindingsReturns(repositories.ListResult[repositories.ServiceBindingRecord]{}, errors.New("unknown"))
 			})
 
 			It("returns an error", func() {

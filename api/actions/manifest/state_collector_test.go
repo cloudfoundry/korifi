@@ -193,14 +193,22 @@ var _ = Describe("StateCollector", func() {
 	})
 
 	Describe("services", func() {
-		var serviceBindings []repositories.ServiceBindingRecord
+		var serviceBindings repositories.ListResult[repositories.ServiceBindingRecord]
 
 		BeforeEach(func() {
 			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{GUID: "app-guid"}}}, nil)
 			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{{Name: "service-name", GUID: "s-guid"}}, nil)
-			serviceBindings = []repositories.ServiceBindingRecord{
-				{GUID: "sb1-guid", ServiceInstanceGUID: "s-guid"},
-				{GUID: "sb2-guid", ServiceInstanceGUID: "s-guid"},
+			serviceBindings = repositories.ListResult[repositories.ServiceBindingRecord]{
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     2,
+				},
+				Records: []repositories.ServiceBindingRecord{
+					{GUID: "sb1-guid", ServiceInstanceGUID: "s-guid"},
+					{GUID: "sb2-guid", ServiceInstanceGUID: "s-guid"},
+				},
 			}
 			serviceBindingRepo.ListServiceBindingsReturns(serviceBindings, nil)
 		})
@@ -229,7 +237,7 @@ var _ = Describe("StateCollector", func() {
 
 		When("listing the service bindings fails", func() {
 			BeforeEach(func() {
-				serviceBindingRepo.ListServiceBindingsReturns(nil, errors.New("list-sb-error"))
+				serviceBindingRepo.ListServiceBindingsReturns(repositories.ListResult[repositories.ServiceBindingRecord]{}, errors.New("list-sb-error"))
 			})
 
 			It("returns the error", func() {
@@ -250,7 +258,7 @@ var _ = Describe("StateCollector", func() {
 		It("populates the service bindings map", func() {
 			Expect(collectStateErr).ToNot(HaveOccurred())
 			Expect(appState.ServiceBindings).To(Equal(map[string]repositories.ServiceBindingRecord{
-				"service-name": serviceBindings[1],
+				"service-name": serviceBindings.Records[1],
 			}))
 		})
 	})

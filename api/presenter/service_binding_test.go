@@ -7,6 +7,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/presenter"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/ginkgo/v2"
@@ -150,7 +151,22 @@ var _ = Describe("Service Binding", func() {
 		})
 
 		JustBeforeEach(func() {
-			response := presenter.ForServiceBindingList([]repositories.ServiceBindingRecord{record, otherRecord}, []repositories.AppRecord{app}, *baseURL, *requestURL)
+			response := presenter.ForServiceBindingList(
+				repositories.ListResult[repositories.ServiceBindingRecord]{
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 2,
+						TotalPages:   1,
+						PageNumber:   1,
+						PageSize:     2,
+					},
+					Records: []repositories.ServiceBindingRecord{
+						record, otherRecord,
+					},
+				},
+				[]repositories.AppRecord{app},
+				*baseURL,
+				*requestURL,
+			)
 			var err error
 			output, err = json.Marshal(response)
 			Expect(err).NotTo(HaveOccurred())

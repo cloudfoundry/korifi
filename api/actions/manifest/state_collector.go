@@ -123,7 +123,7 @@ func (s StateCollector) indexBindingsByServiceName(ctx context.Context, authInfo
 		return nil, err
 	}
 
-	appServiceGUIDs := slices.Collect(it.FilterUnique(it.Map(slices.Values(appBindings), func(sb repositories.ServiceBindingRecord) string {
+	appServiceGUIDs := slices.Collect(it.FilterUnique(it.Map(slices.Values(appBindings.Records), func(sb repositories.ServiceBindingRecord) string {
 		return sb.ServiceInstanceGUID
 	})))
 
@@ -138,7 +138,7 @@ func (s StateCollector) indexBindingsByServiceName(ctx context.Context, authInfo
 		return s.GUID
 	})
 
-	return tryIndex(appBindings, func(sb repositories.ServiceBindingRecord) (string, error) {
+	return tryIndex(appBindings.Records, func(sb repositories.ServiceBindingRecord) (string, error) {
 		instance, ok := appServicesByGUID[sb.ServiceInstanceGUID]
 		if !ok {
 			return "", fmt.Errorf("no service instance found with guid %q for service binding %q", sb.ServiceInstanceGUID, sb.GUID)

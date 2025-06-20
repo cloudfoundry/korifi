@@ -39,7 +39,7 @@ type CFServiceBindingRepository struct {
 	deleteServiceBindingReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ListServiceBindingsStub        func(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)
+	ListServiceBindingsStub        func(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) (repositories.ListResult[repositories.ServiceBindingRecord], error)
 	listServiceBindingsMutex       sync.RWMutex
 	listServiceBindingsArgsForCall []struct {
 		arg1 context.Context
@@ -47,11 +47,11 @@ type CFServiceBindingRepository struct {
 		arg3 repositories.ListServiceBindingsMessage
 	}
 	listServiceBindingsReturns struct {
-		result1 []repositories.ServiceBindingRecord
+		result1 repositories.ListResult[repositories.ServiceBindingRecord]
 		result2 error
 	}
 	listServiceBindingsReturnsOnCall map[int]struct {
-		result1 []repositories.ServiceBindingRecord
+		result1 repositories.ListResult[repositories.ServiceBindingRecord]
 		result2 error
 	}
 	UpdateServiceBindingStub        func(context.Context, authorization.Info, repositories.UpdateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
@@ -202,7 +202,7 @@ func (fake *CFServiceBindingRepository) DeleteServiceBindingReturnsOnCall(i int,
 	}{result1}
 }
 
-func (fake *CFServiceBindingRepository) ListServiceBindings(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error) {
+func (fake *CFServiceBindingRepository) ListServiceBindings(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceBindingsMessage) (repositories.ListResult[repositories.ServiceBindingRecord], error) {
 	fake.listServiceBindingsMutex.Lock()
 	ret, specificReturn := fake.listServiceBindingsReturnsOnCall[len(fake.listServiceBindingsArgsForCall)]
 	fake.listServiceBindingsArgsForCall = append(fake.listServiceBindingsArgsForCall, struct {
@@ -229,7 +229,7 @@ func (fake *CFServiceBindingRepository) ListServiceBindingsCallCount() int {
 	return len(fake.listServiceBindingsArgsForCall)
 }
 
-func (fake *CFServiceBindingRepository) ListServiceBindingsCalls(stub func(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)) {
+func (fake *CFServiceBindingRepository) ListServiceBindingsCalls(stub func(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) (repositories.ListResult[repositories.ServiceBindingRecord], error)) {
 	fake.listServiceBindingsMutex.Lock()
 	defer fake.listServiceBindingsMutex.Unlock()
 	fake.ListServiceBindingsStub = stub
@@ -242,28 +242,28 @@ func (fake *CFServiceBindingRepository) ListServiceBindingsArgsForCall(i int) (c
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFServiceBindingRepository) ListServiceBindingsReturns(result1 []repositories.ServiceBindingRecord, result2 error) {
+func (fake *CFServiceBindingRepository) ListServiceBindingsReturns(result1 repositories.ListResult[repositories.ServiceBindingRecord], result2 error) {
 	fake.listServiceBindingsMutex.Lock()
 	defer fake.listServiceBindingsMutex.Unlock()
 	fake.ListServiceBindingsStub = nil
 	fake.listServiceBindingsReturns = struct {
-		result1 []repositories.ServiceBindingRecord
+		result1 repositories.ListResult[repositories.ServiceBindingRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFServiceBindingRepository) ListServiceBindingsReturnsOnCall(i int, result1 []repositories.ServiceBindingRecord, result2 error) {
+func (fake *CFServiceBindingRepository) ListServiceBindingsReturnsOnCall(i int, result1 repositories.ListResult[repositories.ServiceBindingRecord], result2 error) {
 	fake.listServiceBindingsMutex.Lock()
 	defer fake.listServiceBindingsMutex.Unlock()
 	fake.ListServiceBindingsStub = nil
 	if fake.listServiceBindingsReturnsOnCall == nil {
 		fake.listServiceBindingsReturnsOnCall = make(map[int]struct {
-			result1 []repositories.ServiceBindingRecord
+			result1 repositories.ListResult[repositories.ServiceBindingRecord]
 			result2 error
 		})
 	}
 	fake.listServiceBindingsReturnsOnCall[i] = struct {
-		result1 []repositories.ServiceBindingRecord
+		result1 repositories.ListResult[repositories.ServiceBindingRecord]
 		result2 error
 	}{result1, result2}
 }

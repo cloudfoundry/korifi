@@ -82,7 +82,7 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 	}
 }
 
-func ForServiceBindingList(serviceBindingRecords []repositories.ServiceBindingRecord, appRecords []repositories.AppRecord, baseURL, requestURL url.URL) ListResponse[ServiceBindingResponse] {
+func ForServiceBindingList(serviceBindings repositories.ListResult[repositories.ServiceBindingRecord], appRecords []repositories.AppRecord, baseURL, requestURL url.URL) ListResponse[ServiceBindingResponse] {
 	includedApps := slices.Collect(it.Map(itx.FromSlice(appRecords), func(app repositories.AppRecord) include.Resource {
 		return include.Resource{
 			Type:     "apps",
@@ -90,7 +90,7 @@ func ForServiceBindingList(serviceBindingRecords []repositories.ServiceBindingRe
 		}
 	}))
 
-	return ForListDeprecated(ForServiceBinding, serviceBindingRecords, baseURL, requestURL, includedApps...)
+	return ForList(ForServiceBinding, serviceBindings, baseURL, requestURL, includedApps...)
 }
 
 func ForServiceBindingDetails(serviceBindingDetailsRecord repositories.ServiceBindingDetailsRecord) ServiceBindingDetailsResponse {

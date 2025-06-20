@@ -77,12 +77,16 @@ type ServiceBindingList struct {
 	Include              string
 	LabelSelector        string
 	PlanGUIDs            string
+	OrderBy              string
+	Pagination           Pagination
 }
 
 func (l ServiceBindingList) Validate() error {
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.Type, validation.OneOf("app", "key")),
 		jellidation.Field(&l.Include, validation.OneOf("app", "service_instance")),
+		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "updated_at", "name")),
+		jellidation.Field(&l.Pagination),
 	)
 }
 
@@ -93,11 +97,13 @@ func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage
 		LabelSelector:        l.LabelSelector,
 		PlanGUIDs:            parse.ArrayParam(l.PlanGUIDs),
 		Type:                 l.Type,
+		OrderBy:              l.OrderBy,
+		Pagination:           l.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
 func (l *ServiceBindingList) SupportedKeys() []string {
-	return []string{"app_guids", "service_instance_guids", "include", "type", "per_page", "page", "label_selector", "service_plan_guids"}
+	return []string{"app_guids", "service_instance_guids", "include", "type", "order_by", "per_page", "page", "label_selector", "service_plan_guids"}
 }
 
 func (l *ServiceBindingList) DecodeFromURLValues(values url.Values) error {
@@ -107,7 +113,8 @@ func (l *ServiceBindingList) DecodeFromURLValues(values url.Values) error {
 	l.Include = values.Get("include")
 	l.LabelSelector = values.Get("label_selector")
 	l.PlanGUIDs = values.Get("service_plan_guids")
-	return nil
+	l.OrderBy = values.Get("order_by")
+	return l.Pagination.DecodeFromURLValues(values)
 }
 
 type ServiceBindingUpdate struct {

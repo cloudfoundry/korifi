@@ -35,7 +35,7 @@ type ServiceBinding struct {
 type CFServiceBindingRepository interface {
 	CreateServiceBinding(context.Context, authorization.Info, repositories.CreateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
 	DeleteServiceBinding(context.Context, authorization.Info, string) error
-	ListServiceBindings(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)
+	ListServiceBindings(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) (repositories.ListResult[repositories.ServiceBindingRecord], error)
 	GetServiceBinding(context.Context, authorization.Info, string) (repositories.ServiceBindingRecord, error)
 	UpdateServiceBinding(context.Context, authorization.Info, repositories.UpdateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
 	GetServiceBindingDetails(context.Context, authorization.Info, string) (repositories.ServiceBindingDetailsRecord, error)
@@ -171,10 +171,10 @@ func (h *ServiceBinding) list(r *http.Request) (*routing.Response, error) {
 	}
 
 	var appRecords []repositories.AppRecord
-	if listFilter.Include != "" && len(serviceBindingList) > 0 {
+	if listFilter.Include != "" && len(serviceBindingList.Records) > 0 {
 		listAppsMessage := repositories.ListAppsMessage{}
 
-		for _, serviceBinding := range serviceBindingList {
+		for _, serviceBinding := range serviceBindingList.Records {
 			listAppsMessage.Guids = append(listAppsMessage.Guids, serviceBinding.AppGUID)
 		}
 
