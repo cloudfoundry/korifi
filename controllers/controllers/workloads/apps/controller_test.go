@@ -410,7 +410,6 @@ var _ = Describe("CFAppReconciler Integration Tests", func() {
 					Namespace: cfApp.Namespace,
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
-					DisplayName: new(string),
 					Service: corev1.ObjectReference{
 						Namespace: cfApp.Namespace,
 						Name:      instance.Name,

@@ -54,11 +54,11 @@ func compareRows(columnType string, columnIndex int, desc bool) (func(a, b metav
 	switch columnType {
 	case "integer":
 		compareFunc = func(a, b metav1.TableRow) int {
-			return a.Cells[columnIndex].(int) - b.Cells[columnIndex].(int)
+			return defaultColumnValue(a.Cells[columnIndex], 0) - defaultColumnValue(b.Cells[columnIndex], 0)
 		}
 	case "string":
 		compareFunc = func(a, b metav1.TableRow) int {
-			return strings.Compare(a.Cells[columnIndex].(string), b.Cells[columnIndex].(string))
+			return strings.Compare(defaultColumnValue(a.Cells[columnIndex], ""), defaultColumnValue(b.Cells[columnIndex], ""))
 		}
 	default:
 		return nil, fmt.Errorf("unsupported column type %q for sorting", columnType)
@@ -70,4 +70,15 @@ func compareRows(columnType string, columnIndex int, desc bool) (func(a, b metav
 		}, nil
 	}
 	return compareFunc, nil
+}
+
+func defaultColumnValue[T any](columnValue any, defaultValue T) T {
+	if columnValue == nil {
+		return defaultValue
+	}
+
+	if value, ok := columnValue.(T); ok {
+		return value
+	}
+	return defaultValue
 }

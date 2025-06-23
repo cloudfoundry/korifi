@@ -60,7 +60,6 @@ var _ = Describe("Builder", func() {
 		}
 		helpers.EnsureCreate(controllersClient, credentialsSecret)
 
-		serviceBindingName := "my-service-binding"
 		serviceBinding = &korifiv1alpha1.CFServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfSpace.Status.GUID,
@@ -71,7 +70,7 @@ var _ = Describe("Builder", func() {
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
 				Type:        "app",
-				DisplayName: &serviceBindingName,
+				DisplayName: tools.PtrTo("my-service-binding"),
 				Service: corev1.ObjectReference{
 					Name: "my-service-instance-guid",
 				},
@@ -102,7 +101,6 @@ var _ = Describe("Builder", func() {
 			},
 		})
 
-		serviceBindingName2 := "my-service-binding-2"
 		serviceBinding2 := &korifiv1alpha1.CFServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: cfSpace.Status.GUID,
@@ -113,7 +111,7 @@ var _ = Describe("Builder", func() {
 			},
 			Spec: korifiv1alpha1.CFServiceBindingSpec{
 				Type:        "app",
-				DisplayName: &serviceBindingName2,
+				DisplayName: tools.PtrTo("my-service-binding-2"),
 				Service: corev1.ObjectReference{
 					Name: "my-service-instance-guid-2",
 				},

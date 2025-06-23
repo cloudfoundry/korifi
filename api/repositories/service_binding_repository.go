@@ -107,6 +107,8 @@ type ListServiceBindingsMessage struct {
 	LabelSelector        string
 	Type                 string
 	PlanGUIDs            []string
+	OrderBy              string
+	Pagination           Pagination
 }
 
 func (m *ListServiceBindingsMessage) toListOptions() []ListOption {
@@ -115,6 +117,10 @@ func (m *ListServiceBindingsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFServiceInstanceGUIDLabelKey, m.ServiceInstanceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, m.PlanGUIDs),
+		WithOrdering(m.OrderBy,
+			"name", "Display Name",
+		),
+		WithPaging(m.Pagination),
 	}
 	if m.Type != "" {
 		opts = append(opts, WithLabel(korifiv1alpha1.CFServiceBindingTypeLabelKey, m.Type))
@@ -490,16 +496,20 @@ func (r *ServiceBindingRepo) GetDeletedAt(ctx context.Context, authInfo authoriz
 }
 
 // nolint:dupl
-func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo authorization.Info, message ListServiceBindingsMessage) ([]ServiceBindingRecord, error) {
+func (r *ServiceBindingRepo) ListServiceBindings(ctx context.Context, authInfo authorization.Info, message ListServiceBindingsMessage) (ListResult[ServiceBindingRecord], error) {
 	serviceBindingList := new(korifiv1alpha1.CFServiceBindingList)
-	_, err := r.klient.List(ctx, serviceBindingList, message.toListOptions()...)
+	pageInfo, err := r.klient.List(ctx, serviceBindingList, message.toListOptions()...)
 	if err != nil {
-		return []ServiceBindingRecord{}, fmt.Errorf("failed to list service instances: %w",
+		return ListResult[ServiceBindingRecord]{}, fmt.Errorf("failed to list service instances: %w",
 			apierrors.FromK8sError(err, ServiceBindingResourceType),
 		)
 	}
 
-	return slices.Collect(it.Map(slices.Values(serviceBindingList.Items), serviceBindingToRecord)), nil
+	records := slices.Collect(it.Map(slices.Values(serviceBindingList.Items), serviceBindingToRecord))
+	return ListResult[ServiceBindingRecord]{
+		PageInfo: pageInfo,
+		Records:  records,
+	}, nil
 }
 
 func (r *ServiceBindingRepo) GetServiceBindingParameters(ctx context.Context, authInfo authorization.Info, guid string) (map[string]any, error) {
