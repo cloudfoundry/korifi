@@ -65,21 +65,29 @@ func (c ServiceBrokerCreate) ToMessage() repositories.CreateServiceBrokerMessage
 }
 
 type ServiceBrokerList struct {
-	Names string
+	Names      string
+	Pagination Pagination
 }
 
 func (b *ServiceBrokerList) DecodeFromURLValues(values url.Values) error {
 	b.Names = values.Get("names")
-	return nil
+	return b.Pagination.DecodeFromURLValues(values)
 }
 
 func (b *ServiceBrokerList) SupportedKeys() []string {
 	return []string{"names", "page", "per_page"}
 }
 
+func (l ServiceBrokerList) Validate() error {
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.Pagination),
+	)
+}
+
 func (b *ServiceBrokerList) ToMessage() repositories.ListServiceBrokerMessage {
 	return repositories.ListServiceBrokerMessage{
-		Names: parse.ArrayParam(b.Names),
+		Names:      parse.ArrayParam(b.Names),
+		Pagination: b.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 

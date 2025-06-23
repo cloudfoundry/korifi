@@ -233,7 +233,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 
 	Describe("ListServiceBrokers", func() {
 		var (
-			brokers []repositories.ServiceBrokerRecord
+			brokers repositories.ListResult[repositories.ServiceBrokerRecord]
 			message repositories.ListServiceBrokerMessage
 		)
 
@@ -265,37 +265,35 @@ var _ = Describe("ServiceBrokerRepo", func() {
 		})
 
 		It("returns a list of brokers", func() {
-			Expect(brokers).To(ConsistOf(
+			Expect(brokers.Records).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"GUID": Equal("broker-1"),
 				}),
 			))
+			Expect(brokers.PageInfo.TotalResults).To(Equal(1))
 		})
 
-		Describe("filtering", func() {
+		Describe("parameters to list options", func() {
 			var fakeKlient *fake.Klient
 
 			BeforeEach(func() {
 				fakeKlient = new(fake.Klient)
 				repo = repositories.NewServiceBrokerRepo(fakeKlient, rootNamespace)
+				message = repositories.ListServiceBrokerMessage{
+					Names:      []string{"first-broker", "second-broker"},
+					GUIDs:      []string{"broker-1", "broker-2"},
+					Pagination: repositories.Pagination{Page: 1, PerPage: 10},
+				}
 			})
 
-			Describe("filter parameters to list options", func() {
-				BeforeEach(func() {
-					message = repositories.ListServiceBrokerMessage{
-						Names: []string{"first-broker", "second-broker"},
-						GUIDs: []string{"broker-1", "broker-2"},
-					}
-				})
-
-				It("translates filter parameters to klient list options", func() {
-					Expect(fakeKlient.ListCallCount()).To(Equal(1))
-					_, _, listOptions := fakeKlient.ListArgsForCall(0)
-					Expect(listOptions).To(ConsistOf(
-						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"broker-1", "broker-2"}),
-						repositories.WithLabelIn(korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey, tools.EncodeValuesToSha224("first-broker", "second-broker")),
-					))
-				})
+			It("translates filter parameters to klient list options", func() {
+				Expect(fakeKlient.ListCallCount()).To(Equal(1))
+				_, _, listOptions := fakeKlient.ListArgsForCall(0)
+				Expect(listOptions).To(ConsistOf(
+					repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"broker-1", "broker-2"}),
+					repositories.WithLabelIn(korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey, tools.EncodeValuesToSha224("first-broker", "second-broker")),
+					repositories.WithPaging(repositories.Pagination{Page: 1, PerPage: 10}),
+				))
 			})
 		})
 	})

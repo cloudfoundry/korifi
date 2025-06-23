@@ -22,7 +22,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFServiceBrokerRepository . CFServiceBrokerRepository
 type CFServiceBrokerRepository interface {
 	CreateServiceBroker(context.Context, authorization.Info, repositories.CreateServiceBrokerMessage) (repositories.ServiceBrokerRecord, error)
-	ListServiceBrokers(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerRecord, error)
+	ListServiceBrokers(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) (repositories.ListResult[repositories.ServiceBrokerRecord], error)
 	GetServiceBroker(context.Context, authorization.Info, string) (repositories.ServiceBrokerRecord, error)
 	DeleteServiceBroker(context.Context, authorization.Info, string) error
 	UpdateServiceBroker(context.Context, authorization.Info, repositories.UpdateServiceBrokerMessage) (repositories.ServiceBrokerRecord, error)
@@ -77,7 +77,7 @@ func (h *ServiceBroker) list(r *http.Request) (*routing.Response, error) {
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list service brokers")
 	}
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForServiceBroker, brokers, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceBroker, brokers, h.serverURL, *r.URL)), nil
 }
 
 func (h *ServiceBroker) get(r *http.Request) (*routing.Response, error) {

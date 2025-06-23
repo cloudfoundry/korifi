@@ -18,7 +18,7 @@ type ServiceOfferingRepository interface {
 
 //counterfeiter:generate -o fake -fake-name ServiceBrokerRepository . ServiceBrokerRepository
 type ServiceBrokerRepository interface {
-	ListServiceBrokers(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerRecord, error)
+	ListServiceBrokers(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) (repositories.ListResult[repositories.ServiceBrokerRecord], error)
 }
 
 //counterfeiter:generate -o fake -fake-name ServicePlanRepository . ServicePlanRepository
@@ -85,11 +85,12 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 		))
 
 	case "service_broker":
-		return asResources(r.serviceBrokerRepo.ListServiceBrokers(
+		brokers, err := r.serviceBrokerRepo.ListServiceBrokers(
 			ctx,
 			authInfo,
 			repositories.ListServiceBrokerMessage{GUIDs: relatedResourceGUIDs},
-		))
+		)
+		return asResources(brokers.Records, err)
 	case "service_plan":
 		return asResources(r.servicePlanRepo.ListPlans(
 			ctx,
