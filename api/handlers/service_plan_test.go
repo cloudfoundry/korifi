@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
@@ -123,10 +124,15 @@ var _ = Describe("ServicePlan", func() {
 
 		When("params to inlude fields[service_offering.service_broker]", func() {
 			BeforeEach(func() {
-				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-					Name: "service-broker-name",
-					GUID: "service-broker-guid",
-				}}, nil)
+				serviceBrokerRepo.ListServiceBrokersReturns(repositories.ListResult[repositories.ServiceBrokerRecord]{
+					Records: []repositories.ServiceBrokerRecord{{
+						Name: "service-broker-name",
+						GUID: "service-broker-guid",
+					}},
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 1,
+					},
+				}, nil)
 
 				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
 					Name:              "service-offering-name",

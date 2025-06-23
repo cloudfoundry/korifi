@@ -11,7 +11,7 @@ import (
 )
 
 type ServiceBrokerRepository struct {
-	ListServiceBrokersStub        func(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerRecord, error)
+	ListServiceBrokersStub        func(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) (repositories.ListResult[repositories.ServiceBrokerRecord], error)
 	listServiceBrokersMutex       sync.RWMutex
 	listServiceBrokersArgsForCall []struct {
 		arg1 context.Context
@@ -19,18 +19,18 @@ type ServiceBrokerRepository struct {
 		arg3 repositories.ListServiceBrokerMessage
 	}
 	listServiceBrokersReturns struct {
-		result1 []repositories.ServiceBrokerRecord
+		result1 repositories.ListResult[repositories.ServiceBrokerRecord]
 		result2 error
 	}
 	listServiceBrokersReturnsOnCall map[int]struct {
-		result1 []repositories.ServiceBrokerRecord
+		result1 repositories.ListResult[repositories.ServiceBrokerRecord]
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ServiceBrokerRepository) ListServiceBrokers(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerRecord, error) {
+func (fake *ServiceBrokerRepository) ListServiceBrokers(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceBrokerMessage) (repositories.ListResult[repositories.ServiceBrokerRecord], error) {
 	fake.listServiceBrokersMutex.Lock()
 	ret, specificReturn := fake.listServiceBrokersReturnsOnCall[len(fake.listServiceBrokersArgsForCall)]
 	fake.listServiceBrokersArgsForCall = append(fake.listServiceBrokersArgsForCall, struct {
@@ -57,7 +57,7 @@ func (fake *ServiceBrokerRepository) ListServiceBrokersCallCount() int {
 	return len(fake.listServiceBrokersArgsForCall)
 }
 
-func (fake *ServiceBrokerRepository) ListServiceBrokersCalls(stub func(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) ([]repositories.ServiceBrokerRecord, error)) {
+func (fake *ServiceBrokerRepository) ListServiceBrokersCalls(stub func(context.Context, authorization.Info, repositories.ListServiceBrokerMessage) (repositories.ListResult[repositories.ServiceBrokerRecord], error)) {
 	fake.listServiceBrokersMutex.Lock()
 	defer fake.listServiceBrokersMutex.Unlock()
 	fake.ListServiceBrokersStub = stub
@@ -70,28 +70,28 @@ func (fake *ServiceBrokerRepository) ListServiceBrokersArgsForCall(i int) (conte
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *ServiceBrokerRepository) ListServiceBrokersReturns(result1 []repositories.ServiceBrokerRecord, result2 error) {
+func (fake *ServiceBrokerRepository) ListServiceBrokersReturns(result1 repositories.ListResult[repositories.ServiceBrokerRecord], result2 error) {
 	fake.listServiceBrokersMutex.Lock()
 	defer fake.listServiceBrokersMutex.Unlock()
 	fake.ListServiceBrokersStub = nil
 	fake.listServiceBrokersReturns = struct {
-		result1 []repositories.ServiceBrokerRecord
+		result1 repositories.ListResult[repositories.ServiceBrokerRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *ServiceBrokerRepository) ListServiceBrokersReturnsOnCall(i int, result1 []repositories.ServiceBrokerRecord, result2 error) {
+func (fake *ServiceBrokerRepository) ListServiceBrokersReturnsOnCall(i int, result1 repositories.ListResult[repositories.ServiceBrokerRecord], result2 error) {
 	fake.listServiceBrokersMutex.Lock()
 	defer fake.listServiceBrokersMutex.Unlock()
 	fake.ListServiceBrokersStub = nil
 	if fake.listServiceBrokersReturnsOnCall == nil {
 		fake.listServiceBrokersReturnsOnCall = make(map[int]struct {
-			result1 []repositories.ServiceBrokerRecord
+			result1 repositories.ListResult[repositories.ServiceBrokerRecord]
 			result2 error
 		})
 	}
 	fake.listServiceBrokersReturnsOnCall[i] = struct {
-		result1 []repositories.ServiceBrokerRecord
+		result1 repositories.ListResult[repositories.ServiceBrokerRecord]
 		result2 error
 	}{result1, result2}
 }

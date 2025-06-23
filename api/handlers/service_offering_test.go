@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/payloads/params"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
@@ -81,10 +82,13 @@ var _ = Describe("ServiceOffering", func() {
 
 		When("params to include fields[service_broker]", func() {
 			BeforeEach(func() {
-				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-					Name: "broker-name",
-					GUID: "broker-guid",
-				}}, nil)
+				serviceBrokerRepo.ListServiceBrokersReturns(repositories.ListResult[repositories.ServiceBrokerRecord]{
+					PageInfo: descriptors.PageInfo{TotalResults: 1},
+					Records: []repositories.ServiceBrokerRecord{{
+						Name: "broker-name",
+						GUID: "broker-guid",
+					}},
+				}, nil)
 
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingGet{
 					IncludeResourceRules: []params.IncludeResourceRule{{
@@ -171,10 +175,15 @@ var _ = Describe("ServiceOffering", func() {
 
 		Describe("include broker fields", func() {
 			BeforeEach(func() {
-				serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{
-					Name: "broker-name",
-					GUID: "broker-guid",
-				}}, nil)
+				serviceBrokerRepo.ListServiceBrokersReturns(repositories.ListResult[repositories.ServiceBrokerRecord]{
+					Records: []repositories.ServiceBrokerRecord{{
+						Name: "broker-name",
+						GUID: "broker-guid",
+					}},
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 1,
+					},
+				}, nil)
 
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingList{
 					IncludeResourceRules: []params.IncludeResourceRule{{
@@ -194,7 +203,7 @@ var _ = Describe("ServiceOffering", func() {
 
 			When("listing brokers fails", func() {
 				BeforeEach(func() {
-					serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{}, errors.New("list-broker-err"))
+					serviceBrokerRepo.ListServiceBrokersReturns(repositories.ListResult[repositories.ServiceBrokerRecord]{}, errors.New("list-broker-err"))
 				})
 
 				It("returns an error", func() {
