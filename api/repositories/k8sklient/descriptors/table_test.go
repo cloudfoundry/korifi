@@ -21,12 +21,14 @@ var _ = Describe("TableResultSetDescriptor", func() {
 					{Name: "Name", Type: "string"},
 					{Name: "Age", Type: "integer"},
 					{Name: "Hobbies", Type: "array"},
+					{Name: "WorkAddress", Type: "string"},
+					{Name: "WorkExperience", Type: "integer"},
 				},
 				Rows: []metav1.TableRow{
-					{Cells: []any{"Alice", 30, []string{"reading", "hiking"}}},
-					{Cells: []any{"Bob", 25, []string{"gaming", "cooking"}}},
-					{Cells: []any{"Charlie", 35, []string{"traveling", "photography"}}},
-					{Cells: []any{"Dave", 35, []string{"music", "sports"}}},
+					{Cells: []any{"Alice", 30, []string{"reading", "hiking"}, "Alice LTD", 2}},
+					{Cells: []any{"Bob", 25, []string{"gaming", "cooking"}, "Bob&Jim Inc", 1}},
+					{Cells: []any{"Charlie", 35, []string{"traveling", "photography"}, "Charlie Studios", 3}},
+					{Cells: []any{"Dave", 35, []string{"music", "sports"}, nil, nil}},
 				},
 			},
 		}
@@ -101,6 +103,50 @@ var _ = Describe("TableResultSetDescriptor", func() {
 				It("returns the guids sorted in descending order", func() {
 					Expect(sortErr).NotTo(HaveOccurred())
 					Expect(guids).To(Equal([]string{"Dave", "Charlie", "Bob", "Alice"}))
+				})
+			})
+		})
+
+		Describe("Sort by WorkAddress", func() {
+			BeforeEach(func() {
+				column = "WorkAddress"
+			})
+
+			It("returns the guids sorted by the specified column", func() {
+				Expect(sortErr).NotTo(HaveOccurred())
+				Expect(guids).To(Equal([]string{"Dave", "Alice", "Bob", "Charlie"}))
+			})
+
+			When("sorting in descending order", func() {
+				BeforeEach(func() {
+					desc = true
+				})
+
+				It("returns the guids sorted in descending order", func() {
+					Expect(sortErr).NotTo(HaveOccurred())
+					Expect(guids).To(Equal([]string{"Charlie", "Bob", "Alice", "Dave"}))
+				})
+			})
+		})
+
+		Describe("Sort by WorkExperience", func() {
+			BeforeEach(func() {
+				column = "WorkExperience"
+			})
+
+			It("returns the guids sorted by the specified column", func() {
+				Expect(sortErr).NotTo(HaveOccurred())
+				Expect(guids).To(Equal([]string{"Dave", "Bob", "Alice", "Charlie"}))
+			})
+
+			When("sorting in descending order", func() {
+				BeforeEach(func() {
+					desc = true
+				})
+
+				It("returns the guids sorted in descending order", func() {
+					Expect(sortErr).NotTo(HaveOccurred())
+					Expect(guids).To(Equal([]string{"Charlie", "Alice", "Bob", "Dave"}))
 				})
 			})
 		})

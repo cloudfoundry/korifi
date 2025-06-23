@@ -106,15 +106,12 @@ func fromServiceBinding(
 	credentialsSecret *corev1.Secret,
 	serviceLabel string,
 ) (ServiceDetails, error) {
-	var serviceName string
-	var bindingName *string
+	serviceName := serviceInstance.Spec.DisplayName
+	var bindingName *string = nil
 
 	if serviceBinding.Spec.DisplayName != nil {
 		serviceName = *serviceBinding.Spec.DisplayName
 		bindingName = serviceBinding.Spec.DisplayName
-	} else {
-		serviceName = serviceInstance.Spec.DisplayName
-		bindingName = nil
 	}
 
 	tags := serviceInstance.Spec.Tags

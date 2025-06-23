@@ -45,7 +45,7 @@ type CFRouteRepository interface {
 type CFServiceBindingRepository interface {
 	CreateServiceBinding(context.Context, authorization.Info, repositories.CreateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
 	DeleteServiceBinding(context.Context, authorization.Info, string) error
-	ListServiceBindings(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) ([]repositories.ServiceBindingRecord, error)
+	ListServiceBindings(context.Context, authorization.Info, repositories.ListServiceBindingsMessage) (repositories.ListResult[repositories.ServiceBindingRecord], error)
 	UpdateServiceBinding(context.Context, authorization.Info, repositories.UpdateServiceBindingMessage) (repositories.ServiceBindingRecord, error)
 }
 
