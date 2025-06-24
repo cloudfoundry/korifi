@@ -24,6 +24,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFServiceOfferingRepository . CFServiceOfferingRepository
 type CFServiceOfferingRepository interface {
 	GetServiceOffering(context.Context, authorization.Info, string) (repositories.ServiceOfferingRecord, error)
+	UpdateServiceOffering(context.Context, authorization.Info, repositories.UpdateServiceOfferingMessage) (repositories.ServiceOfferingRecord, error)
 	ListOfferings(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)
 	DeleteOffering(context.Context, authorization.Info, repositories.DeleteServiceOfferingMessage) error
 }
@@ -79,6 +80,30 @@ func (h *ServiceOffering) get(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceOffering(serviceOffering, h.serverURL, includedResources...)), nil
 }
 
+func (h *ServiceOffering) update(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-offering.update")
+
+	serviceOfferingGUID := routing.URLParam(r, "guid")
+
+	var payload payloads.ServiceOfferingUpdate
+	if err := h.requestValidator.DecodeAndValidateJSONPayload(r, &payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
+	}
+
+	_, err := h.serviceOfferingRepo.GetServiceOffering(r.Context(), authInfo, serviceOfferingGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error getting service offering in repository")
+	}
+
+	serviceOffering, err := h.serviceOfferingRepo.UpdateServiceOffering(r.Context(), authInfo, payload.ToMessage(serviceOfferingGUID))
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Error updating service offering in repository")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceOffering(serviceOffering, h.serverURL)), nil
+}
+
 func (h *ServiceOffering) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-offering.list")
@@ -125,6 +150,7 @@ func (h *ServiceOffering) UnauthenticatedRoutes() []routing.Route {
 func (h *ServiceOffering) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: ServiceOfferingPath, Handler: h.get},
+		{Method: "PATCH", Pattern: ServiceOfferingPath, Handler: h.update},
 		{Method: "GET", Pattern: ServiceOfferingsPath, Handler: h.list},
 		{Method: "DELETE", Pattern: ServiceOfferingPath, Handler: h.delete},
 	}

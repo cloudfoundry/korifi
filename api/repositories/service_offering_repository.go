@@ -65,9 +65,18 @@ type ListServiceOfferingMessage struct {
 	BrokerNames []string
 }
 
+type UpdateServiceOfferingMessage struct {
+	GUID          string
+	MetadataPatch MetadataPatch
+}
+
 type DeleteServiceOfferingMessage struct {
 	GUID  string
 	Purge bool
+}
+
+func (m UpdateServiceOfferingMessage) apply(offering *korifiv1alpha1.CFServiceOffering) {
+	m.MetadataPatch.Apply(offering)
 }
 
 func (m *ListServiceOfferingMessage) toListOptions() []ListOption {
@@ -257,4 +266,21 @@ func (r *ServiceOfferingRepo) fetchServiceBindings(ctx context.Context, serviceI
 	}
 
 	return bindings.Items, nil
+}
+
+func (r *ServiceOfferingRepo) UpdateServiceOffering(ctx context.Context, authInfo authorization.Info, message UpdateServiceOfferingMessage) (ServiceOfferingRecord, error) {
+	offering := &korifiv1alpha1.CFServiceOffering{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: r.rootNamespace,
+			Name:      message.GUID,
+		},
+	}
+	if err := GetAndPatch(ctx, r.rootNSKlient, offering, func() error {
+		message.apply(offering)
+		return nil
+	}); err != nil {
+		return ServiceOfferingRecord{}, fmt.Errorf("failed to patch service offering metadata: %w", apierrors.FromK8sError(err, ServiceOfferingResourceType))
+	}
+
+	return offeringToRecord(*offering)
 }
