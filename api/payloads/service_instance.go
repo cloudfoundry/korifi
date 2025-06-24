@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/payloads/params"
@@ -235,12 +234,14 @@ type ServiceInstanceList struct {
 	OrderBy              string
 	LabelSelector        string
 	IncludeResourceRules []params.IncludeResourceRule
+	Pagination           Pagination
 }
 
 func (l ServiceInstanceList) Validate() error {
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "name", "updated_at")),
 		jellidation.Field(&l.Type, validation.OneOf("managed", "user-provided")),
+		jellidation.Field(&l.Pagination),
 		jellidation.Field(&l.IncludeResourceRules, jellidation.Each(jellidation.By(func(value any) error {
 			rule, ok := value.(params.IncludeResourceRule)
 			if !ok {
@@ -302,6 +303,7 @@ func (l *ServiceInstanceList) ToMessage() repositories.ListServiceInstanceMessag
 		OrderBy:       l.OrderBy,
 		LabelSelector: l.LabelSelector,
 		PlanGUIDs:     parse.ArrayParam(l.PlanGUIDs),
+		Pagination:    l.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
@@ -319,13 +321,8 @@ func (l *ServiceInstanceList) SupportedKeys() []string {
 		"fields[space]",
 		"fields[space.organization]",
 		"service_plan_guids",
-	}
-}
-
-func (l *ServiceInstanceList) IgnoredKeys() []*regexp.Regexp {
-	return []*regexp.Regexp{
-		regexp.MustCompile("page"),
-		regexp.MustCompile("per_page"),
+		"page",
+		"per_page",
 	}
 }
 
@@ -338,7 +335,7 @@ func (l *ServiceInstanceList) DecodeFromURLValues(values url.Values) error {
 	l.LabelSelector = values.Get("label_selector")
 	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseFields(values)...)
 	l.PlanGUIDs = values.Get("service_plan_guids")
-	return nil
+	return l.Pagination.DecodeFromURLValues(values)
 }
 
 type ServiceInstanceDelete struct {

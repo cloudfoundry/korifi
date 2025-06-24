@@ -197,7 +197,12 @@ var _ = Describe("StateCollector", func() {
 
 		BeforeEach(func() {
 			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{GUID: "app-guid"}}}, nil)
-			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{{Name: "service-name", GUID: "s-guid"}}, nil)
+			serviceInstanceRepo.ListServiceInstancesReturns(
+				repositories.ListResult[repositories.ServiceInstanceRecord]{
+					PageInfo: descriptors.PageInfo{TotalResults: 1},
+					Records:  []repositories.ServiceInstanceRecord{{Name: "service-name", GUID: "s-guid"}},
+				}, nil)
+
 			serviceBindings = repositories.ListResult[repositories.ServiceBindingRecord]{
 				PageInfo: descriptors.PageInfo{
 					TotalResults: 2,
@@ -221,7 +226,7 @@ var _ = Describe("StateCollector", func() {
 
 		When("listing the services fails", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns(nil, errors.New("list-service-err"))
+				serviceInstanceRepo.ListServiceInstancesReturns(repositories.ListResult[repositories.ServiceInstanceRecord]{}, errors.New("list-service-err"))
 			})
 
 			It("returns the error", func() {
@@ -247,7 +252,10 @@ var _ = Describe("StateCollector", func() {
 
 		When("the service instance cannot be found for a binding", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{{Name: "service-name", GUID: "wrong-guid"}}, nil)
+				serviceInstanceRepo.ListServiceInstancesReturns(repositories.ListResult[repositories.ServiceInstanceRecord]{
+					PageInfo: descriptors.PageInfo{TotalResults: 1},
+					Records:  []repositories.ServiceInstanceRecord{{Name: "service-name", GUID: "wrong-guid"}},
+				}, nil)
 			})
 
 			It("returns an error", func() {

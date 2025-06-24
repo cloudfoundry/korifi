@@ -134,7 +134,7 @@ func (s StateCollector) indexBindingsByServiceName(ctx context.Context, authInfo
 		return nil, err
 	}
 
-	appServicesByGUID := index(appServices, func(s repositories.ServiceInstanceRecord) string {
+	appServicesByGUID := index(appServices.Records, func(s repositories.ServiceInstanceRecord) string {
 		return s.GUID
 	})
 

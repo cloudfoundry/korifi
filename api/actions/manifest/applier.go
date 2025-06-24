@@ -219,7 +219,7 @@ func (a *Applier) applyServices(ctx context.Context, authInfo authorization.Info
 	}
 
 	serviceGUIDToInstanceRecord := map[string]repositories.ServiceInstanceRecord{}
-	for _, serviceInstance := range serviceInstances {
+	for _, serviceInstance := range serviceInstances.Records {
 		serviceGUIDToInstanceRecord[serviceInstance.Name] = serviceInstance
 	}
 

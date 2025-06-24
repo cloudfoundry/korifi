@@ -553,10 +553,14 @@ var _ = Describe("ServiceInstance", func() {
 
 	Describe("GET /v3/service_instances", func() {
 		BeforeEach(func() {
-			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
-				{GUID: "service-inst-guid-1", SpaceGUID: "space-guid"},
-				{GUID: "service-inst-guid-2", SpaceGUID: "space-guid"},
-			}, nil)
+			serviceInstanceRepo.ListServiceInstancesReturns(
+				repositories.ListResult[repositories.ServiceInstanceRecord]{
+					PageInfo: descriptors.PageInfo{TotalResults: 2},
+					Records: []repositories.ServiceInstanceRecord{
+						{GUID: "service-inst-guid-1", SpaceGUID: "space-guid"},
+						{GUID: "service-inst-guid-2", SpaceGUID: "space-guid"},
+					},
+				}, nil)
 
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceInstanceList{})
 			reqPath += "?foo=bar"
@@ -660,10 +664,14 @@ var _ = Describe("ServiceInstance", func() {
 
 				When("the service instance is managed", func() {
 					BeforeEach(func() {
-						serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
-							{GUID: "service-inst-guid-1", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
-							{GUID: "service-inst-guid-2", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
-						}, nil)
+						serviceInstanceRepo.ListServiceInstancesReturns(
+							repositories.ListResult[repositories.ServiceInstanceRecord]{
+								PageInfo: descriptors.PageInfo{TotalResults: 2},
+								Records: []repositories.ServiceInstanceRecord{
+									{GUID: "service-inst-guid-1", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
+									{GUID: "service-inst-guid-2", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
+								},
+							}, nil)
 					})
 
 					It("includes offering fields in the response", func() {
@@ -694,10 +702,14 @@ var _ = Describe("ServiceInstance", func() {
 
 				When("the service instance is managed", func() {
 					BeforeEach(func() {
-						serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
-							{GUID: "service-inst-guid-1", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
-							{GUID: "service-inst-guid-2", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
-						}, nil)
+						serviceInstanceRepo.ListServiceInstancesReturns(
+							repositories.ListResult[repositories.ServiceInstanceRecord]{
+								PageInfo: descriptors.PageInfo{TotalResults: 2},
+								Records: []repositories.ServiceInstanceRecord{
+									{GUID: "service-inst-guid-1", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
+									{GUID: "service-inst-guid-2", Type: korifiv1alpha1.ManagedType, PlanGUID: "service-plan-guid"},
+								},
+							}, nil)
 					})
 
 					It("includes broker fields in the response", func() {
@@ -752,7 +764,7 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("there is an error fetching service instances", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{}, errors.New("unknown!"))
+				serviceInstanceRepo.ListServiceInstancesReturns(repositories.ListResult[repositories.ServiceInstanceRecord]{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {

@@ -10,6 +10,7 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -456,9 +457,13 @@ var _ = Describe("Applier", func() {
 
 	Describe("applying services", func() {
 		BeforeEach(func() {
-			serviceInstanceRepo.ListServiceInstancesReturns([]repositories.ServiceInstanceRecord{
-				{Name: "service-name", GUID: "service-guid"},
-			}, nil)
+			serviceInstanceRepo.ListServiceInstancesReturns(
+				repositories.ListResult[repositories.ServiceInstanceRecord]{
+					PageInfo: descriptors.PageInfo{TotalResults: 1},
+					Records: []repositories.ServiceInstanceRecord{
+						{Name: "service-name", GUID: "service-guid"},
+					},
+				}, nil)
 
 			appState.App.GUID = "app-guid"
 			appState.App.SpaceGUID = "space-guid"
@@ -540,7 +545,7 @@ var _ = Describe("Applier", func() {
 
 		When("listing service instances fails", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.ListServiceInstancesReturns(nil, errors.New("list-services-err"))
+				serviceInstanceRepo.ListServiceInstancesReturns(repositories.ListResult[repositories.ServiceInstanceRecord]{}, errors.New("list-services-err"))
 			})
 
 			It("returns the error", func() {
