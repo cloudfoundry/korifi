@@ -51,5 +51,5 @@ type CFServiceBindingRepository interface {
 
 //counterfeiter:generate -o fake -fake-name CFServiceInstanceRepository . CFServiceInstanceRepository
 type CFServiceInstanceRepository interface {
-	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
+	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) (repositories.ListResult[repositories.ServiceInstanceRecord], error)
 }

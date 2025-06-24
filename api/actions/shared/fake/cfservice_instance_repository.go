@@ -11,7 +11,7 @@ import (
 )
 
 type CFServiceInstanceRepository struct {
-	ListServiceInstancesStub        func(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
+	ListServiceInstancesStub        func(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) (repositories.ListResult[repositories.ServiceInstanceRecord], error)
 	listServiceInstancesMutex       sync.RWMutex
 	listServiceInstancesArgsForCall []struct {
 		arg1 context.Context
@@ -19,18 +19,18 @@ type CFServiceInstanceRepository struct {
 		arg3 repositories.ListServiceInstanceMessage
 	}
 	listServiceInstancesReturns struct {
-		result1 []repositories.ServiceInstanceRecord
+		result1 repositories.ListResult[repositories.ServiceInstanceRecord]
 		result2 error
 	}
 	listServiceInstancesReturnsOnCall map[int]struct {
-		result1 []repositories.ServiceInstanceRecord
+		result1 repositories.ListResult[repositories.ServiceInstanceRecord]
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *CFServiceInstanceRepository) ListServiceInstances(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error) {
+func (fake *CFServiceInstanceRepository) ListServiceInstances(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceInstanceMessage) (repositories.ListResult[repositories.ServiceInstanceRecord], error) {
 	fake.listServiceInstancesMutex.Lock()
 	ret, specificReturn := fake.listServiceInstancesReturnsOnCall[len(fake.listServiceInstancesArgsForCall)]
 	fake.listServiceInstancesArgsForCall = append(fake.listServiceInstancesArgsForCall, struct {
@@ -57,7 +57,7 @@ func (fake *CFServiceInstanceRepository) ListServiceInstancesCallCount() int {
 	return len(fake.listServiceInstancesArgsForCall)
 }
 
-func (fake *CFServiceInstanceRepository) ListServiceInstancesCalls(stub func(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)) {
+func (fake *CFServiceInstanceRepository) ListServiceInstancesCalls(stub func(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) (repositories.ListResult[repositories.ServiceInstanceRecord], error)) {
 	fake.listServiceInstancesMutex.Lock()
 	defer fake.listServiceInstancesMutex.Unlock()
 	fake.ListServiceInstancesStub = stub
@@ -70,28 +70,28 @@ func (fake *CFServiceInstanceRepository) ListServiceInstancesArgsForCall(i int) 
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFServiceInstanceRepository) ListServiceInstancesReturns(result1 []repositories.ServiceInstanceRecord, result2 error) {
+func (fake *CFServiceInstanceRepository) ListServiceInstancesReturns(result1 repositories.ListResult[repositories.ServiceInstanceRecord], result2 error) {
 	fake.listServiceInstancesMutex.Lock()
 	defer fake.listServiceInstancesMutex.Unlock()
 	fake.ListServiceInstancesStub = nil
 	fake.listServiceInstancesReturns = struct {
-		result1 []repositories.ServiceInstanceRecord
+		result1 repositories.ListResult[repositories.ServiceInstanceRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFServiceInstanceRepository) ListServiceInstancesReturnsOnCall(i int, result1 []repositories.ServiceInstanceRecord, result2 error) {
+func (fake *CFServiceInstanceRepository) ListServiceInstancesReturnsOnCall(i int, result1 repositories.ListResult[repositories.ServiceInstanceRecord], result2 error) {
 	fake.listServiceInstancesMutex.Lock()
 	defer fake.listServiceInstancesMutex.Unlock()
 	fake.ListServiceInstancesStub = nil
 	if fake.listServiceInstancesReturnsOnCall == nil {
 		fake.listServiceInstancesReturnsOnCall = make(map[int]struct {
-			result1 []repositories.ServiceInstanceRecord
+			result1 repositories.ListResult[repositories.ServiceInstanceRecord]
 			result2 error
 		})
 	}
 	fake.listServiceInstancesReturnsOnCall[i] = struct {
-		result1 []repositories.ServiceInstanceRecord
+		result1 repositories.ListResult[repositories.ServiceInstanceRecord]
 		result2 error
 	}{result1, result2}
 }

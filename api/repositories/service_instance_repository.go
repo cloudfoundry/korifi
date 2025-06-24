@@ -139,6 +139,7 @@ type ListServiceInstanceMessage struct {
 	LabelSelector string
 	OrderBy       string
 	PlanGUIDs     []string
+	Pagination    Pagination
 }
 
 func (m *ListServiceInstanceMessage) toListOptions() []ListOption {
@@ -148,6 +149,7 @@ func (m *ListServiceInstanceMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, m.PlanGUIDs),
 		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelSelector(m.LabelSelector),
+		WithPaging(m.Pagination),
 	}
 
 	if m.Type != "" {
@@ -411,16 +413,19 @@ func (r *ServiceInstanceRepo) createCredentialsSecret(
 }
 
 // nolint:dupl
-func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo authorization.Info, message ListServiceInstanceMessage) ([]ServiceInstanceRecord, error) {
+func (r *ServiceInstanceRepo) ListServiceInstances(ctx context.Context, authInfo authorization.Info, message ListServiceInstanceMessage) (ListResult[ServiceInstanceRecord], error) {
 	serviceInstanceList := new(korifiv1alpha1.CFServiceInstanceList)
-	_, err := r.klient.List(ctx, serviceInstanceList, message.toListOptions()...)
+	pageInfo, err := r.klient.List(ctx, serviceInstanceList, message.toListOptions()...)
 	if err != nil {
-		return []ServiceInstanceRecord{}, fmt.Errorf("failed to list service instances: %w",
+		return ListResult[ServiceInstanceRecord]{}, fmt.Errorf("failed to list service instances: %w",
 			apierrors.FromK8sError(err, ServiceInstanceResourceType),
 		)
 	}
 
-	return r.sorter.Sort(slices.Collect(it.Map(slices.Values(serviceInstanceList.Items), cfServiceInstanceToRecord)), message.OrderBy), nil
+	return ListResult[ServiceInstanceRecord]{
+		PageInfo: pageInfo,
+		Records:  r.sorter.Sort(slices.Collect(it.Map(slices.Values(serviceInstanceList.Items), cfServiceInstanceToRecord)), message.OrderBy),
+	}, nil
 }
 
 func (r *ServiceInstanceRepo) GetServiceInstance(ctx context.Context, authInfo authorization.Info, guid string) (ServiceInstanceRecord, error) {
