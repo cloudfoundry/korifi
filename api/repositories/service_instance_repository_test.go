@@ -699,7 +699,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			filters            repositories.ListServiceInstanceMessage
 			listErr            error
 
-			serviceInstanceList []repositories.ServiceInstanceRecord
+			serviceInstanceList repositories.ListResult[repositories.ServiceInstanceRecord]
 		)
 
 		BeforeEach(func() {
@@ -725,7 +725,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 		It("returns an empty list of ServiceInstanceRecord", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(serviceInstanceList).To(BeEmpty())
+			Expect(serviceInstanceList.Records).To(BeEmpty())
 		})
 
 		When("user is allowed to list service instances ", func() {
@@ -735,7 +735,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 
 			It("returns the service instances from the allowed namespaces", func() {
 				Expect(listErr).NotTo(HaveOccurred())
-				Expect(serviceInstanceList).To(ConsistOf(
+				Expect(serviceInstanceList.Records).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
 				))
 			})
@@ -755,41 +755,44 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				BeforeEach(func() {
 					fakeKlient = new(fake.Klient)
 					serviceInstanceRepo = repositories.NewServiceInstanceRepo(fakeKlient, conditionAwaiter, sorter, rootNamespace)
+					filters = repositories.ListServiceInstanceMessage{
+						Names:         []string{"instance-1", "instance-2"},
+						SpaceGUIDs:    []string{"space-guid-1", "space-guid-2"},
+						GUIDs:         []string{"guid-1", "guid-2"},
+						LabelSelector: "a-label=a-label-value",
+						PlanGUIDs:     []string{"plan-guid-1", "plan-guid-2"},
+						Pagination: repositories.Pagination{
+							PerPage: 1,
+							Page:    10,
+						},
+					}
 				})
 
-				Describe("filter parameters to list options", func() {
+				It("translates filter parameters to klient list options", func() {
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224("instance-1", "instance-2")),
+						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"space-guid-1", "space-guid-2"}),
+						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"guid-1", "guid-2"}),
+						repositories.WithLabelSelector("a-label=a-label-value"),
+						repositories.WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, []string{"plan-guid-1", "plan-guid-2"}),
+						repositories.WithPaging(repositories.Pagination{
+							PerPage: 1,
+							Page:    10,
+						}),
+					))
+				})
+
+				When("filtering by type", func() {
 					BeforeEach(func() {
-						filters = repositories.ListServiceInstanceMessage{
-							Names:         []string{"instance-1", "instance-2"},
-							SpaceGUIDs:    []string{"space-guid-1", "space-guid-2"},
-							GUIDs:         []string{"guid-1", "guid-2"},
-							LabelSelector: "a-label=a-label-value",
-							PlanGUIDs:     []string{"plan-guid-1", "plan-guid-2"},
-						}
+						filters.Type = "managed"
 					})
 
-					It("translates filter parameters to klient list options", func() {
+					It("adds the type to the list options", func() {
 						Expect(fakeKlient.ListCallCount()).To(Equal(1))
 						_, _, listOptions := fakeKlient.ListArgsForCall(0)
-						Expect(listOptions).To(ConsistOf(
-							repositories.WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224("instance-1", "instance-2")),
-							repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"space-guid-1", "space-guid-2"}),
-							repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"guid-1", "guid-2"}),
-							repositories.WithLabelSelector("a-label=a-label-value"),
-							repositories.WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, []string{"plan-guid-1", "plan-guid-2"}),
-						))
-					})
-
-					When("filtering by type", func() {
-						BeforeEach(func() {
-							filters.Type = "managed"
-						})
-
-						It("adds the type to the list options", func() {
-							Expect(fakeKlient.ListCallCount()).To(Equal(1))
-							_, _, listOptions := fakeKlient.ListArgsForCall(0)
-							Expect(listOptions).To(ContainElement(repositories.WithLabel(korifiv1alpha1.CFServiceInstanceTypeLabelKey, "managed")))
-						})
+						Expect(listOptions).To(ContainElement(repositories.WithLabel(korifiv1alpha1.CFServiceInstanceTypeLabelKey, "managed")))
 					})
 				})
 			})

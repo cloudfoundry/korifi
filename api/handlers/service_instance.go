@@ -31,7 +31,7 @@ type CFServiceInstanceRepository interface {
 	CreateUserProvidedServiceInstance(context.Context, authorization.Info, repositories.CreateUPSIMessage) (repositories.ServiceInstanceRecord, error)
 	CreateManagedServiceInstance(context.Context, authorization.Info, repositories.CreateManagedSIMessage) (repositories.ServiceInstanceRecord, error)
 	PatchServiceInstance(context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
-	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) ([]repositories.ServiceInstanceRecord, error)
+	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) (repositories.ListResult[repositories.ServiceInstanceRecord], error)
 	GetServiceInstance(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
 	GetServiceInstanceCredentials(context.Context, authorization.Info, string) (map[string]any, error)
 	DeleteServiceInstance(context.Context, authorization.Info, repositories.DeleteServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
@@ -209,12 +209,12 @@ func (h *ServiceInstance) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to list service instance")
 	}
 
-	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, serviceInstances, payload.IncludeResourceRules)
+	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, serviceInstances.Records, payload.IncludeResourceRules)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForServiceInstance, serviceInstances, h.serverURL, *r.URL, includedResources...)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceInstance, serviceInstances, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 func (h *ServiceInstance) delete(r *http.Request) (*routing.Response, error) {

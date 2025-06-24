@@ -64,6 +64,8 @@ var _ = Describe("ServiceInstanceList", func() {
 			}}}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceInstanceList{LabelSelector: "foo"}),
 		Entry("service_plan_guids=plan-guid", "service_plan_guids=plan-guid", payloads.ServiceInstanceList{PlanGUIDs: "plan-guid"}),
+
+		Entry("page=3", "page=3", payloads.ServiceInstanceList{Pagination: payloads.Pagination{Page: "3"}}),
 	)
 
 	DescribeTable("invalid query",
@@ -79,6 +81,7 @@ var _ = Describe("ServiceInstanceList", func() {
 		Entry("invalid service plan fields", "fields[service_plan]=foo", "value must be one of"),
 		Entry("invalid space fields", "fields[space]=foo", "value must be one of"),
 		Entry("invalid organization fields", "fields[space.organization]=foo", "value must be one of"),
+		Entry("per_page is not a number", "per_page=foo", "value must be an integer"),
 	)
 
 	Describe("ToMessage", func() {
@@ -96,6 +99,10 @@ var _ = Describe("ServiceInstanceList", func() {
 				OrderBy:       "order",
 				LabelSelector: "foo=bar",
 				PlanGUIDs:     "p1,p2",
+				Pagination: payloads.Pagination{
+					Page:    "1",
+					PerPage: "20",
+				},
 			}
 		})
 
@@ -112,6 +119,10 @@ var _ = Describe("ServiceInstanceList", func() {
 				OrderBy:       "order",
 				LabelSelector: "foo=bar",
 				PlanGUIDs:     []string{"p1", "p2"},
+				Pagination: repositories.Pagination{
+					Page:    1,
+					PerPage: 20,
+				},
 			}))
 		})
 	})
