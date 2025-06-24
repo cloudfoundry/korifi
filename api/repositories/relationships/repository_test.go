@@ -112,7 +112,9 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 				"service_broker": "service-broker-guid",
 			})
 
-			serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{GUID: "service-broker-guid"}}, nil)
+			serviceBrokerRepo.ListServiceBrokersReturns(repositories.ListResult[repositories.ServiceBrokerRecord]{
+				Records: []repositories.ServiceBrokerRecord{{GUID: "service-broker-guid"}},
+			}, nil)
 		})
 
 		It("delegates to the service_broker repository", func() {
@@ -132,7 +134,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 
 		When("the underlying repo returns an error", func() {
 			BeforeEach(func() {
-				serviceBrokerRepo.ListServiceBrokersReturns(nil, errors.New("list-broker-error"))
+				serviceBrokerRepo.ListServiceBrokersReturns(repositories.ListResult[repositories.ServiceBrokerRecord]{}, errors.New("list-broker-error"))
 			})
 
 			It("returns an error", func() {

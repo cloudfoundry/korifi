@@ -8,6 +8,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/fake"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
+	"code.cloudfoundry.org/korifi/tools"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -94,8 +95,7 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 
 		BeforeEach(func() {
 			updatedServiceBinding = serviceBinding.DeepCopy()
-			displayName := "display-name"
-			updatedServiceBinding.Spec.DisplayName = &displayName
+			updatedServiceBinding.Spec.DisplayName = tools.PtrTo("display-name")
 		})
 
 		JustBeforeEach(func() {

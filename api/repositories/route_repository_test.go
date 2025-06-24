@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -272,6 +271,7 @@ var _ = Describe("RouteRepository", func() {
 					Hosts:       []string{"my-subdomain-1-a"},
 					Paths:       []string{"/some/path"},
 					IsUnmapped:  tools.PtrTo(false),
+					OrderBy:     "created_at",
 					Pagination: repositories.Pagination{
 						PerPage: 3,
 						Page:    2,
@@ -289,7 +289,7 @@ var _ = Describe("RouteRepository", func() {
 					repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
 					repositories.WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, "false"),
 					repositories.WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix+"g1"),
-					repositories.NoopListOption{},
+					repositories.WithOrdering("created_at"),
 					repositories.WithPaging(repositories.Pagination{
 						PerPage: 3,
 						Page:    2,
@@ -297,25 +297,6 @@ var _ = Describe("RouteRepository", func() {
 				))
 			})
 		})
-
-		DescribeTable("ordering",
-			func(msg repositories.ListRoutesMessage, match types.GomegaMatcher) {
-				fakeKlient := new(fake.Klient)
-				routeRepo = repositories.NewRouteRepo(fakeKlient)
-
-				_, err := routeRepo.ListRoutes(ctx, authInfo, msg)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(fakeKlient.ListCallCount()).To(Equal(1))
-				_, _, listOptions := fakeKlient.ListArgsForCall(0)
-				Expect(listOptions).To(match)
-			},
-			Entry("created_at", repositories.ListRoutesMessage{OrderBy: "created_at"}, ContainElement(repositories.SortBy("Created At", false))),
-			Entry("-created_at", repositories.ListRoutesMessage{OrderBy: "-created_at"}, ContainElement(repositories.SortBy("Created At", true))),
-			Entry("updated_at", repositories.ListRoutesMessage{OrderBy: "updated_at"}, ContainElement(repositories.SortBy("Updated At", false))),
-			Entry("-updated_at", repositories.ListRoutesMessage{OrderBy: "-updated_at"}, ContainElement(repositories.SortBy("Updated At", true))),
-			Entry("no ordering", repositories.ListRoutesMessage{OrderBy: ""}, ContainElement(repositories.NoopListOption{})),
-			Entry("notexistent-field", repositories.ListRoutesMessage{OrderBy: "notexistent-field"}, ContainElement(repositories.ErroringListOption(`unsupported field for ordering: "notexistent-field"`))),
-		)
 	})
 
 	Describe("ListRoutesForApp", func() {

@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -96,7 +97,12 @@ var _ = Describe("ServiceBroker", func() {
 
 	Describe("GET /v3/service_brokers", func() {
 		BeforeEach(func() {
-			serviceBrokerRepo.ListServiceBrokersReturns([]repositories.ServiceBrokerRecord{{GUID: "broker-guid"}}, nil)
+			serviceBrokerRepo.ListServiceBrokersReturns(repositories.ListResult[repositories.ServiceBrokerRecord]{
+				Records: []repositories.ServiceBrokerRecord{{GUID: "broker-guid"}},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+				},
+			}, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/service_brokers", nil)
@@ -105,9 +111,8 @@ var _ = Describe("ServiceBroker", func() {
 
 		It("lists the service brokers", func() {
 			Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualListMsg := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
+			_, actualAuthInfo, _ := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualListMsg).To(Equal(repositories.ListServiceBrokerMessage{}))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -145,7 +150,7 @@ var _ = Describe("ServiceBroker", func() {
 
 		When("listing service brokers fails", func() {
 			BeforeEach(func() {
-				serviceBrokerRepo.ListServiceBrokersReturns(nil, errors.New("list-brokers-error"))
+				serviceBrokerRepo.ListServiceBrokersReturns(repositories.ListResult[repositories.ServiceBrokerRecord]{}, errors.New("list-brokers-error"))
 			})
 
 			It("returns an error", func() {

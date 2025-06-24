@@ -29,6 +29,13 @@ var _ = Describe("ServiceBindingList", func() {
 		Entry("include", "include=service_instance", payloads.ServiceBindingList{Include: "service_instance"}),
 		Entry("label_selector=foo", "label_selector=foo", payloads.ServiceBindingList{LabelSelector: "foo"}),
 		Entry("service_plan_guids=plan-guid", "service_plan_guids=plan-guid", payloads.ServiceBindingList{PlanGUIDs: "plan-guid"}),
+		Entry("order_by created_at", "order_by=created_at", payloads.ServiceBindingList{OrderBy: "created_at"}),
+		Entry("order_by -created_at", "order_by=-created_at", payloads.ServiceBindingList{OrderBy: "-created_at"}),
+		Entry("order_by updated_at", "order_by=updated_at", payloads.ServiceBindingList{OrderBy: "updated_at"}),
+		Entry("order_by -updated_at", "order_by=-updated_at", payloads.ServiceBindingList{OrderBy: "-updated_at"}),
+		Entry("order_by name", "order_by=name", payloads.ServiceBindingList{OrderBy: "name"}),
+		Entry("order_by -name", "order_by=-name", payloads.ServiceBindingList{OrderBy: "-name"}),
+		Entry("page=3", "page=3", payloads.ServiceBindingList{Pagination: payloads.Pagination{Page: "3"}}),
 	)
 
 	DescribeTable("invalid query",
@@ -38,6 +45,8 @@ var _ = Describe("ServiceBindingList", func() {
 		},
 		Entry("invalid type", "type=foo", MatchError(ContainSubstring("value must be one of"))),
 		Entry("invalid include type", "include=foo", MatchError(ContainSubstring("value must be one of"))),
+		Entry("invalid order_by", "order_by=foo", MatchError(ContainSubstring("value must be one of"))),
+		Entry("per_page is not a number", "per_page=foo", MatchError(ContainSubstring("value must be an integer"))),
 	)
 
 	Describe("ToMessage", func() {
@@ -54,6 +63,11 @@ var _ = Describe("ServiceBindingList", func() {
 				Include:              "include",
 				LabelSelector:        "foo=bar",
 				PlanGUIDs:            "p1,p2",
+				OrderBy:              "foo",
+				Pagination: payloads.Pagination{
+					Page:    "1",
+					PerPage: "20",
+				},
 			}
 		})
 
@@ -68,6 +82,11 @@ var _ = Describe("ServiceBindingList", func() {
 				ServiceInstanceGUIDs: []string{"s1", "s2"},
 				LabelSelector:        "foo=bar",
 				PlanGUIDs:            []string{"p1", "p2"},
+				OrderBy:              "foo",
+				Pagination: repositories.Pagination{
+					Page:    1,
+					PerPage: 20,
+				},
 			}))
 		})
 	})

@@ -34,14 +34,16 @@ type CreateServiceBrokerMessage struct {
 }
 
 type ListServiceBrokerMessage struct {
-	Names []string
-	GUIDs []string
+	Names      []string
+	GUIDs      []string
+	Pagination Pagination
 }
 
 func (m *ListServiceBrokerMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
 		WithLabelIn(korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
+		WithPaging(m.Pagination),
 	}
 }
 
@@ -177,17 +179,20 @@ func (r *ServiceBrokerRepo) GetState(ctx context.Context, authInfo authorization
 	return ResourceStateUnknown, nil
 }
 
-func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info, message ListServiceBrokerMessage) ([]ServiceBrokerRecord, error) {
+func (r *ServiceBrokerRepo) ListServiceBrokers(ctx context.Context, authInfo authorization.Info, message ListServiceBrokerMessage) (ListResult[ServiceBrokerRecord], error) {
 	brokersList := &korifiv1alpha1.CFServiceBrokerList{}
-	_, err := r.klient.List(ctx, brokersList, message.toListOptions()...)
+	pageInfo, err := r.klient.List(ctx, brokersList, message.toListOptions()...)
 	if err != nil {
 		// All authenticated users are allowed to list brokers. Therefore, the
 		// usual pattern of checking for forbidden error and return an empty
 		// list does not make sense here
-		return nil, fmt.Errorf("failed to list brokers: %w", apierrors.FromK8sError(err, ServiceBrokerResourceType))
+		return ListResult[ServiceBrokerRecord]{}, fmt.Errorf("failed to list brokers: %w", apierrors.FromK8sError(err, ServiceBrokerResourceType))
 	}
 
-	return slices.Collect(it.Map(slices.Values(brokersList.Items), toServiceBrokerRecord)), nil
+	return ListResult[ServiceBrokerRecord]{
+		PageInfo: pageInfo,
+		Records:  slices.Collect(it.Map(slices.Values(brokersList.Items), toServiceBrokerRecord)),
+	}, nil
 }
 
 func (r *ServiceBrokerRepo) GetServiceBroker(ctx context.Context, authInfo authorization.Info, guid string) (ServiceBrokerRecord, error) {
