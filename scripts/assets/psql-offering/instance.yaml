@@ -1,0 +1,45 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: compositepsqlinstances.syn.tools
+  labels:
+    service.syn.tools/id: 6ca63cdb-0cfa-4c5e-b080-72f22ff5f3e6 # uuidgen | tr '[:upper:]' '[:lower:]'
+    service.syn.tools/name: psql
+    service.syn.tools/updatable: 'false'
+  annotations:
+    service.syn.tools/description: PostgreSQL
+    service.syn.tools/metadata: |
+      {
+        "displayName": "PostgreSQL",
+        "version": "17.5.0"
+      }
+    service.syn.tools/tags: |
+      ["database", "sql", "postgres"]
+spec:
+  connectionSecretKeys:
+    - endpoint
+    - port
+    - username
+    - password
+  group: syn.tools
+  names:
+    kind: CompositePSQLInstance
+    plural: compositepsqlinstances
+  versions:
+    - name: v1
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+
+      referenceable: true
+      served: true
+      additionalPrinterColumns:
+        - jsonPath: .metadata.labels['service\.syn\.tools/plan']
+          name: Plan
+          type: string
+        - jsonPath: .metadata.labels['service\.syn\.tools/cluster']
+          name: Cluster
+          type: string

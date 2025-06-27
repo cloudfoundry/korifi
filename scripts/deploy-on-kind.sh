@@ -261,6 +261,43 @@ function create_cluster_builder() {
   kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
 }
 
+function deploy_crossplane_service_broker() {
+  echo "Deploying Crossplane..."
+  helm repo add crossplane-stable https://charts.crossplane.io/stable
+  helm repo update
+  helm upgrade \
+    --install \
+    --namespace crossplane-system \
+    --create-namespace \
+    crossplane \
+    crossplane-stable/crossplane \
+    --wait
+
+  echo "Building Crossplane Service Broker..."
+  export CROSSPLANE_BROKER_IMAGE="crossplane-service-broker:$(uuidgen)"
+  export OSB_SERVICE_IDS="6ca63cdb-0cfa-4c5e-b080-72f22ff5f3e6"
+  pushd "$HOME/workspace/crossplane-service-broker"
+  {
+    make build
+    docker build . -t "$CROSSPLANE_BROKER_IMAGE"
+  }
+  popd
+  kind load docker-image --name "$CLUSTER_NAME" "$CROSSPLANE_BROKER_IMAGE"
+
+  echo "Deploying Crossplane Service Broker..."
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crossplane-service-broker
+EOF
+  cat "$SCRIPT_DIR"/assets/crossplane-broker/* | envsubst | kubectl --namespace crossplane-service-broker apply -f -
+  kubectl delete secret -n crossplane-service-broker crossplane-service-broker --ignore-not-found
+  kubectl create secret -n crossplane-service-broker generic crossplane-service-broker \
+    --from-literal=password=password
+  kubectl -n crossplane-service-broker wait --for=condition=available deployment crossplane-service-broker --timeout=15m
+}
+
 function main() {
   make -C "$ROOT_DIR" bin/yq
 
@@ -274,6 +311,8 @@ function main() {
   deploy_korifi
   create_cluster_builder
   configure_contour
+
+  deploy_crossplane_service_broker
 }
 
 main "$@"

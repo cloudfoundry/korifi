@@ -1,0 +1,80 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: 43905323-ed5f-466a-9d7f-ddc16cb74864 # uuidgen | tr '[:upper:]' '[:lower:]'
+  labels:
+    service.syn.tools/cluster: prod-cluster-01
+    service.syn.tools/id: 6ca63cdb-0cfa-4c5e-b080-72f22ff5f3e6 # This is the ID from 'compositefooinstances.syn.tools' above
+    service.syn.tools/name: psql
+    service.syn.tools/plan: small
+    service.syn.tools/updatable: "false"
+  annotations:
+    service.syn.tools/description: PSQL instance small size
+    service.syn.tools/metadata: |
+      {
+        "displayName": "Small",
+        "memory": "1Gi",
+        "storageCapacity": "8Gi"
+      }
+spec:
+  compositeTypeRef:
+    apiVersion: syn.tools/v1
+    kind: CompositePSQLInstance
+  writeConnectionSecretsToNamespace: crossplane-system # Namespace to collect all connection secrets
+  resources:
+    - connectionDetails:
+        - fromConnectionSecretKey: endpoint
+        - fromConnectionSecretKey: port
+        - name: username
+          value: postgres
+        - fromConnectionSecretKey: password
+      base:
+        apiVersion: helm.crossplane.io/v1beta1
+        kind: Release
+        spec:
+          # Read back information from provisioned K8s resources in the target namespace
+          connectionDetails:
+            - apiVersion: v1
+              kind: Service
+              name: my-release-postgresql
+              fieldPath: spec.clusterIP
+              toConnectionSecretKey: endpoint
+            - apiVersion: v1
+              kind: Service
+              name: my-release-postgresql
+              fieldPath: spec.ports[0].port
+              toConnectionSecretKey: port
+            - apiVersion: v1
+              kind: Secret
+              name: my-release-postgresql
+              fieldPath: data.postgres-password
+              toConnectionSecretKey: password
+          writeConnectionSecretToRef:
+            namespace: crossplane-system
+          forProvider:
+            chart:
+              name: postgresql
+              repository: https://charts.bitnami.com/bitnami
+              version: 16.7.13
+            # values:
+            #   foo: bar
+          rollbackLimit: 3
+      patches:
+        - fromFieldPath: metadata.labels
+        - fromFieldPath: metadata.annotations
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.forProvider.namespace
+        - fromFieldPath: metadata.labels[service.syn.tools/cluster]
+          toFieldPath: spec.providerConfigRef.name
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.writeConnectionSecretToRef.name
+          transforms:
+            - string:
+                fmt: "%s-foo"
+              type: string
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.connectionDetails[0].namespace
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.connectionDetails[1].namespace
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.connectionDetails[2].namespace
