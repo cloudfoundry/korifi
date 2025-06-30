@@ -380,6 +380,16 @@ var _ = Describe("ServiceOffering", func() {
 			})
 		})
 
+		When("user is not allowed to get a process", func() {
+			BeforeEach(func() {
+				serviceOfferingRepo.GetServiceOfferingReturns(repositories.ServiceOfferingRecord{}, apierrors.NewForbiddenError(errors.New("Forbidden"), repositories.ServiceOfferingResourceType))
+			})
+
+			It("returns a not found error", func() {
+				expectNotFoundError(repositories.ServiceOfferingResourceType)
+			})
+		})
+
 		When("the service offering repo returns an error", func() {
 			BeforeEach(func() {
 				serviceOfferingRepo.UpdateServiceOfferingReturns(repositories.ServiceOfferingRecord{}, errors.New("update-so-error"))

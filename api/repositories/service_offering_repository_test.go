@@ -454,7 +454,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 	Describe("UpdateServiceOffering", func() {
 		var (
 			offeringGUID           string
-			broker                 *korifiv1alpha1.CFServiceBroker
+			brokerGUID             string
 			serviceOffering        *korifiv1alpha1.CFServiceOffering
 			updatedServiceOffering repositories.ServiceOfferingRecord
 			updateErr              error
@@ -463,22 +463,8 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 		BeforeEach(func() {
 			offeringGUID = uuid.NewString()
-
-			brokerGUID := uuid.NewString()
+			brokerGUID = uuid.NewString()
 			offeringName := uuid.NewString()
-			broker = &korifiv1alpha1.CFServiceBroker{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: rootNamespace,
-					Name:      brokerGUID,
-					Labels: map[string]string{
-						korifiv1alpha1.GUIDLabelKey: brokerGUID,
-					},
-				},
-				Spec: korifiv1alpha1.CFServiceBrokerSpec{
-					Name: offeringName,
-				},
-			}
-			Expect(k8sClient.Create(ctx, broker)).To(Succeed())
 
 			metadata, err := korifiv1alpha1.AsRawExtension(map[string]any{
 				"offering-md": "offering-md-value",
@@ -490,8 +476,8 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Namespace: rootNamespace,
 					Name:      offeringGUID,
 					Labels: map[string]string{
-						korifiv1alpha1.RelServiceBrokerGUIDLabel: broker.Name,
-						korifiv1alpha1.RelServiceBrokerNameLabel: tools.EncodeValueToSha224(broker.Spec.Name),
+						korifiv1alpha1.RelServiceBrokerGUIDLabel: brokerGUID,
+						korifiv1alpha1.RelServiceBrokerNameLabel: tools.EncodeValueToSha224("my-broker"),
 						korifiv1alpha1.CFServiceOfferingNameKey:  tools.EncodeValueToSha224(offeringName),
 						korifiv1alpha1.GUIDLabelKey:              offeringGUID,
 					},
@@ -548,18 +534,20 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 			It("updates the service offering metadata", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
-
-				Expect(updatedServiceOffering.Metadata.Labels).To(HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, broker.Name))
-				Expect(updatedServiceOffering.Metadata.Labels).To(HaveKeyWithValue("new-offering-label", "new-offering-label-value"))
+				Expect(updatedServiceOffering.Metadata.Labels).To(SatisfyAll(
+					HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, brokerGUID),
+					HaveKeyWithValue("new-offering-label", "new-offering-label-value"),
+				))
 				Expect(updatedServiceOffering.Metadata.Annotations).To(HaveKeyWithValue("new-offering-annotation", "new-offering-annotation-value"))
 			})
 
 			It("updates the service offering metadata in kubernetes", func() {
 				updatedServiceOffering := new(korifiv1alpha1.CFServiceOffering)
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(serviceOffering), updatedServiceOffering)).To(Succeed())
-
-				Expect(updatedServiceOffering.Labels).To(HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, broker.Name))
-				Expect(updatedServiceOffering.Labels).To(HaveKeyWithValue("new-offering-label", "new-offering-label-value"))
+				Expect(updatedServiceOffering.Labels).To(SatisfyAll(
+					HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, brokerGUID),
+					HaveKeyWithValue("new-offering-label", "new-offering-label-value"),
+				))
 				Expect(updatedServiceOffering.Annotations).To(HaveKeyWithValue("new-offering-annotation", "new-offering-annotation-value"))
 			})
 		})
