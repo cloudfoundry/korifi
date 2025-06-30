@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+
 	gomega_types "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,7 +38,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			korifiv1alpha1.CFServiceInstanceList,
 			*korifiv1alpha1.CFServiceInstanceList,
 		]
-		sorter *fake.ServiceInstanceSorter
 
 		org                 *korifiv1alpha1.CFOrg
 		space               *korifiv1alpha1.CFSpace
@@ -50,15 +50,10 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			korifiv1alpha1.CFServiceInstanceList,
 			*korifiv1alpha1.CFServiceInstanceList,
 		]{}
-		sorter = new(fake.ServiceInstanceSorter)
-		sorter.SortStub = func(records []repositories.ServiceInstanceRecord, _ string) []repositories.ServiceInstanceRecord {
-			return records
-		}
 
 		serviceInstanceRepo = repositories.NewServiceInstanceRepo(
 			spaceScopedKlient,
 			conditionAwaiter,
-			sorter,
 			rootNamespace,
 		)
 
@@ -716,7 +711,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			}
 			Expect(k8sClient.Create(ctx, cfServiceInstance1)).To(Succeed())
 
-			filters = repositories.ListServiceInstanceMessage{OrderBy: "foo"}
+			filters = repositories.ListServiceInstanceMessage{OrderBy: "name"}
 		})
 
 		JustBeforeEach(func() {
@@ -740,27 +735,35 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				))
 			})
 
-			It("sort the service instances", func() {
-				Expect(sorter.SortCallCount()).To(Equal(1))
-				sortedServiceInstances, field := sorter.SortArgsForCall(0)
-				Expect(field).To(Equal("foo"))
-				Expect(sortedServiceInstances).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfServiceInstance1.Name)}),
-				))
-			})
+			DescribeTable("ordering",
+				func(msg repositories.ListServiceInstanceMessage, match gomega_types.GomegaMatcher) {
+					fakeKlient := new(fake.Klient)
+					instancesRepo := repositories.NewServiceInstanceRepo(fakeKlient, conditionAwaiter, rootNamespace)
 
-			Describe("filtering", func() {
+					_, err := instancesRepo.ListServiceInstances(ctx, authInfo, msg)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(match)
+				},
+				Entry("name", repositories.ListServiceInstanceMessage{OrderBy: "name"}, ContainElement(repositories.SortOpt{By: "Display Name", Desc: false})),
+				Entry("-name", repositories.ListServiceInstanceMessage{OrderBy: "-name"}, ContainElement(repositories.SortOpt{By: "Display Name", Desc: true})),
+			)
+
+			Describe("list options", func() {
 				var fakeKlient *fake.Klient
 
 				BeforeEach(func() {
 					fakeKlient = new(fake.Klient)
-					serviceInstanceRepo = repositories.NewServiceInstanceRepo(fakeKlient, conditionAwaiter, sorter, rootNamespace)
+					serviceInstanceRepo = repositories.NewServiceInstanceRepo(fakeKlient, conditionAwaiter, rootNamespace)
 					filters = repositories.ListServiceInstanceMessage{
 						Names:         []string{"instance-1", "instance-2"},
 						SpaceGUIDs:    []string{"space-guid-1", "space-guid-2"},
 						GUIDs:         []string{"guid-1", "guid-2"},
 						LabelSelector: "a-label=a-label-value",
 						PlanGUIDs:     []string{"plan-guid-1", "plan-guid-2"},
+						OrderBy:       "updated_at",
 						Pagination: repositories.Pagination{
 							PerPage: 1,
 							Page:    10,
@@ -768,7 +771,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					}
 				})
 
-				It("translates filter parameters to klient list options", func() {
+				It("translates  parameters to klient list options", func() {
 					Expect(fakeKlient.ListCallCount()).To(Equal(1))
 					_, _, listOptions := fakeKlient.ListArgsForCall(0)
 					Expect(listOptions).To(ConsistOf(
@@ -777,6 +780,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"guid-1", "guid-2"}),
 						repositories.WithLabelSelector("a-label=a-label-value"),
 						repositories.WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, []string{"plan-guid-1", "plan-guid-2"}),
+						repositories.WithOrdering("updated_at"),
 						repositories.WithPaging(repositories.Pagination{
 							PerPage: 1,
 							Page:    10,
@@ -1077,45 +1081,3 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 	})
 })
-
-var _ = DescribeTable("ServiceInstanceSorter",
-	func(s1, s2 repositories.ServiceInstanceRecord, field string, match gomega_types.GomegaMatcher) {
-		Expect(repositories.ServiceInstanceComparator(field)(s1, s2)).To(match)
-	},
-	Entry("created_at",
-		repositories.ServiceInstanceRecord{CreatedAt: time.UnixMilli(1)},
-		repositories.ServiceInstanceRecord{CreatedAt: time.UnixMilli(2)},
-		"created_at",
-		BeNumerically("<", 0),
-	),
-	Entry("-created_at",
-		repositories.ServiceInstanceRecord{CreatedAt: time.UnixMilli(1)},
-		repositories.ServiceInstanceRecord{CreatedAt: time.UnixMilli(2)},
-		"-created_at",
-		BeNumerically(">", 0),
-	),
-	Entry("updated_at",
-		repositories.ServiceInstanceRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
-		repositories.ServiceInstanceRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
-		"updated_at",
-		BeNumerically("<", 0),
-	),
-	Entry("-updated_at",
-		repositories.ServiceInstanceRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(1))},
-		repositories.ServiceInstanceRecord{UpdatedAt: tools.PtrTo(time.UnixMilli(2))},
-		"-updated_at",
-		BeNumerically(">", 0),
-	),
-	Entry("name",
-		repositories.ServiceInstanceRecord{Name: "first-instance"},
-		repositories.ServiceInstanceRecord{Name: "second-instance"},
-		"name",
-		BeNumerically("<", 0),
-	),
-	Entry("-name",
-		repositories.ServiceInstanceRecord{Name: "first-instance"},
-		repositories.ServiceInstanceRecord{Name: "second-instance"},
-		"-name",
-		BeNumerically(">", 0),
-	),
-)
