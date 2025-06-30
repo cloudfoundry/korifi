@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	. "github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -445,6 +447,108 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(serviceBinding.Finalizers).To(BeEmpty())
+			})
+		})
+	})
+
+	Describe("UpdateServiceOffering", func() {
+		var (
+			offeringGUID           string
+			brokerGUID             string
+			serviceOffering        *korifiv1alpha1.CFServiceOffering
+			updatedServiceOffering repositories.ServiceOfferingRecord
+			updateErr              error
+			updateMessage          repositories.UpdateServiceOfferingMessage
+		)
+
+		BeforeEach(func() {
+			offeringGUID = uuid.NewString()
+			brokerGUID = uuid.NewString()
+			offeringName := uuid.NewString()
+
+			metadata, err := korifiv1alpha1.AsRawExtension(map[string]any{
+				"offering-md": "offering-md-value",
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			serviceOffering = &korifiv1alpha1.CFServiceOffering{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rootNamespace,
+					Name:      offeringGUID,
+					Labels: map[string]string{
+						korifiv1alpha1.RelServiceBrokerGUIDLabel: brokerGUID,
+						korifiv1alpha1.RelServiceBrokerNameLabel: tools.EncodeValueToSha224("my-broker"),
+						korifiv1alpha1.CFServiceOfferingNameKey:  tools.EncodeValueToSha224(offeringName),
+						korifiv1alpha1.GUIDLabelKey:              offeringGUID,
+					},
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+				},
+				Spec: korifiv1alpha1.CFServiceOfferingSpec{
+					Name:             "my-offering",
+					Description:      "my offering description",
+					Tags:             []string{"t1"},
+					Requires:         []string{"r1"},
+					DocumentationURL: tools.PtrTo("https://my.offering.com"),
+					BrokerCatalog: korifiv1alpha1.ServiceBrokerCatalog{
+						ID:       "offering-catalog-guid",
+						Metadata: metadata,
+						Features: korifiv1alpha1.BrokerCatalogFeatures{
+							PlanUpdateable:       true,
+							Bindable:             true,
+							InstancesRetrievable: true,
+							BindingsRetrievable:  true,
+							AllowContextUpdates:  true,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceOffering)).To(Succeed())
+
+			updateMessage = repositories.UpdateServiceOfferingMessage{
+				GUID: offeringGUID,
+				MetadataPatch: repositories.MetadataPatch{
+					Labels: map[string]*string{
+						"new-offering-label": tools.PtrTo("new-offering-label-value"),
+					},
+					Annotations: map[string]*string{
+						"new-offering-annotation": tools.PtrTo("new-offering-annotation-value"),
+					},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			updatedServiceOffering, updateErr = repo.UpdateServiceOffering(ctx, authInfo, updateMessage)
+		})
+
+		It("fails because the user has no offerings", func() {
+			Expect(updateErr).To(matchers.WrapErrorAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
+		When("the user is a CFAdmin", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+			})
+
+			It("updates the service offering metadata", func() {
+				Expect(updateErr).NotTo(HaveOccurred())
+				Expect(updatedServiceOffering.Metadata.Labels).To(SatisfyAll(
+					HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, brokerGUID),
+					HaveKeyWithValue("new-offering-label", "new-offering-label-value"),
+				))
+				Expect(updatedServiceOffering.Metadata.Annotations).To(HaveKeyWithValue("new-offering-annotation", "new-offering-annotation-value"))
+			})
+
+			It("updates the service offering metadata in kubernetes", func() {
+				updatedServiceOffering := new(korifiv1alpha1.CFServiceOffering)
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(serviceOffering), updatedServiceOffering)).To(Succeed())
+				Expect(updatedServiceOffering.Labels).To(SatisfyAll(
+					HaveKeyWithValue(korifiv1alpha1.RelServiceBrokerGUIDLabel, brokerGUID),
+					HaveKeyWithValue("new-offering-label", "new-offering-label-value"),
+				))
+				Expect(updatedServiceOffering.Annotations).To(HaveKeyWithValue("new-offering-annotation", "new-offering-annotation-value"))
 			})
 		})
 	})
