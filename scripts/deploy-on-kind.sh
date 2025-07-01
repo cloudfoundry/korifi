@@ -273,6 +273,11 @@ function deploy_crossplane_service_broker() {
     crossplane-stable/crossplane \
     --wait
 
+  echo "Deploying the helm crossplane provider..."
+  if ! kubectl get providers.pkg.crossplane.io upbound-provider-helm; then
+    crossplane xpkg install provider xpkg.upbound.io/upbound/provider-helm:v0.20.0
+  fi
+
   echo "Building Crossplane Service Broker..."
   export CROSSPLANE_BROKER_IMAGE="crossplane-service-broker:$(uuidgen)"
   export OSB_SERVICE_IDS="6ca63cdb-0cfa-4c5e-b080-72f22ff5f3e6"
@@ -298,6 +303,11 @@ EOF
   kubectl -n crossplane-service-broker wait --for=condition=available deployment crossplane-service-broker --timeout=15m
 }
 
+function create_psql_service_offering() {
+  echo "Creating PostgreSQL service offering..."
+  kubectl apply -f "$SCRIPT_DIR/assets/psql-offering"
+}
+
 function main() {
   make -C "$ROOT_DIR" bin/yq
 
@@ -313,6 +323,7 @@ function main() {
   configure_contour
 
   deploy_crossplane_service_broker
+  create_psql_service_offering
 }
 
 main "$@"

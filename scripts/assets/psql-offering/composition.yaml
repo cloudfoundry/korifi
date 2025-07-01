@@ -3,7 +3,7 @@ kind: Composition
 metadata:
   name: 43905323-ed5f-466a-9d7f-ddc16cb74864 # uuidgen | tr '[:upper:]' '[:lower:]'
   labels:
-    service.syn.tools/cluster: prod-cluster-01
+    service.syn.tools/cluster: local-helm-provider
     service.syn.tools/id: 6ca63cdb-0cfa-4c5e-b080-72f22ff5f3e6 # This is the ID from 'compositefooinstances.syn.tools' above
     service.syn.tools/name: psql
     service.syn.tools/plan: small
@@ -20,9 +20,10 @@ spec:
   compositeTypeRef:
     apiVersion: syn.tools/v1
     kind: CompositePSQLInstance
-  writeConnectionSecretsToNamespace: crossplane-system # Namespace to collect all connection secrets
+  writeConnectionSecretsToNamespace: crossplane-services # Namespace to collect all connection secrets
   resources:
-    - connectionDetails:
+    - name: psql-helm-release
+      connectionDetails:
         - fromConnectionSecretKey: endpoint
         - fromConnectionSecretKey: port
         - name: username
@@ -50,7 +51,7 @@ spec:
               fieldPath: data.postgres-password
               toConnectionSecretKey: password
           writeConnectionSecretToRef:
-            namespace: crossplane-system
+            namespace: crossplane-services
           forProvider:
             chart:
               name: postgresql
@@ -58,23 +59,16 @@ spec:
               version: 16.7.13
             # values:
             #   foo: bar
+            namespace: crossplane-services
           rollbackLimit: 3
       patches:
         - fromFieldPath: metadata.labels
         - fromFieldPath: metadata.annotations
-        - fromFieldPath: metadata.labels[crossplane.io/composite]
-          toFieldPath: spec.forProvider.namespace
         - fromFieldPath: metadata.labels[service.syn.tools/cluster]
           toFieldPath: spec.providerConfigRef.name
         - fromFieldPath: metadata.labels[crossplane.io/composite]
           toFieldPath: spec.writeConnectionSecretToRef.name
           transforms:
             - string:
-                fmt: "%s-foo"
+                fmt: "%s-connection-details"
               type: string
-        - fromFieldPath: metadata.labels[crossplane.io/composite]
-          toFieldPath: spec.connectionDetails[0].namespace
-        - fromFieldPath: metadata.labels[crossplane.io/composite]
-          toFieldPath: spec.connectionDetails[1].namespace
-        - fromFieldPath: metadata.labels[crossplane.io/composite]
-          toFieldPath: spec.connectionDetails[2].namespace
