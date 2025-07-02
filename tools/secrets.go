@@ -11,12 +11,12 @@ const (
 	ParametersSecretKey  = "parameters"
 )
 
-func ToCredentialsSecretData(credentials any) (map[string][]byte, error) {
+func ToCredentialsSecretData(credentials map[string]any) (map[string][]byte, error) {
 	return toSecretData(CredentialsSecretKey, credentials)
 }
 
-func ToParametersSecretData(credentials any) (map[string][]byte, error) {
-	return toSecretData(ParametersSecretKey, credentials)
+func ToParametersSecretData(parameters map[string]any) (map[string][]byte, error) {
+	return toSecretData(ParametersSecretKey, parameters)
 }
 
 func toSecretData(key string, value any) (map[string][]byte, error) {

@@ -75,7 +75,7 @@ type ProvisionRequest struct {
 	PlanID     string         `json:"plan_id"`
 	SpaceGUID  string         `json:"space_guid"`
 	OrgGUID    string         `json:"organization_guid"`
-	Parameters map[string]any `json:"parameters"`
+	Parameters map[string]any `json:"parameters,omitempty"`
 }
 
 type ProvisionResponse struct {

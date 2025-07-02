@@ -133,15 +133,12 @@ var _ = Describe("Credentials", func() {
 	})
 
 	Describe("ToCredentialsSecretData", func() {
-		var creds any
+		var creds map[string]any
 
 		BeforeEach(func() {
-			creds = struct {
-				Str string
-				Num int
-			}{
-				Str: "abc",
-				Num: 5,
+			creds = map[string]any{
+				"str": "abc",
+				"num": 5,
 			}
 		})
 
@@ -150,7 +147,7 @@ var _ = Describe("Credentials", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(secretData).To(SatisfyAll(
 				HaveLen(1),
-				HaveKeyWithValue(tools.CredentialsSecretKey, MatchJSON(`{"Str":"abc", "Num":5}`)),
+				HaveKeyWithValue(tools.CredentialsSecretKey, MatchJSON(`{"str":"abc", "num":5}`)),
 			))
 		})
 	})

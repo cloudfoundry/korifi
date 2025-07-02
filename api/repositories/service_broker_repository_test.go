@@ -364,7 +364,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 		)
 
 		BeforeEach(func() {
-			credentialsData, err := tools.ToCredentialsSecretData(map[string]string{
+			credentialsData, err := tools.ToCredentialsSecretData(map[string]any{
 				"username": "user",
 				"password": "pass",
 			})
