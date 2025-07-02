@@ -37,16 +37,19 @@ spec:
           connectionDetails:
             - apiVersion: v1
               kind: Service
+              namespace: crossplane-services
               name: my-release-postgresql
               fieldPath: spec.clusterIP
               toConnectionSecretKey: endpoint
             - apiVersion: v1
               kind: Service
+              namespace: crossplane-services
               name: my-release-postgresql
               fieldPath: spec.ports[0].port
               toConnectionSecretKey: port
             - apiVersion: v1
               kind: Secret
+              namespace: crossplane-services
               name: my-release-postgresql
               fieldPath: data.postgres-password
               toConnectionSecretKey: password
@@ -55,7 +58,7 @@ spec:
           forProvider:
             chart:
               name: postgresql
-              repository: https://charts.bitnami.com/bitnami
+              repository: oci://registry-1.docker.io/bitnamicharts
               version: 16.7.15
             namespace: crossplane-services
             skipCreateNamespace: true
@@ -70,4 +73,28 @@ spec:
           transforms:
             - string:
                 fmt: "%s-connection-details"
+              type: string
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: metadata.name
+          transforms:
+            - string:
+                fmt: "postgresql-%s"
+              type: string
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.connectionDetails[0].name
+          transforms:
+            - string:
+                fmt: "postgresql-%s"
+              type: string
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.connectionDetails[1].name
+          transforms:
+            - string:
+                fmt: "postgresql-%s"
+              type: string
+        - fromFieldPath: metadata.labels[crossplane.io/composite]
+          toFieldPath: spec.connectionDetails[2].name
+          transforms:
+            - string:
+                fmt: "postgresql-%s"
               type: string

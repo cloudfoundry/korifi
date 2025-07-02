@@ -261,6 +261,14 @@ function create_cluster_builder() {
   kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
 }
 
+retry() {
+  until $@; do
+    echo -n .
+    sleep 1
+  done
+  echo
+}
+
 function deploy_crossplane_service_broker() {
   echo "Deploying Crossplane..."
   helm repo add crossplane-stable https://charts.crossplane.io/stable
@@ -273,10 +281,9 @@ function deploy_crossplane_service_broker() {
     crossplane-stable/crossplane \
     --wait
 
-  echo "Deploying the helm crossplane provider..."
-  if ! kubectl get providers.pkg.crossplane.io upbound-provider-helm; then
-    crossplane xpkg install provider xpkg.upbound.io/upbound/provider-helm:v0.20.0
-  fi
+  echo "Deploy crossplane providers"
+  kubectl apply -f "$SCRIPT_DIR/assets/crossplane-providers"
+  retry kubectl apply -f "$SCRIPT_DIR/assets/crossplane-providerconfigs"
 
   echo "Building Crossplane Service Broker..."
   export CROSSPLANE_BROKER_IMAGE="crossplane-service-broker:$(uuidgen)"
