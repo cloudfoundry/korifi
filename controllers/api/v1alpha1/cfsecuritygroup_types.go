@@ -46,6 +46,8 @@ type CFSecurityGroupStatus struct {
 
 //+kubebuilder:subresource:status
 //+kubebuilder:object:root=true
+//+kubebuilder:printcolumn:name="Created At",type="string",JSONPath=`.metadata.labels.korifi\.cloudfoundry\.org/created_at`
+//+kubebuilder:printcolumn:name="Updated At",type="string",JSONPath=`.metadata.labels.korifi\.cloudfoundry\.org/updated_at`
 //+kubebuilder:printcolumn:name="DisplayName",type=string,JSONPath=`.spec.displayName`
 //+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
