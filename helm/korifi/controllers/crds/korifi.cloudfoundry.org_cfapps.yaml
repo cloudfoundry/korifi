@@ -24,7 +24,7 @@ spec:
     - jsonPath: .metadata.labels.korifi\.cloudfoundry\.org/updated_at
       name: Updated At
       type: string
-    - jsonPath: .status.actualState
+    - jsonPath: .spec.desiredState
       name: State
       type: string
     - jsonPath: .metadata.creationTimestamp
