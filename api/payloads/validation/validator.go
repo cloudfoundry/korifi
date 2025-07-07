@@ -13,9 +13,9 @@ import (
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 
 	"github.com/jellydator/validation"
+	"go.yaml.in/yaml/v3"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-	"gopkg.in/yaml.v3"
 )
 
 type KeyedPayload interface {
