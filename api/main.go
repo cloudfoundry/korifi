@@ -584,7 +584,7 @@ func wireGaugeCollector(cfg *config.APIConfig) (*url.URL, handlers.GaugesCollect
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
 						MinVersion: tls.VersionTLS12,
-						RootCAs:    loadCA("CA_PATH"),
+						RootCAs:    loadCA("INTERNAL_CERT_PATH"),
 					},
 				},
 			},

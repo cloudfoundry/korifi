@@ -25,8 +25,6 @@ spec:
           value: /etc/korifi-tls
         - name: INTERNAL_CERT_PATH
           value: /etc/korifi-tls-internal
-        - name: CA_PATH
-          value: /etc/korifi-ca-cert
         image: {{ .Values.api.image }}
 {{- if .Values.debug }}
         command:
@@ -56,9 +54,6 @@ spec:
         - mountPath: /etc/korifi-tls-internal
           name: korifi-tls-internal
           readOnly: true
-        - mountPath: /etc/korifi-ca-cert
-          name: korifi-ca-cert
-          readOnly: true
 {{- if .Values.containerRegistryCACertSecret }}
         - mountPath: /etc/ssl/certs/registry-ca.crt
           name: korifi-registry-ca-cert
@@ -85,9 +80,6 @@ spec:
       - name: korifi-tls-internal
         secret:
           secretName: {{ .Values.api.apiServer.internalCertSecret }}
-      - name: korifi-ca-cert
-        secret:
-          secretName: korifi-selfsigned-ca-secret
 {{- if .Values.containerRegistryCACertSecret }}
       - name: korifi-registry-ca-cert
         secret:
