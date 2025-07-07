@@ -144,38 +144,41 @@ var _ = Describe("StateCollector", func() {
 	})
 
 	Describe("routes", func() {
-		var routes []repositories.RouteRecord
+		var routes repositories.ListResult[repositories.RouteRecord]
 
 		BeforeEach(func() {
 			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{GUID: "app-guid"}}}, nil)
-			routes = []repositories.RouteRecord{
-				{
-					Domain: repositories.DomainRecord{
-						Name: "my.domain",
+			routes = repositories.ListResult[repositories.RouteRecord]{
+				Records: []repositories.RouteRecord{
+					{
+						Domain: repositories.DomainRecord{
+							Name: "my.domain",
+						},
+						Host: "my-host",
+						Path: "/my-path/foo",
 					},
-					Host: "my-host",
-					Path: "/my-path/foo",
-				},
-				{
-					Domain: repositories.DomainRecord{
-						Name: "my.domain",
+					{
+						Domain: repositories.DomainRecord{
+							Name: "my.domain",
+						},
+						Host: "another-host",
 					},
-					Host: "another-host",
 				},
 			}
-			routeRepo.ListRoutesForAppReturns(routes, nil)
+
+			routeRepo.ListRoutesReturns(routes, nil)
 		})
 
 		It("lists the app routes", func() {
-			Expect(routeRepo.ListRoutesForAppCallCount()).To(Equal(1))
-			_, _, appGUID, spaceGUID := routeRepo.ListRoutesForAppArgsForCall(0)
-			Expect(appGUID).To(Equal("app-guid"))
-			Expect(spaceGUID).To(Equal("space-guid"))
+			Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+			_, _, listMsg := routeRepo.ListRoutesArgsForCall(0)
+			Expect(listMsg.AppGUIDs).To(ConsistOf("app-guid"))
+			Expect(listMsg.SpaceGUIDs).To(ConsistOf("space-guid"))
 		})
 
 		When("listing the routes fails", func() {
 			BeforeEach(func() {
-				routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("list-routes-error"))
+				routeRepo.ListRoutesReturns(repositories.ListResult[repositories.RouteRecord]{}, errors.New("list-routes-error"))
 			})
 
 			It("returns the error", func() {
@@ -186,8 +189,8 @@ var _ = Describe("StateCollector", func() {
 		It("populates the routes map", func() {
 			Expect(collectStateErr).ToNot(HaveOccurred())
 			Expect(appState.Routes).To(Equal(map[string]repositories.RouteRecord{
-				"my-host.my.domain/my-path/foo": routes[0],
-				"another-host.my.domain":        routes[1],
+				"my-host.my.domain/my-path/foo": routes.Records[0],
+				"another-host.my.domain":        routes.Records[1],
 			}))
 		})
 	})

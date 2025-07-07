@@ -27,7 +27,6 @@ const (
 type CFRouteRepository interface {
 	GetRoute(context.Context, authorization.Info, string) (repositories.RouteRecord, error)
 	ListRoutes(context.Context, authorization.Info, repositories.ListRoutesMessage) (repositories.ListResult[repositories.RouteRecord], error)
-	ListRoutesForApp(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
 	CreateRoute(context.Context, authorization.Info, repositories.CreateRouteMessage) (repositories.RouteRecord, error)
 	DeleteRoute(context.Context, authorization.Info, repositories.DeleteRouteMessage) error
 	DeleteUnmappedRoutes(context.Context, authorization.Info, string) error

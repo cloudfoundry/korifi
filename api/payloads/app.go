@@ -210,3 +210,32 @@ func (a *AppPatch) ToMessage(appGUID, spaceGUID string) repositories.PatchAppMes
 
 	return msg
 }
+
+type AppRoutesList struct {
+	Pagination Pagination
+	OrderBy    string
+}
+
+func (a AppRoutesList) Validate() error {
+	return jellidation.ValidateStruct(&a,
+		jellidation.Field(&a.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&a.Pagination),
+	)
+}
+
+func (a *AppRoutesList) SupportedKeys() []string {
+	return []string{"order_by", "per_page", "page"}
+}
+
+func (a *AppRoutesList) DecodeFromURLValues(values url.Values) error {
+	a.OrderBy = values.Get("order_by")
+	return a.Pagination.DecodeFromURLValues(values)
+}
+
+func (a *AppRoutesList) ToMessage(appGUID string) repositories.ListRoutesMessage {
+	return repositories.ListRoutesMessage{
+		AppGUIDs:   []string{appGUID},
+		Pagination: a.Pagination.ToMessage(DefaultPageSize),
+		OrderBy:    a.OrderBy,
+	}
+}

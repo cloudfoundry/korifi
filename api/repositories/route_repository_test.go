@@ -299,59 +299,6 @@ var _ = Describe("RouteRepository", func() {
 		})
 	})
 
-	Describe("ListRoutesForApp", func() {
-		var (
-			appGUID      string
-			cfRoute      *korifiv1alpha1.CFRoute
-			routeRecords []repositories.RouteRecord
-		)
-
-		BeforeEach(func() {
-			appGUID = uuid.NewString()
-
-			createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-			cfRoute = &korifiv1alpha1.CFRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      routeGUID,
-					Namespace: space.Name,
-				},
-				Spec: korifiv1alpha1.CFRouteSpec{
-					Host:     "my-subdomain-1",
-					Path:     "",
-					Protocol: "http",
-					DomainRef: corev1.ObjectReference{
-						Name:      domainGUID,
-						Namespace: rootNamespace,
-					},
-					Destinations: []korifiv1alpha1.Destination{
-						{
-							GUID: "destination-guid",
-							Port: tools.PtrTo[int32](8080),
-							AppRef: corev1.LocalObjectReference{
-								Name: appGUID,
-							},
-							ProcessType: "web",
-							Protocol:    tools.PtrTo("http1"),
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, cfRoute)).To(Succeed())
-		})
-
-		JustBeforeEach(func() {
-			var err error
-			routeRecords, err = routeRepo.ListRoutesForApp(ctx, authInfo, appGUID, space.Name)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("returns a list of routeRecords", func() {
-			Expect(routeRecords).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-				"GUID": Equal(cfRoute.Name),
-			})))
-		})
-	})
-
 	Describe("CreateRoute", func() {
 		var (
 			createdRouteRecord repositories.RouteRecord
