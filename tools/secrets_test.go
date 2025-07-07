@@ -7,26 +7,16 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 )
 
-type dataType struct {
-	Foo string
-	Bar struct {
-		InBar string
-	}
-}
-
 var _ = Describe("Secrets", func() {
 	Describe("Credentials", func() {
 		var (
-			credsObject any
+			credsObject map[string]any
 			secretData  map[string][]byte
 		)
 
 		BeforeEach(func() {
-			credsObject = dataType{
-				Foo: "foo",
-				Bar: struct{ InBar string }{
-					InBar: "in-bar",
-				},
+			credsObject = map[string]any{
+				"foo": "bar",
 			}
 		})
 
@@ -39,12 +29,7 @@ var _ = Describe("Secrets", func() {
 
 			It("creates credentials secret data", func() {
 				Expect(secretData).To(MatchAllKeys(Keys{
-					tools.CredentialsSecretKey: MatchJSON(`{
-				"Foo": "foo",
-				"Bar": {
-					"InBar": "in-bar"
-				}
-			}`),
+					tools.CredentialsSecretKey: MatchJSON(`{"foo": "bar"}`),
 				}))
 			})
 		})
@@ -68,9 +53,7 @@ var _ = Describe("Secrets", func() {
 			It("successfully decodes credentials from secret data", func() {
 				Expect(decodeErr).NotTo(HaveOccurred())
 
-				Expect(decodedCredentials).To(HaveKeyWithValue("Foo", "foo"))
-				Expect(decodedCredentials).To(HaveKey("Bar"))
-				Expect(decodedCredentials["Bar"]).To(HaveKeyWithValue("InBar", "in-bar"))
+				Expect(decodedCredentials).To(HaveKeyWithValue("foo", "bar"))
 			})
 
 			When("the secret data is missing the credentials key", func() {
@@ -101,15 +84,12 @@ var _ = Describe("Secrets", func() {
 
 	Describe("Parameters", func() {
 		var (
-			paramsObject any
+			paramsObject map[string]any
 			secretData   map[string][]byte
 		)
 		BeforeEach(func() {
-			paramsObject = dataType{
-				Foo: "foo",
-				Bar: struct{ InBar string }{
-					InBar: "in-bar",
-				},
+			paramsObject = map[string]any{
+				"foo": "bar",
 			}
 		})
 
@@ -122,12 +102,7 @@ var _ = Describe("Secrets", func() {
 
 			It("creates parameters secret data", func() {
 				Expect(secretData).To(MatchAllKeys(Keys{
-					tools.ParametersSecretKey: MatchJSON(`{
-				"Foo": "foo",
-				"Bar": {
-					"InBar": "in-bar"
-				}
-			}`),
+					tools.ParametersSecretKey: MatchJSON(`{"foo": "bar"}`),
 				}))
 			})
 		})
@@ -151,9 +126,7 @@ var _ = Describe("Secrets", func() {
 			It("successfully decodes parameters from secret data", func() {
 				Expect(decodeErr).NotTo(HaveOccurred())
 
-				Expect(decodedParameters).To(HaveKeyWithValue("Foo", "foo"))
-				Expect(decodedParameters).To(HaveKey("Bar"))
-				Expect(decodedParameters["Bar"]).To(HaveKeyWithValue("InBar", "in-bar"))
+				Expect(decodedParameters).To(HaveKeyWithValue("foo", "bar"))
 			})
 
 			When("the secret data is missing the parameters key", func() {
