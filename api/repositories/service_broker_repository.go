@@ -96,7 +96,7 @@ func NewServiceBrokerRepo(
 }
 
 func (r *ServiceBrokerRepo) CreateServiceBroker(ctx context.Context, authInfo authorization.Info, message CreateServiceBrokerMessage) (ServiceBrokerRecord, error) {
-	credsSecretData, err := tools.ToCredentialsSecretData(map[string]string{
+	credsSecretData, err := tools.ToCredentialsSecretData(map[string]any{
 		"username": message.Credentials.Username,
 		"password": message.Credentials.Password,
 	})
@@ -234,7 +234,7 @@ func (r *ServiceBrokerRepo) UpdateServiceBroker(ctx context.Context, authInfo au
 	}
 
 	if message.Credentials != nil {
-		credsSecretData, err := tools.ToCredentialsSecretData(map[string]string{
+		credsSecretData, err := tools.ToCredentialsSecretData(map[string]any{
 			"username": message.Credentials.Username,
 			"password": message.Credentials.Password,
 		})
