@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools/registry"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 var _ = Describe("Config", func() {

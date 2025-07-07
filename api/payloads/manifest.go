@@ -9,7 +9,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/jellydator/validation"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"code.cloudfoundry.org/bytefmt"
 )
