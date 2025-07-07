@@ -356,12 +356,17 @@ func (h *App) getRoutes(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	routes, err := h.lookupAppRouteAndDomainList(r.Context(), authInfo, app.GUID, app.SpaceGUID)
+	payload := new(payloads.AppRoutesList)
+	if err = h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
+	routes, err := h.lookupAppRouteAndDomainList(r.Context(), authInfo, payload.ToMessage(app.GUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch route or domains from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForRoute, routes, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForRoute, routes, h.serverURL, *r.URL)), nil
 }
 
 func (h *App) scaleProcess(r *http.Request) (*routing.Response, error) {
@@ -464,18 +469,23 @@ func (h *App) delete(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(appGUID, presenter.AppDeleteOperation, h.serverURL)), nil
 }
 
-func (h *App) lookupAppRouteAndDomainList(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) ([]repositories.RouteRecord, error) {
-	routeRecords, err := h.routeRepo.ListRoutesForApp(ctx, authInfo, appGUID, spaceGUID)
+func (h *App) lookupAppRouteAndDomainList(ctx context.Context, authInfo authorization.Info, listMsg repositories.ListRoutesMessage) (repositories.ListResult[repositories.RouteRecord], error) {
+	routes, err := h.routeRepo.ListRoutes(ctx, authInfo, listMsg)
 	if err != nil {
-		return []repositories.RouteRecord{}, err
+		return repositories.ListResult[repositories.RouteRecord]{}, err
 	}
 
-	return getDomainsForRoutes(ctx, h.domainRepo, authInfo, routeRecords)
+	return populateDomainsForRoutes(ctx, h.domainRepo, authInfo, &routes)
 }
 
-func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, authInfo authorization.Info, routeRecords []repositories.RouteRecord) ([]repositories.RouteRecord, error) {
+func populateDomainsForRoutes(
+	ctx context.Context,
+	domainRepo CFDomainRepository,
+	authInfo authorization.Info,
+	routeRecords *repositories.ListResult[repositories.RouteRecord],
+) (repositories.ListResult[repositories.RouteRecord], error) {
 	domainGUIDToDomainRecord := make(map[string]repositories.DomainRecord)
-	for i, routeRecord := range routeRecords {
+	for i, routeRecord := range routeRecords.Records {
 		currentDomainGUID := routeRecord.Domain.GUID
 		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
 		if !has {
@@ -483,14 +493,14 @@ func getDomainsForRoutes(ctx context.Context, domainRepo CFDomainRepository, aut
 			domainRecord, err = domainRepo.GetDomain(ctx, authInfo, currentDomainGUID)
 			if err != nil {
 				// err = errors.New("resource not found for route's specified domain ref")
-				return []repositories.RouteRecord{}, err
+				return repositories.ListResult[repositories.RouteRecord]{}, err
 			}
 			domainGUIDToDomainRecord[currentDomainGUID] = domainRecord
 		}
-		routeRecords[i].Domain = domainRecord
+		routeRecords.Records[i].Domain = domainRecord
 	}
 
-	return routeRecords, nil
+	return *routeRecords, nil
 }
 
 func (h *App) getEnvVars(r *http.Request) (*routing.Response, error) {

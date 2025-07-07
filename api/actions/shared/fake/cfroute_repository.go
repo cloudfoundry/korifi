@@ -41,20 +41,19 @@ type CFRouteRepository struct {
 		result1 repositories.RouteRecord
 		result2 error
 	}
-	ListRoutesForAppStub        func(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)
-	listRoutesForAppMutex       sync.RWMutex
-	listRoutesForAppArgsForCall []struct {
+	ListRoutesStub        func(context.Context, authorization.Info, repositories.ListRoutesMessage) (repositories.ListResult[repositories.RouteRecord], error)
+	listRoutesMutex       sync.RWMutex
+	listRoutesArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
-		arg4 string
+		arg3 repositories.ListRoutesMessage
 	}
-	listRoutesForAppReturns struct {
-		result1 []repositories.RouteRecord
+	listRoutesReturns struct {
+		result1 repositories.ListResult[repositories.RouteRecord]
 		result2 error
 	}
-	listRoutesForAppReturnsOnCall map[int]struct {
-		result1 []repositories.RouteRecord
+	listRoutesReturnsOnCall map[int]struct {
+		result1 repositories.ListResult[repositories.RouteRecord]
 		result2 error
 	}
 	RemoveDestinationFromRouteStub        func(context.Context, authorization.Info, repositories.RemoveDestinationMessage) (repositories.RouteRecord, error)
@@ -208,21 +207,20 @@ func (fake *CFRouteRepository) GetOrCreateRouteReturnsOnCall(i int, result1 repo
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) ListRoutesForApp(arg1 context.Context, arg2 authorization.Info, arg3 string, arg4 string) ([]repositories.RouteRecord, error) {
-	fake.listRoutesForAppMutex.Lock()
-	ret, specificReturn := fake.listRoutesForAppReturnsOnCall[len(fake.listRoutesForAppArgsForCall)]
-	fake.listRoutesForAppArgsForCall = append(fake.listRoutesForAppArgsForCall, struct {
+func (fake *CFRouteRepository) ListRoutes(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListRoutesMessage) (repositories.ListResult[repositories.RouteRecord], error) {
+	fake.listRoutesMutex.Lock()
+	ret, specificReturn := fake.listRoutesReturnsOnCall[len(fake.listRoutesArgsForCall)]
+	fake.listRoutesArgsForCall = append(fake.listRoutesArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 string
-		arg4 string
-	}{arg1, arg2, arg3, arg4})
-	stub := fake.ListRoutesForAppStub
-	fakeReturns := fake.listRoutesForAppReturns
-	fake.recordInvocation("ListRoutesForApp", []interface{}{arg1, arg2, arg3, arg4})
-	fake.listRoutesForAppMutex.Unlock()
+		arg3 repositories.ListRoutesMessage
+	}{arg1, arg2, arg3})
+	stub := fake.ListRoutesStub
+	fakeReturns := fake.listRoutesReturns
+	fake.recordInvocation("ListRoutes", []interface{}{arg1, arg2, arg3})
+	fake.listRoutesMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -230,47 +228,47 @@ func (fake *CFRouteRepository) ListRoutesForApp(arg1 context.Context, arg2 autho
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFRouteRepository) ListRoutesForAppCallCount() int {
-	fake.listRoutesForAppMutex.RLock()
-	defer fake.listRoutesForAppMutex.RUnlock()
-	return len(fake.listRoutesForAppArgsForCall)
+func (fake *CFRouteRepository) ListRoutesCallCount() int {
+	fake.listRoutesMutex.RLock()
+	defer fake.listRoutesMutex.RUnlock()
+	return len(fake.listRoutesArgsForCall)
 }
 
-func (fake *CFRouteRepository) ListRoutesForAppCalls(stub func(context.Context, authorization.Info, string, string) ([]repositories.RouteRecord, error)) {
-	fake.listRoutesForAppMutex.Lock()
-	defer fake.listRoutesForAppMutex.Unlock()
-	fake.ListRoutesForAppStub = stub
+func (fake *CFRouteRepository) ListRoutesCalls(stub func(context.Context, authorization.Info, repositories.ListRoutesMessage) (repositories.ListResult[repositories.RouteRecord], error)) {
+	fake.listRoutesMutex.Lock()
+	defer fake.listRoutesMutex.Unlock()
+	fake.ListRoutesStub = stub
 }
 
-func (fake *CFRouteRepository) ListRoutesForAppArgsForCall(i int) (context.Context, authorization.Info, string, string) {
-	fake.listRoutesForAppMutex.RLock()
-	defer fake.listRoutesForAppMutex.RUnlock()
-	argsForCall := fake.listRoutesForAppArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+func (fake *CFRouteRepository) ListRoutesArgsForCall(i int) (context.Context, authorization.Info, repositories.ListRoutesMessage) {
+	fake.listRoutesMutex.RLock()
+	defer fake.listRoutesMutex.RUnlock()
+	argsForCall := fake.listRoutesArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFRouteRepository) ListRoutesForAppReturns(result1 []repositories.RouteRecord, result2 error) {
-	fake.listRoutesForAppMutex.Lock()
-	defer fake.listRoutesForAppMutex.Unlock()
-	fake.ListRoutesForAppStub = nil
-	fake.listRoutesForAppReturns = struct {
-		result1 []repositories.RouteRecord
+func (fake *CFRouteRepository) ListRoutesReturns(result1 repositories.ListResult[repositories.RouteRecord], result2 error) {
+	fake.listRoutesMutex.Lock()
+	defer fake.listRoutesMutex.Unlock()
+	fake.ListRoutesStub = nil
+	fake.listRoutesReturns = struct {
+		result1 repositories.ListResult[repositories.RouteRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFRouteRepository) ListRoutesForAppReturnsOnCall(i int, result1 []repositories.RouteRecord, result2 error) {
-	fake.listRoutesForAppMutex.Lock()
-	defer fake.listRoutesForAppMutex.Unlock()
-	fake.ListRoutesForAppStub = nil
-	if fake.listRoutesForAppReturnsOnCall == nil {
-		fake.listRoutesForAppReturnsOnCall = make(map[int]struct {
-			result1 []repositories.RouteRecord
+func (fake *CFRouteRepository) ListRoutesReturnsOnCall(i int, result1 repositories.ListResult[repositories.RouteRecord], result2 error) {
+	fake.listRoutesMutex.Lock()
+	defer fake.listRoutesMutex.Unlock()
+	fake.ListRoutesStub = nil
+	if fake.listRoutesReturnsOnCall == nil {
+		fake.listRoutesReturnsOnCall = make(map[int]struct {
+			result1 repositories.ListResult[repositories.RouteRecord]
 			result2 error
 		})
 	}
-	fake.listRoutesForAppReturnsOnCall[i] = struct {
-		result1 []repositories.RouteRecord
+	fake.listRoutesReturnsOnCall[i] = struct {
+		result1 repositories.ListResult[repositories.RouteRecord]
 		result2 error
 	}{result1, result2}
 }
@@ -348,8 +346,8 @@ func (fake *CFRouteRepository) Invocations() map[string][][]interface{} {
 	defer fake.addDestinationsToRouteMutex.RUnlock()
 	fake.getOrCreateRouteMutex.RLock()
 	defer fake.getOrCreateRouteMutex.RUnlock()
-	fake.listRoutesForAppMutex.RLock()
-	defer fake.listRoutesForAppMutex.RUnlock()
+	fake.listRoutesMutex.RLock()
+	defer fake.listRoutesMutex.RUnlock()
 	fake.removeDestinationFromRouteMutex.RLock()
 	defer fake.removeDestinationFromRouteMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

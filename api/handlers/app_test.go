@@ -1165,12 +1165,15 @@ var _ = Describe("App", func() {
 
 	Describe("GET /v3/apps/:guid/routes", func() {
 		BeforeEach(func() {
-			routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{
-				{
+			routeRepo.ListRoutesReturns(repositories.ListResult[repositories.RouteRecord]{
+				Records: []repositories.RouteRecord{{
 					GUID:     "test-route-guid",
 					Host:     "test-route-host",
 					Path:     "/some_path",
 					Protocol: "http",
+				}},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
 				},
 			}, nil)
 
@@ -1187,8 +1190,8 @@ var _ = Describe("App", func() {
 			_, actualAuthInfo, _ := appRepo.GetAppArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
-			Expect(routeRepo.ListRoutesForAppCallCount()).To(Equal(1))
-			_, actualAuthInfo, _, _ = routeRepo.ListRoutesForAppArgsForCall(0)
+			Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+			_, actualAuthInfo, _ = routeRepo.ListRoutesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
@@ -1204,6 +1207,7 @@ var _ = Describe("App", func() {
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", "test-route-guid"),
 				MatchJSONPath("$.resources[0].url", "test-route-host.example.org/some_path"),
+				MatchJSONPath("$.resources[0].relationships.domain.data.guid", "test-domain-guid"),
 			)))
 		})
 
@@ -1229,7 +1233,7 @@ var _ = Describe("App", func() {
 
 		When("there is some error fetching the app's routes", func() {
 			BeforeEach(func() {
-				routeRepo.ListRoutesForAppReturns([]repositories.RouteRecord{}, errors.New("unknown!"))
+				routeRepo.ListRoutesReturns(repositories.ListResult[repositories.RouteRecord]{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -1647,7 +1651,7 @@ var _ = Describe("App", func() {
 				},
 			}, nil)
 			payload = &payloads.AppPatchEnvVars{
-				Var: map[string]interface{}{
+				Var: map[string]any{
 					"KEY1": nil,
 					"KEY2": "VAL2",
 				},

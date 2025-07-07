@@ -5,6 +5,9 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/include"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/api/routing"
 )
 
@@ -25,7 +28,15 @@ func NewServiceRouteBinding(
 }
 
 func (h *ServiceRouteBinding) list(r *http.Request) (*routing.Response, error) {
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceRouteBindingsList(h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(
+		func(a any, _ url.URL, includes ...include.Resource) any { return a },
+		repositories.ListResult[any]{
+			PageInfo: descriptors.SinglePageInfo(0, 0),
+			Records:  []any{},
+		},
+		h.serverURL,
+		*r.URL,
+	)), nil
 }
 
 func (h *ServiceRouteBinding) UnauthenticatedRoutes() []routing.Route {

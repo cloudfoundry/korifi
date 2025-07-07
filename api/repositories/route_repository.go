@@ -231,18 +231,6 @@ func cfRouteDestinationsToDestinationRecords(cfRoute korifiv1alpha1.CFRoute) []D
 	}))
 }
 
-func (r *RouteRepo) ListRoutesForApp(ctx context.Context, authInfo authorization.Info, appGUID string, spaceGUID string) ([]RouteRecord, error) {
-	listResult, err := r.ListRoutes(ctx, authInfo, ListRoutesMessage{
-		AppGUIDs:   []string{appGUID},
-		SpaceGUIDs: []string{spaceGUID},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return listResult.Records, nil
-}
-
 func findEffectiveDestination(destGUID string, effectiveDestinations []korifiv1alpha1.Destination) *korifiv1alpha1.Destination {
 	for _, dest := range effectiveDestinations {
 		if dest.GUID == destGUID {

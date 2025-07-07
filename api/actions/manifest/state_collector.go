@@ -105,12 +105,15 @@ func (s StateCollector) indexProcessesByType(ctx context.Context, authInfo autho
 }
 
 func (s StateCollector) indexRoutesByURL(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) (map[string]repositories.RouteRecord, error) {
-	routes, err := s.routeRepo.ListRoutesForApp(ctx, authInfo, appGUID, spaceGUID)
+	routes, err := s.routeRepo.ListRoutes(ctx, authInfo, repositories.ListRoutesMessage{
+		AppGUIDs:   []string{appGUID},
+		SpaceGUIDs: []string{spaceGUID},
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return index(routes, func(r repositories.RouteRecord) string {
+	return index(routes.Records, func(r repositories.RouteRecord) string {
 		return path.Join(fmt.Sprintf("%s.%s", r.Host, r.Domain.Name), r.Path)
 	}), nil
 }
