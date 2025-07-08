@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"net/http"
 
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -189,7 +190,7 @@ var _ = Describe("Tasks", func() {
 		var (
 			returnedTask   taskResource
 			cancelResp     *resty.Response
-			partialRequest *resty.Request
+			partialRequest helpers.Request
 			command        string
 		)
 
