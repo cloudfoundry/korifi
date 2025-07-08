@@ -11,7 +11,7 @@ import (
 )
 
 type BuildpackRepository struct {
-	ListBuildpacksStub        func(context.Context, authorization.Info, repositories.ListBuildpacksMessage) ([]repositories.BuildpackRecord, error)
+	ListBuildpacksStub        func(context.Context, authorization.Info, repositories.ListBuildpacksMessage) (repositories.ListResult[repositories.BuildpackRecord], error)
 	listBuildpacksMutex       sync.RWMutex
 	listBuildpacksArgsForCall []struct {
 		arg1 context.Context
@@ -19,18 +19,18 @@ type BuildpackRepository struct {
 		arg3 repositories.ListBuildpacksMessage
 	}
 	listBuildpacksReturns struct {
-		result1 []repositories.BuildpackRecord
+		result1 repositories.ListResult[repositories.BuildpackRecord]
 		result2 error
 	}
 	listBuildpacksReturnsOnCall map[int]struct {
-		result1 []repositories.BuildpackRecord
+		result1 repositories.ListResult[repositories.BuildpackRecord]
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *BuildpackRepository) ListBuildpacks(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListBuildpacksMessage) ([]repositories.BuildpackRecord, error) {
+func (fake *BuildpackRepository) ListBuildpacks(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListBuildpacksMessage) (repositories.ListResult[repositories.BuildpackRecord], error) {
 	fake.listBuildpacksMutex.Lock()
 	ret, specificReturn := fake.listBuildpacksReturnsOnCall[len(fake.listBuildpacksArgsForCall)]
 	fake.listBuildpacksArgsForCall = append(fake.listBuildpacksArgsForCall, struct {
@@ -57,7 +57,7 @@ func (fake *BuildpackRepository) ListBuildpacksCallCount() int {
 	return len(fake.listBuildpacksArgsForCall)
 }
 
-func (fake *BuildpackRepository) ListBuildpacksCalls(stub func(context.Context, authorization.Info, repositories.ListBuildpacksMessage) ([]repositories.BuildpackRecord, error)) {
+func (fake *BuildpackRepository) ListBuildpacksCalls(stub func(context.Context, authorization.Info, repositories.ListBuildpacksMessage) (repositories.ListResult[repositories.BuildpackRecord], error)) {
 	fake.listBuildpacksMutex.Lock()
 	defer fake.listBuildpacksMutex.Unlock()
 	fake.ListBuildpacksStub = stub
@@ -70,28 +70,28 @@ func (fake *BuildpackRepository) ListBuildpacksArgsForCall(i int) (context.Conte
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *BuildpackRepository) ListBuildpacksReturns(result1 []repositories.BuildpackRecord, result2 error) {
+func (fake *BuildpackRepository) ListBuildpacksReturns(result1 repositories.ListResult[repositories.BuildpackRecord], result2 error) {
 	fake.listBuildpacksMutex.Lock()
 	defer fake.listBuildpacksMutex.Unlock()
 	fake.ListBuildpacksStub = nil
 	fake.listBuildpacksReturns = struct {
-		result1 []repositories.BuildpackRecord
+		result1 repositories.ListResult[repositories.BuildpackRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *BuildpackRepository) ListBuildpacksReturnsOnCall(i int, result1 []repositories.BuildpackRecord, result2 error) {
+func (fake *BuildpackRepository) ListBuildpacksReturnsOnCall(i int, result1 repositories.ListResult[repositories.BuildpackRecord], result2 error) {
 	fake.listBuildpacksMutex.Lock()
 	defer fake.listBuildpacksMutex.Unlock()
 	fake.ListBuildpacksStub = nil
 	if fake.listBuildpacksReturnsOnCall == nil {
 		fake.listBuildpacksReturnsOnCall = make(map[int]struct {
-			result1 []repositories.BuildpackRecord
+			result1 repositories.ListResult[repositories.BuildpackRecord]
 			result2 error
 		})
 	}
 	fake.listBuildpacksReturnsOnCall[i] = struct {
-		result1 []repositories.BuildpackRecord
+		result1 repositories.ListResult[repositories.BuildpackRecord]
 		result2 error
 	}{result1, result2}
 }

@@ -44,6 +44,10 @@ type Pagination struct {
 	Page    int
 }
 
+func (p Pagination) IsZero() bool {
+	return p == Pagination{}
+}
+
 func getLastUpdatedTime(obj client.Object) *time.Time {
 	managedFields := obj.GetManagedFields()
 	if len(managedFields) == 0 {
