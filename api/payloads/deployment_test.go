@@ -121,6 +121,7 @@ var _ = Describe("DeploymentList", func() {
 			Entry("order_by -created_at", "order_by=-created_at", payloads.DeploymentList{OrderBy: "-created_at"}),
 			Entry("order_by updated_at", "order_by=updated_at", payloads.DeploymentList{OrderBy: "updated_at"}),
 			Entry("order_by -updated_at", "order_by=-updated_at", payloads.DeploymentList{OrderBy: "-updated_at"}),
+			Entry("page=3", "page=3", payloads.DeploymentList{Pagination: payloads.Pagination{Page: "3"}}),
 		)
 
 		DescribeTable("invalid query",
@@ -130,6 +131,7 @@ var _ = Describe("DeploymentList", func() {
 			},
 			Entry("invalid order_by", "order_by=foo", "value must be one of"),
 			Entry("invalid status_values", "status_values=foo", "value must be one of"),
+			Entry("per_page is not a number", "per_page=foo", "value must be an integer"),
 		)
 	})
 
@@ -139,6 +141,10 @@ var _ = Describe("DeploymentList", func() {
 				AppGUIDs:     "app-guid1,app-guid2",
 				StatusValues: "ACTIVE,FINALIZED",
 				OrderBy:      "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "10",
+					Page:    "1",
+				},
 			}
 			Expect(deploymentList.ToMessage()).To(Equal(repositories.ListDeploymentsMessage{
 				AppGUIDs: []string{"app-guid1", "app-guid2"},
@@ -147,6 +153,10 @@ var _ = Describe("DeploymentList", func() {
 					repositories.DeploymentStatusValueFinalized,
 				},
 				OrderBy: "created_at",
+				Pagination: repositories.Pagination{
+					Page:    1,
+					PerPage: 10,
+				},
 			}))
 		})
 	})

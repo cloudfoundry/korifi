@@ -65,6 +65,7 @@ type ListDeploymentsMessage struct {
 	AppGUIDs     []string
 	StatusValues []DeploymentStatusValue
 	OrderBy      string
+	Pagination   Pagination
 }
 
 func (m ListDeploymentsMessage) toListOptions() []ListOption {
@@ -74,6 +75,7 @@ func (m ListDeploymentsMessage) toListOptions() []ListOption {
 			return string(s)
 		}))),
 		WithOrdering(m.OrderBy),
+		WithPaging(m.Pagination),
 	}
 }
 
@@ -142,14 +144,22 @@ func (r *DeploymentRepo) CreateDeployment(ctx context.Context, authInfo authoriz
 	return appToDeploymentRecord(*app)
 }
 
-func (r *DeploymentRepo) ListDeployments(ctx context.Context, authInfo authorization.Info, message ListDeploymentsMessage) ([]DeploymentRecord, error) {
+func (r *DeploymentRepo) ListDeployments(ctx context.Context, authInfo authorization.Info, message ListDeploymentsMessage) (ListResult[DeploymentRecord], error) {
 	appList := &korifiv1alpha1.CFAppList{}
-	_, err := r.klient.List(ctx, appList, message.toListOptions()...)
+	pageInfo, err := r.klient.List(ctx, appList, message.toListOptions()...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
+		return ListResult[DeploymentRecord]{}, fmt.Errorf("failed to list apps: %w", apierrors.FromK8sError(err, AppResourceType))
 	}
 
-	return it.TryCollect(it.MapError(slices.Values(appList.Items), appToDeploymentRecord))
+	records, err := it.TryCollect(it.MapError(slices.Values(appList.Items), appToDeploymentRecord))
+	if err != nil {
+		return ListResult[DeploymentRecord]{}, fmt.Errorf("failed to list deployments: %w", apierrors.FromK8sError(err, DeploymentResourceType))
+	}
+
+	return ListResult[DeploymentRecord]{
+		Records:  records,
+		PageInfo: pageInfo,
+	}, nil
 }
 
 func bumpAppRev(appRev string) (string, error) {

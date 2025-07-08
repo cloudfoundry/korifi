@@ -3,7 +3,6 @@ package payloads
 import (
 	"fmt"
 	"net/url"
-	"regexp"
 	"slices"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
@@ -44,33 +43,27 @@ func (r DeploymentRelationships) Validate() error {
 }
 
 type DeploymentList struct {
-	AppGUIDs     string `json:"app_guids"`
-	OrderBy      string `json:"order_by"`
-	StatusValues string `json:"status_values"`
+	AppGUIDs     string     `json:"app_guids"`
+	OrderBy      string     `json:"order_by"`
+	StatusValues string     `json:"status_values"`
+	Pagination   Pagination `json:"pagination"`
 }
 
 func (d *DeploymentList) SupportedKeys() []string {
-	return []string{"app_guids", "status_values", "order_by"}
-}
-
-func (d *DeploymentList) IgnoredKeys() []*regexp.Regexp {
-	return []*regexp.Regexp{
-		regexp.MustCompile("page"),
-		regexp.MustCompile("per_page"),
-	}
+	return []string{"app_guids", "status_values", "order_by", "page", "per_page"}
 }
 
 func (d *DeploymentList) DecodeFromURLValues(values url.Values) error {
 	d.AppGUIDs = values.Get("app_guids")
 	d.OrderBy = values.Get("order_by")
 	d.StatusValues = values.Get("status_values")
-
-	return nil
+	return d.Pagination.DecodeFromURLValues(values)
 }
 
 func (d DeploymentList) Validate() error {
 	return jellidation.ValidateStruct(&d,
 		jellidation.Field(&d.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&d.Pagination),
 		jellidation.Field(&d.StatusValues, jellidation.By(func(value any) error {
 			statusValues, ok := value.(string)
 			if !ok {
@@ -94,5 +87,6 @@ func (d *DeploymentList) ToMessage() repositories.ListDeploymentsMessage {
 		AppGUIDs:     parse.ArrayParam(d.AppGUIDs),
 		StatusValues: statusValues,
 		OrderBy:      d.OrderBy,
+		Pagination:   d.Pagination.ToMessage(DefaultPageSize),
 	}
 }

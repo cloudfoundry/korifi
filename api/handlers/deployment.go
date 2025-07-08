@@ -27,7 +27,7 @@ const (
 type CFDeploymentRepository interface {
 	GetDeployment(context.Context, authorization.Info, string) (repositories.DeploymentRecord, error)
 	CreateDeployment(context.Context, authorization.Info, repositories.CreateDeploymentMessage) (repositories.DeploymentRecord, error)
-	ListDeployments(context.Context, authorization.Info, repositories.ListDeploymentsMessage) ([]repositories.DeploymentRecord, error)
+	ListDeployments(context.Context, authorization.Info, repositories.ListDeploymentsMessage) (repositories.ListResult[repositories.DeploymentRecord], error)
 }
 
 //counterfeiter:generate -o fake -fake-name RunnerInfoRepository . RunnerInfoRepository
@@ -121,7 +121,7 @@ func (h *Deployment) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch deployments from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForDeployment, deployments, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForDeployment, deployments, h.serverURL, *r.URL)), nil
 }
 
 func (h *Deployment) UnauthenticatedRoutes() []routing.Route {
