@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	. "github.com/onsi/ginkgo/v2"
@@ -215,13 +216,15 @@ var _ = Describe("Deployment", func() {
 	})
 
 	Describe("GET /v3/deployments", func() {
-		var deploymentRecord repositories.DeploymentRecord
-
 		BeforeEach(func() {
-			deploymentRecord = repositories.DeploymentRecord{
-				GUID: "deployment-guid",
-			}
-			deploymentsRepo.ListDeploymentsReturns([]repositories.DeploymentRecord{deploymentRecord}, nil)
+			deploymentsRepo.ListDeploymentsReturns(repositories.ListResult[repositories.DeploymentRecord]{
+				Records: []repositories.DeploymentRecord{{
+					GUID: "deployment-guid",
+				}},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+				},
+			}, nil)
 
 			payload := &payloads.DeploymentList{AppGUIDs: "bob,alice"}
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(payload)
@@ -238,9 +241,7 @@ var _ = Describe("Deployment", func() {
 
 			Expect(deploymentsRepo.ListDeploymentsCallCount()).To(Equal(1))
 			_, _, listMessage := deploymentsRepo.ListDeploymentsArgsForCall(0)
-			Expect(listMessage).To(Equal(repositories.ListDeploymentsMessage{
-				AppGUIDs: []string{"bob", "alice"},
-			}))
+			Expect(listMessage.AppGUIDs).To(ConsistOf("bob", "alice"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -252,7 +253,7 @@ var _ = Describe("Deployment", func() {
 
 		When("there is an error listing deployments", func() {
 			BeforeEach(func() {
-				deploymentsRepo.ListDeploymentsReturns(nil, errors.New("unexpected error!"))
+				deploymentsRepo.ListDeploymentsReturns(repositories.ListResult[repositories.DeploymentRecord]{}, errors.New("unexpected error!"))
 			})
 
 			It("returns an error", func() {

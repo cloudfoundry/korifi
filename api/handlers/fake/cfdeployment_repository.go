@@ -41,7 +41,7 @@ type CFDeploymentRepository struct {
 		result1 repositories.DeploymentRecord
 		result2 error
 	}
-	ListDeploymentsStub        func(context.Context, authorization.Info, repositories.ListDeploymentsMessage) ([]repositories.DeploymentRecord, error)
+	ListDeploymentsStub        func(context.Context, authorization.Info, repositories.ListDeploymentsMessage) (repositories.ListResult[repositories.DeploymentRecord], error)
 	listDeploymentsMutex       sync.RWMutex
 	listDeploymentsArgsForCall []struct {
 		arg1 context.Context
@@ -49,11 +49,11 @@ type CFDeploymentRepository struct {
 		arg3 repositories.ListDeploymentsMessage
 	}
 	listDeploymentsReturns struct {
-		result1 []repositories.DeploymentRecord
+		result1 repositories.ListResult[repositories.DeploymentRecord]
 		result2 error
 	}
 	listDeploymentsReturnsOnCall map[int]struct {
-		result1 []repositories.DeploymentRecord
+		result1 repositories.ListResult[repositories.DeploymentRecord]
 		result2 error
 	}
 	invocations      map[string][][]interface{}
@@ -192,7 +192,7 @@ func (fake *CFDeploymentRepository) GetDeploymentReturnsOnCall(i int, result1 re
 	}{result1, result2}
 }
 
-func (fake *CFDeploymentRepository) ListDeployments(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListDeploymentsMessage) ([]repositories.DeploymentRecord, error) {
+func (fake *CFDeploymentRepository) ListDeployments(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListDeploymentsMessage) (repositories.ListResult[repositories.DeploymentRecord], error) {
 	fake.listDeploymentsMutex.Lock()
 	ret, specificReturn := fake.listDeploymentsReturnsOnCall[len(fake.listDeploymentsArgsForCall)]
 	fake.listDeploymentsArgsForCall = append(fake.listDeploymentsArgsForCall, struct {
@@ -219,7 +219,7 @@ func (fake *CFDeploymentRepository) ListDeploymentsCallCount() int {
 	return len(fake.listDeploymentsArgsForCall)
 }
 
-func (fake *CFDeploymentRepository) ListDeploymentsCalls(stub func(context.Context, authorization.Info, repositories.ListDeploymentsMessage) ([]repositories.DeploymentRecord, error)) {
+func (fake *CFDeploymentRepository) ListDeploymentsCalls(stub func(context.Context, authorization.Info, repositories.ListDeploymentsMessage) (repositories.ListResult[repositories.DeploymentRecord], error)) {
 	fake.listDeploymentsMutex.Lock()
 	defer fake.listDeploymentsMutex.Unlock()
 	fake.ListDeploymentsStub = stub
@@ -232,28 +232,28 @@ func (fake *CFDeploymentRepository) ListDeploymentsArgsForCall(i int) (context.C
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFDeploymentRepository) ListDeploymentsReturns(result1 []repositories.DeploymentRecord, result2 error) {
+func (fake *CFDeploymentRepository) ListDeploymentsReturns(result1 repositories.ListResult[repositories.DeploymentRecord], result2 error) {
 	fake.listDeploymentsMutex.Lock()
 	defer fake.listDeploymentsMutex.Unlock()
 	fake.ListDeploymentsStub = nil
 	fake.listDeploymentsReturns = struct {
-		result1 []repositories.DeploymentRecord
+		result1 repositories.ListResult[repositories.DeploymentRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFDeploymentRepository) ListDeploymentsReturnsOnCall(i int, result1 []repositories.DeploymentRecord, result2 error) {
+func (fake *CFDeploymentRepository) ListDeploymentsReturnsOnCall(i int, result1 repositories.ListResult[repositories.DeploymentRecord], result2 error) {
 	fake.listDeploymentsMutex.Lock()
 	defer fake.listDeploymentsMutex.Unlock()
 	fake.ListDeploymentsStub = nil
 	if fake.listDeploymentsReturnsOnCall == nil {
 		fake.listDeploymentsReturnsOnCall = make(map[int]struct {
-			result1 []repositories.DeploymentRecord
+			result1 repositories.ListResult[repositories.DeploymentRecord]
 			result2 error
 		})
 	}
 	fake.listDeploymentsReturnsOnCall[i] = struct {
-		result1 []repositories.DeploymentRecord
+		result1 repositories.ListResult[repositories.DeploymentRecord]
 		result2 error
 	}{result1, result2}
 }

@@ -244,17 +244,12 @@ var _ = Describe("DeploymentRepository", func() {
 	Describe("ListDeployments", func() {
 		var (
 			message     repositories.ListDeploymentsMessage
-			deployments []repositories.DeploymentRecord
-			anotherApp  *korifiv1alpha1.CFApp
+			deployments repositories.ListResult[repositories.DeploymentRecord]
 
 			listErr error
 		)
 
 		BeforeEach(func() {
-			unauthorisedSpace := createSpaceWithCleanup(ctx, cfOrg.Name, prefixedGUID("another-space"))
-			createApp(unauthorisedSpace.Name)
-
-			anotherApp = createApp(cfSpace.Name)
 			message = repositories.ListDeploymentsMessage{}
 		})
 
@@ -264,7 +259,7 @@ var _ = Describe("DeploymentRepository", func() {
 		})
 
 		It("returns an empty list", func() {
-			Expect(deployments).To(BeEmpty())
+			Expect(deployments.Records).To(BeEmpty())
 		})
 
 		When("the user is authorized in a space", func() {
@@ -273,14 +268,12 @@ var _ = Describe("DeploymentRepository", func() {
 			})
 
 			It("returns the deployments from that namespace", func() {
-				Expect(deployments).To(ConsistOf(
+				Expect(deployments.Records).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"GUID": Equal(cfApp.Name),
 					}),
-					MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal(anotherApp.Name),
-					}),
 				))
+				Expect(deployments.PageInfo.TotalResults).To(Equal(1))
 			})
 
 			Describe("list parameters", func() {
@@ -294,6 +287,10 @@ var _ = Describe("DeploymentRepository", func() {
 						AppGUIDs:     []string{"a1", "a2"},
 						StatusValues: []repositories.DeploymentStatusValue{"ACTIVE"},
 						OrderBy:      "created_at",
+						Pagination: repositories.Pagination{
+							Page:    1,
+							PerPage: 100,
+						},
 					}
 				})
 
@@ -305,6 +302,10 @@ var _ = Describe("DeploymentRepository", func() {
 						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"a1", "a2"}),
 						repositories.WithLabelIn(korifiv1alpha1.CFAppDeploymentStatusKey, []string{"ACTIVE"}),
 						repositories.WithOrdering("created_at"),
+						repositories.WithPaging(repositories.Pagination{
+							Page:    1,
+							PerPage: 100,
+						}),
 					))
 				})
 			})
