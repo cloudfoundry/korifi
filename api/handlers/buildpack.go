@@ -21,7 +21,7 @@ const (
 
 //counterfeiter:generate -o fake -fake-name BuildpackRepository . BuildpackRepository
 type BuildpackRepository interface {
-	ListBuildpacks(ctx context.Context, authInfo authorization.Info, message repositories.ListBuildpacksMessage) ([]repositories.BuildpackRecord, error)
+	ListBuildpacks(ctx context.Context, authInfo authorization.Info, message repositories.ListBuildpacksMessage) (repositories.ListResult[repositories.BuildpackRecord], error)
 }
 
 type Buildpack struct {
@@ -56,7 +56,7 @@ func (h *Buildpack) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch buildpacks from Kubernetes")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForBuildpack, buildpacks, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForBuildpack, buildpacks, h.serverURL, *r.URL)), nil
 }
 
 func (h *Buildpack) UnauthenticatedRoutes() []routing.Route {

@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories/compare"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
@@ -77,7 +78,8 @@ func BuildpackComparator(fieldName string) func(BuildpackRecord, BuildpackRecord
 }
 
 type ListBuildpacksMessage struct {
-	OrderBy string
+	OrderBy    string
+	Pagination Pagination
 }
 
 func NewBuildpackRepository(
@@ -94,7 +96,7 @@ func NewBuildpackRepository(
 	}
 }
 
-func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo authorization.Info, message ListBuildpacksMessage) ([]BuildpackRecord, error) {
+func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo authorization.Info, message ListBuildpacksMessage) (ListResult[BuildpackRecord], error) {
 	builderInfo := &korifiv1alpha1.BuilderInfo{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
@@ -105,10 +107,10 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 	err := r.klient.Get(ctx, builderInfo)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, apierrors.NewResourceNotReadyError(fmt.Errorf("BuilderInfo %q not found in namespace %q", r.builderName, r.rootNamespace))
+			return ListResult[BuildpackRecord]{}, apierrors.NewResourceNotReadyError(fmt.Errorf("BuilderInfo %q not found in namespace %q", r.builderName, r.rootNamespace))
 		}
 
-		return nil, apierrors.FromK8sError(err, BuildpackResourceType)
+		return ListResult[BuildpackRecord]{}, apierrors.FromK8sError(err, BuildpackResourceType)
 	}
 
 	if !meta.IsStatusConditionTrue(builderInfo.Status.Conditions, korifiv1alpha1.StatusConditionReady) {
@@ -123,10 +125,24 @@ func (r *BuildpackRepository) ListBuildpacks(ctx context.Context, authInfo autho
 			conditionNotReadyMessage = "resource not reconciled"
 		}
 
-		return nil, apierrors.NewResourceNotReadyError(fmt.Errorf("BuilderInfo %q not ready: %s", r.builderName, conditionNotReadyMessage))
+		return ListResult[BuildpackRecord]{}, apierrors.NewResourceNotReadyError(fmt.Errorf("BuilderInfo %q not ready: %s", r.builderName, conditionNotReadyMessage))
 	}
 
-	return r.sorter.Sort(builderInfoToBuildpackRecords(*builderInfo), message.OrderBy), nil
+	records := r.sorter.Sort(builderInfoToBuildpackRecords(*builderInfo), message.OrderBy)
+
+	recordsPage := descriptors.SinglePage(records, len(records))
+	if !message.Pagination.IsZero() {
+		var err error
+		recordsPage, err = descriptors.GetPage(records, message.Pagination.PerPage, message.Pagination.Page)
+		if err != nil {
+			return ListResult[BuildpackRecord]{}, fmt.Errorf("failed to page buildpacks list: %w", err)
+		}
+	}
+
+	return ListResult[BuildpackRecord]{
+		PageInfo: recordsPage.PageInfo,
+		Records:  recordsPage.Items,
+	}, nil
 }
 
 func builderInfoToBuildpackRecords(info korifiv1alpha1.BuilderInfo) []BuildpackRecord {

@@ -8,6 +8,7 @@ import (
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -36,16 +37,20 @@ var _ = Describe("Buildpack", func() {
 
 	Describe("the GET /v3/buildpacks endpoint", func() {
 		BeforeEach(func() {
-			buildpackRepo.ListBuildpacksReturns([]repositories.BuildpackRecord{
-				{
-					Name:      "paketo-foopacks/bar",
-					Position:  1,
-					Stack:     "waffle-house",
-					Version:   "1.0.0",
-					CreatedAt: time.UnixMilli(1000),
-					UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
-				},
-			}, nil)
+			buildpackRepo.ListBuildpacksReturns(
+				repositories.ListResult[repositories.BuildpackRecord]{
+					Records: []repositories.BuildpackRecord{{
+						Name:      "paketo-foopacks/bar",
+						Position:  1,
+						Stack:     "waffle-house",
+						Version:   "1.0.0",
+						CreatedAt: time.UnixMilli(1000),
+						UpdatedAt: tools.PtrTo(time.UnixMilli(2000)),
+					}},
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 1,
+					},
+				}, nil)
 
 			var err error
 			req, err = http.NewRequestWithContext(ctx, "GET", "/v3/buildpacks", nil)

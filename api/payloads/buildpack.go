@@ -9,12 +9,14 @@ import (
 )
 
 type BuildpackList struct {
-	OrderBy string
+	OrderBy    string
+	Pagination Pagination
 }
 
 func (b BuildpackList) ToMessage() repositories.ListBuildpacksMessage {
 	return repositories.ListBuildpacksMessage{
-		OrderBy: b.OrderBy,
+		OrderBy:    b.OrderBy,
+		Pagination: b.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
@@ -24,11 +26,12 @@ func (d BuildpackList) SupportedKeys() []string {
 
 func (d *BuildpackList) DecodeFromURLValues(values url.Values) error {
 	d.OrderBy = values.Get("order_by")
-	return nil
+	return d.Pagination.DecodeFromURLValues(values)
 }
 
 func (d BuildpackList) Validate() error {
 	return jellidation.ValidateStruct(&d,
+		jellidation.Field(&d.Pagination),
 		jellidation.Field(&d.OrderBy, validation.OneOfOrderBy("created_at", "updated_at", "position")),
 	)
 }

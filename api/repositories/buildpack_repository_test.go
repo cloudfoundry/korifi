@@ -9,6 +9,7 @@ import (
 
 	. "code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -35,29 +36,32 @@ var _ = Describe("BuildpackRepository", func() {
 	})
 
 	Describe("ListBuildpacks", func() {
-		var message ListBuildpacksMessage
+		var (
+			buildpacks ListResult[BuildpackRecord]
+			message    ListBuildpacksMessage
+			listErr    error
+		)
 
 		BeforeEach(func() {
 			message = ListBuildpacksMessage{OrderBy: "foo"}
 		})
 
-		When("a controller with the configured BuilderName exists", func() {
-			var buildpacks []BuildpackRecord
+		JustBeforeEach(func() {
+			buildpacks, listErr = buildpackRepo.ListBuildpacks(ctx, authInfo, message)
+		})
 
+		When("a controller with the configured BuilderName exists", func() {
 			BeforeEach(func() {
 				createBuilderInfoWithCleanup(ctx, builderName, "io.buildpacks.stacks.bionic", []buildpackInfo{
 					{name: "paketo-buildpacks/buildpack-1-1", version: "1.1"},
 					{name: "paketo-buildpacks/buildpack-2-1", version: "2.1"},
 					{name: "paketo-buildpacks/buildpack-3-1", version: "3.1"},
 				})
-
-				var err error
-				buildpacks, err = buildpackRepo.ListBuildpacks(ctx, authInfo, message)
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("returns all buildpacks", func() {
-				Expect(buildpacks).To(ConsistOf(
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(buildpacks.Records).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"Name":     Equal("paketo-buildpacks/buildpack-1-1"),
 						"Position": Equal(1),
@@ -77,9 +81,16 @@ var _ = Describe("BuildpackRepository", func() {
 						"Version":  Equal("3.1"),
 					}),
 				))
+				Expect(buildpacks.PageInfo).To(Equal(descriptors.PageInfo{
+					TotalResults: 3,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     3,
+				}))
 			})
 
 			It("sorts the buildpacks", func() {
+				Expect(listErr).NotTo(HaveOccurred())
 				Expect(sorter.SortCallCount()).To(Equal(1))
 				sortedBuildpacks, field := sorter.SortArgsForCall(0)
 				Expect(field).To(Equal("foo"))
@@ -95,12 +106,32 @@ var _ = Describe("BuildpackRepository", func() {
 					}),
 				))
 			})
+
+			When("paging is requested", func() {
+				BeforeEach(func() {
+					message.Pagination = Pagination{
+						PerPage: 1,
+						Page:    2,
+					}
+				})
+
+				It("returns buildpacks page", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(buildpacks.Records).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"Name": Equal("paketo-buildpacks/buildpack-2-1"),
+						}),
+					))
+					Expect(buildpacks.PageInfo.TotalResults).To(Equal(3))
+					Expect(buildpacks.PageInfo.PageNumber).To(Equal(2))
+					Expect(buildpacks.PageInfo.PageSize).To(Equal(1))
+				})
+			})
 		})
 
 		When("no build reconcilers exist", func() {
 			It("errors", func() {
-				_, err := buildpackRepo.ListBuildpacks(ctx, authInfo, message)
-				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not found in namespace %q", builderName, rootNamespace))))
+				Expect(listErr).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not found in namespace %q", builderName, rootNamespace))))
 			})
 		})
 
@@ -115,8 +146,7 @@ var _ = Describe("BuildpackRepository", func() {
 			})
 
 			It("errors", func() {
-				_, err := buildpackRepo.ListBuildpacks(ctx, authInfo, message)
-				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not found in namespace %q", builderName, rootNamespace))))
+				Expect(listErr).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not found in namespace %q", builderName, rootNamespace))))
 			})
 		})
 
@@ -143,8 +173,7 @@ var _ = Describe("BuildpackRepository", func() {
 				})
 
 				It("returns an error with the ready condition message", func() {
-					_, err := buildpackRepo.ListBuildpacks(ctx, authInfo, message)
-					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not ready: this is a test", builderName))))
+					Expect(listErr).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not ready: this is a test", builderName))))
 				})
 			})
 
@@ -160,8 +189,7 @@ var _ = Describe("BuildpackRepository", func() {
 				})
 
 				It("returns an error with a generic message", func() {
-					_, err := buildpackRepo.ListBuildpacks(ctx, authInfo, message)
-					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not ready: resource not reconciled", builderName))))
+					Expect(listErr).To(MatchError(ContainSubstring(fmt.Sprintf("BuilderInfo %q not ready: resource not reconciled", builderName))))
 				})
 			})
 		})

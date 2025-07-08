@@ -25,6 +25,7 @@ var _ = Describe("BuildpackList", func() {
 			Entry("position", "order_by=position", payloads.BuildpackList{OrderBy: "position"}),
 			Entry("-position", "order_by=-position", payloads.BuildpackList{OrderBy: "-position"}),
 			Entry("empty", "order_by=", payloads.BuildpackList{OrderBy: ""}),
+			Entry("page=3", "page=3", payloads.BuildpackList{Pagination: payloads.Pagination{Page: "3"}}),
 		)
 
 		DescribeTable("invalid query",
@@ -33,15 +34,38 @@ var _ = Describe("BuildpackList", func() {
 				Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
 			},
 			Entry("invalid order_by", "order_by=foo", "value must be one of"),
+			Entry("per_page is not a number", "per_page=foo", "value must be an integer"),
 		)
 	})
 
-	DescribeTable("ToMessage",
-		func(buildpackList payloads.BuildpackList, expectedListBuildpacksMessage repositories.ListBuildpacksMessage) {
-			actualListBuildpacksMessage := buildpackList.ToMessage()
+	Describe("ToMessage", func() {
+		var (
+			buildpackList payloads.BuildpackList
+			message       repositories.ListBuildpacksMessage
+		)
 
-			Expect(actualListBuildpacksMessage).To(Equal(expectedListBuildpacksMessage))
-		},
-		Entry("created_at", payloads.BuildpackList{OrderBy: "created_at"}, repositories.ListBuildpacksMessage{OrderBy: "created_at"}),
-	)
+		BeforeEach(func() {
+			buildpackList = payloads.BuildpackList{
+				OrderBy: "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "20",
+					Page:    "1",
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			message = buildpackList.ToMessage()
+		})
+
+		It("translates to repository message", func() {
+			Expect(message).To(Equal(repositories.ListBuildpacksMessage{
+				OrderBy: "created_at",
+				Pagination: repositories.Pagination{
+					Page:    1,
+					PerPage: 20,
+				},
+			}))
+		})
+	})
 })
