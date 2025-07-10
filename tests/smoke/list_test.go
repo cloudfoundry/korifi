@@ -57,7 +57,7 @@ var _ = Describe("list", func() {
 		Entry("packages", "packages", Not(BeEmpty())),
 		Entry("processes", "processes", Not(BeEmpty())),
 		Entry("routes", "routes", Not(BeEmpty())),
-		Entry("routes", "routes", Not(BeEmpty())),
+		Entry("roles", "roles", Not(BeEmpty())),
 		Entry("service_instances", "service_instances", Not(BeEmpty())),
 		Entry("service_credential_bindings", "service_credential_bindings", Not(BeEmpty())),
 		Entry("service brokers", "service_brokers", Not(BeEmpty())),

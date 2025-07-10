@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -416,7 +417,7 @@ var _ = Describe("RoleRepository", func() {
 		var (
 			otherOrg            *korifiv1alpha1.CFOrg
 			cfSpace, otherSpace *korifiv1alpha1.CFSpace
-			roles               []repositories.RoleRecord
+			roles               repositories.ListResult[repositories.RoleRecord]
 			listErr             error
 			message             repositories.ListRolesMessage
 		)
@@ -429,7 +430,7 @@ var _ = Describe("RoleRepository", func() {
 			createRoleBinding(ctx, "my-user", spaceDeveloperRole.Name, cfSpace.Name, repositories.RoleGuidLabel, "2")
 			createRoleBinding(ctx, "my-user", spaceDeveloperRole.Name, otherSpace.Name, repositories.RoleGuidLabel, "3")
 			createRoleBinding(ctx, "my-user", orgUserRole.Name, otherOrg.Name, repositories.RoleGuidLabel, "4")
-			message = repositories.ListRolesMessage{OrderBy: "foo"}
+			message = repositories.ListRolesMessage{}
 		})
 
 		JustBeforeEach(func() {
@@ -438,7 +439,8 @@ var _ = Describe("RoleRepository", func() {
 
 		It("returns an empty list when user has no permissions to list roles", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(roles).To(BeEmpty())
+			Expect(roles.PageInfo.TotalResults).To(Equal(0))
+			Expect(roles.Records).To(BeEmpty())
 		})
 
 		When("the user has permission to list roles in some namespaces", func() {
@@ -449,7 +451,8 @@ var _ = Describe("RoleRepository", func() {
 
 			It("returns the bindings in cfOrg and cfSpace only (for system user and my-user)", func() {
 				Expect(listErr).NotTo(HaveOccurred())
-				Expect(roles).To(ConsistOf(
+				Expect(roles.PageInfo.TotalResults).To(Equal(4))
+				Expect(roles.Records).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"GUID":  Equal("2"),
 						"Kind":  Equal("User"),
@@ -485,24 +488,119 @@ var _ = Describe("RoleRepository", func() {
 				))
 			})
 
-			It("sorts the roles", func() {
-				Expect(sorter.SortCallCount()).To(Equal(1))
-				sortedRoles, field := sorter.SortArgsForCall(0)
-				Expect(field).To(Equal("foo"))
-				Expect(sortedRoles).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal("1"),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal("2"),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal("5"),
-					}),
-					MatchFields(IgnoreExtras, Fields{
-						"GUID": Equal("6"),
-					}),
-				))
+			Describe("filtering", func() {
+				When("filtering by guid", func() {
+					BeforeEach(func() {
+						message.GUIDs = helpers.Set("1", "2")
+					})
+
+					It("returns only the role with that guid", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(roles.PageInfo.TotalResults).To(Equal(2))
+						Expect(roles.Records).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("1"),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("2"),
+							}),
+						))
+					})
+				})
+
+				When("filtering by type", func() {
+					BeforeEach(func() {
+						message.Types = helpers.Set("space_developer")
+					})
+
+					It("returns only the role with that guid", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(roles.PageInfo.TotalResults).To(Equal(2))
+						Expect(roles.Records).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("2"),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("6"),
+							}),
+						))
+					})
+				})
+
+				When("filtering by space guid", func() {
+					BeforeEach(func() {
+						message.SpaceGUIDs = helpers.Set(cfSpace.Name)
+					})
+
+					It("returns only the role with that guid", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(roles.PageInfo.TotalResults).To(Equal(2))
+						Expect(roles.Records).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("2"),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("6"),
+							}),
+						))
+					})
+				})
+
+				When("filtering by org guid", func() {
+					BeforeEach(func() {
+						message.OrgGUIDs = helpers.Set(cfOrg.Name)
+					})
+
+					It("returns only the role with that guid", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(roles.PageInfo.TotalResults).To(Equal(2))
+						Expect(roles.Records).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("1"),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("5"),
+							}),
+						))
+					})
+				})
+
+				When("filtering by user guid", func() {
+					BeforeEach(func() {
+						message.UserGUIDs = helpers.Set("my-user", userName)
+					})
+
+					It("returns only the role with that guid", func() {
+						Expect(listErr).NotTo(HaveOccurred())
+						Expect(roles.PageInfo.TotalResults).To(Equal(4))
+						Expect(roles.Records).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("1"),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("2"),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("5"),
+							}),
+							MatchFields(IgnoreExtras, Fields{
+								"GUID": Equal("6"),
+							}),
+						))
+					})
+				})
+			})
+
+			When("ordering is requested", func() {
+				BeforeEach(func() {
+					message.OrderBy = "foo"
+				})
+
+				It("sorts the roles", func() {
+					Expect(sorter.SortCallCount()).To(Equal(1))
+					_, field := sorter.SortArgsForCall(0)
+					Expect(field).To(Equal("foo"))
+				})
 			})
 
 			When("there are propagated role bindings", func() {
@@ -512,7 +610,7 @@ var _ = Describe("RoleRepository", func() {
 
 				It("ignores them", func() {
 					Expect(listErr).NotTo(HaveOccurred())
-					Expect(roles).To(HaveLen(4))
+					Expect(roles.PageInfo.TotalResults).To(Equal(4))
 				})
 			})
 
@@ -523,7 +621,7 @@ var _ = Describe("RoleRepository", func() {
 
 				It("ignores them", func() {
 					Expect(listErr).NotTo(HaveOccurred())
-					Expect(roles).To(HaveLen(4))
+					Expect(roles.PageInfo.TotalResults).To(Equal(4))
 				})
 			})
 
@@ -534,7 +632,7 @@ var _ = Describe("RoleRepository", func() {
 
 				It("ignores them", func() {
 					Expect(listErr).NotTo(HaveOccurred())
-					Expect(roles).To(HaveLen(4))
+					Expect(roles.PageInfo.TotalResults).To(Equal(4))
 				})
 			})
 		})

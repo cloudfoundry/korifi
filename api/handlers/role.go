@@ -24,7 +24,7 @@ const (
 
 type CFRoleRepository interface {
 	CreateRole(context.Context, authorization.Info, repositories.CreateRoleMessage) (repositories.RoleRecord, error)
-	ListRoles(context.Context, authorization.Info, repositories.ListRolesMessage) ([]repositories.RoleRecord, error)
+	ListRoles(context.Context, authorization.Info, repositories.ListRolesMessage) (repositories.ListResult[repositories.RoleRecord], error)
 	GetRole(context.Context, authorization.Info, string) (repositories.RoleRecord, error)
 	DeleteRole(context.Context, authorization.Info, repositories.DeleteRoleMessage) error
 }
@@ -78,27 +78,7 @@ func (h *Role) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list roles")
 	}
 
-	filteredRoles := filterRoles(payload, roles)
-
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForRole, filteredRoles, h.apiBaseURL, *r.URL)), nil
-}
-
-func filterRoles(roleListFilter *payloads.RoleList, roles []repositories.RoleRecord) []repositories.RoleRecord {
-	var filteredRoles []repositories.RoleRecord
-	for _, role := range roles {
-		if match(roleListFilter.GUIDs, role.GUID) &&
-			match(roleListFilter.Types, role.Type) &&
-			match(roleListFilter.SpaceGUIDs, role.Space) &&
-			match(roleListFilter.OrgGUIDs, role.Org) &&
-			match(roleListFilter.UserGUIDs, role.User) {
-			filteredRoles = append(filteredRoles, role)
-		}
-	}
-	return filteredRoles
-}
-
-func match(allowedValues map[string]bool, val string) bool {
-	return len(allowedValues) == 0 || allowedValues[val]
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForRole, roles, h.apiBaseURL, *r.URL)), nil
 }
 
 func (h *Role) delete(r *http.Request) (*routing.Response, error) {
