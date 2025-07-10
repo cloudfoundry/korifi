@@ -137,11 +137,18 @@ type RoleList struct {
 	OrgGUIDs   map[string]bool
 	UserGUIDs  map[string]bool
 	OrderBy    string
+	Pagination Pagination
 }
 
 func (r RoleList) ToMessage() repositories.ListRolesMessage {
 	return repositories.ListRolesMessage{
-		OrderBy: r.OrderBy,
+		GUIDs:      r.GUIDs,
+		Types:      r.Types,
+		SpaceGUIDs: r.SpaceGUIDs,
+		OrgGUIDs:   r.OrgGUIDs,
+		UserGUIDs:  r.UserGUIDs,
+		OrderBy:    r.OrderBy,
+		Pagination: r.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
@@ -156,12 +163,13 @@ func (r *RoleList) DecodeFromURLValues(values url.Values) error {
 	r.OrgGUIDs = commaSepToSet(values.Get("organization_guids"))
 	r.UserGUIDs = commaSepToSet(values.Get("user_guids"))
 	r.OrderBy = values.Get("order_by")
-	return nil
+	return r.Pagination.DecodeFromURLValues(values)
 }
 
 func (r RoleList) Validate() error {
 	return jellidation.ValidateStruct(&r,
 		jellidation.Field(&r.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&r.Pagination),
 	)
 }
 

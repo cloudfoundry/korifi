@@ -3,17 +3,16 @@ package handlers_test
 import (
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strings"
-	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
-	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -160,9 +159,17 @@ var _ = Describe("Role", func() {
 
 	Describe("List roles", func() {
 		BeforeEach(func() {
-			roleRepo.ListRolesReturns([]repositories.RoleRecord{
-				{GUID: "role-1"},
-				{GUID: "role-2"},
+			roleRepo.ListRolesReturns(repositories.ListResult[repositories.RoleRecord]{
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     2,
+				},
+				Records: []repositories.RoleRecord{
+					{GUID: "role-1"},
+					{GUID: "role-2"},
+				},
 			}, nil)
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.RoleList{})
 		})
@@ -179,8 +186,11 @@ var _ = Describe("Role", func() {
 			Expect(req.URL.String()).To(HaveSuffix(rolesBase + "?foo=bar"))
 
 			Expect(roleRepo.ListRolesCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := roleRepo.ListRolesArgsForCall(0)
+			_, actualAuthInfo, actualMessage := roleRepo.ListRolesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListRolesMessage{
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -193,39 +203,32 @@ var _ = Describe("Role", func() {
 			)))
 		})
 
-		Describe("filtering", func() {
+		When("filtering query params are provided", func() {
 			BeforeEach(func() {
-				roleRepo.ListRolesReturns([]repositories.RoleRecord{
-					{GUID: "1", CreatedAt: time.UnixMilli(5000), UpdatedAt: tools.PtrTo(time.UnixMilli(4000)), Type: "a", Space: "space1", Org: "", User: "user1"},
-					{GUID: "2", CreatedAt: time.UnixMilli(7000), UpdatedAt: tools.PtrTo(time.UnixMilli(2000)), Type: "b", Space: "space2", Org: "", User: "user1"},
-					{GUID: "3", CreatedAt: time.UnixMilli(3000), UpdatedAt: tools.PtrTo(time.UnixMilli(8000)), Type: "c", Space: "", Org: "org1", User: "user1"},
-					{GUID: "4", CreatedAt: time.UnixMilli(1000), UpdatedAt: tools.PtrTo(time.UnixMilli(6000)), Type: "c", Space: "", Org: "org2", User: "user2"},
-				}, nil)
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.RoleList{
+					GUIDs:      helpers.Set("g1", "g2"),
+					Types:      helpers.Set("space_manager", "space_auditor"),
+					SpaceGUIDs: helpers.Set("space1", "space2"),
+					OrgGUIDs:   helpers.Set("org1", "org2"),
+					UserGUIDs:  helpers.Set("user1", "user2"),
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
 			})
 
-			DescribeTable("filtering", func(filter payloads.RoleList, expectedGUIDs ...any) {
-				req, err := http.NewRequestWithContext(ctx, "GET", rolesBase+"?foo=bar", nil)
-				Expect(err).NotTo(HaveOccurred())
-
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&filter)
-				rr = httptest.NewRecorder()
-				routerBuilder.Build().ServeHTTP(rr, req)
-
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-				Expect(rr).To(HaveHTTPBody(MatchJSONPath("$.resources[*].guid", expectedGUIDs)))
-			},
-				Entry("no filter", payloads.RoleList{}, "1", "2", "3", "4"),
-				Entry("guids1", payloads.RoleList{GUIDs: map[string]bool{"4": true}}, "4"),
-				Entry("guids2", payloads.RoleList{GUIDs: map[string]bool{"1": true, "3": true}}, "1", "3"),
-				Entry("types1", payloads.RoleList{Types: map[string]bool{"a": true}}, "1"),
-				Entry("types2", payloads.RoleList{Types: map[string]bool{"b": true, "c": true}}, "2", "3", "4"),
-				Entry("space_guids1", payloads.RoleList{SpaceGUIDs: map[string]bool{"space1": true}}, "1"),
-				Entry("space_guids2", payloads.RoleList{SpaceGUIDs: map[string]bool{"space1": true, "space2": true}}, "1", "2"),
-				Entry("organization_guids1", payloads.RoleList{OrgGUIDs: map[string]bool{"org1": true}}, "3"),
-				Entry("organization_guids2", payloads.RoleList{OrgGUIDs: map[string]bool{"org1": true, "org2": true}}, "3", "4"),
-				Entry("user_guids1", payloads.RoleList{UserGUIDs: map[string]bool{"user1": true}}, "1", "2", "3"),
-				Entry("user_guids2", payloads.RoleList{UserGUIDs: map[string]bool{"user1": true, "user2": true}}, "1", "2", "3", "4"),
-			)
+			It("passes them to the repository", func() {
+				Expect(roleRepo.ListRolesCallCount()).To(Equal(1))
+				_, _, message := roleRepo.ListRolesArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListRolesMessage{
+					GUIDs:      helpers.Set("g1", "g2"),
+					Types:      helpers.Set("space_manager", "space_auditor"),
+					SpaceGUIDs: helpers.Set("space1", "space2"),
+					OrgGUIDs:   helpers.Set("org1", "org2"),
+					UserGUIDs:  helpers.Set("user1", "user2"),
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
 		})
 
 		When("decoding the url values fails", func() {
@@ -240,7 +243,7 @@ var _ = Describe("Role", func() {
 
 		When("calling the repository fails", func() {
 			BeforeEach(func() {
-				roleRepo.ListRolesReturns(nil, errors.New("boom"))
+				roleRepo.ListRolesReturns(repositories.ListResult[repositories.RoleRecord]{}, errors.New("boom"))
 			})
 
 			It("returns the error", func() {

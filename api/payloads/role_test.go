@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -194,7 +195,7 @@ var _ = DescribeTable("Role org / space combination validation",
 	Entry("invalid role name", "does-not-exist", "organization", false, "type value must be one of"),
 )
 
-var _ = Describe("role list", func() {
+var _ = Describe("RoleList", func() {
 	DescribeTable("valid query",
 		func(query string, expectedRoleListQueryParameters payloads.RoleList) {
 			actualRoleListQueryParameters, decodeErr := decodeQuery[payloads.RoleList](query)
@@ -212,6 +213,7 @@ var _ = Describe("role list", func() {
 		Entry("order_by2", "order_by=-created_at", payloads.RoleList{OrderBy: "-created_at"}),
 		Entry("order_by3", "order_by=updated_at", payloads.RoleList{OrderBy: "updated_at"}),
 		Entry("order_by4", "order_by=-updated_at", payloads.RoleList{OrderBy: "-updated_at"}),
+		Entry("page=3", "page=3", payloads.RoleList{Pagination: payloads.Pagination{Page: "3"}}),
 		Entry("include", "include=foo", payloads.RoleList{}),
 	)
 
@@ -221,14 +223,47 @@ var _ = Describe("role list", func() {
 			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
 		},
 		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+		Entry("page=foo", "page=foo", "value must be an integer"),
 	)
 
-	DescribeTable("ToMessage",
-		func(roleList payloads.RoleList, expectedListRolesMessage repositories.ListRolesMessage) {
-			actualListRolesMessage := roleList.ToMessage()
+	Describe("ToMessage", func() {
+		var (
+			roleList payloads.RoleList
+			message  repositories.ListRolesMessage
+		)
 
-			Expect(actualListRolesMessage).To(Equal(expectedListRolesMessage))
-		},
-		Entry("created_at", payloads.RoleList{OrderBy: "created_at"}, repositories.ListRolesMessage{OrderBy: "created_at"}),
-	)
+		BeforeEach(func() {
+			roleList = payloads.RoleList{
+				GUIDs:      helpers.Set("g1", "g2"),
+				Types:      helpers.Set("space_manager", "space_auditor"),
+				SpaceGUIDs: helpers.Set("space1", "space2"),
+				OrgGUIDs:   helpers.Set("org1", "org2"),
+				UserGUIDs:  helpers.Set("user1", "user2"),
+				OrderBy:    "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "10",
+					Page:    "4",
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			message = roleList.ToMessage()
+		})
+
+		It("translates to repository message", func() {
+			Expect(message).To(Equal(repositories.ListRolesMessage{
+				GUIDs:      helpers.Set("g1", "g2"),
+				Types:      helpers.Set("space_manager", "space_auditor"),
+				SpaceGUIDs: helpers.Set("space1", "space2"),
+				OrgGUIDs:   helpers.Set("org1", "org2"),
+				UserGUIDs:  helpers.Set("user1", "user2"),
+				OrderBy:    "created_at",
+				Pagination: repositories.Pagination{
+					PerPage: 10,
+					Page:    4,
+				},
+			}))
+		})
+	})
 })

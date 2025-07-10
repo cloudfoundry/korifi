@@ -20,6 +20,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/config"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories/compare"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/api/tools/singleton"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
@@ -131,7 +132,25 @@ func RoleComparator(fieldName string) func(RoleRecord, RoleRecord) int {
 }
 
 type ListRolesMessage struct {
-	OrderBy string
+	GUIDs      map[string]bool
+	Types      map[string]bool
+	SpaceGUIDs map[string]bool
+	OrgGUIDs   map[string]bool
+	UserGUIDs  map[string]bool
+	OrderBy    string
+	Pagination Pagination
+}
+
+func (m *ListRolesMessage) matches(role RoleRecord) bool {
+	return match(m.GUIDs, role.GUID) &&
+		match(m.Types, role.Type) &&
+		match(m.SpaceGUIDs, role.Space) &&
+		match(m.OrgGUIDs, role.Org) &&
+		match(m.UserGUIDs, role.User)
+}
+
+func match(allowedValues map[string]bool, val string) bool {
+	return len(allowedValues) == 0 || allowedValues[val]
 }
 
 func NewRoleRepo(
@@ -279,10 +298,10 @@ func createRoleBinding(namespace, roleType, roleKind, roleUser, roleServiceAccou
 	}
 }
 
-func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info, message ListRolesMessage) ([]RoleRecord, error) {
+func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info, message ListRolesMessage) (ListResult[RoleRecord], error) {
 	authorizedNamespaces, err := getAuthorizedNamespaces(ctx, authInfo, r.namespacePermissions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
+		return ListResult[RoleRecord]{}, fmt.Errorf("failed to list namespaces for spaces with user role bindings: %w", err)
 	}
 
 	roleBindings := []rbacv1.RoleBinding{}
@@ -293,13 +312,29 @@ func (r *RoleRepo) ListRoles(ctx context.Context, authInfo authorization.Info, m
 			if k8serrors.IsForbidden(err) {
 				continue
 			}
-			return nil, fmt.Errorf("failed to list roles in namespace %s: %w", ns, apierrors.FromK8sError(err, RoleResourceType))
+			return ListResult[RoleRecord]{}, fmt.Errorf("failed to list roles in namespace %s: %w", ns, apierrors.FromK8sError(err, RoleResourceType))
 		}
 		roleBindings = append(roleBindings, roleBindingsList.Items...)
 	}
 
 	cfRoleBindings := itx.FromSlice(roleBindings).Filter(r.isCFRole)
-	return r.sorter.Sort(slices.Collect(it.Map(cfRoleBindings, r.toRoleRecord)), message.OrderBy), nil
+
+	records := slices.Collect(it.Filter(it.Map(cfRoleBindings, r.toRoleRecord), message.matches))
+	records = r.sorter.Sort(records, message.OrderBy)
+
+	recordsPage := descriptors.SinglePage(records, len(records))
+	if !message.Pagination.IsZero() {
+		var err error
+		recordsPage, err = descriptors.GetPage(records, message.Pagination.PerPage, message.Pagination.Page)
+		if err != nil {
+			return ListResult[RoleRecord]{}, fmt.Errorf("failed to page buildpacks list: %w", err)
+		}
+	}
+
+	return ListResult[RoleRecord]{
+		PageInfo: recordsPage.PageInfo,
+		Records:  recordsPage.Items,
+	}, nil
 }
 
 func (r *RoleRepo) isCFRole(rb rbacv1.RoleBinding) bool {
@@ -354,7 +389,7 @@ func (r *RoleRepo) GetRole(ctx context.Context, authInfo authorization.Info, rol
 		return RoleRecord{}, err
 	}
 
-	return singleton.Get(itx.FromSlice(roles).Filter(func(r RoleRecord) bool {
+	return singleton.Get(itx.FromSlice(roles.Records).Filter(func(r RoleRecord) bool {
 		return r.GUID == roleGUID
 	}).Collect())
 }
