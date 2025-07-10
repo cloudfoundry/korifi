@@ -239,3 +239,100 @@ func (a *AppRoutesList) ToMessage(appGUID string) repositories.ListRoutesMessage
 		OrderBy:    a.OrderBy,
 	}
 }
+
+type AppDropletsList struct {
+	GUIDs      string
+	OrderBy    string
+	Pagination Pagination
+}
+
+func (l *AppDropletsList) SupportedKeys() []string {
+	return []string{
+		"guids",
+		"states",
+		"current",
+		"order_by",
+		"page",
+		"per_page",
+	}
+}
+
+func (l AppDropletsList) Validate() error {
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&l.Pagination),
+	)
+}
+
+func (l *AppDropletsList) DecodeFromURLValues(values url.Values) error {
+	l.GUIDs = values.Get("guids")
+	l.OrderBy = values.Get("order_by")
+	return l.Pagination.DecodeFromURLValues(values)
+}
+
+func (l *AppDropletsList) ToMessage(appGUID string) repositories.ListDropletsMessage {
+	return repositories.ListDropletsMessage{
+		GUIDs:      parse.ArrayParam(l.GUIDs),
+		AppGUIDs:   []string{appGUID},
+		OrderBy:    l.OrderBy,
+		Pagination: l.Pagination.ToMessage(DefaultPageSize),
+	}
+}
+
+type AppPackagesList struct {
+	OrderBy    string
+	Pagination Pagination
+}
+
+func (l *AppPackagesList) SupportedKeys() []string {
+	return []string{"guids", "states", "order_by", "per_page", "page"}
+}
+
+func (l AppPackagesList) Validate() error {
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&l.Pagination),
+	)
+}
+
+func (l *AppPackagesList) DecodeFromURLValues(values url.Values) error {
+	l.OrderBy = values.Get("order_by")
+	return l.Pagination.DecodeFromURLValues(values)
+}
+
+func (l *AppPackagesList) ToMessage(appGUID string) repositories.ListPackagesMessage {
+	return repositories.ListPackagesMessage{
+		AppGUIDs:   []string{appGUID},
+		OrderBy:    l.OrderBy,
+		Pagination: l.Pagination.ToMessage(DefaultPageSize),
+	}
+}
+
+type AppProcessList struct {
+	OrderBy    string
+	Pagination Pagination
+}
+
+func (l *AppProcessList) SupportedKeys() []string {
+	return []string{"guids", "types", "order_by", "per_page", "page"}
+}
+
+func (l AppProcessList) Validate() error {
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&l.Pagination),
+	)
+}
+
+func (l *AppProcessList) DecodeFromURLValues(values url.Values) error {
+	l.OrderBy = values.Get("order_by")
+	return l.Pagination.DecodeFromURLValues(values)
+}
+
+func (l *AppProcessList) ToMessage(appGUID string) repositories.ListProcessesMessage {
+	return repositories.ListProcessesMessage{
+		AppGUIDs:   []string{appGUID},
+		OrderBy:    l.OrderBy,
+		Pagination: l.Pagination.ToMessage(DefaultPageSize),
+	}
+}

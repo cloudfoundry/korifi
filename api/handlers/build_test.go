@@ -154,8 +154,14 @@ var _ = Describe("Build", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 
 			Expect(buildRepo.ListBuildsCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := buildRepo.ListBuildsArgsForCall(0)
+			_, actualAuthInfo, actualMessage := buildRepo.ListBuildsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListBuildsMessage{
+				Pagination: repositories.Pagination{
+					PerPage: 50,
+					Page:    1,
+				},
+			}))
 
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -170,13 +176,23 @@ var _ = Describe("Build", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.BuildList{
 					PackageGUIDs: "p1,p2",
+					AppGUIDs:     "a1,a2",
+					States:       "STOPPED,STARTED",
+					OrderBy:      "created_at",
+					Pagination:   payloads.Pagination{PerPage: "16", Page: "32"},
 				})
 			})
 
 			It("passes them to the repository", func() {
 				Expect(buildRepo.ListBuildsCallCount()).To(Equal(1))
 				_, _, message := buildRepo.ListBuildsArgsForCall(0)
-				Expect(message.PackageGUIDs).To(ConsistOf("p1", "p2"))
+				Expect(message).To(Equal(repositories.ListBuildsMessage{
+					PackageGUIDs: []string{"p1", "p2"},
+					AppGUIDs:     []string{"a1", "a2"},
+					States:       []string{"STOPPED", "STARTED"},
+					OrderBy:      "created_at",
+					Pagination:   repositories.Pagination{PerPage: 16, Page: 32},
+				}))
 			})
 		})
 

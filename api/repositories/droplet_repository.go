@@ -61,6 +61,7 @@ type ListDropletsMessage struct {
 	PackageGUIDs []string
 	AppGUIDs     []string
 	SpaceGUIDs   []string
+	OrderBy      string
 	Pagination   Pagination
 }
 
@@ -71,6 +72,7 @@ func (m *ListDropletsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFDropletGUIDLabelKey, m.GUIDs),
 		WithLabel(korifiv1alpha1.CFBuildStateLabelKey, korifiv1alpha1.BuildStateStaged),
+		WithOrdering(m.OrderBy),
 		WithPaging(m.Pagination),
 	}
 }

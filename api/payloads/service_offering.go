@@ -3,7 +3,6 @@ package payloads
 import (
 	"fmt"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/payloads/params"
@@ -103,10 +102,6 @@ func (l *ServiceOfferingList) ToMessage() repositories.ListServiceOfferingMessag
 
 func (l *ServiceOfferingList) SupportedKeys() []string {
 	return []string{"names", "service_broker_names", "fields[service_broker]", "page", "per_page"}
-}
-
-func (l *ServiceOfferingList) IgnoredKeys() []*regexp.Regexp {
-	return nil
 }
 
 func (l *ServiceOfferingList) DecodeFromURLValues(values url.Values) error {

@@ -120,13 +120,13 @@ func (h *Org) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.org.list")
 
-	listFilter := &payloads.OrgList{}
-	err := h.requestValidator.DecodeAndValidateURLValues(r, listFilter)
+	payload := &payloads.OrgList{}
+	err := h.requestValidator.DecodeAndValidateURLValues(r, payload)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	listResult, err := h.orgRepo.ListOrgs(r.Context(), authInfo, listFilter.ToMessage())
+	listResult, err := h.orgRepo.ListOrgs(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to fetch orgs")
 	}

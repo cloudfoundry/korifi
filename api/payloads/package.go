@@ -126,18 +126,24 @@ func (p PackageList) Validate() error {
 	)
 }
 
-type PackageListDroplets struct{}
+type PackageDropletList struct {
+	OrderBy    string
+	Pagination Pagination
+}
 
-func (p *PackageListDroplets) ToMessage(packageGUIDs []string) repositories.ListDropletsMessage {
+func (p *PackageDropletList) ToMessage(packageGUID string) repositories.ListDropletsMessage {
 	return repositories.ListDropletsMessage{
-		PackageGUIDs: packageGUIDs,
+		PackageGUIDs: []string{packageGUID},
+		OrderBy:      p.OrderBy,
+		Pagination:   p.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
-func (p *PackageListDroplets) SupportedKeys() []string {
+func (p *PackageDropletList) SupportedKeys() []string {
 	return []string{"states", "per_page", "page"}
 }
 
-func (p *PackageListDroplets) DecodeFromURLValues(values url.Values) error {
-	return nil
+func (p *PackageDropletList) DecodeFromURLValues(values url.Values) error {
+	p.OrderBy = values.Get("order_by")
+	return p.Pagination.DecodeFromURLValues(values)
 }

@@ -240,8 +240,15 @@ var _ = Describe("Deployment", func() {
 			Expect(actualReq.URL).To(Equal(req.URL))
 
 			Expect(deploymentsRepo.ListDeploymentsCallCount()).To(Equal(1))
-			_, _, listMessage := deploymentsRepo.ListDeploymentsArgsForCall(0)
-			Expect(listMessage.AppGUIDs).To(ConsistOf("bob", "alice"))
+			_, actualAuthInfo, actualMessage := deploymentsRepo.ListDeploymentsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListDeploymentsMessage{
+				AppGUIDs: []string{"bob", "alice"},
+				Pagination: repositories.Pagination{
+					PerPage: 50,
+					Page:    1,
+				},
+			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -249,6 +256,28 @@ var _ = Describe("Deployment", func() {
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].guid", "deployment-guid"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.DeploymentList{
+					AppGUIDs:     "a1,a2",
+					OrderBy:      "created_at",
+					StatusValues: "STOPPED,STARTED",
+					Pagination:   payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(deploymentsRepo.ListDeploymentsCallCount()).To(Equal(1))
+				_, _, message := deploymentsRepo.ListDeploymentsArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListDeploymentsMessage{
+					AppGUIDs:     []string{"a1", "a2"},
+					StatusValues: []repositories.DeploymentStatusValue{"STOPPED", "STARTED"},
+					OrderBy:      "created_at",
+					Pagination:   repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
 		})
 
 		When("there is an error listing deployments", func() {

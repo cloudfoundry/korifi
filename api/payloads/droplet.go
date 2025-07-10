@@ -2,11 +2,11 @@ package payloads
 
 import (
 	"net/url"
-	"regexp"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/jellydator/validation"
+	jellidation "github.com/jellydator/validation"
 )
 
 type DropletUpdate struct {
@@ -14,8 +14,8 @@ type DropletUpdate struct {
 }
 
 func (d DropletUpdate) Validate() error {
-	return validation.ValidateStruct(&d,
-		validation.Field(&d.Metadata),
+	return jellidation.ValidateStruct(&d,
+		jellidation.Field(&d.Metadata),
 	)
 }
 
@@ -33,6 +33,7 @@ type DropletList struct {
 	GUIDs      string
 	AppGUIDs   string
 	SpaceGUIDs string
+	OrderBy    string
 	Pagination Pagination
 }
 
@@ -43,20 +44,16 @@ func (l *DropletList) SupportedKeys() []string {
 		"app_guids",
 		"space_guids",
 		"organization_guids",
+		"order_by",
 		"page",
 		"per_page",
 	}
 }
 
-func (l *DropletList) IgnoredKeys() []*regexp.Regexp {
-	return []*regexp.Regexp{
-		regexp.MustCompile("order_by"),
-	}
-}
-
 func (l DropletList) Validate() error {
-	return validation.ValidateStruct(&l,
-		validation.Field(&l.Pagination),
+	return jellidation.ValidateStruct(&l,
+		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&l.Pagination),
 	)
 }
 
@@ -64,6 +61,7 @@ func (l *DropletList) DecodeFromURLValues(values url.Values) error {
 	l.GUIDs = values.Get("guids")
 	l.AppGUIDs = values.Get("app_guids")
 	l.SpaceGUIDs = values.Get("space_guids")
+	l.OrderBy = values.Get("order_by")
 	return l.Pagination.DecodeFromURLValues(values)
 }
 
@@ -72,6 +70,7 @@ func (l *DropletList) ToMessage() repositories.ListDropletsMessage {
 		GUIDs:      parse.ArrayParam(l.GUIDs),
 		AppGUIDs:   parse.ArrayParam(l.AppGUIDs),
 		SpaceGUIDs: parse.ArrayParam(l.SpaceGUIDs),
+		OrderBy:    l.OrderBy,
 		Pagination: l.Pagination.ToMessage(DefaultPageSize),
 	}
 }

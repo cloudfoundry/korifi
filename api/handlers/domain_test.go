@@ -289,8 +289,15 @@ var _ = Describe("Domain", func() {
 			Expect(actualReq.URL).To(Equal(req.URL))
 
 			Expect(domainRepo.ListDomainsCallCount()).To(Equal(1))
-			_, _, listMessage := domainRepo.ListDomainsArgsForCall(0)
-			Expect(listMessage.Names).To(ConsistOf("bob", "alice"))
+			_, actualAuthInfo, actualMessage := domainRepo.ListDomainsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListDomainsMessage{
+				Names: []string{"bob", "alice"},
+				Pagination: repositories.Pagination{
+					PerPage: 50,
+					Page:    1,
+				},
+			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -299,6 +306,26 @@ var _ = Describe("Domain", func() {
 				MatchJSONPath("$.resources[0].guid", "test-domain-guid"),
 				MatchJSONPath("$.resources[0].supported_protocols", ConsistOf("http")),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.DomainList{
+					Names:      "a1,a2",
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(domainRepo.ListDomainsCallCount()).To(Equal(1))
+				_, _, message := domainRepo.ListDomainsArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListDomainsMessage{
+					Names:      []string{"a1", "a2"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
 		})
 
 		When("no domain exists", func() {

@@ -222,7 +222,13 @@ func (h *App) listDroplets(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	dropletListResult, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, repositories.ListDropletsMessage{AppGUIDs: []string{appGUID}})
+	payload := new(payloads.AppDropletsList)
+	err = h.requestValidator.DecodeAndValidateURLValues(r, payload)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
+	dropletListResult, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, payload.ToMessage(appGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch droplet from Kubernetes", "dropletGUID", app.DropletGUID)
 	}
@@ -323,22 +329,23 @@ func (h *App) stopApp(ctx context.Context, authInfo authorization.Info, app repo
 	return app, nil
 }
 
-func (h *App) getProcesses(r *http.Request) (*routing.Response, error) {
+//nolint:dupl
+func (h *App) listProcesses(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-processes")
 	appGUID := routing.URLParam(r, "guid")
 
-	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	_, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	fetchProcessesForAppMessage := repositories.ListProcessesMessage{
-		AppGUIDs:   []string{appGUID},
-		SpaceGUIDs: []string{app.SpaceGUID},
+	payload := &payloads.AppProcessList{}
+	if err = h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	processList, err := h.processRepo.ListProcesses(r.Context(), authInfo, fetchProcessesForAppMessage)
+	processList, err := h.processRepo.ListProcesses(r.Context(), authInfo, payload.ToMessage(appGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app Process(es) from Kubernetes")
 	}
@@ -346,7 +353,7 @@ func (h *App) getProcesses(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForProcessSanitized, processList, h.serverURL, *r.URL)), nil
 }
 
-func (h *App) getRoutes(r *http.Request) (*routing.Response, error) {
+func (h *App) listRoutes(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-routes")
 	appGUID := routing.URLParam(r, "guid")
@@ -563,7 +570,7 @@ func (h *App) getProcess(r *http.Request) (*routing.Response, error) {
 	appGUID := routing.URLParam(r, "guid")
 	processType := routing.URLParam(r, "type")
 
-	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	_, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
@@ -571,7 +578,6 @@ func (h *App) getProcess(r *http.Request) (*routing.Response, error) {
 	process, err := h.getSingleProcess(r.Context(), authInfo, repositories.ListProcessesMessage{
 		AppGUIDs:     []string{appGUID},
 		ProcessTypes: []string{processType},
-		SpaceGUIDs:   []string{app.SpaceGUID},
 	})
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to get process", "AppGUID", appGUID)
@@ -623,7 +629,8 @@ func (h *App) getProcessStats(r *http.Request) (*routing.Response, error) {
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForProcessStats(gauges, instancesState, time.Now())), nil
 }
 
-func (h *App) getPackages(r *http.Request) (*routing.Response, error) {
+//nolint:dupl
+func (h *App) listPackages(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-packages")
 	appGUID := routing.URLParam(r, "guid")
@@ -633,12 +640,12 @@ func (h *App) getPackages(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "AppGUID", appGUID)
 	}
 
-	fetchPackagesForAppMessage := repositories.ListPackagesMessage{
-		AppGUIDs: []string{appGUID},
-		States:   []string{},
+	payload := &payloads.AppPackagesList{}
+	if err = h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	packageList, err := h.packageRepo.ListPackages(r.Context(), authInfo, fetchPackagesForAppMessage)
+	packageList, err := h.packageRepo.ListPackages(r.Context(), authInfo, payload.ToMessage(appGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch app Package(s) from Kubernetes")
 	}
@@ -758,15 +765,15 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "POST", Pattern: AppStopPath, Handler: h.stop},
 		{Method: "POST", Pattern: AppRestartPath, Handler: h.restart},
 		{Method: "POST", Pattern: AppProcessScalePath, Handler: h.scaleProcess},
-		{Method: "GET", Pattern: AppProcessesPath, Handler: h.getProcesses},
+		{Method: "GET", Pattern: AppProcessesPath, Handler: h.listProcesses},
 		{Method: "GET", Pattern: AppProcessByTypePath, Handler: h.getProcess},
 		{Method: "GET", Pattern: AppProcessStatsByTypePath, Handler: h.getProcessStats},
-		{Method: "GET", Pattern: AppRoutesPath, Handler: h.getRoutes},
+		{Method: "GET", Pattern: AppRoutesPath, Handler: h.listRoutes},
 		{Method: "DELETE", Pattern: AppPath, Handler: h.delete},
 		{Method: "GET", Pattern: AppEnvVarsPath, Handler: h.getEnvVars},
 		{Method: "PATCH", Pattern: AppEnvVarsPath, Handler: h.updateEnvVars},
 		{Method: "GET", Pattern: AppEnvPath, Handler: h.getEnvironment},
-		{Method: "GET", Pattern: AppPackagesPath, Handler: h.getPackages},
+		{Method: "GET", Pattern: AppPackagesPath, Handler: h.listPackages},
 		{Method: "GET", Pattern: AppFeaturePath, Handler: h.getAppFeature},
 		{Method: "PATCH", Pattern: AppPath, Handler: h.update},
 		{Method: "GET", Pattern: AppSSHEnabledPath, Handler: h.getSSHEnabled},

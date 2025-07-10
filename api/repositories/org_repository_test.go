@@ -219,8 +219,9 @@ var _ = Describe("OrgRepository", func() {
 					orgRepo = repositories.NewOrgRepo(fakeKlient, rootNamespace, nsPerms, conditionAwaiter)
 
 					listMessage = repositories.ListOrgsMessage{
-						GUIDs: []string{cfOrg1.Name},
-						Names: []string{"a1", "a2"},
+						GUIDs:   []string{cfOrg1.Name},
+						Names:   []string{"a1", "a2"},
+						OrderBy: "created_at",
 						Pagination: repositories.Pagination{
 							Page:    2,
 							PerPage: 100,
@@ -235,6 +236,7 @@ var _ = Describe("OrgRepository", func() {
 						repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{cfOrg1.Name}),
 						repositories.WithLabelIn(korifiv1alpha1.CFOrgDisplayNameKey, tools.EncodeValuesToSha224("a1", "a2")),
 						repositories.WithLabel(korifiv1alpha1.ReadyLabelKey, string(metav1.ConditionTrue)),
+						repositories.WithOrdering("created_at"),
 						repositories.WithPaging(repositories.Pagination{
 							Page:    2,
 							PerPage: 100,

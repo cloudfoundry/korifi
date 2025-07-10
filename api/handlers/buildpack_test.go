@@ -7,6 +7,7 @@ import (
 
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
+	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
@@ -65,8 +66,14 @@ var _ = Describe("Buildpack", func() {
 
 		It("returns the buildpacks for the default builder", func() {
 			Expect(buildpackRepo.ListBuildpacksCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := buildpackRepo.ListBuildpacksArgsForCall(0)
+			_, actualAuthInfo, actualMessage := buildpackRepo.ListBuildpacksArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListBuildpacksMessage{
+				Pagination: repositories.Pagination{
+					PerPage: 50,
+					Page:    1,
+				},
+			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -75,6 +82,24 @@ var _ = Describe("Buildpack", func() {
 				MatchJSONPath("$.resources", HaveLen(1)),
 				MatchJSONPath("$.resources[0].filename", "paketo-foopacks/bar@1.0.0"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.BuildpackList{
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(buildpackRepo.ListBuildpacksCallCount()).To(Equal(1))
+				_, _, message := buildpackRepo.ListBuildpacksArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListBuildpacksMessage{
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
 		})
 
 		When("request is invalid", func() {

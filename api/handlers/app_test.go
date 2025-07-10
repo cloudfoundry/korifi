@@ -335,8 +335,11 @@ var _ = Describe("App", func() {
 			Expect(actualReq.URL.String()).To(HaveSuffix("foo=bar"))
 
 			Expect(appRepo.ListAppsCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := appRepo.ListAppsArgsForCall(0)
+			_, actualAuthInfo, actualMessage := appRepo.ListAppsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListAppsMessage{
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+			}))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -354,6 +357,8 @@ var _ = Describe("App", func() {
 					Names:      "a1,a2",
 					GUIDs:      "g1,g2",
 					SpaceGUIDs: "s1,s2",
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
 				})
 			})
 
@@ -361,9 +366,13 @@ var _ = Describe("App", func() {
 				Expect(appRepo.ListAppsCallCount()).To(Equal(1))
 				_, _, message := appRepo.ListAppsArgsForCall(0)
 
-				Expect(message.Names).To(ConsistOf("a1", "a2"))
-				Expect(message.SpaceGUIDs).To(ConsistOf("s1", "s2"))
-				Expect(message.Guids).To(ConsistOf("g1", "g2"))
+				Expect(message).To(Equal(repositories.ListAppsMessage{
+					Names:      []string{"a1", "a2"},
+					SpaceGUIDs: []string{"s1", "s2"},
+					Guids:      []string{"g1", "g2"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
 			})
 		})
 
@@ -827,6 +836,14 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the processes", func() {
+			Expect(processRepo.ListProcessesCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualMessage := processRepo.ListProcessesArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListProcessesMessage{
+				AppGUIDs:   []string{appGUID},
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+			}))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -858,6 +875,25 @@ var _ = Describe("App", func() {
 			})
 		})
 
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.AppProcessList{
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(processRepo.ListProcessesCallCount()).To(Equal(1))
+				_, _, message := processRepo.ListProcessesArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListProcessesMessage{
+					AppGUIDs:   []string{"test-app-guid"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
+		})
+
 		When("there is some error fetching the app's processes", func() {
 			BeforeEach(func() {
 				processRepo.ListProcessesReturns(repositories.ListResult[repositories.ProcessRecord]{}, errors.New("unknown!"))
@@ -883,8 +919,12 @@ var _ = Describe("App", func() {
 
 		It("returns a process", func() {
 			Expect(processRepo.ListProcessesCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := processRepo.ListProcessesArgsForCall(0)
+			_, actualAuthInfo, actualMessage := processRepo.ListProcessesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListProcessesMessage{
+				AppGUIDs:     []string{appGUID},
+				ProcessTypes: []string{"web"},
+			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -1200,6 +1240,14 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the list of routes", func() {
+			Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualMessage := routeRepo.ListRoutesArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListRoutesMessage{
+				AppGUIDs:   []string{appGUID},
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+			}))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -1209,6 +1257,25 @@ var _ = Describe("App", func() {
 				MatchJSONPath("$.resources[0].url", "test-route-host.example.org/some_path"),
 				MatchJSONPath("$.resources[0].relationships.domain.data.guid", "test-domain-guid"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.AppRoutesList{
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+				_, _, message := routeRepo.ListRoutesArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListRoutesMessage{
+					AppGUIDs:   []string{"test-app-guid"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
 		})
 
 		When("the app cannot be accessed", func() {
@@ -1349,7 +1416,8 @@ var _ = Describe("App", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 
 			Expect(dropletListMessage).To(Equal(repositories.ListDropletsMessage{
-				AppGUIDs: []string{appGUID},
+				AppGUIDs:   []string{appGUID},
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
 			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
@@ -1361,6 +1429,25 @@ var _ = Describe("App", func() {
 				MatchJSONPath("$.resources[0].relationships.app.data.guid", Equal(appGUID)),
 				MatchJSONPath("$.resources[0].state", Equal("STAGED")),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.AppDropletsList{
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(dropletRepo.ListDropletsCallCount()).To(Equal(1))
+				_, _, message := dropletRepo.ListDropletsArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListDropletsMessage{
+					AppGUIDs:   []string{"test-app-guid"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
 		})
 
 		When("the app is not accessible", func() {
@@ -1766,14 +1853,42 @@ var _ = Describe("App", func() {
 		})
 
 		It("returns the packages", func() {
+			Expect(packageRepo.ListPackagesCallCount()).To(Equal(1))
+			_, actualAuthInfo, listMsg := packageRepo.ListPackagesArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(listMsg).To(Equal(repositories.ListPackagesMessage{
+				AppGUIDs:   []string{appGUID},
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+			}))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
 				MatchJSONPath("$.resources", HaveLen(2)),
 				MatchJSONPath("$.resources[0].guid", "package-1-guid"),
 				MatchJSONPath("$.resources[0].state", "AWAITING_UPLOAD"),
 				MatchJSONPath("$.resources[1].guid", "package-2-guid"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.AppPackagesList{
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(packageRepo.ListPackagesCallCount()).To(Equal(1))
+				_, _, message := packageRepo.ListPackagesArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListPackagesMessage{
+					AppGUIDs:   []string{"test-app-guid"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
 		})
 
 		When("the app cannot be accessed", func() {
@@ -1822,7 +1937,7 @@ var _ = Describe("App", func() {
 		})
 	})
 
-	Describe("GET /v3/apps/GUID/features", func() {
+	Describe("GET /v3/apps/GUID/features/NAME", func() {
 		When("feature ssh is called", func() {
 			BeforeEach(func() {
 				req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/features/ssh", nil)

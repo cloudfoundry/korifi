@@ -703,7 +703,7 @@ var _ = Describe("Package", func() {
 
 			queryString = "?not=used"
 
-			payload := payloads.PackageListDroplets{}
+			payload := payloads.PackageDropletList{}
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payload)
 		})
 
@@ -728,6 +728,10 @@ var _ = Describe("Package", func() {
 			_, _, dropletListMessage := dropletRepo.ListDropletsArgsForCall(0)
 			Expect(dropletListMessage).To(Equal(repositories.ListDropletsMessage{
 				PackageGUIDs: []string{packageGUID},
+				Pagination: repositories.Pagination{
+					PerPage: 50,
+					Page:    1,
+				},
 			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))

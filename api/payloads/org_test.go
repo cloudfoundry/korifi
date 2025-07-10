@@ -121,6 +121,12 @@ var _ = Describe("Org", func() {
 				Expect(*actualOrgList).To(Equal(expectedOrgList))
 			},
 			Entry("names", "names=o1,o2", payloads.OrgList{Names: "o1,o2"}),
+			Entry("created_at", "order_by=created_at", payloads.OrgList{OrderBy: "created_at"}),
+			Entry("-created_at", "order_by=-created_at", payloads.OrgList{OrderBy: "-created_at"}),
+			Entry("updated_at", "order_by=updated_at", payloads.OrgList{OrderBy: "updated_at"}),
+			Entry("-updated_at", "order_by=-updated_at", payloads.OrgList{OrderBy: "-updated_at"}),
+			Entry("name", "order_by=name", payloads.OrgList{OrderBy: "name"}),
+			Entry("-name", "order_by=-name", payloads.OrgList{OrderBy: "-name"}),
 			Entry("pagination", "page=3", payloads.OrgList{Pagination: payloads.Pagination{Page: "3"}}),
 		)
 
@@ -136,14 +142,16 @@ var _ = Describe("Org", func() {
 		Describe("ToMessage", func() {
 			It("splits names to strings", func() {
 				orgList := payloads.OrgList{
-					Names: "foo,bar",
+					Names:   "foo,bar",
+					OrderBy: "created_at",
 					Pagination: payloads.Pagination{
 						PerPage: "10",
 						Page:    "2",
 					},
 				}
 				Expect(orgList.ToMessage()).To(Equal(repositories.ListOrgsMessage{
-					Names: []string{"foo", "bar"},
+					Names:   []string{"foo", "bar"},
+					OrderBy: "created_at",
 					Pagination: repositories.Pagination{
 						PerPage: 10,
 						Page:    2,
