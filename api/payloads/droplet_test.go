@@ -21,6 +21,10 @@ var _ = Describe("DropletList", func() {
 		Entry("guids", "guids=guid", payloads.DropletList{GUIDs: "guid"}),
 		Entry("app_guids", "app_guids=guid", payloads.DropletList{AppGUIDs: "guid"}),
 		Entry("space_guids", "space_guids=guid", payloads.DropletList{SpaceGUIDs: "guid"}),
+		Entry("order_by created_at", "order_by=created_at", payloads.DropletList{OrderBy: "created_at"}),
+		Entry("order_by -created_at", "order_by=-created_at", payloads.DropletList{OrderBy: "-created_at"}),
+		Entry("order_by updated_at", "order_by=updated_at", payloads.DropletList{OrderBy: "updated_at"}),
+		Entry("order_by -updated_at", "order_by=-updated_at", payloads.DropletList{OrderBy: "-updated_at"}),
 		Entry("pagination", "page=3", payloads.DropletList{Pagination: payloads.Pagination{Page: "3"}}),
 	)
 
@@ -29,6 +33,7 @@ var _ = Describe("DropletList", func() {
 			_, decodeErr := decodeQuery[payloads.DropletList](query)
 			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
 		},
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
 		Entry("invalid parameter", "foo=bar", "unsupported query parameter: foo"),
 		Entry("invalid pagination", "per_page=foo", "value must be an integer"),
 	)
@@ -39,6 +44,7 @@ var _ = Describe("DropletList", func() {
 				GUIDs:      "g1,g2",
 				AppGUIDs:   "ag1,ag2",
 				SpaceGUIDs: "sg1,sg2",
+				OrderBy:    "created_at",
 				Pagination: payloads.Pagination{
 					PerPage: "3",
 					Page:    "2",
@@ -48,6 +54,7 @@ var _ = Describe("DropletList", func() {
 				GUIDs:      []string{"g1", "g2"},
 				AppGUIDs:   []string{"ag1", "ag2"},
 				SpaceGUIDs: []string{"sg1", "sg2"},
+				OrderBy:    "created_at",
 				Pagination: repositories.Pagination{
 					Page:    2,
 					PerPage: 3,

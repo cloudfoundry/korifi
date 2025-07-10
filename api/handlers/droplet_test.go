@@ -162,8 +162,14 @@ var _ = Describe("Droplet", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(dropletRepo.ListDropletsCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := dropletRepo.ListDropletsArgsForCall(0)
+			_, actualAuthInfo, actualMessage := dropletRepo.ListDropletsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListDropletsMessage{
+				Pagination: repositories.Pagination{
+					PerPage: 50,
+					Page:    1,
+				},
+			}))
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(2)),
@@ -176,7 +182,11 @@ var _ = Describe("Droplet", func() {
 		When("filtering query params are provided", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.DropletList{
-					GUIDs: "g1,g2",
+					GUIDs:      "g1,g2",
+					AppGUIDs:   appGUID,
+					SpaceGUIDs: "space1,space2",
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
 				})
 			})
 
@@ -186,7 +196,13 @@ var _ = Describe("Droplet", func() {
 
 				Expect(dropletRepo.ListDropletsCallCount()).To(Equal(1))
 				_, _, message := dropletRepo.ListDropletsArgsForCall(0)
-				Expect(message.GUIDs).To(ConsistOf("g1", "g2"))
+				Expect(message).To(Equal(repositories.ListDropletsMessage{
+					GUIDs:      []string{"g1", "g2"},
+					AppGUIDs:   []string{appGUID},
+					SpaceGUIDs: []string{"space1", "space2"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
 			})
 		})
 

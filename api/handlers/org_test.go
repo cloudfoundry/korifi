@@ -161,7 +161,9 @@ var _ = Describe("Org", func() {
 			Expect(orgRepo.ListOrgsCallCount()).To(Equal(1))
 			_, info, message := orgRepo.ListOrgsArgsForCall(0)
 			Expect(info).To(Equal(authInfo))
-			Expect(message.Names).To(BeEmpty())
+			Expect(message).To(Equal(repositories.ListOrgsMessage{
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -171,6 +173,26 @@ var _ = Describe("Org", func() {
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/organizations/a-l-i-c-e"),
 				MatchJSONPath("$.resources[1].guid", "b-o-b"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.OrgList{
+					Names:      "org,another",
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(orgRepo.ListOrgsCallCount()).To(Equal(1))
+				_, _, message := orgRepo.ListOrgsArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListOrgsMessage{
+					Names:      []string{"org", "another"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
 		})
 
 		When("names are specified", func() {
@@ -395,6 +417,13 @@ var _ = Describe("Org", func() {
 			actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
 			Expect(actualReq.URL.String()).To(HaveSuffix(requestURL))
 
+			Expect(domainRepo.ListDomainsCallCount()).To(Equal(1))
+			_, actualAuthInfo, message := domainRepo.ListDomainsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(message).To(Equal(repositories.ListDomainsMessage{
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+			}))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -402,6 +431,26 @@ var _ = Describe("Org", func() {
 				MatchJSONPath("$.resources[0].guid", "domain-guid"),
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/domains/domain-guid"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.DomainList{
+					Names:      "example.org,another.org",
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(domainRepo.ListDomainsCallCount()).To(Equal(1))
+				_, _, message := domainRepo.ListDomainsArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListDomainsMessage{
+					Names:      []string{"example.org", "another.org"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
 		})
 
 		When("getting the Org fails", func() {

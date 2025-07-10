@@ -241,6 +241,7 @@ var _ = Describe("DropletRepository", func() {
 						PackageGUIDs: []string{"p1", "p2"},
 						AppGUIDs:     []string{"a1", "a2"},
 						SpaceGUIDs:   []string{"a1", "a2"},
+						OrderBy:      "created_at",
 						Pagination: repositories.Pagination{
 							Page:    2,
 							PerPage: 10,
@@ -258,6 +259,7 @@ var _ = Describe("DropletRepository", func() {
 						repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
 						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"a1", "a2"}),
 						repositories.WithLabel(korifiv1alpha1.CFBuildStateLabelKey, korifiv1alpha1.BuildStateStaged),
+						repositories.WithOrdering("created_at"),
 						repositories.WithPaging(repositories.Pagination{
 							Page:    2,
 							PerPage: 10,

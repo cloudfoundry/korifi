@@ -240,6 +240,7 @@ var _ = Describe("ProcessRepo", func() {
 						AppGUIDs:     []string{"app-guid", "another-app-guid"},
 						SpaceGUIDs:   []string{"space-guid", "another-space-guid"},
 						ProcessTypes: []string{"web", "worker"},
+						OrderBy:      "created_at",
 						Pagination: repositories.Pagination{
 							PerPage: 3,
 							Page:    4,
@@ -254,6 +255,7 @@ var _ = Describe("ProcessRepo", func() {
 						repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"app-guid", "another-app-guid"}),
 						repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"space-guid", "another-space-guid"}),
 						repositories.WithLabelIn(korifiv1alpha1.CFProcessTypeLabelKey, []string{"web", "worker"}),
+						repositories.WithOrdering("created_at"),
 						repositories.WithPaging(repositories.Pagination{
 							PerPage: 3,
 							Page:    4,

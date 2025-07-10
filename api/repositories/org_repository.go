@@ -31,6 +31,7 @@ type CreateOrgMessage struct {
 type ListOrgsMessage struct {
 	Names      []string
 	GUIDs      []string
+	OrderBy    string
 	Pagination Pagination
 }
 
@@ -46,6 +47,9 @@ func (m *ListOrgsMessage) toListOptions(authorizedOrgGuids []string) []ListOptio
 		WithLabelStrictlyIn(korifiv1alpha1.GUIDLabelKey, selectedGuids),
 		WithLabelIn(korifiv1alpha1.CFOrgDisplayNameKey, tools.EncodeValuesToSha224(m.Names...)),
 		WithLabel(korifiv1alpha1.ReadyLabelKey, string(metav1.ConditionTrue)),
+		WithOrdering(m.OrderBy,
+			"name", "Display Name",
+		),
 		WithPaging(m.Pagination),
 	}
 }

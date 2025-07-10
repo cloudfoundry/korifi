@@ -587,3 +587,253 @@ var _ = Describe("AppRoutesList", func() {
 		})
 	})
 })
+
+var _ = Describe("AppDropletList", func() {
+	DescribeTable("valid query",
+		func(query string, expectedDropletList payloads.AppDropletsList) {
+			actualDropletList, decodeErr := decodeQuery[payloads.AppDropletsList](query)
+
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualDropletList).To(Equal(expectedDropletList))
+		},
+		Entry("guids", "guids=guid", payloads.AppDropletsList{GUIDs: "guid"}),
+		Entry("order_by created_at", "order_by=created_at", payloads.AppDropletsList{OrderBy: "created_at"}),
+		Entry("order_by -created_at", "order_by=-created_at", payloads.AppDropletsList{OrderBy: "-created_at"}),
+		Entry("order_by updated_at", "order_by=updated_at", payloads.AppDropletsList{OrderBy: "updated_at"}),
+		Entry("order_by -updated_at", "order_by=-updated_at", payloads.AppDropletsList{OrderBy: "-updated_at"}),
+		Entry("pagination", "page=3", payloads.AppDropletsList{Pagination: payloads.Pagination{Page: "3"}}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.AppDropletsList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+		Entry("invalid parameter", "foo=bar", "unsupported query parameter: foo"),
+		Entry("invalid pagination", "per_page=foo", "value must be an integer"),
+	)
+
+	Describe("ToMessage", func() {
+		It("translates to repo message", func() {
+			dropletList := payloads.AppDropletsList{
+				GUIDs:   "g1,g2",
+				OrderBy: "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "3",
+					Page:    "2",
+				},
+			}
+			Expect(dropletList.ToMessage("ag1")).To(Equal(repositories.ListDropletsMessage{
+				GUIDs:    []string{"g1", "g2"},
+				AppGUIDs: []string{"ag1"},
+				OrderBy:  "created_at",
+				Pagination: repositories.Pagination{
+					Page:    2,
+					PerPage: 3,
+				},
+			}))
+		})
+	})
+})
+
+var _ = Describe("AppRoutesList", func() {
+	Describe("Validation", func() {
+		DescribeTable("valid query",
+			func(query string, expectedAppRoutesList payloads.AppRoutesList) {
+				actualAppRoutesList, decodeErr := decodeQuery[payloads.AppRoutesList](query)
+
+				Expect(decodeErr).NotTo(HaveOccurred())
+				Expect(*actualAppRoutesList).To(Equal(expectedAppRoutesList))
+			},
+
+			Entry("order_by created_at", "order_by=created_at", payloads.AppRoutesList{OrderBy: "created_at"}),
+			Entry("order_by -created_at", "order_by=-created_at", payloads.AppRoutesList{OrderBy: "-created_at"}),
+			Entry("order_by updated_at", "order_by=updated_at", payloads.AppRoutesList{OrderBy: "updated_at"}),
+			Entry("order_by -updated_at", "order_by=-updated_at", payloads.AppRoutesList{OrderBy: "-updated_at"}),
+			Entry("page=3", "page=3", payloads.AppRoutesList{Pagination: payloads.Pagination{Page: "3"}}),
+		)
+
+		DescribeTable("invalid query",
+			func(query string, expectedErrMsg string) {
+				_, decodeErr := decodeQuery[payloads.AppRoutesList](query)
+				Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+			},
+			Entry("invalid order_by", "order_by=foo", "value must be one of"),
+			Entry("per_page is not a number", "per_page=foo", "value must be an integer"),
+		)
+	})
+
+	Describe("ToMessage", func() {
+		var (
+			appList payloads.AppRoutesList
+			message repositories.ListRoutesMessage
+		)
+
+		BeforeEach(func() {
+			appList = payloads.AppRoutesList{
+				OrderBy: "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "20",
+					Page:    "1",
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			message = appList.ToMessage("app-guid")
+		})
+
+		It("translates to repository message", func() {
+			Expect(message).To(Equal(repositories.ListRoutesMessage{
+				AppGUIDs: []string{"app-guid"},
+				OrderBy:  "created_at",
+				Pagination: repositories.Pagination{
+					Page:    1,
+					PerPage: 20,
+				},
+			}))
+		})
+	})
+})
+
+var _ = Describe("AppDropletList", func() {
+	DescribeTable("valid query",
+		func(query string, expectedDropletList payloads.AppDropletsList) {
+			actualDropletList, decodeErr := decodeQuery[payloads.AppDropletsList](query)
+
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualDropletList).To(Equal(expectedDropletList))
+		},
+		Entry("guids", "guids=guid", payloads.AppDropletsList{GUIDs: "guid"}),
+		Entry("order_by created_at", "order_by=created_at", payloads.AppDropletsList{OrderBy: "created_at"}),
+		Entry("order_by -created_at", "order_by=-created_at", payloads.AppDropletsList{OrderBy: "-created_at"}),
+		Entry("order_by updated_at", "order_by=updated_at", payloads.AppDropletsList{OrderBy: "updated_at"}),
+		Entry("order_by -updated_at", "order_by=-updated_at", payloads.AppDropletsList{OrderBy: "-updated_at"}),
+		Entry("pagination", "page=3", payloads.AppDropletsList{Pagination: payloads.Pagination{Page: "3"}}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.AppDropletsList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+		Entry("invalid parameter", "foo=bar", "unsupported query parameter: foo"),
+		Entry("invalid pagination", "per_page=foo", "value must be an integer"),
+	)
+
+	Describe("ToMessage", func() {
+		It("translates to repo message", func() {
+			dropletList := payloads.AppDropletsList{
+				GUIDs:   "g1,g2",
+				OrderBy: "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "3",
+					Page:    "2",
+				},
+			}
+			Expect(dropletList.ToMessage("ag1")).To(Equal(repositories.ListDropletsMessage{
+				GUIDs:    []string{"g1", "g2"},
+				AppGUIDs: []string{"ag1"},
+				OrderBy:  "created_at",
+				Pagination: repositories.Pagination{
+					Page:    2,
+					PerPage: 3,
+				},
+			}))
+		})
+	})
+})
+
+var _ = Describe("AppPackageList", func() {
+	DescribeTable("valid query",
+		func(query string, expectedDropletList payloads.AppPackagesList) {
+			actualDropletList, decodeErr := decodeQuery[payloads.AppPackagesList](query)
+
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualDropletList).To(Equal(expectedDropletList))
+		},
+		Entry("order_by created_at", "order_by=created_at", payloads.AppPackagesList{OrderBy: "created_at"}),
+		Entry("order_by -created_at", "order_by=-created_at", payloads.AppPackagesList{OrderBy: "-created_at"}),
+		Entry("order_by updated_at", "order_by=updated_at", payloads.AppPackagesList{OrderBy: "updated_at"}),
+		Entry("order_by -updated_at", "order_by=-updated_at", payloads.AppPackagesList{OrderBy: "-updated_at"}),
+		Entry("pagination", "page=3", payloads.AppPackagesList{Pagination: payloads.Pagination{Page: "3"}}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.AppPackagesList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+		Entry("invalid parameter", "foo=bar", "unsupported query parameter: foo"),
+		Entry("invalid pagination", "per_page=foo", "value must be an integer"),
+	)
+
+	Describe("ToMessage", func() {
+		It("translates to repo message", func() {
+			dropletList := payloads.AppPackagesList{
+				OrderBy: "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "3",
+					Page:    "2",
+				},
+			}
+			Expect(dropletList.ToMessage("ag1")).To(Equal(repositories.ListPackagesMessage{
+				AppGUIDs: []string{"ag1"},
+				OrderBy:  "created_at",
+				Pagination: repositories.Pagination{
+					Page:    2,
+					PerPage: 3,
+				},
+			}))
+		})
+	})
+})
+
+var _ = Describe("AppProcessList", func() {
+	DescribeTable("valid query",
+		func(query string, expectedDropletList payloads.AppProcessList) {
+			actualDropletList, decodeErr := decodeQuery[payloads.AppProcessList](query)
+
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualDropletList).To(Equal(expectedDropletList))
+		},
+		Entry("order_by created_at", "order_by=created_at", payloads.AppProcessList{OrderBy: "created_at"}),
+		Entry("order_by -created_at", "order_by=-created_at", payloads.AppProcessList{OrderBy: "-created_at"}),
+		Entry("order_by updated_at", "order_by=updated_at", payloads.AppProcessList{OrderBy: "updated_at"}),
+		Entry("order_by -updated_at", "order_by=-updated_at", payloads.AppProcessList{OrderBy: "-updated_at"}),
+		Entry("pagination", "page=3", payloads.AppProcessList{Pagination: payloads.Pagination{Page: "3"}}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.AppProcessList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+		Entry("invalid parameter", "foo=bar", "unsupported query parameter: foo"),
+		Entry("invalid pagination", "per_page=foo", "value must be an integer"),
+	)
+
+	Describe("ToMessage", func() {
+		It("translates to repo message", func() {
+			dropletList := payloads.AppProcessList{
+				OrderBy: "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "3",
+					Page:    "2",
+				},
+			}
+			Expect(dropletList.ToMessage("ag1")).To(Equal(repositories.ListProcessesMessage{
+				AppGUIDs: []string{"ag1"},
+				OrderBy:  "created_at",
+				Pagination: repositories.Pagination{
+					Page:    2,
+					PerPage: 3,
+				},
+			}))
+		})
+	})
+})

@@ -207,8 +207,8 @@ func (h Package) listDroplets(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.package.list-droplets")
 
-	packageListDroplets := new(payloads.PackageListDroplets)
-	if err := h.requestValidator.DecodeAndValidateURLValues(r, packageListDroplets); err != nil {
+	payload := new(payloads.PackageDropletList)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
@@ -217,9 +217,7 @@ func (h Package) listDroplets(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Error fetching package with repository")
 	}
 
-	dropletListMessage := packageListDroplets.ToMessage([]string{packageGUID})
-
-	dropletList, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, dropletListMessage)
+	dropletList, err := h.dropletRepo.ListDroplets(r.Context(), authInfo, payload.ToMessage(packageGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Error fetching droplet list with repository")
 	}
