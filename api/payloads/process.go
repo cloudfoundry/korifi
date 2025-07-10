@@ -4,8 +4,9 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
+	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"github.com/jellydator/validation"
+	jellidation "github.com/jellydator/validation"
 )
 
 type ProcessScale struct {
@@ -15,10 +16,10 @@ type ProcessScale struct {
 }
 
 func (p ProcessScale) Validate() error {
-	return validation.ValidateStruct(&p,
-		validation.Field(&p.Instances, validation.Min(0).Error("must be 0 or greater")),
-		validation.Field(&p.MemoryMB, validation.Min(1).Error("must be greater than 0")),
-		validation.Field(&p.DiskMB, validation.Min(1).Error("must be greater than 0")),
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.Instances, jellidation.Min(0).Error("must be 0 or greater")),
+		jellidation.Field(&p.MemoryMB, jellidation.Min(1).Error("must be greater than 0")),
+		jellidation.Field(&p.DiskMB, jellidation.Min(1).Error("must be greater than 0")),
 	)
 }
 
@@ -49,28 +50,32 @@ func (p ProcessScale) ToRecord() repositories.ProcessScaleValues {
 
 type ProcessList struct {
 	AppGUIDs   string
+	OrderBy    string
 	Pagination Pagination
 }
 
 func (p ProcessList) Validate() error {
-	return validation.ValidateStruct(&p,
-		validation.Field(&p.Pagination),
+	return jellidation.ValidateStruct(&p,
+		jellidation.Field(&p.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
+		jellidation.Field(&p.Pagination),
 	)
 }
 
 func (p *ProcessList) ToMessage() repositories.ListProcessesMessage {
 	return repositories.ListProcessesMessage{
 		AppGUIDs:   parse.ArrayParam(p.AppGUIDs),
+		OrderBy:    p.OrderBy,
 		Pagination: p.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
 func (p *ProcessList) SupportedKeys() []string {
-	return []string{"app_guids", "per_page", "page"}
+	return []string{"app_guids", "order_by", "per_page", "page"}
 }
 
 func (p *ProcessList) DecodeFromURLValues(values url.Values) error {
 	p.AppGUIDs = values.Get("app_guids")
+	p.OrderBy = values.Get("order_by")
 	return p.Pagination.DecodeFromURLValues(values)
 }
 

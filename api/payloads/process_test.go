@@ -20,6 +20,10 @@ var _ = Describe("ProcessList", func() {
 			},
 
 			Entry("app_guids", "app_guids=guid1,guid2", payloads.ProcessList{AppGUIDs: "guid1,guid2"}),
+			Entry("created_at", "order_by=created_at", payloads.ProcessList{OrderBy: "created_at"}),
+			Entry("-created_at", "order_by=-created_at", payloads.ProcessList{OrderBy: "-created_at"}),
+			Entry("updated_at", "order_by=updated_at", payloads.ProcessList{OrderBy: "updated_at"}),
+			Entry("-updated_at", "order_by=-updated_at", payloads.ProcessList{OrderBy: "-updated_at"}),
 			Entry("page=3", "page=3", payloads.ProcessList{Pagination: payloads.Pagination{Page: "3"}}),
 		)
 
@@ -28,6 +32,7 @@ var _ = Describe("ProcessList", func() {
 				_, decodeErr := decodeQuery[payloads.ProcessList](query)
 				Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
 			},
+			Entry("invalid order_by", "order_by=foo", "value must be one of"),
 			Entry("per_page is not a number", "per_page=foo", "value must be an integer"),
 		)
 	})

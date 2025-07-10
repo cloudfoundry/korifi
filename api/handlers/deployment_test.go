@@ -243,11 +243,8 @@ var _ = Describe("Deployment", func() {
 			_, actualAuthInfo, actualMessage := deploymentsRepo.ListDeploymentsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualMessage).To(Equal(repositories.ListDeploymentsMessage{
-				AppGUIDs: []string{"bob", "alice"},
-				Pagination: repositories.Pagination{
-					PerPage: 50,
-					Page:    1,
-				},
+				AppGUIDs:   []string{"bob", "alice"},
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
 			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))

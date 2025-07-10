@@ -369,6 +369,13 @@ var _ = Describe("Process", func() {
 			req, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
 			Expect(req.URL.String()).To(HaveSuffix("/v3/processes"))
 
+			Expect(processRepo.ListProcessesCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualMessage := processRepo.ListProcessesArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListProcessesMessage{
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+			}))
+
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -377,19 +384,23 @@ var _ = Describe("Process", func() {
 			)))
 		})
 
-		When("app_guids query parameter is provided", func() {
+		When("filtering query params are provided", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ProcessList{
-					AppGUIDs: "my-app-guid",
+					AppGUIDs:   "app-guid,app-guid2",
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
 				})
 			})
 
-			It("invokes process repository with correct args", func() {
+			It("passes them to the repository", func() {
+				Expect(processRepo.ListProcessesCallCount()).To(Equal(1))
 				_, _, message := processRepo.ListProcessesArgsForCall(0)
-				Expect(message.AppGUIDs).To(HaveLen(1))
-				Expect(message.AppGUIDs[0]).To(Equal("my-app-guid"))
-
-				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(message).To(Equal(repositories.ListProcessesMessage{
+					AppGUIDs:   []string{"app-guid", "app-guid2"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
 			})
 		})
 
