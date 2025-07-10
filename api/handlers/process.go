@@ -217,13 +217,13 @@ func (h *Process) list(r *http.Request) (*routing.Response, error) { //nolint:du
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.process.list")
 
-	processListFilter := new(payloads.ProcessList)
-	err := h.requestValidator.DecodeAndValidateURLValues(r, processListFilter)
+	payload := new(payloads.ProcessList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, payload)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	processList, err := h.processRepo.ListProcesses(r.Context(), authInfo, processListFilter.ToMessage())
+	processList, err := h.processRepo.ListProcesses(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch processes(s) from Kubernetes")
 	}

@@ -176,6 +176,30 @@ var _ = Describe("Package", func() {
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 		})
 
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.PackageList{
+					GUIDs:      "packageGUID,anotherPackageGUID",
+					AppGUIDs:   appGUID,
+					States:     "UPLOADING,READY",
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(packageRepo.ListPackagesCallCount()).To(Equal(1))
+				_, _, message := packageRepo.ListPackagesArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListPackagesMessage{
+					GUIDs:      []string{"packageGUID", "anotherPackageGUID"},
+					AppGUIDs:   []string{appGUID},
+					States:     []string{"UPLOADING", "READY"},
+					OrderBy:    "created_at",
+					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
+		})
+
 		When("request is invalid", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesReturns(errors.New("foo"))
@@ -728,10 +752,7 @@ var _ = Describe("Package", func() {
 			_, _, dropletListMessage := dropletRepo.ListDropletsArgsForCall(0)
 			Expect(dropletListMessage).To(Equal(repositories.ListDropletsMessage{
 				PackageGUIDs: []string{packageGUID},
-				Pagination: repositories.Pagination{
-					PerPage: 50,
-					Page:    1,
-				},
+				Pagination:   repositories.Pagination{PerPage: 50, Page: 1},
 			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
@@ -743,6 +764,25 @@ var _ = Describe("Package", func() {
 				MatchJSONPath("$.resources[0].guid", Equal(dropletGUID)),
 				MatchJSONPath("$.resources[0].state", Equal("STAGED")),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.PackageDropletList{
+					OrderBy:    "created_at",
+					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(dropletRepo.ListDropletsCallCount()).To(Equal(1))
+				_, _, message := dropletRepo.ListDropletsArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListDropletsMessage{
+					OrderBy:      "created_at",
+					PackageGUIDs: []string{packageGUID},
+					Pagination:   repositories.Pagination{PerPage: 16, Page: 32},
+				}))
+			})
 		})
 
 		When("an error occurs while fetching the package", func() {

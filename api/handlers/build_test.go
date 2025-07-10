@@ -157,10 +157,7 @@ var _ = Describe("Build", func() {
 			_, actualAuthInfo, actualMessage := buildRepo.ListBuildsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualMessage).To(Equal(repositories.ListBuildsMessage{
-				Pagination: repositories.Pagination{
-					PerPage: 50,
-					Page:    1,
-				},
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
 			}))
 
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))

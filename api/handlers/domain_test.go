@@ -292,11 +292,8 @@ var _ = Describe("Domain", func() {
 			_, actualAuthInfo, actualMessage := domainRepo.ListDomainsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualMessage).To(Equal(repositories.ListDomainsMessage{
-				Names: []string{"bob", "alice"},
-				Pagination: repositories.Pagination{
-					PerPage: 50,
-					Page:    1,
-				},
+				Names:      []string{"bob", "alice"},
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
 			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))

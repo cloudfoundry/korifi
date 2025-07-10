@@ -69,10 +69,7 @@ var _ = Describe("Buildpack", func() {
 			_, actualAuthInfo, actualMessage := buildpackRepo.ListBuildpacksArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualMessage).To(Equal(repositories.ListBuildpacksMessage{
-				Pagination: repositories.Pagination{
-					PerPage: 50,
-					Page:    1,
-				},
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
 			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))

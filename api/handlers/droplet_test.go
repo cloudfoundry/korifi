@@ -165,10 +165,7 @@ var _ = Describe("Droplet", func() {
 			_, actualAuthInfo, actualMessage := dropletRepo.ListDropletsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualMessage).To(Equal(repositories.ListDropletsMessage{
-				Pagination: repositories.Pagination{
-					PerPage: 50,
-					Page:    1,
-				},
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
 			}))
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
