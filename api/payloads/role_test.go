@@ -10,7 +10,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
-	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -204,11 +203,11 @@ var _ = Describe("RoleList", func() {
 			Expect(*actualRoleListQueryParameters).To(Equal(expectedRoleListQueryParameters))
 		},
 
-		Entry("guids", "guids=g1,g2", payloads.RoleList{GUIDs: map[string]bool{"g1": true, "g2": true}}),
-		Entry("types", "types=g1,g2", payloads.RoleList{Types: map[string]bool{"g1": true, "g2": true}}),
-		Entry("space_guids", "space_guids=g1,g2", payloads.RoleList{SpaceGUIDs: map[string]bool{"g1": true, "g2": true}}),
-		Entry("organization_guids", "organization_guids=g1,g2", payloads.RoleList{OrgGUIDs: map[string]bool{"g1": true, "g2": true}}),
-		Entry("user_guids", "user_guids=g1,g2", payloads.RoleList{UserGUIDs: map[string]bool{"g1": true, "g2": true}}),
+		Entry("guids", "guids=g1,g2", payloads.RoleList{GUIDs: "g1,g2"}),
+		Entry("types", "types=t1,t2", payloads.RoleList{Types: "t1,t2"}),
+		Entry("space_guids", "space_guids=s1,s2", payloads.RoleList{SpaceGUIDs: "s1,s2"}),
+		Entry("organization_guids", "organization_guids=o1,o2", payloads.RoleList{OrgGUIDs: "o1,o2"}),
+		Entry("user_guids", "user_guids=u1,u2", payloads.RoleList{UserGUIDs: "u1,u2"}),
 		Entry("order_by1", "order_by=created_at", payloads.RoleList{OrderBy: "created_at"}),
 		Entry("order_by2", "order_by=-created_at", payloads.RoleList{OrderBy: "-created_at"}),
 		Entry("order_by3", "order_by=updated_at", payloads.RoleList{OrderBy: "updated_at"}),
@@ -234,11 +233,11 @@ var _ = Describe("RoleList", func() {
 
 		BeforeEach(func() {
 			roleList = payloads.RoleList{
-				GUIDs:      helpers.Set("g1", "g2"),
-				Types:      helpers.Set("space_manager", "space_auditor"),
-				SpaceGUIDs: helpers.Set("space1", "space2"),
-				OrgGUIDs:   helpers.Set("org1", "org2"),
-				UserGUIDs:  helpers.Set("user1", "user2"),
+				GUIDs:      "g1,g2",
+				Types:      "space_manager,space_auditor",
+				SpaceGUIDs: "space1,space2",
+				OrgGUIDs:   "org1,org2",
+				UserGUIDs:  "user1,user2",
 				OrderBy:    "created_at",
 				Pagination: payloads.Pagination{
 					PerPage: "10",
@@ -253,11 +252,11 @@ var _ = Describe("RoleList", func() {
 
 		It("translates to repository message", func() {
 			Expect(message).To(Equal(repositories.ListRolesMessage{
-				GUIDs:      helpers.Set("g1", "g2"),
-				Types:      helpers.Set("space_manager", "space_auditor"),
-				SpaceGUIDs: helpers.Set("space1", "space2"),
-				OrgGUIDs:   helpers.Set("org1", "org2"),
-				UserGUIDs:  helpers.Set("user1", "user2"),
+				GUIDs:      []string{"g1", "g2"},
+				Types:      []string{"space_manager", "space_auditor"},
+				SpaceGUIDs: []string{"space1", "space2"},
+				OrgGUIDs:   []string{"org1", "org2"},
+				UserGUIDs:  []string{"user1", "user2"},
 				OrderBy:    "created_at",
 				Pagination: repositories.Pagination{
 					PerPage: 10,

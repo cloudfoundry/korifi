@@ -132,25 +132,21 @@ func RoleComparator(fieldName string) func(RoleRecord, RoleRecord) int {
 }
 
 type ListRolesMessage struct {
-	GUIDs      map[string]bool
-	Types      map[string]bool
-	SpaceGUIDs map[string]bool
-	OrgGUIDs   map[string]bool
-	UserGUIDs  map[string]bool
+	GUIDs      []string
+	Types      []string
+	SpaceGUIDs []string
+	OrgGUIDs   []string
+	UserGUIDs  []string
 	OrderBy    string
 	Pagination Pagination
 }
 
 func (m *ListRolesMessage) matches(role RoleRecord) bool {
-	return match(m.GUIDs, role.GUID) &&
-		match(m.Types, role.Type) &&
-		match(m.SpaceGUIDs, role.Space) &&
-		match(m.OrgGUIDs, role.Org) &&
-		match(m.UserGUIDs, role.User)
-}
-
-func match(allowedValues map[string]bool, val string) bool {
-	return len(allowedValues) == 0 || allowedValues[val]
+	return tools.EmptyOrContains(m.GUIDs, role.GUID) &&
+		tools.EmptyOrContains(m.Types, role.Type) &&
+		tools.EmptyOrContains(m.SpaceGUIDs, role.Space) &&
+		tools.EmptyOrContains(m.OrgGUIDs, role.Org) &&
+		tools.EmptyOrContains(m.UserGUIDs, role.User)
 }
 
 func NewRoleRepo(

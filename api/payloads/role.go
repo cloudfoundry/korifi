@@ -3,9 +3,9 @@ package payloads
 import (
 	"context"
 	"net/url"
-	"strings"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/payloads/parse"
 	"code.cloudfoundry.org/korifi/api/payloads/validation"
 	jellidation "github.com/jellydator/validation"
 
@@ -131,22 +131,22 @@ type UserRelationshipData struct {
 }
 
 type RoleList struct {
-	GUIDs      map[string]bool
-	Types      map[string]bool
-	SpaceGUIDs map[string]bool
-	OrgGUIDs   map[string]bool
-	UserGUIDs  map[string]bool
+	GUIDs      string
+	Types      string
+	SpaceGUIDs string
+	OrgGUIDs   string
+	UserGUIDs  string
 	OrderBy    string
 	Pagination Pagination
 }
 
 func (r RoleList) ToMessage() repositories.ListRolesMessage {
 	return repositories.ListRolesMessage{
-		GUIDs:      r.GUIDs,
-		Types:      r.Types,
-		SpaceGUIDs: r.SpaceGUIDs,
-		OrgGUIDs:   r.OrgGUIDs,
-		UserGUIDs:  r.UserGUIDs,
+		GUIDs:      parse.ArrayParam(r.GUIDs),
+		Types:      parse.ArrayParam(r.Types),
+		SpaceGUIDs: parse.ArrayParam(r.SpaceGUIDs),
+		OrgGUIDs:   parse.ArrayParam(r.OrgGUIDs),
+		UserGUIDs:  parse.ArrayParam(r.UserGUIDs),
 		OrderBy:    r.OrderBy,
 		Pagination: r.Pagination.ToMessage(DefaultPageSize),
 	}
@@ -157,11 +157,11 @@ func (r RoleList) SupportedKeys() []string {
 }
 
 func (r *RoleList) DecodeFromURLValues(values url.Values) error {
-	r.GUIDs = commaSepToSet(values.Get("guids"))
-	r.Types = commaSepToSet(values.Get("types"))
-	r.SpaceGUIDs = commaSepToSet(values.Get("space_guids"))
-	r.OrgGUIDs = commaSepToSet(values.Get("organization_guids"))
-	r.UserGUIDs = commaSepToSet(values.Get("user_guids"))
+	r.GUIDs = values.Get("guids")
+	r.Types = values.Get("types")
+	r.SpaceGUIDs = values.Get("space_guids")
+	r.OrgGUIDs = values.Get("organization_guids")
+	r.UserGUIDs = values.Get("user_guids")
 	r.OrderBy = values.Get("order_by")
 	return r.Pagination.DecodeFromURLValues(values)
 }
@@ -171,17 +171,4 @@ func (r RoleList) Validate() error {
 		jellidation.Field(&r.OrderBy, validation.OneOfOrderBy("created_at", "updated_at")),
 		jellidation.Field(&r.Pagination),
 	)
-}
-
-func commaSepToSet(in string) map[string]bool {
-	if in == "" {
-		return nil
-	}
-
-	out := map[string]bool{}
-	for _, s := range strings.Split(in, ",") {
-		out[s] = true
-	}
-
-	return out
 }
