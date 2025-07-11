@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
-	"code.cloudfoundry.org/korifi/tests/helpers"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -206,11 +205,11 @@ var _ = Describe("Role", func() {
 		When("filtering query params are provided", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.RoleList{
-					GUIDs:      helpers.Set("g1", "g2"),
-					Types:      helpers.Set("space_manager", "space_auditor"),
-					SpaceGUIDs: helpers.Set("space1", "space2"),
-					OrgGUIDs:   helpers.Set("org1", "org2"),
-					UserGUIDs:  helpers.Set("user1", "user2"),
+					GUIDs:      "g1,g2",
+					Types:      "space_manager,space_auditor",
+					SpaceGUIDs: "space1,space2",
+					OrgGUIDs:   "org1,org2",
+					UserGUIDs:  "user1,user2",
 					OrderBy:    "created_at",
 					Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
 				})
@@ -220,11 +219,11 @@ var _ = Describe("Role", func() {
 				Expect(roleRepo.ListRolesCallCount()).To(Equal(1))
 				_, _, message := roleRepo.ListRolesArgsForCall(0)
 				Expect(message).To(Equal(repositories.ListRolesMessage{
-					GUIDs:      helpers.Set("g1", "g2"),
-					Types:      helpers.Set("space_manager", "space_auditor"),
-					SpaceGUIDs: helpers.Set("space1", "space2"),
-					OrgGUIDs:   helpers.Set("org1", "org2"),
-					UserGUIDs:  helpers.Set("user1", "user2"),
+					GUIDs:      []string{"g1", "g2"},
+					Types:      []string{"space_manager", "space_auditor"},
+					SpaceGUIDs: []string{"space1", "space2"},
+					OrgGUIDs:   []string{"org1", "org2"},
+					UserGUIDs:  []string{"user1", "user2"},
 					OrderBy:    "created_at",
 					Pagination: repositories.Pagination{PerPage: 16, Page: 32},
 				}))

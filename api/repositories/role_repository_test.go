@@ -11,7 +11,6 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
@@ -491,7 +490,7 @@ var _ = Describe("RoleRepository", func() {
 			Describe("filtering", func() {
 				When("filtering by guid", func() {
 					BeforeEach(func() {
-						message.GUIDs = helpers.Set("1", "2")
+						message.GUIDs = []string{"1", "2"}
 					})
 
 					It("returns only the role with that guid", func() {
@@ -510,7 +509,7 @@ var _ = Describe("RoleRepository", func() {
 
 				When("filtering by type", func() {
 					BeforeEach(func() {
-						message.Types = helpers.Set("space_developer")
+						message.Types = []string{"space_developer"}
 					})
 
 					It("returns only the role with that guid", func() {
@@ -529,7 +528,7 @@ var _ = Describe("RoleRepository", func() {
 
 				When("filtering by space guid", func() {
 					BeforeEach(func() {
-						message.SpaceGUIDs = helpers.Set(cfSpace.Name)
+						message.SpaceGUIDs = []string{cfSpace.Name}
 					})
 
 					It("returns only the role with that guid", func() {
@@ -548,7 +547,7 @@ var _ = Describe("RoleRepository", func() {
 
 				When("filtering by org guid", func() {
 					BeforeEach(func() {
-						message.OrgGUIDs = helpers.Set(cfOrg.Name)
+						message.OrgGUIDs = []string{cfOrg.Name}
 					})
 
 					It("returns only the role with that guid", func() {
@@ -567,7 +566,7 @@ var _ = Describe("RoleRepository", func() {
 
 				When("filtering by user guid", func() {
 					BeforeEach(func() {
-						message.UserGUIDs = helpers.Set("my-user", userName)
+						message.UserGUIDs = []string{"my-user", userName}
 					})
 
 					It("returns only the role with that guid", func() {
