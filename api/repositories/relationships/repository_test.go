@@ -164,7 +164,17 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 				"service_plan": "service-plan-guid",
 			})
 
-			servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{GUID: "service-plan-guid"}}, nil)
+			servicePlanRepo.ListPlansReturns(repositories.ListResult[repositories.ServicePlanRecord]{
+				Records: []repositories.ServicePlanRecord{
+					{GUID: "service-plan-guid"},
+				},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     1,
+				},
+			}, nil)
 		})
 
 		It("delegates to the service_plan repository", func() {
@@ -182,7 +192,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 
 		When("the underlying repo returns an error", func() {
 			BeforeEach(func() {
-				servicePlanRepo.ListPlansReturns(nil, errors.New("list-plan-error"))
+				servicePlanRepo.ListPlansReturns(repositories.ListResult[repositories.ServicePlanRecord]{}, errors.New("list-plan-error"))
 			})
 
 			It("returns an error", func() {

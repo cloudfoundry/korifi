@@ -123,7 +123,7 @@ func (h *ServiceOffering) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForServiceOffering, serviceOfferingList.Records, h.serverURL, *r.URL, includedResources...)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServiceOffering, serviceOfferingList, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 func (h *ServiceOffering) delete(r *http.Request) (*routing.Response, error) {

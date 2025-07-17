@@ -23,7 +23,7 @@ type ServiceBrokerRepository interface {
 
 //counterfeiter:generate -o fake -fake-name ServicePlanRepository . ServicePlanRepository
 type ServicePlanRepository interface {
-	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
+	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) (repositories.ListResult[repositories.ServicePlanRecord], error)
 }
 
 //counterfeiter:generate -o fake -fake-name SpaceRepository . SpaceRepository
@@ -78,20 +78,18 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 
 	switch relatedResourceType {
 	case "service_offering":
-		offerings, err := r.serviceOfferingRepo.ListOfferings(
+		return asResources(r.serviceOfferingRepo.ListOfferings(
 			ctx,
 			authInfo,
 			repositories.ListServiceOfferingMessage{GUIDs: relatedResourceGUIDs},
-		)
-		return asResources(offerings.Records, err)
+		))
 
 	case "service_broker":
-		brokers, err := r.serviceBrokerRepo.ListServiceBrokers(
+		return asResources(r.serviceBrokerRepo.ListServiceBrokers(
 			ctx,
 			authInfo,
 			repositories.ListServiceBrokerMessage{GUIDs: relatedResourceGUIDs},
-		)
-		return asResources(brokers.Records, err)
+		))
 	case "service_plan":
 		return asResources(r.servicePlanRepo.ListPlans(
 			ctx,
@@ -99,25 +97,30 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 			repositories.ListServicePlanMessage{GUIDs: relatedResourceGUIDs},
 		))
 	case "space":
-		return asResources(r.spaceRepo.ListSpaces(
+		return asResourcesDeprecated(r.spaceRepo.ListSpaces(
 			ctx,
 			authInfo,
 			repositories.ListSpacesMessage{GUIDs: relatedResourceGUIDs},
 		))
 
 	case "organization":
-		listResult, err := r.orgRepo.ListOrgs(
+		return asResources(r.orgRepo.ListOrgs(
 			ctx,
 			authInfo,
 			repositories.ListOrgsMessage{GUIDs: relatedResourceGUIDs},
-		)
-		return asResources(listResult.Records, err)
+		))
 	}
 
 	return nil, fmt.Errorf("no repository for type %q", relatedResourceType)
 }
 
-func asResources[S ~[]E, E Resource](resources S, err error) ([]Resource, error) {
+func asResources[S []E, E Resource](resources repositories.ListResult[E], err error) ([]Resource, error) {
+	return slices.Collect(it.Map(itx.FromSlice(resources.Records), func(o E) Resource {
+		return o
+	})), err
+}
+
+func asResourcesDeprecated[S ~[]E, E Resource](resources S, err error) ([]Resource, error) {
 	return slices.Collect(it.Map(itx.FromSlice(resources), func(o E) Resource {
 		return o
 	})), err

@@ -11,7 +11,7 @@ import (
 )
 
 type ServicePlanRepository struct {
-	ListPlansStub        func(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
+	ListPlansStub        func(context.Context, authorization.Info, repositories.ListServicePlanMessage) (repositories.ListResult[repositories.ServicePlanRecord], error)
 	listPlansMutex       sync.RWMutex
 	listPlansArgsForCall []struct {
 		arg1 context.Context
@@ -19,18 +19,18 @@ type ServicePlanRepository struct {
 		arg3 repositories.ListServicePlanMessage
 	}
 	listPlansReturns struct {
-		result1 []repositories.ServicePlanRecord
+		result1 repositories.ListResult[repositories.ServicePlanRecord]
 		result2 error
 	}
 	listPlansReturnsOnCall map[int]struct {
-		result1 []repositories.ServicePlanRecord
+		result1 repositories.ListResult[repositories.ServicePlanRecord]
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ServicePlanRepository) ListPlans(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error) {
+func (fake *ServicePlanRepository) ListPlans(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServicePlanMessage) (repositories.ListResult[repositories.ServicePlanRecord], error) {
 	fake.listPlansMutex.Lock()
 	ret, specificReturn := fake.listPlansReturnsOnCall[len(fake.listPlansArgsForCall)]
 	fake.listPlansArgsForCall = append(fake.listPlansArgsForCall, struct {
@@ -57,7 +57,7 @@ func (fake *ServicePlanRepository) ListPlansCallCount() int {
 	return len(fake.listPlansArgsForCall)
 }
 
-func (fake *ServicePlanRepository) ListPlansCalls(stub func(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)) {
+func (fake *ServicePlanRepository) ListPlansCalls(stub func(context.Context, authorization.Info, repositories.ListServicePlanMessage) (repositories.ListResult[repositories.ServicePlanRecord], error)) {
 	fake.listPlansMutex.Lock()
 	defer fake.listPlansMutex.Unlock()
 	fake.ListPlansStub = stub
@@ -70,28 +70,28 @@ func (fake *ServicePlanRepository) ListPlansArgsForCall(i int) (context.Context,
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *ServicePlanRepository) ListPlansReturns(result1 []repositories.ServicePlanRecord, result2 error) {
+func (fake *ServicePlanRepository) ListPlansReturns(result1 repositories.ListResult[repositories.ServicePlanRecord], result2 error) {
 	fake.listPlansMutex.Lock()
 	defer fake.listPlansMutex.Unlock()
 	fake.ListPlansStub = nil
 	fake.listPlansReturns = struct {
-		result1 []repositories.ServicePlanRecord
+		result1 repositories.ListResult[repositories.ServicePlanRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *ServicePlanRepository) ListPlansReturnsOnCall(i int, result1 []repositories.ServicePlanRecord, result2 error) {
+func (fake *ServicePlanRepository) ListPlansReturnsOnCall(i int, result1 repositories.ListResult[repositories.ServicePlanRecord], result2 error) {
 	fake.listPlansMutex.Lock()
 	defer fake.listPlansMutex.Unlock()
 	fake.ListPlansStub = nil
 	if fake.listPlansReturnsOnCall == nil {
 		fake.listPlansReturnsOnCall = make(map[int]struct {
-			result1 []repositories.ServicePlanRecord
+			result1 repositories.ListResult[repositories.ServicePlanRecord]
 			result2 error
 		})
 	}
 	fake.listPlansReturnsOnCall[i] = struct {
-		result1 []repositories.ServicePlanRecord
+		result1 repositories.ListResult[repositories.ServicePlanRecord]
 		result2 error
 	}{result1, result2}
 }

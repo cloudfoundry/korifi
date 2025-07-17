@@ -98,6 +98,8 @@ type ListServicePlanMessage struct {
 	BrokerNames          []string
 	BrokerGUIDs          []string
 	Available            *bool
+	OrderBy              string
+	Pagination           Pagination
 }
 
 func (m *ListServicePlanMessage) toListOptions() []ListOption {
@@ -108,16 +110,20 @@ func (m *ListServicePlanMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValuesToSha224(m.BrokerNames...)),
 		WithLabelIn(korifiv1alpha1.RelServiceBrokerGUIDLabel, m.BrokerGUIDs),
 		WithLabelIn(korifiv1alpha1.RelServiceOfferingNameLabel, tools.EncodeValuesToSha224(m.ServiceOfferingNames...)),
-		m.toAvailableListOption(),
+		WithOrdering(m.OrderBy,
+			"name", "Display Name",
+		),
+		WithPaging(m.Pagination),
+		withAvailable(m.Available),
 	}
 }
 
-func (m *ListServicePlanMessage) toAvailableListOption() ListOption {
-	if m.Available == nil {
+func withAvailable(available *bool) ListOption {
+	if available == nil {
 		return NoopListOption{}
 	}
 
-	if *m.Available {
+	if *available {
 		return WithLabel(korifiv1alpha1.CFServicePlanAvailableKey, "true")
 	}
 
@@ -177,15 +183,24 @@ func NewServicePlanRepo(
 	}
 }
 
-func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) ([]ServicePlanRecord, error) {
+func (r *ServicePlanRepo) ListPlans(ctx context.Context, authInfo authorization.Info, message ListServicePlanMessage) (ListResult[ServicePlanRecord], error) {
 	cfServicePlans := &korifiv1alpha1.CFServicePlanList{}
-	if _, err := r.klient.List(ctx, cfServicePlans, message.toListOptions()...); err != nil {
-		return nil, apierrors.FromK8sError(err, ServicePlanResourceType)
+	pageInfo, err := r.klient.List(ctx, cfServicePlans, message.toListOptions()...)
+	if err != nil {
+		return ListResult[ServicePlanRecord]{}, apierrors.FromK8sError(err, ServicePlanResourceType)
 	}
 
-	return it.TryCollect(it.MapError(slices.Values(cfServicePlans.Items), func(plan korifiv1alpha1.CFServicePlan) (ServicePlanRecord, error) {
+	records, err := it.TryCollect(it.MapError(slices.Values(cfServicePlans.Items), func(plan korifiv1alpha1.CFServicePlan) (ServicePlanRecord, error) {
 		return r.planToRecord(ctx, authInfo, plan)
 	}))
+	if err != nil {
+		return ListResult[ServicePlanRecord]{}, fmt.Errorf("failed to convert service plan: %w", err)
+	}
+
+	return ListResult[ServicePlanRecord]{
+		Records:  records,
+		PageInfo: pageInfo,
+	}, nil
 }
 
 func (r *ServicePlanRepo) GetPlan(ctx context.Context, authInfo authorization.Info, planGUID string) (ServicePlanRecord, error) {

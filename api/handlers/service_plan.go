@@ -26,7 +26,7 @@ const (
 //counterfeiter:generate -o fake -fake-name CFServicePlanRepository . CFServicePlanRepository
 type CFServicePlanRepository interface {
 	GetPlan(context.Context, authorization.Info, string) (repositories.ServicePlanRecord, error)
-	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) ([]repositories.ServicePlanRecord, error)
+	ListPlans(context.Context, authorization.Info, repositories.ListServicePlanMessage) (repositories.ListResult[repositories.ServicePlanRecord], error)
 	ApplyPlanVisibility(context.Context, authorization.Info, repositories.ApplyServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
 	UpdatePlanVisibility(context.Context, authorization.Info, repositories.UpdateServicePlanVisibilityMessage) (repositories.ServicePlanRecord, error)
 	DeletePlanVisibility(context.Context, authorization.Info, repositories.DeleteServicePlanVisibilityMessage) error
@@ -86,12 +86,12 @@ func (h *ServicePlan) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list service plans")
 	}
 
-	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, servicePlans, payload.IncludeResourceRules)
+	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, servicePlans.Records, payload.IncludeResourceRules)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForServicePlan, servicePlans, h.serverURL, *r.URL, includedResources...)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForServicePlan, servicePlans, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 func (h *ServicePlan) getPlanVisibility(r *http.Request) (*routing.Response, error) {

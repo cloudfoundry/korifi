@@ -45,12 +45,6 @@ var _ = Describe("ServiceOfferingList", func() {
 			Expect(*actualServiceOfferingList).To(Equal(expectedServiceOfferingList))
 		},
 		Entry("names", "names=b1,b2", payloads.ServiceOfferingList{Names: "b1,b2"}),
-		Entry("created_at", "order_by=created_at", payloads.ServiceOfferingList{OrderBy: "created_at"}),
-		Entry("-created_at", "order_by=-created_at", payloads.ServiceOfferingList{OrderBy: "-created_at"}),
-		Entry("updated_at", "order_by=updated_at", payloads.ServiceOfferingList{OrderBy: "updated_at"}),
-		Entry("-updated_at", "order_by=-updated_at", payloads.ServiceOfferingList{OrderBy: "-updated_at"}),
-		Entry("name", "order_by=name", payloads.ServiceOfferingList{OrderBy: "name"}),
-		Entry("-name", "order_by=-name", payloads.ServiceOfferingList{OrderBy: "-name"}),
 		Entry("service_broker_names", "service_broker_names=b1,b2", payloads.ServiceOfferingList{BrokerNames: "b1,b2"}),
 		Entry("fields[service_broker]", "fields[service_broker]=guid,name", payloads.ServiceOfferingList{
 			IncludeResourceRules: []params.IncludeResourceRule{{
@@ -58,6 +52,13 @@ var _ = Describe("ServiceOfferingList", func() {
 				Fields:           []string{"guid", "name"},
 			}},
 		}),
+		Entry("created_at", "order_by=created_at", payloads.ServiceOfferingList{OrderBy: "created_at"}),
+		Entry("-created_at", "order_by=-created_at", payloads.ServiceOfferingList{OrderBy: "-created_at"}),
+		Entry("updated_at", "order_by=updated_at", payloads.ServiceOfferingList{OrderBy: "updated_at"}),
+		Entry("-updated_at", "order_by=-updated_at", payloads.ServiceOfferingList{OrderBy: "-updated_at"}),
+		Entry("name", "order_by=name", payloads.ServiceOfferingList{OrderBy: "name"}),
+		Entry("-name", "order_by=-name", payloads.ServiceOfferingList{OrderBy: "-name"}),
+		Entry("page=3", "page=3", payloads.ServiceOfferingList{Pagination: payloads.Pagination{Page: "3"}}),
 	)
 
 	DescribeTable("invalid query",
