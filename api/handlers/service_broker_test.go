@@ -111,8 +111,11 @@ var _ = Describe("ServiceBroker", func() {
 
 		It("lists the service brokers", func() {
 			Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
+			_, actualAuthInfo, actualMessage := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListServiceBrokerMessage{
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+			}))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -127,6 +130,10 @@ var _ = Describe("ServiceBroker", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceBrokerList{
 					Names: "b1,b2",
+					Pagination: payloads.Pagination{
+						PerPage: "16",
+						Page:    "32",
+					},
 				})
 			})
 
@@ -134,7 +141,13 @@ var _ = Describe("ServiceBroker", func() {
 				Expect(serviceBrokerRepo.ListServiceBrokersCallCount()).To(Equal(1))
 				_, _, message := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
 
-				Expect(message.Names).To(ConsistOf("b1", "b2"))
+				Expect(message).To(Equal(repositories.ListServiceBrokerMessage{
+					Names: []string{"b1", "b2"},
+					Pagination: repositories.Pagination{
+						PerPage: 16,
+						Page:    32,
+					},
+				}))
 			})
 		})
 

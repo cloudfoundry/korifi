@@ -576,6 +576,7 @@ var _ = Describe("ServiceInstance", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualListMessage.Names).To(BeEmpty())
 			Expect(actualListMessage.SpaceGUIDs).To(BeEmpty())
+			Expect(actualListMessage.Pagination).To(Equal(repositories.Pagination{PerPage: 50, Page: 1}))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -595,6 +596,11 @@ var _ = Describe("ServiceInstance", func() {
 					GUIDs:         "g1,g2",
 					PlanGUIDs:     "p1,p2",
 					LabelSelector: "label=value",
+					OrderBy:       "created_at",
+					Pagination: payloads.Pagination{
+						PerPage: "16",
+						Page:    "32",
+					},
 				})
 			})
 
@@ -602,11 +608,18 @@ var _ = Describe("ServiceInstance", func() {
 				Expect(serviceInstanceRepo.ListServiceInstancesCallCount()).To(Equal(1))
 				_, _, message := serviceInstanceRepo.ListServiceInstancesArgsForCall(0)
 
-				Expect(message.Names).To(ConsistOf("sc1", "sc2"))
-				Expect(message.SpaceGUIDs).To(ConsistOf("space1", "space2"))
-				Expect(message.GUIDs).To(ConsistOf("g1", "g2"))
-				Expect(message.LabelSelector).To(Equal("label=value"))
-				Expect(message.PlanGUIDs).To(ConsistOf("p1", "p2"))
+				Expect(message).To(Equal(repositories.ListServiceInstanceMessage{
+					Pagination: repositories.Pagination{
+						PerPage: 16,
+						Page:    32,
+					},
+					Names:         []string{"sc1", "sc2"},
+					SpaceGUIDs:    []string{"space1", "space2"},
+					GUIDs:         []string{"g1", "g2"},
+					LabelSelector: "label=value",
+					OrderBy:       "created_at",
+					PlanGUIDs:     []string{"p1", "p2"},
+				}))
 			})
 		})
 

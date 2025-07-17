@@ -68,12 +68,12 @@ func (h *ServiceBroker) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.service-broker.list")
 
-	var serviceBrokerListFilter payloads.ServiceBrokerList
-	if err := h.requestValidator.DecodeAndValidateURLValues(r, &serviceBrokerListFilter); err != nil {
+	var payload payloads.ServiceBrokerList
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, &payload); err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode request values")
 	}
 
-	brokers, err := h.serviceBrokerRepo.ListServiceBrokers(r.Context(), authInfo, serviceBrokerListFilter.ToMessage())
+	brokers, err := h.serviceBrokerRepo.ListServiceBrokers(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list service brokers")
 	}

@@ -353,11 +353,15 @@ var _ = Describe("ServiceBinding", func() {
 			Expect(actualReq.URL.String()).To(HaveSuffix(requestPath))
 
 			Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
-			_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
-			Expect(message.AppGUIDs).To(ConsistOf([]string{"a1", "a2"}))
-			Expect(message.ServiceInstanceGUIDs).To(ConsistOf([]string{"s1", "s2"}))
-			Expect(message.LabelSelector).To(Equal("label=value"))
-			Expect(message.PlanGUIDs).To(ConsistOf("p1", "p2"))
+			_, actualAuthInfo, actualMessage := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListServiceBindingsMessage{
+				Pagination:           repositories.Pagination{PerPage: 50, Page: 1},
+				AppGUIDs:             []string{"a1", "a2"},
+				ServiceInstanceGUIDs: []string{"s1", "s2"},
+				LabelSelector:        "label=value",
+				PlanGUIDs:            []string{"p1", "p2"},
+			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -365,6 +369,36 @@ var _ = Describe("ServiceBinding", func() {
 				MatchJSONPath("$.pagination.total_results", BeEquivalentTo(1)),
 				MatchJSONPath("$.resources[0].guid", "service-binding-guid"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceBindingList{
+					AppGUIDs:             "app-guid,app-guid2",
+					ServiceInstanceGUIDs: "service-instance-guid,service-instance-guid2",
+					PlanGUIDs:            "plan-guid,plan-guid2",
+					OrderBy:              "created_at",
+					Pagination: payloads.Pagination{
+						PerPage: "16",
+						Page:    "32",
+					},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(serviceBindingRepo.ListServiceBindingsCallCount()).To(Equal(1))
+				_, _, message := serviceBindingRepo.ListServiceBindingsArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListServiceBindingsMessage{
+					AppGUIDs:             []string{"app-guid", "app-guid2"},
+					ServiceInstanceGUIDs: []string{"service-instance-guid", "service-instance-guid2"},
+					PlanGUIDs:            []string{"plan-guid", "plan-guid2"},
+					OrderBy:              "created_at",
+					Pagination: repositories.Pagination{
+						PerPage: 16,
+						Page:    32,
+					},
+				}))
+			})
 		})
 
 		When("there is an error fetching service binding", func() {
