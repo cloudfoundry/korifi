@@ -261,12 +261,6 @@ func (fake *CFDeploymentRepository) ListDeploymentsReturnsOnCall(i int, result1 
 func (fake *CFDeploymentRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createDeploymentMutex.RLock()
-	defer fake.createDeploymentMutex.RUnlock()
-	fake.getDeploymentMutex.RLock()
-	defer fake.getDeploymentMutex.RUnlock()
-	fake.listDeploymentsMutex.RLock()
-	defer fake.listDeploymentsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -499,18 +499,6 @@ func (fake *CFProcessRepository) ScaleProcessReturnsOnCall(i int, result1 reposi
 func (fake *CFProcessRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createProcessMutex.RLock()
-	defer fake.createProcessMutex.RUnlock()
-	fake.getAppRevisionMutex.RLock()
-	defer fake.getAppRevisionMutex.RUnlock()
-	fake.getProcessMutex.RLock()
-	defer fake.getProcessMutex.RUnlock()
-	fake.listProcessesMutex.RLock()
-	defer fake.listProcessesMutex.RUnlock()
-	fake.patchProcessMutex.RLock()
-	defer fake.patchProcessMutex.RUnlock()
-	fake.scaleProcessMutex.RLock()
-	defer fake.scaleProcessMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

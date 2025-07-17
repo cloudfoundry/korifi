@@ -99,8 +99,6 @@ func (fake *BuildpackRepository) ListBuildpacksReturnsOnCall(i int, result1 repo
 func (fake *BuildpackRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.listBuildpacksMutex.RLock()
-	defer fake.listBuildpacksMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -99,8 +99,6 @@ func (fake *ServicePlanRepository) ListPlansReturnsOnCall(i int, result1 []repos
 func (fake *ServicePlanRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.listPlansMutex.RLock()
-	defer fake.listPlansMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

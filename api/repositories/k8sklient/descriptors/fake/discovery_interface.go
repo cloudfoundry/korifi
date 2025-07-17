@@ -699,26 +699,6 @@ func (fake *DiscoveryInterface) WithLegacyReturnsOnCall(i int, result1 discovery
 func (fake *DiscoveryInterface) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.openAPISchemaMutex.RLock()
-	defer fake.openAPISchemaMutex.RUnlock()
-	fake.openAPIV3Mutex.RLock()
-	defer fake.openAPIV3Mutex.RUnlock()
-	fake.rESTClientMutex.RLock()
-	defer fake.rESTClientMutex.RUnlock()
-	fake.serverGroupsMutex.RLock()
-	defer fake.serverGroupsMutex.RUnlock()
-	fake.serverGroupsAndResourcesMutex.RLock()
-	defer fake.serverGroupsAndResourcesMutex.RUnlock()
-	fake.serverPreferredNamespacedResourcesMutex.RLock()
-	defer fake.serverPreferredNamespacedResourcesMutex.RUnlock()
-	fake.serverPreferredResourcesMutex.RLock()
-	defer fake.serverPreferredResourcesMutex.RUnlock()
-	fake.serverResourcesForGroupVersionMutex.RLock()
-	defer fake.serverResourcesForGroupVersionMutex.RUnlock()
-	fake.serverVersionMutex.RLock()
-	defer fake.serverVersionMutex.RUnlock()
-	fake.withLegacyMutex.RLock()
-	defer fake.withLegacyMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

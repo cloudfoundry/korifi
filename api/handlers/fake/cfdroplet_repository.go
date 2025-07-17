@@ -261,12 +261,6 @@ func (fake *CFDropletRepository) UpdateDropletReturnsOnCall(i int, result1 repos
 func (fake *CFDropletRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getDropletMutex.RLock()
-	defer fake.getDropletMutex.RUnlock()
-	fake.listDropletsMutex.RLock()
-	defer fake.listDropletsMutex.RUnlock()
-	fake.updateDropletMutex.RLock()
-	defer fake.updateDropletMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

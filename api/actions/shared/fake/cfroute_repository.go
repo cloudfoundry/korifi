@@ -342,14 +342,6 @@ func (fake *CFRouteRepository) RemoveDestinationFromRouteReturnsOnCall(i int, re
 func (fake *CFRouteRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.addDestinationsToRouteMutex.RLock()
-	defer fake.addDestinationsToRouteMutex.RUnlock()
-	fake.getOrCreateRouteMutex.RLock()
-	defer fake.getOrCreateRouteMutex.RUnlock()
-	fake.listRoutesMutex.RLock()
-	defer fake.listRoutesMutex.RUnlock()
-	fake.removeDestinationFromRouteMutex.RLock()
-	defer fake.removeDestinationFromRouteMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

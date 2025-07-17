@@ -423,16 +423,6 @@ func (fake *CFTaskRepository) PatchTaskMetadataReturnsOnCall(i int, result1 repo
 func (fake *CFTaskRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.cancelTaskMutex.RLock()
-	defer fake.cancelTaskMutex.RUnlock()
-	fake.createTaskMutex.RLock()
-	defer fake.createTaskMutex.RUnlock()
-	fake.getTaskMutex.RLock()
-	defer fake.getTaskMutex.RUnlock()
-	fake.listTasksMutex.RLock()
-	defer fake.listTasksMutex.RUnlock()
-	fake.patchTaskMetadataMutex.RLock()
-	defer fake.patchTaskMetadataMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

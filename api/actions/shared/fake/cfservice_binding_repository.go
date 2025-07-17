@@ -337,14 +337,6 @@ func (fake *CFServiceBindingRepository) UpdateServiceBindingReturnsOnCall(i int,
 func (fake *CFServiceBindingRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createServiceBindingMutex.RLock()
-	defer fake.createServiceBindingMutex.RUnlock()
-	fake.deleteServiceBindingMutex.RLock()
-	defer fake.deleteServiceBindingMutex.RUnlock()
-	fake.listServiceBindingsMutex.RLock()
-	defer fake.listServiceBindingsMutex.RUnlock()
-	fake.updateServiceBindingMutex.RLock()
-	defer fake.updateServiceBindingMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

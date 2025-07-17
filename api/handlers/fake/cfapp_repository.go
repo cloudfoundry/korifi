@@ -742,24 +742,6 @@ func (fake *CFAppRepository) SetCurrentDropletReturnsOnCall(i int, result1 repos
 func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createAppMutex.RLock()
-	defer fake.createAppMutex.RUnlock()
-	fake.deleteAppMutex.RLock()
-	defer fake.deleteAppMutex.RUnlock()
-	fake.getAppMutex.RLock()
-	defer fake.getAppMutex.RUnlock()
-	fake.getAppEnvMutex.RLock()
-	defer fake.getAppEnvMutex.RUnlock()
-	fake.listAppsMutex.RLock()
-	defer fake.listAppsMutex.RUnlock()
-	fake.patchAppMutex.RLock()
-	defer fake.patchAppMutex.RUnlock()
-	fake.patchAppEnvVarsMutex.RLock()
-	defer fake.patchAppEnvVarsMutex.RUnlock()
-	fake.setAppDesiredStateMutex.RLock()
-	defer fake.setAppDesiredStateMutex.RUnlock()
-	fake.setCurrentDropletMutex.RLock()
-	defer fake.setCurrentDropletMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

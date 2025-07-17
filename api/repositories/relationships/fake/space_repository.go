@@ -99,8 +99,6 @@ func (fake *SpaceRepository) ListSpacesReturnsOnCall(i int, result1 []repositori
 func (fake *SpaceRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.listSpacesMutex.RLock()
-	defer fake.listSpacesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

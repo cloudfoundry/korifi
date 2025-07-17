@@ -78,8 +78,6 @@ func (fake *Resource) RelationshipsReturnsOnCall(i int, result1 map[string]strin
 func (fake *Resource) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.relationshipsMutex.RLock()
-	defer fake.relationshipsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

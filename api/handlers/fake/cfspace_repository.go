@@ -500,18 +500,6 @@ func (fake *CFSpaceRepository) PatchSpaceMetadataReturnsOnCall(i int, result1 re
 func (fake *CFSpaceRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createSpaceMutex.RLock()
-	defer fake.createSpaceMutex.RUnlock()
-	fake.deleteSpaceMutex.RLock()
-	defer fake.deleteSpaceMutex.RUnlock()
-	fake.getDeletedAtMutex.RLock()
-	defer fake.getDeletedAtMutex.RUnlock()
-	fake.getSpaceMutex.RLock()
-	defer fake.getSpaceMutex.RUnlock()
-	fake.listSpacesMutex.RLock()
-	defer fake.listSpacesMutex.RUnlock()
-	fake.patchSpaceMetadataMutex.RLock()
-	defer fake.patchSpaceMetadataMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

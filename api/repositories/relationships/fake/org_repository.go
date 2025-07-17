@@ -99,8 +99,6 @@ func (fake *OrgRepository) ListOrgsReturnsOnCall(i int, result1 repositories.Lis
 func (fake *OrgRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.listOrgsMutex.RLock()
-	defer fake.listOrgsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

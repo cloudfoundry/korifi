@@ -500,18 +500,6 @@ func (fake *CFOrgRepository) PatchOrgReturnsOnCall(i int, result1 repositories.O
 func (fake *CFOrgRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createOrgMutex.RLock()
-	defer fake.createOrgMutex.RUnlock()
-	fake.deleteOrgMutex.RLock()
-	defer fake.deleteOrgMutex.RUnlock()
-	fake.getDeletedAtMutex.RLock()
-	defer fake.getDeletedAtMutex.RUnlock()
-	fake.getOrgMutex.RLock()
-	defer fake.getOrgMutex.RUnlock()
-	fake.listOrgsMutex.RLock()
-	defer fake.listOrgsMutex.RUnlock()
-	fake.patchOrgMutex.RLock()
-	defer fake.patchOrgMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

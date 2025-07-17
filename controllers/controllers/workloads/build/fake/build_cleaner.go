@@ -91,8 +91,6 @@ func (fake *BuildCleaner) CleanReturnsOnCall(i int, result1 error) {
 func (fake *BuildCleaner) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.cleanMutex.RLock()
-	defer fake.cleanMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

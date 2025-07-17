@@ -99,8 +99,6 @@ func (fake *CFDomainRepository) ListDomainsReturnsOnCall(i int, result1 reposito
 func (fake *CFDomainRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.listDomainsMutex.RLock()
-	defer fake.listDomainsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

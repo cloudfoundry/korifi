@@ -646,22 +646,6 @@ func (fake *BrokerClient) UnbindReturnsOnCall(i int, result1 osbapi.UnbindRespon
 func (fake *BrokerClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.bindMutex.RLock()
-	defer fake.bindMutex.RUnlock()
-	fake.deprovisionMutex.RLock()
-	defer fake.deprovisionMutex.RUnlock()
-	fake.getCatalogMutex.RLock()
-	defer fake.getCatalogMutex.RUnlock()
-	fake.getServiceBindingMutex.RLock()
-	defer fake.getServiceBindingMutex.RUnlock()
-	fake.getServiceBindingLastOperationMutex.RLock()
-	defer fake.getServiceBindingLastOperationMutex.RUnlock()
-	fake.getServiceInstanceLastOperationMutex.RLock()
-	defer fake.getServiceInstanceLastOperationMutex.RUnlock()
-	fake.provisionMutex.RLock()
-	defer fake.provisionMutex.RUnlock()
-	fake.unbindMutex.RLock()
-	defer fake.unbindMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

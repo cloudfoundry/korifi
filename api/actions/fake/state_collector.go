@@ -101,8 +101,6 @@ func (fake *StateCollector) CollectStateReturnsOnCall(i int, result1 manifest.Ap
 func (fake *StateCollector) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.collectStateMutex.RLock()
-	defer fake.collectStateMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

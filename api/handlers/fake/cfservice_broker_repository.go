@@ -418,16 +418,6 @@ func (fake *CFServiceBrokerRepository) UpdateServiceBrokerReturnsOnCall(i int, r
 func (fake *CFServiceBrokerRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createServiceBrokerMutex.RLock()
-	defer fake.createServiceBrokerMutex.RUnlock()
-	fake.deleteServiceBrokerMutex.RLock()
-	defer fake.deleteServiceBrokerMutex.RUnlock()
-	fake.getServiceBrokerMutex.RLock()
-	defer fake.getServiceBrokerMutex.RUnlock()
-	fake.listServiceBrokersMutex.RLock()
-	defer fake.listServiceBrokersMutex.RUnlock()
-	fake.updateServiceBrokerMutex.RLock()
-	defer fake.updateServiceBrokerMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

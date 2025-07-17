@@ -99,8 +99,6 @@ func (fake *StateRepository) GetStateReturnsOnCall(i int, result1 repositories.R
 func (fake *StateRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getStateMutex.RLock()
-	defer fake.getStateMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

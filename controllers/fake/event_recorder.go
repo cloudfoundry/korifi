@@ -151,12 +151,6 @@ func (fake *EventRecorder) EventfArgsForCall(i int) (runtime.Object, string, str
 func (fake *EventRecorder) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.annotatedEventfMutex.RLock()
-	defer fake.annotatedEventfMutex.RUnlock()
-	fake.eventMutex.RLock()
-	defer fake.eventMutex.RUnlock()
-	fake.eventfMutex.RLock()
-	defer fake.eventfMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

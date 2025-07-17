@@ -585,20 +585,6 @@ func (fake *CFServiceInstanceRepository) PatchServiceInstanceReturnsOnCall(i int
 func (fake *CFServiceInstanceRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createManagedServiceInstanceMutex.RLock()
-	defer fake.createManagedServiceInstanceMutex.RUnlock()
-	fake.createUserProvidedServiceInstanceMutex.RLock()
-	defer fake.createUserProvidedServiceInstanceMutex.RUnlock()
-	fake.deleteServiceInstanceMutex.RLock()
-	defer fake.deleteServiceInstanceMutex.RUnlock()
-	fake.getServiceInstanceMutex.RLock()
-	defer fake.getServiceInstanceMutex.RUnlock()
-	fake.getServiceInstanceCredentialsMutex.RLock()
-	defer fake.getServiceInstanceCredentialsMutex.RUnlock()
-	fake.listServiceInstancesMutex.RLock()
-	defer fake.listServiceInstancesMutex.RUnlock()
-	fake.patchServiceInstanceMutex.RLock()
-	defer fake.patchServiceInstanceMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

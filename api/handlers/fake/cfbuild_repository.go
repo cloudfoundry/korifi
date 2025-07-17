@@ -344,14 +344,6 @@ func (fake *CFBuildRepository) ListBuildsReturnsOnCall(i int, result1 repositori
 func (fake *CFBuildRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createBuildMutex.RLock()
-	defer fake.createBuildMutex.RUnlock()
-	fake.getBuildMutex.RLock()
-	defer fake.getBuildMutex.RUnlock()
-	fake.getLatestBuildByAppGUIDMutex.RLock()
-	defer fake.getLatestBuildByAppGUIDMutex.RUnlock()
-	fake.listBuildsMutex.RLock()
-	defer fake.listBuildsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

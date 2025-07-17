@@ -91,8 +91,6 @@ func (fake *Normalizer) NormalizeReturnsOnCall(i int, result1 payloads.ManifestA
 func (fake *Normalizer) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.normalizeMutex.RLock()
-	defer fake.normalizeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -409,16 +409,6 @@ func (fake *NameRegistry) UnlockNameReturnsOnCall(i int, result1 error) {
 func (fake *NameRegistry) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.checkNameOwnershipMutex.RLock()
-	defer fake.checkNameOwnershipMutex.RUnlock()
-	fake.deregisterNameMutex.RLock()
-	defer fake.deregisterNameMutex.RUnlock()
-	fake.registerNameMutex.RLock()
-	defer fake.registerNameMutex.RUnlock()
-	fake.tryLockNameMutex.RLock()
-	defer fake.tryLockNameMutex.RUnlock()
-	fake.unlockNameMutex.RLock()
-	defer fake.unlockNameMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

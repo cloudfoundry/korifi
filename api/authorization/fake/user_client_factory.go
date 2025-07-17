@@ -93,8 +93,6 @@ func (fake *UserClientFactory) BuildClientReturnsOnCall(i int, result1 client.Wi
 func (fake *UserClientFactory) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.buildClientMutex.RLock()
-	defer fake.buildClientMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

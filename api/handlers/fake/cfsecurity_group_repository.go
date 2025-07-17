@@ -99,8 +99,6 @@ func (fake *CFSecurityGroupRepository) CreateSecurityGroupReturnsOnCall(i int, r
 func (fake *CFSecurityGroupRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createSecurityGroupMutex.RLock()
-	defer fake.createSecurityGroupMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

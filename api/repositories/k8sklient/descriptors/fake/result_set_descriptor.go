@@ -157,10 +157,6 @@ func (fake *ResultSetDescriptor) SortReturnsOnCall(i int, result1 error) {
 func (fake *ResultSetDescriptor) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.gUIDsMutex.RLock()
-	defer fake.gUIDsMutex.RUnlock()
-	fake.sortMutex.RLock()
-	defer fake.sortMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
