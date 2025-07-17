@@ -114,7 +114,14 @@ var _ = Describe("ServiceBrokerList", func() {
 			Expect(decodeErr).NotTo(HaveOccurred())
 			Expect(*actualServiceBrokerList).To(Equal(expectedServiceBrokerList))
 		},
+
 		Entry("names", "names=n1,n2", payloads.ServiceBrokerList{Names: "n1,n2"}),
+		Entry("order_by created_at", "order_by=created_at", payloads.ServiceBrokerList{OrderBy: "created_at"}),
+		Entry("order_by -created_at", "order_by=-created_at", payloads.ServiceBrokerList{OrderBy: "-created_at"}),
+		Entry("order_by updated_at", "order_by=updated_at", payloads.ServiceBrokerList{OrderBy: "updated_at"}),
+		Entry("order_by -updated_at", "order_by=-updated_at", payloads.ServiceBrokerList{OrderBy: "-updated_at"}),
+		Entry("order_by name", "order_by=name", payloads.ServiceBrokerList{OrderBy: "name"}),
+		Entry("order_by -name", "order_by=-name", payloads.ServiceBrokerList{OrderBy: "-name"}),
 		Entry("page=3", "page=3", payloads.ServiceBrokerList{Pagination: payloads.Pagination{Page: "3"}}),
 	)
 
@@ -123,6 +130,7 @@ var _ = Describe("ServiceBrokerList", func() {
 			_, decodeErr := decodeQuery[payloads.ServiceBrokerList](query)
 			Expect(decodeErr).To(errMatcher)
 		},
+		Entry("invalid order_by", "order_by=foo", MatchError(ContainSubstring("value must be one of"))),
 		Entry("per_page is not a number", "per_page=foo", MatchError(ContainSubstring("value must be an integer"))),
 	)
 
@@ -134,7 +142,8 @@ var _ = Describe("ServiceBrokerList", func() {
 
 		BeforeEach(func() {
 			payload = payloads.ServiceBrokerList{
-				Names: "n1,n2",
+				Names:   "n1,n2",
+				OrderBy: "created_at",
 				Pagination: payloads.Pagination{
 					PerPage: "3",
 					Page:    "4",
@@ -148,7 +157,8 @@ var _ = Describe("ServiceBrokerList", func() {
 
 		It("returns a list service bindings message", func() {
 			Expect(message).To(Equal(repositories.ListServiceBrokerMessage{
-				Names: []string{"n1", "n2"},
+				Names:   []string{"n1", "n2"},
+				OrderBy: "created_at",
 				Pagination: repositories.Pagination{
 					PerPage: 3,
 					Page:    4,

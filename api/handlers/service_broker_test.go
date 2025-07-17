@@ -129,7 +129,8 @@ var _ = Describe("ServiceBroker", func() {
 		When("filtering query params are provided", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceBrokerList{
-					Names: "b1,b2",
+					Names:   "b1,b2",
+					OrderBy: "created_at",
 					Pagination: payloads.Pagination{
 						PerPage: "16",
 						Page:    "32",
@@ -142,7 +143,8 @@ var _ = Describe("ServiceBroker", func() {
 				_, _, message := serviceBrokerRepo.ListServiceBrokersArgsForCall(0)
 
 				Expect(message).To(Equal(repositories.ListServiceBrokerMessage{
-					Names: []string{"b1", "b2"},
+					Names:   []string{"b1", "b2"},
+					OrderBy: "created_at",
 					Pagination: repositories.Pagination{
 						PerPage: 16,
 						Page:    32,
