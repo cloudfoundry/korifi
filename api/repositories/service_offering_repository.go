@@ -63,6 +63,8 @@ type ListServiceOfferingMessage struct {
 	Names       []string
 	GUIDs       []string
 	BrokerNames []string
+	OrderBy     string
+	Pagination  Pagination
 }
 
 type UpdateServiceOfferingMessage struct {
@@ -84,6 +86,10 @@ func (m *ListServiceOfferingMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFServiceOfferingNameKey, tools.EncodeValuesToSha224(m.Names...)),
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
 		WithLabelIn(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValuesToSha224(m.BrokerNames...)),
+		WithOrdering(m.OrderBy,
+			"name", "Display Name",
+		),
+		WithPaging(m.Pagination),
 	}
 }
 
@@ -114,20 +120,27 @@ func (r *ServiceOfferingRepo) GetServiceOffering(ctx context.Context, authInfo a
 	return offeringToRecord(*offering)
 }
 
-func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) ([]ServiceOfferingRecord, error) {
+func (r *ServiceOfferingRepo) ListOfferings(ctx context.Context, authInfo authorization.Info, message ListServiceOfferingMessage) (ListResult[ServiceOfferingRecord], error) {
 	offeringsList := &korifiv1alpha1.CFServiceOfferingList{}
-	_, err := r.rootNSKlient.List(ctx, offeringsList, message.toListOptions()...)
+	pageInfo, err := r.rootNSKlient.List(ctx, offeringsList, message.toListOptions()...)
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
-			return []ServiceOfferingRecord{}, nil
+			return ListResult[ServiceOfferingRecord]{}, nil
 		}
 
-		return []ServiceOfferingRecord{}, fmt.Errorf("failed to list service offerings: %w",
+		return ListResult[ServiceOfferingRecord]{}, fmt.Errorf("failed to list service offerings: %w",
 			apierrors.FromK8sError(err, ServiceOfferingResourceType),
 		)
 	}
 
-	return it.TryCollect(it.MapError(itx.FromSlice(offeringsList.Items), offeringToRecord))
+	records, err := it.TryCollect(it.MapError(itx.FromSlice(offeringsList.Items), offeringToRecord))
+	if err != nil {
+		return ListResult[ServiceOfferingRecord]{}, fmt.Errorf("failed to convert service offerings to records: %w", err)
+	}
+	return ListResult[ServiceOfferingRecord]{
+		PageInfo: pageInfo,
+		Records:  records,
+	}, nil
 }
 
 func (r *ServiceOfferingRepo) DeleteOffering(ctx context.Context, authInfo authorization.Info, message DeleteServiceOfferingMessage) error {

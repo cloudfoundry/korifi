@@ -136,11 +136,19 @@ var _ = Describe("ServiceInstance", func() {
 
 		Describe("fields", func() {
 			BeforeEach(func() {
-				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-					Name:              "service-offering-name",
-					GUID:              "service-offering-guid",
-					ServiceBrokerGUID: "service-broker-guid",
-				}}, nil)
+				serviceOfferingRepo.ListOfferingsReturns(repositories.ListResult[repositories.ServiceOfferingRecord]{
+					Records: []repositories.ServiceOfferingRecord{{
+						Name:              "service-offering-name",
+						GUID:              "service-offering-guid",
+						ServiceBrokerGUID: "service-broker-guid",
+					}},
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 1,
+						TotalPages:   1,
+						PageNumber:   1,
+						PageSize:     1,
+					},
+				}, nil)
 
 				servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
 					Name:                "service-plan-name",
@@ -625,11 +633,19 @@ var _ = Describe("ServiceInstance", func() {
 
 		Describe("fields", func() {
 			BeforeEach(func() {
-				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-					Name:              "service-offering-name",
-					GUID:              "service-offering-guid",
-					ServiceBrokerGUID: "service-broker-guid",
-				}}, nil)
+				serviceOfferingRepo.ListOfferingsReturns(repositories.ListResult[repositories.ServiceOfferingRecord]{
+					Records: []repositories.ServiceOfferingRecord{{
+						Name:              "service-offering-name",
+						GUID:              "service-offering-guid",
+						ServiceBrokerGUID: "service-broker-guid",
+					}},
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 1,
+						TotalPages:   1,
+						PageNumber:   1,
+						PageSize:     1,
+					},
+				}, nil)
 
 				servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
 					Name:                "service-plan-name",

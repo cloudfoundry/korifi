@@ -60,10 +60,18 @@ var _ = Describe("ServicePlan", func() {
 				ServiceOfferingGUID: "service-offering-guid",
 			}}, nil)
 
-			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-				Name: "service-offering-name",
-				GUID: "service-offering-guid",
-			}}, nil)
+			serviceOfferingRepo.ListOfferingsReturns(repositories.ListResult[repositories.ServiceOfferingRecord]{
+				Records: []repositories.ServiceOfferingRecord{{
+					Name: "service-offering-name",
+					GUID: "service-offering-guid",
+				}},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     1,
+				},
+			}, nil)
 		})
 
 		JustBeforeEach(func() {
@@ -134,11 +142,19 @@ var _ = Describe("ServicePlan", func() {
 					},
 				}, nil)
 
-				serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-					Name:              "service-offering-name",
-					GUID:              "service-offering-guid",
-					ServiceBrokerGUID: "service-broker-guid",
-				}}, nil)
+				serviceOfferingRepo.ListOfferingsReturns(repositories.ListResult[repositories.ServiceOfferingRecord]{
+					Records: []repositories.ServiceOfferingRecord{{
+						Name:              "service-offering-name",
+						GUID:              "service-offering-guid",
+						ServiceBrokerGUID: "service-broker-guid",
+					}},
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 1,
+						TotalPages:   1,
+						PageNumber:   1,
+						PageSize:     1,
+					},
+				}, nil)
 
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServicePlanList{
 					IncludeResourceRules: []params.IncludeResourceRule{{

@@ -17,6 +17,7 @@ var _ = Describe("ServiceOfferingGet", func() {
 			Expect(decodeErr).NotTo(HaveOccurred())
 			Expect(*actualServiceOfferingGet).To(Equal(expectedServiceOfferingGet))
 		},
+
 		Entry("fields[service_broker]", "fields[service_broker]=guid,name", payloads.ServiceOfferingGet{
 			IncludeResourceRules: []params.IncludeResourceRule{{
 				RelationshipPath: []string{"service_broker"},
@@ -44,6 +45,12 @@ var _ = Describe("ServiceOfferingList", func() {
 			Expect(*actualServiceOfferingList).To(Equal(expectedServiceOfferingList))
 		},
 		Entry("names", "names=b1,b2", payloads.ServiceOfferingList{Names: "b1,b2"}),
+		Entry("created_at", "order_by=created_at", payloads.ServiceOfferingList{OrderBy: "created_at"}),
+		Entry("-created_at", "order_by=-created_at", payloads.ServiceOfferingList{OrderBy: "-created_at"}),
+		Entry("updated_at", "order_by=updated_at", payloads.ServiceOfferingList{OrderBy: "updated_at"}),
+		Entry("-updated_at", "order_by=-updated_at", payloads.ServiceOfferingList{OrderBy: "-updated_at"}),
+		Entry("name", "order_by=name", payloads.ServiceOfferingList{OrderBy: "name"}),
+		Entry("-name", "order_by=-name", payloads.ServiceOfferingList{OrderBy: "-name"}),
 		Entry("service_broker_names", "service_broker_names=b1,b2", payloads.ServiceOfferingList{BrokerNames: "b1,b2"}),
 		Entry("fields[service_broker]", "fields[service_broker]=guid,name", payloads.ServiceOfferingList{
 			IncludeResourceRules: []params.IncludeResourceRule{{
@@ -59,15 +66,31 @@ var _ = Describe("ServiceOfferingList", func() {
 			Expect(decodeErr).To(errMatcher)
 		},
 		Entry("invalid service broker field", "fields[service_broker]=foo", MatchError(ContainSubstring("value must be one of"))),
+
+		Entry("invalid order_by", "order_by=foo", MatchError(ContainSubstring("value must be one of"))),
+		Entry("per_page is not a number", "per_page=foo", MatchError(ContainSubstring("value must be an integer"))),
 	)
 
 	Describe("ToMessage", func() {
 		It("converts payload to repository message", func() {
-			payload := &payloads.ServiceOfferingList{Names: "b1,b2", BrokerNames: "br1,br2"}
+			payload := &payloads.ServiceOfferingList{
+				Names:       "b1,b2",
+				BrokerNames: "br1,br2",
+				OrderBy:     "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "10",
+					Page:    "2",
+				},
+			}
 
 			Expect(payload.ToMessage()).To(Equal(repositories.ListServiceOfferingMessage{
 				Names:       []string{"b1", "b2"},
 				BrokerNames: []string{"br1", "br2"},
+				OrderBy:     "created_at",
+				Pagination: repositories.Pagination{
+					PerPage: 10,
+					Page:    2,
+				},
 			}))
 		})
 	})
