@@ -342,14 +342,6 @@ func (fake *CFAppRepository) PatchAppReturnsOnCall(i int, result1 repositories.A
 func (fake *CFAppRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createAppMutex.RLock()
-	defer fake.createAppMutex.RUnlock()
-	fake.getAppMutex.RLock()
-	defer fake.getAppMutex.RUnlock()
-	fake.listAppsMutex.RLock()
-	defer fake.listAppsMutex.RUnlock()
-	fake.patchAppMutex.RLock()
-	defer fake.patchAppMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

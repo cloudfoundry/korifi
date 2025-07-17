@@ -337,14 +337,6 @@ func (fake *CFServiceOfferingRepository) UpdateServiceOfferingReturnsOnCall(i in
 func (fake *CFServiceOfferingRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.deleteOfferingMutex.RLock()
-	defer fake.deleteOfferingMutex.RUnlock()
-	fake.getServiceOfferingMutex.RLock()
-	defer fake.getServiceOfferingMutex.RUnlock()
-	fake.listOfferingsMutex.RLock()
-	defer fake.listOfferingsMutex.RUnlock()
-	fake.updateServiceOfferingMutex.RLock()
-	defer fake.updateServiceOfferingMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

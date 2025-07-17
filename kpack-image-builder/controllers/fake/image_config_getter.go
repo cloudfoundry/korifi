@@ -98,8 +98,6 @@ func (fake *ImageConfigGetter) ConfigReturnsOnCall(i int, result1 image.Config, 
 func (fake *ImageConfigGetter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.configMutex.RLock()
-	defer fake.configMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

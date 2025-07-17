@@ -90,8 +90,6 @@ func (fake *RepositoryCreator) CreateRepositoryReturnsOnCall(i int, result1 erro
 func (fake *RepositoryCreator) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createRepositoryMutex.RLock()
-	defer fake.createRepositoryMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

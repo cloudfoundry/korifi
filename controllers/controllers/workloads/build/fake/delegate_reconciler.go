@@ -174,10 +174,6 @@ func (fake *DelegateReconciler) SetupWithManagerReturnsOnCall(i int, result1 *bu
 func (fake *DelegateReconciler) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.reconcileBuildMutex.RLock()
-	defer fake.reconcileBuildMutex.RUnlock()
-	fake.setupWithManagerMutex.RLock()
-	defer fake.setupWithManagerMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

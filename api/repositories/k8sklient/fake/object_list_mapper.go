@@ -104,8 +104,6 @@ func (fake *ObjectListMapper) GUIDsToObjectListReturnsOnCall(i int, result1 clie
 func (fake *ObjectListMapper) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.gUIDsToObjectListMutex.RLock()
-	defer fake.gUIDsToObjectListMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

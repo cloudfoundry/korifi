@@ -160,10 +160,6 @@ func (fake *NamespaceValidator) ValidateSpaceCreateReturnsOnCall(i int, result1 
 func (fake *NamespaceValidator) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.validateOrgCreateMutex.RLock()
-	defer fake.validateOrgCreateMutex.RUnlock()
-	fake.validateSpaceCreateMutex.RLock()
-	defer fake.validateSpaceCreateMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -253,12 +253,6 @@ func (fake *NameValidator) ValidateUpdateReturnsOnCall(i int, result1 error) {
 func (fake *NameValidator) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.validateCreateMutex.RLock()
-	defer fake.validateCreateMutex.RUnlock()
-	fake.validateDeleteMutex.RLock()
-	defer fake.validateDeleteMutex.RUnlock()
-	fake.validateUpdateMutex.RLock()
-	defer fake.validateUpdateMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

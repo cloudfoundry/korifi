@@ -337,14 +337,6 @@ func (fake *CFRoleRepository) ListRolesReturnsOnCall(i int, result1 repositories
 func (fake *CFRoleRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createRoleMutex.RLock()
-	defer fake.createRoleMutex.RUnlock()
-	fake.deleteRoleMutex.RLock()
-	defer fake.deleteRoleMutex.RUnlock()
-	fake.getRoleMutex.RLock()
-	defer fake.getRoleMutex.RUnlock()
-	fake.listRolesMutex.RLock()
-	defer fake.listRolesMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

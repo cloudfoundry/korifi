@@ -105,8 +105,6 @@ func (fake *ImageRepository) UploadSourceImageReturnsOnCall(i int, result1 strin
 func (fake *ImageRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.uploadSourceImageMutex.RLock()
-	defer fake.uploadSourceImageMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -98,8 +98,6 @@ func (fake *PodRepository) DeletePodReturnsOnCall(i int, result1 error) {
 func (fake *PodRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.deletePodMutex.RLock()
-	defer fake.deletePodMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

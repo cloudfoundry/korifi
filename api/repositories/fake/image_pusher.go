@@ -103,8 +103,6 @@ func (fake *ImagePusher) PushReturnsOnCall(i int, result1 string, result2 error)
 func (fake *ImagePusher) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.pushMutex.RLock()
-	defer fake.pushMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

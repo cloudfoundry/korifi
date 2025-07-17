@@ -239,12 +239,6 @@ func (fake *RequestValidator) DecodeAndValidateYAMLPayloadReturnsOnCall(i int, r
 func (fake *RequestValidator) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.decodeAndValidateJSONPayloadMutex.RLock()
-	defer fake.decodeAndValidateJSONPayloadMutex.RUnlock()
-	fake.decodeAndValidateURLValuesMutex.RLock()
-	defer fake.decodeAndValidateURLValuesMutex.RUnlock()
-	fake.decodeAndValidateYAMLPayloadMutex.RLock()
-	defer fake.decodeAndValidateYAMLPayloadMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

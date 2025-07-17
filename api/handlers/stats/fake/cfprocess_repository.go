@@ -99,8 +99,6 @@ func (fake *CFProcessRepository) GetProcessReturnsOnCall(i int, result1 reposito
 func (fake *CFProcessRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getProcessMutex.RLock()
-	defer fake.getProcessMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -99,8 +99,6 @@ func (fake *DeletionRepository) GetDeletedAtReturnsOnCall(i int, result1 *time.T
 func (fake *DeletionRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getDeletedAtMutex.RLock()
-	defer fake.getDeletedAtMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

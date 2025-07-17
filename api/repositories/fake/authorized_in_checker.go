@@ -98,8 +98,6 @@ func (fake *AuthorizedInChecker) AuthorizedInReturnsOnCall(i int, result1 bool, 
 func (fake *AuthorizedInChecker) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.authorizedInMutex.RLock()
-	defer fake.authorizedInMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

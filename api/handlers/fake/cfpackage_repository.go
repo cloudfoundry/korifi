@@ -423,16 +423,6 @@ func (fake *CFPackageRepository) UpdatePackageSourceReturnsOnCall(i int, result1
 func (fake *CFPackageRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createPackageMutex.RLock()
-	defer fake.createPackageMutex.RUnlock()
-	fake.getPackageMutex.RLock()
-	defer fake.getPackageMutex.RUnlock()
-	fake.listPackagesMutex.RLock()
-	defer fake.listPackagesMutex.RUnlock()
-	fake.updatePackageMutex.RLock()
-	defer fake.updatePackageMutex.RUnlock()
-	fake.updatePackageSourceMutex.RLock()
-	defer fake.updatePackageSourceMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

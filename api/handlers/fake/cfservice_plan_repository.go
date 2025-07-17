@@ -494,18 +494,6 @@ func (fake *CFServicePlanRepository) UpdatePlanVisibilityReturnsOnCall(i int, re
 func (fake *CFServicePlanRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.applyPlanVisibilityMutex.RLock()
-	defer fake.applyPlanVisibilityMutex.RUnlock()
-	fake.deletePlanMutex.RLock()
-	defer fake.deletePlanMutex.RUnlock()
-	fake.deletePlanVisibilityMutex.RLock()
-	defer fake.deletePlanVisibilityMutex.RUnlock()
-	fake.getPlanMutex.RLock()
-	defer fake.getPlanMutex.RUnlock()
-	fake.listPlansMutex.RLock()
-	defer fake.listPlansMutex.RUnlock()
-	fake.updatePlanVisibilityMutex.RLock()
-	defer fake.updatePlanVisibilityMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

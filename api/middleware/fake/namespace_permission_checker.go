@@ -98,8 +98,6 @@ func (fake *NamespacePermissionChecker) AuthorizedInReturnsOnCall(i int, result1
 func (fake *NamespacePermissionChecker) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.authorizedInMutex.RLock()
-	defer fake.authorizedInMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -97,8 +97,6 @@ func (fake *TaskStatusGetter) GetStatusConditionsReturnsOnCall(i int, result1 []
 func (fake *TaskStatusGetter) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getStatusConditionsMutex.RLock()
-	defer fake.getStatusConditionsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

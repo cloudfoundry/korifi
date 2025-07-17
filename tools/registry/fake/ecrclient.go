@@ -98,8 +98,6 @@ func (fake *ECRClient) CreateRepositoryReturnsOnCall(i int, result1 *ecr.CreateR
 func (fake *ECRClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.createRepositoryMutex.RLock()
-	defer fake.createRepositoryMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

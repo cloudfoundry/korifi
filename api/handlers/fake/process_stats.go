@@ -180,10 +180,6 @@ func (fake *ProcessStats) FetchStatsReturnsOnCall(i int, result1 []actions.PodSt
 func (fake *ProcessStats) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.fetchAppProcessesStatsMutex.RLock()
-	defer fake.fetchAppProcessesStatsMutex.RUnlock()
-	fake.fetchStatsMutex.RLock()
-	defer fake.fetchStatsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
