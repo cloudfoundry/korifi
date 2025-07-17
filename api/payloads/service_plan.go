@@ -26,6 +26,8 @@ type ServicePlanList struct {
 	ServiceOfferingNames string
 	Available            *bool
 	IncludeResourceRules []params.IncludeResourceRule
+	OrderBy              string
+	Pagination           Pagination
 }
 
 func (l ServicePlanList) Validate() error {
@@ -42,6 +44,8 @@ func (l ServicePlanList) Validate() error {
 
 			return validateFields(rule)
 		}))),
+		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "updated_at", "name")),
+		jellidation.Field(&l.Pagination),
 	)
 }
 
@@ -66,6 +70,8 @@ func (l *ServicePlanList) ToMessage() repositories.ListServicePlanMessage {
 		BrokerNames:          parse.ArrayParam(l.BrokerNames),
 		BrokerGUIDs:          parse.ArrayParam(l.BrokerGUIDs),
 		Available:            l.Available,
+		OrderBy:              l.OrderBy,
+		Pagination:           l.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
@@ -79,14 +85,15 @@ func (l *ServicePlanList) SupportedKeys() []string {
 		"service_broker_guids",
 		"include",
 		"service_offering_names",
+		"order_by",
+		"page",
+		"per_page",
 	}
 }
 
 func (l *ServicePlanList) IgnoredKeys() []*regexp.Regexp {
 	return []*regexp.Regexp{
 		regexp.MustCompile("space_guids"),
-		regexp.MustCompile("page"),
-		regexp.MustCompile("per_page"),
 	}
 }
 
@@ -104,8 +111,8 @@ func (l *ServicePlanList) DecodeFromURLValues(values url.Values) error {
 	l.Available = available
 	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseFields(values)...)
 	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseIncludes(values)...)
-
-	return nil
+	l.OrderBy = values.Get("order_by")
+	return l.Pagination.DecodeFromURLValues(values)
 }
 
 func parseBool(valueStr string) (*bool, error) {

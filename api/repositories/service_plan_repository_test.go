@@ -186,32 +186,12 @@ var _ = Describe("ServicePlanRepo", func() {
 
 	Describe("List", func() {
 		var (
-			otherPlanGUID string
-			listedPlans   []repositories.ServicePlanRecord
-			message       repositories.ListServicePlanMessage
-			listErr       error
+			listedPlans repositories.ListResult[repositories.ServicePlanRecord]
+			message     repositories.ListServicePlanMessage
+			listErr     error
 		)
 
 		BeforeEach(func() {
-			otherPlanGUID = uuid.NewString()
-			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServicePlan{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: rootNamespace,
-					Name:      otherPlanGUID,
-					Labels: map[string]string{
-						korifiv1alpha1.RelServiceOfferingGUIDLabel: "other-offering-guid",
-						korifiv1alpha1.RelServiceBrokerNameLabel:   tools.EncodeValueToSha224("other-broker-name"),
-						korifiv1alpha1.RelServiceOfferingNameLabel: tools.EncodeValueToSha224("other-offering-name"),
-						korifiv1alpha1.RelServiceBrokerGUIDLabel:   "other-broker-guid",
-					},
-				},
-				Spec: korifiv1alpha1.CFServicePlanSpec{
-					Visibility: korifiv1alpha1.ServicePlanVisibility{
-						Type: korifiv1alpha1.PublicServicePlanVisibilityType,
-					},
-					Name: "other-plan",
-				},
-			})).To(Succeed())
 			message = repositories.ListServicePlanMessage{}
 		})
 
@@ -221,29 +201,14 @@ var _ = Describe("ServicePlanRepo", func() {
 
 		It("lists service plans", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(listedPlans).To(ConsistOf(
+			Expect(listedPlans.Records).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"GUID": Equal(planGUID),
-				}), MatchFields(IgnoreExtras, Fields{
-					"GUID": Equal(otherPlanGUID),
 				}),
 			))
 		})
 
-		When("filtering by service_offering_guid", func() {
-			BeforeEach(func() {
-				message.ServiceOfferingGUIDs = []string{"other-offering-guid"}
-			})
-
-			It("returns matching service plans", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedPlans).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"ServiceOfferingGUID": Equal("other-offering-guid"),
-				})))
-			})
-		})
-
-		Describe("filter parameters to list options", func() {
+		Describe("parameters to list options", func() {
 			var fakeKlient *fake.Klient
 
 			BeforeEach(func() {
@@ -256,6 +221,11 @@ var _ = Describe("ServicePlanRepo", func() {
 					ServiceOfferingNames: []string{"son1", "son2"},
 					BrokerNames:          []string{"bn1", "bn2"},
 					BrokerGUIDs:          []string{"bg1", "bg2"},
+					OrderBy:              "created_at",
+					Pagination: repositories.Pagination{
+						PerPage: 10,
+						Page:    4,
+					},
 				}
 			})
 
@@ -271,6 +241,11 @@ var _ = Describe("ServicePlanRepo", func() {
 					repositories.WithLabelIn(korifiv1alpha1.RelServiceBrokerGUIDLabel, []string{"bg1", "bg2"}),
 					repositories.WithLabelIn(korifiv1alpha1.RelServiceOfferingNameLabel, tools.EncodeValuesToSha224("son1", "son2")),
 					repositories.NoopListOption{},
+					repositories.WithOrdering("created_at"),
+					repositories.WithPaging(repositories.Pagination{
+						PerPage: 10,
+						Page:    4,
+					}),
 				))
 			})
 

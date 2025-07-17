@@ -14,6 +14,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
+	"code.cloudfoundry.org/korifi/tools"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -55,10 +56,18 @@ var _ = Describe("ServicePlan", func() {
 
 	Describe("GET /v3/service_plans", func() {
 		BeforeEach(func() {
-			servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
-				GUID:                "plan-guid",
-				ServiceOfferingGUID: "service-offering-guid",
-			}}, nil)
+			servicePlanRepo.ListPlansReturns(repositories.ListResult[repositories.ServicePlanRecord]{
+				Records: []repositories.ServicePlanRecord{{
+					GUID:                "plan-guid",
+					ServiceOfferingGUID: "service-offering-guid",
+				}},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     1,
+				},
+			}, nil)
 
 			serviceOfferingRepo.ListOfferingsReturns(repositories.ListResult[repositories.ServiceOfferingRecord]{
 				Records: []repositories.ServiceOfferingRecord{{
@@ -83,8 +92,14 @@ var _ = Describe("ServicePlan", func() {
 
 		It("lists the service plans", func() {
 			Expect(servicePlanRepo.ListPlansCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := servicePlanRepo.ListPlansArgsForCall(0)
+			_, actualAuthInfo, actualMessage := servicePlanRepo.ListPlansArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListServicePlanMessage{
+				Pagination: repositories.Pagination{
+					PerPage: 50,
+					Page:    1,
+				},
+			}))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -101,13 +116,35 @@ var _ = Describe("ServicePlan", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServicePlanList{
 					ServiceOfferingGUIDs: "a1,a2",
+					BrokerGUIDs:          "b1-guid,b2-guid",
+					BrokerNames:          "br1,br2",
+					Names:                "n1,n2",
+					ServiceOfferingNames: "so1,so2",
+					Available:            tools.PtrTo(true),
+					OrderBy:              "created_at",
+					Pagination: payloads.Pagination{
+						PerPage: "16",
+						Page:    "32",
+					},
 				})
 			})
 
 			It("passes them to the repository", func() {
 				Expect(servicePlanRepo.ListPlansCallCount()).To(Equal(1))
 				_, _, message := servicePlanRepo.ListPlansArgsForCall(0)
-				Expect(message.ServiceOfferingGUIDs).To(ConsistOf("a1", "a2"))
+				Expect(message).To(Equal(repositories.ListServicePlanMessage{
+					Names:                []string{"n1", "n2"},
+					ServiceOfferingGUIDs: []string{"a1", "a2"},
+					ServiceOfferingNames: []string{"so1", "so2"},
+					BrokerNames:          []string{"br1", "br2"},
+					BrokerGUIDs:          []string{"b1-guid", "b2-guid"},
+					Available:            tools.PtrTo(true),
+					OrderBy:              "created_at",
+					Pagination: repositories.Pagination{
+						PerPage: 16,
+						Page:    32,
+					},
+				}))
 			})
 		})
 
@@ -185,7 +222,7 @@ var _ = Describe("ServicePlan", func() {
 
 		When("listing the plans fails", func() {
 			BeforeEach(func() {
-				servicePlanRepo.ListPlansReturns(nil, errors.New("list-err"))
+				servicePlanRepo.ListPlansReturns(repositories.ListResult[repositories.ServicePlanRecord]{}, errors.New("list-err"))
 			})
 
 			It("returns an error", func() {

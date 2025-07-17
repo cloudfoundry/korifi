@@ -150,11 +150,19 @@ var _ = Describe("ServiceInstance", func() {
 					},
 				}, nil)
 
-				servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
-					Name:                "service-plan-name",
-					GUID:                "service-plan-guid",
-					ServiceOfferingGUID: "service-offering-guid",
-				}}, nil)
+				servicePlanRepo.ListPlansReturns(repositories.ListResult[repositories.ServicePlanRecord]{
+					Records: []repositories.ServicePlanRecord{{
+						Name:                "service-plan-name",
+						GUID:                "service-plan-guid",
+						ServiceOfferingGUID: "service-offering-guid",
+					}},
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 1,
+						TotalPages:   1,
+						PageNumber:   1,
+						PageSize:     1,
+					},
+				}, nil)
 
 				serviceBrokerRepo.ListServiceBrokersReturns(repositories.ListResult[repositories.ServiceBrokerRecord]{
 					Records: []repositories.ServiceBrokerRecord{{
@@ -647,11 +655,19 @@ var _ = Describe("ServiceInstance", func() {
 					},
 				}, nil)
 
-				servicePlanRepo.ListPlansReturns([]repositories.ServicePlanRecord{{
-					Name:                "service-plan-name",
-					GUID:                "service-plan-guid",
-					ServiceOfferingGUID: "service-offering-guid",
-				}}, nil)
+				servicePlanRepo.ListPlansReturns(repositories.ListResult[repositories.ServicePlanRecord]{
+					Records: []repositories.ServicePlanRecord{{
+						Name:                "service-plan-name",
+						GUID:                "service-plan-guid",
+						ServiceOfferingGUID: "service-offering-guid",
+					}},
+					PageInfo: descriptors.PageInfo{
+						TotalResults: 1,
+						TotalPages:   1,
+						PageNumber:   1,
+						PageSize:     1,
+					},
+				}, nil)
 
 				serviceBrokerRepo.ListServiceBrokersReturns(
 					repositories.ListResult[repositories.ServiceBrokerRecord]{
