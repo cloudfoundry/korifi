@@ -3,7 +3,6 @@ package smoke_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"strings"
 
@@ -22,7 +21,7 @@ var _ = Describe("list", func() {
 	var testVars map[string]string
 
 	listResources := func(queryParams ...string) func(resourcePath string, resourcesMatch types.GomegaMatcher) {
-		return func(resourcePath string, resourcesMatch types.GomegaMatcher) {
+		return func(resourcePath string, match types.GomegaMatcher) {
 			if len(queryParams) > 0 {
 				resourcePath += "?" + strings.Join(queryParams, "&")
 			}
@@ -34,7 +33,7 @@ var _ = Describe("list", func() {
 
 			cfCurlOutput, err := sessionOutput(helpers.Cf("curl", url.String()))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(cfCurlOutput).To(MatchJSONPath("$.resources", resourcesMatch), fmt.Sprintf("JSON output: %s", cfCurlOutput))
+			Expect(cfCurlOutput).To(match)
 		}
 	}
 
@@ -74,60 +73,65 @@ var _ = Describe("list", func() {
 		appPackageJSON, err := sessionOutput(helpers.Cf("curl", "/v3/packages?app_guids="+testVars["appGUID"]))
 		Expect(err).NotTo(HaveOccurred())
 		testVars["packageGUID"] = jsonGet("$.resources[0].guid", appPackageJSON)
+
+		appRouteJSON, err := sessionOutput(helpers.Cf("curl", "/v3/apps/"+testVars["appGUID"]+"/routes"))
+		Expect(err).NotTo(HaveOccurred())
+		testVars["routeGUID"] = jsonGet("$.resources[0].guid", appRouteJSON)
 	})
 
 	DescribeTable("authorised users get the resources",
 		listResources(),
-		Entry("apps", "/v3/apps", Not(BeEmpty())),
-		Entry("app droplets", "/v3/apps/{{.appGUID}}/droplets", Not(BeEmpty())),
-		Entry("app processes", "/v3/apps/{{.appGUID}}/processes", Not(BeEmpty())),
-		Entry("app routes", "/v3/apps/{{.appGUID}}/routes", Not(BeEmpty())),
-		Entry("app packages", "/v3/apps/{{.appGUID}}/packages", Not(BeEmpty())),
-		Entry("builds", "/v3/builds", Not(BeEmpty())),
-		Entry("buildpacks", "/v3/buildpacks", Not(BeEmpty())),
-		Entry("deployments", "/v3/deployments", Not(BeEmpty())),
-		Entry("domains", "/v3/domains", Not(BeEmpty())),
-		Entry("droplets", "/v3/droplets", Not(BeEmpty())),
-		Entry("orgs", "/v3/organizations", Not(BeEmpty())),
-		Entry("org domains", "/v3/organizations/{{.orgGUID}}/domains", Not(BeEmpty())),
-		Entry("packages", "/v3/packages", Not(BeEmpty())),
-		Entry("package droplets", "/v3/packages/{{.packageGUID}}/droplets", Not(BeEmpty())),
-		Entry("processes", "/v3/processes", Not(BeEmpty())),
-		Entry("routes", "/v3/routes", Not(BeEmpty())),
-		Entry("roles", "/v3/roles", Not(BeEmpty())),
-		Entry("service_instances", "/v3/service_instances", Not(BeEmpty())),
-		Entry("service_credential_bindings", "/v3/service_credential_bindings", Not(BeEmpty())),
-		Entry("service brokers", "/v3/service_brokers", Not(BeEmpty())),
-		Entry("service offerings", "/v3/service_offerings", Not(BeEmpty())),
-		Entry("service plans", "/v3/service_plans", Not(BeEmpty())),
-		Entry("spaces", "/v3/spaces", Not(BeEmpty())),
-		Entry("tasks", "/v3/tasks", Not(BeEmpty())),
-		Entry("app tasks", "/v3/apps/{{.appGUID}}/tasks", Not(BeEmpty())),
+		Entry("apps", "/v3/apps", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("app droplets", "/v3/apps/{{.appGUID}}/droplets", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("app processes", "/v3/apps/{{.appGUID}}/processes", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("app routes", "/v3/apps/{{.appGUID}}/routes", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("app packages", "/v3/apps/{{.appGUID}}/packages", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("builds", "/v3/builds", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("buildpacks", "/v3/buildpacks", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("deployments", "/v3/deployments", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("domains", "/v3/domains", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("droplets", "/v3/droplets", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("orgs", "/v3/organizations", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("org domains", "/v3/organizations/{{.orgGUID}}/domains", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("packages", "/v3/packages", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("package droplets", "/v3/packages/{{.packageGUID}}/droplets", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("processes", "/v3/processes", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("routes", "/v3/routes", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("routes", "/v3/routes/{{.routeGUID}}/destinations", MatchJSONPath("$.destinations", Not(BeEmpty()))),
+		Entry("roles", "/v3/roles", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("service_instances", "/v3/service_instances", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("service_credential_bindings", "/v3/service_credential_bindings", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("service brokers", "/v3/service_brokers", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("service offerings", "/v3/service_offerings", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("service plans", "/v3/service_plans", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("spaces", "/v3/spaces", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("tasks", "/v3/tasks", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("app tasks", "/v3/apps/{{.appGUID}}/tasks", MatchJSONPath("$.resources", Not(BeEmpty()))),
 	)
 
 	When("paging params are provided", func() {
 		DescribeTable("authorised users get the resources",
 			listResources("per_page=1"),
-			Entry("apps", "/v3/apps", HaveLen(1)),
-			Entry("app droplets", "/v3/apps/{{.appGUID}}/droplets", HaveLen(1)),
-			Entry("app processes", "/v3/apps/{{.appGUID}}/processes", HaveLen(1)),
-			Entry("app routes", "/v3/apps/{{.appGUID}}/routes", HaveLen(1)),
-			Entry("app packages", "/v3/apps/{{.appGUID}}/packages", HaveLen(1)),
-			Entry("builds", "/v3/builds", HaveLen(1)),
-			Entry("buildpacks", "/v3/buildpacks", HaveLen(1)),
-			Entry("deployments", "/v3/deployments", HaveLen(1)),
-			Entry("domains", "/v3/domains", HaveLen(1)),
-			Entry("droplets", "/v3/droplets", HaveLen(1)),
-			Entry("orgs", "/v3/organizations", HaveLen(1)),
-			Entry("org domains", "/v3/organizations/{{.orgGUID}}/domains", HaveLen(1)),
-			Entry("packages", "/v3/packages", HaveLen(1)),
-			Entry("package droplets", "/v3/packages/{{.packageGUID}}/droplets", HaveLen(1)),
-			Entry("processes", "/v3/processes", HaveLen(1)),
-			Entry("routes", "/v3/routes", HaveLen(1)),
-			Entry("roles", "/v3/roles", HaveLen(1)),
-			Entry("service_instances", "/v3/service_instances", HaveLen(1)),
-			Entry("service_credential_bindings", "/v3/service_credential_bindings", HaveLen(1)),
-			Entry("service brokers", "/v3/service_brokers", HaveLen(1)),
+			Entry("apps", "/v3/apps", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("app droplets", "/v3/apps/{{.appGUID}}/droplets", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("app processes", "/v3/apps/{{.appGUID}}/processes", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("app routes", "/v3/apps/{{.appGUID}}/routes", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("app packages", "/v3/apps/{{.appGUID}}/packages", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("builds", "/v3/builds", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("buildpacks", "/v3/buildpacks", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("deployments", "/v3/deployments", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("domains", "/v3/domains", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("droplets", "/v3/droplets", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("orgs", "/v3/organizations", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("org domains", "/v3/organizations/{{.orgGUID}}/domains", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("packages", "/v3/packages", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("package droplets", "/v3/packages/{{.packageGUID}}/droplets", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("processes", "/v3/processes", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("routes", "/v3/routes", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("roles", "/v3/roles", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("service_instances", "/v3/service_instances", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("service_credential_bindings", "/v3/service_credential_bindings", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("service brokers", "/v3/service_brokers", MatchJSONPath("$.resources", HaveLen(1))),
 		)
 	})
 
@@ -152,27 +156,27 @@ var _ = Describe("list", func() {
 
 		DescribeTable("gets empty resources list for non-global resources",
 			listResources(),
-			Entry("apps", "/v3/apps", BeEmpty()),
-			Entry("builds", "/v3/builds", BeEmpty()),
-			Entry("deployments", "/v3/deployments", BeEmpty()),
-			Entry("droplets", "/v3/droplets", BeEmpty()),
-			Entry("orgs", "/v3/organizations", BeEmpty()),
-			Entry("packages", "/v3/packages", BeEmpty()),
-			Entry("processes", "/v3/processes", BeEmpty()),
-			Entry("routes", "/v3/routes", BeEmpty()),
-			Entry("service_instances", "/v3/service_instances", BeEmpty()),
-			Entry("service_credential_bindings", "/v3/service_credential_bindings", BeEmpty()),
-			Entry("spaces", "/v3/spaces", BeEmpty()),
-			Entry("tasks", "/v3/tasks", BeEmpty()),
+			Entry("apps", "/v3/apps", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("builds", "/v3/builds", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("deployments", "/v3/deployments", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("droplets", "/v3/droplets", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("orgs", "/v3/organizations", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("packages", "/v3/packages", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("processes", "/v3/processes", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("routes", "/v3/routes", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("service_instances", "/v3/service_instances", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("service_credential_bindings", "/v3/service_credential_bindings", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("spaces", "/v3/spaces", MatchJSONPath("$.resources", BeEmpty())),
+			Entry("tasks", "/v3/tasks", MatchJSONPath("$.resources", BeEmpty())),
 		)
 
 		DescribeTable("gets the global resources",
 			listResources(),
-			Entry("buildpacks", "/v3/buildpacks", Not(BeEmpty())),
-			Entry("domains", "/v3/domains", Not(BeEmpty())),
-			Entry("service brokers", "/v3/service_brokers", Not(BeEmpty())),
-			Entry("service offerings", "/v3/service_offerings", Not(BeEmpty())),
-			Entry("service plans", "/v3/service_plans", Not(BeEmpty())),
+			Entry("buildpacks", "/v3/buildpacks", MatchJSONPath("$.resources", Not(BeEmpty()))),
+			Entry("domains", "/v3/domains", MatchJSONPath("$.resources", Not(BeEmpty()))),
+			Entry("service brokers", "/v3/service_brokers", MatchJSONPath("$.resources", Not(BeEmpty()))),
+			Entry("service offerings", "/v3/service_offerings", MatchJSONPath("$.resources", Not(BeEmpty()))),
+			Entry("service plans", "/v3/service_plans", MatchJSONPath("$.resources", Not(BeEmpty()))),
 		)
 	})
 })
