@@ -39,7 +39,7 @@ type CFServiceOfferingRepository struct {
 		result1 repositories.ServiceOfferingRecord
 		result2 error
 	}
-	ListOfferingsStub        func(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)
+	ListOfferingsStub        func(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) (repositories.ListResult[repositories.ServiceOfferingRecord], error)
 	listOfferingsMutex       sync.RWMutex
 	listOfferingsArgsForCall []struct {
 		arg1 context.Context
@@ -47,11 +47,11 @@ type CFServiceOfferingRepository struct {
 		arg3 repositories.ListServiceOfferingMessage
 	}
 	listOfferingsReturns struct {
-		result1 []repositories.ServiceOfferingRecord
+		result1 repositories.ListResult[repositories.ServiceOfferingRecord]
 		result2 error
 	}
 	listOfferingsReturnsOnCall map[int]struct {
-		result1 []repositories.ServiceOfferingRecord
+		result1 repositories.ListResult[repositories.ServiceOfferingRecord]
 		result2 error
 	}
 	UpdateServiceOfferingStub        func(context.Context, authorization.Info, repositories.UpdateServiceOfferingMessage) (repositories.ServiceOfferingRecord, error)
@@ -202,7 +202,7 @@ func (fake *CFServiceOfferingRepository) GetServiceOfferingReturnsOnCall(i int, 
 	}{result1, result2}
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferings(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error) {
+func (fake *CFServiceOfferingRepository) ListOfferings(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListServiceOfferingMessage) (repositories.ListResult[repositories.ServiceOfferingRecord], error) {
 	fake.listOfferingsMutex.Lock()
 	ret, specificReturn := fake.listOfferingsReturnsOnCall[len(fake.listOfferingsArgsForCall)]
 	fake.listOfferingsArgsForCall = append(fake.listOfferingsArgsForCall, struct {
@@ -229,7 +229,7 @@ func (fake *CFServiceOfferingRepository) ListOfferingsCallCount() int {
 	return len(fake.listOfferingsArgsForCall)
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferingsCalls(stub func(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)) {
+func (fake *CFServiceOfferingRepository) ListOfferingsCalls(stub func(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) (repositories.ListResult[repositories.ServiceOfferingRecord], error)) {
 	fake.listOfferingsMutex.Lock()
 	defer fake.listOfferingsMutex.Unlock()
 	fake.ListOfferingsStub = stub
@@ -242,28 +242,28 @@ func (fake *CFServiceOfferingRepository) ListOfferingsArgsForCall(i int) (contex
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferingsReturns(result1 []repositories.ServiceOfferingRecord, result2 error) {
+func (fake *CFServiceOfferingRepository) ListOfferingsReturns(result1 repositories.ListResult[repositories.ServiceOfferingRecord], result2 error) {
 	fake.listOfferingsMutex.Lock()
 	defer fake.listOfferingsMutex.Unlock()
 	fake.ListOfferingsStub = nil
 	fake.listOfferingsReturns = struct {
-		result1 []repositories.ServiceOfferingRecord
+		result1 repositories.ListResult[repositories.ServiceOfferingRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFServiceOfferingRepository) ListOfferingsReturnsOnCall(i int, result1 []repositories.ServiceOfferingRecord, result2 error) {
+func (fake *CFServiceOfferingRepository) ListOfferingsReturnsOnCall(i int, result1 repositories.ListResult[repositories.ServiceOfferingRecord], result2 error) {
 	fake.listOfferingsMutex.Lock()
 	defer fake.listOfferingsMutex.Unlock()
 	fake.ListOfferingsStub = nil
 	if fake.listOfferingsReturnsOnCall == nil {
 		fake.listOfferingsReturnsOnCall = make(map[int]struct {
-			result1 []repositories.ServiceOfferingRecord
+			result1 repositories.ListResult[repositories.ServiceOfferingRecord]
 			result2 error
 		})
 	}
 	fake.listOfferingsReturnsOnCall[i] = struct {
-		result1 []repositories.ServiceOfferingRecord
+		result1 repositories.ListResult[repositories.ServiceOfferingRecord]
 		result2 error
 	}{result1, result2}
 }

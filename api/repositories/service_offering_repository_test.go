@@ -153,17 +153,15 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 	Describe("List", func() {
 		var (
-			offeringGUID        string
-			anotherOfferingGUID string
-			broker              *korifiv1alpha1.CFServiceBroker
-			listedOfferings     []repositories.ServiceOfferingRecord
-			message             repositories.ListServiceOfferingMessage
-			listErr             error
+			offeringGUID    string
+			broker          *korifiv1alpha1.CFServiceBroker
+			listedOfferings repositories.ListResult[repositories.ServiceOfferingRecord]
+			message         repositories.ListServiceOfferingMessage
+			listErr         error
 		)
 
 		BeforeEach(func() {
 			offeringGUID = uuid.NewString()
-			anotherOfferingGUID = uuid.NewString()
 
 			brokerGUID := uuid.NewString()
 			broker = &korifiv1alpha1.CFServiceBroker{
@@ -211,20 +209,6 @@ var _ = Describe("ServiceOfferingRepo", func() {
 				},
 			})).To(Succeed())
 
-			Expect(k8sClient.Create(ctx, &korifiv1alpha1.CFServiceOffering{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: rootNamespace,
-					Name:      anotherOfferingGUID,
-					Labels: map[string]string{
-						korifiv1alpha1.RelServiceBrokerGUIDLabel: "another-broker",
-						korifiv1alpha1.RelServiceBrokerNameLabel: "another-broker-name",
-					},
-				},
-				Spec: korifiv1alpha1.CFServiceOfferingSpec{
-					Name: "another-offering",
-				},
-			})).To(Succeed())
-
 			message = repositories.ListServiceOfferingMessage{}
 		})
 
@@ -234,7 +218,7 @@ var _ = Describe("ServiceOfferingRepo", func() {
 
 		It("lists service offerings", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(listedOfferings).To(ConsistOf(
+			Expect(listedOfferings.Records).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"Name":             Equal("my-offering"),
 					"Description":      Equal("my offering description"),
@@ -263,26 +247,10 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					}),
 					"ServiceBrokerGUID": Equal(broker.Name),
 				}),
-				MatchFields(IgnoreExtras, Fields{
-					"GUID": Equal(anotherOfferingGUID),
-				}),
 			))
 		})
 
-		When("filtering by name", func() {
-			BeforeEach(func() {
-				message.Names = []string{"my-offering"}
-			})
-
-			It("returns the matching offerings", func() {
-				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedOfferings).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-					"Name": Equal("my-offering"),
-				})))
-			})
-		})
-
-		Describe("filter parameters to list options", func() {
+		Describe("parameters to list options", func() {
 			var fakeKlient *fake.Klient
 
 			BeforeEach(func() {
@@ -296,6 +264,11 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					Names:       []string{"n1", "n2"},
 					GUIDs:       []string{"g1", "g2"},
 					BrokerNames: []string{"b1", "b2"},
+					OrderBy:     "created_at",
+					Pagination: repositories.Pagination{
+						Page:    1,
+						PerPage: 10,
+					},
 				}
 			})
 
@@ -307,6 +280,11 @@ var _ = Describe("ServiceOfferingRepo", func() {
 					repositories.WithLabelIn(korifiv1alpha1.CFServiceOfferingNameKey, tools.EncodeValuesToSha224("n1", "n2")),
 					repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"g1", "g2"}),
 					repositories.WithLabelIn(korifiv1alpha1.RelServiceBrokerNameLabel, tools.EncodeValuesToSha224("b1", "b2")),
+					repositories.WithOrdering("created_at"),
+					repositories.WithPaging(repositories.Pagination{
+						Page:    1,
+						PerPage: 10,
+					}),
 				))
 			})
 		})

@@ -13,7 +13,7 @@ import (
 
 //counterfeiter:generate -o fake -fake-name ServiceOfferingRepository . ServiceOfferingRepository
 type ServiceOfferingRepository interface {
-	ListOfferings(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)
+	ListOfferings(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) (repositories.ListResult[repositories.ServiceOfferingRecord], error)
 }
 
 //counterfeiter:generate -o fake -fake-name ServiceBrokerRepository . ServiceBrokerRepository
@@ -78,11 +78,12 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 
 	switch relatedResourceType {
 	case "service_offering":
-		return asResources(r.serviceOfferingRepo.ListOfferings(
+		offerings, err := r.serviceOfferingRepo.ListOfferings(
 			ctx,
 			authInfo,
 			repositories.ListServiceOfferingMessage{GUIDs: relatedResourceGUIDs},
-		))
+		)
+		return asResources(offerings.Records, err)
 
 	case "service_broker":
 		brokers, err := r.serviceBrokerRepo.ListServiceBrokers(

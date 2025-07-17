@@ -41,8 +41,8 @@ func (g ServiceOfferingGet) SupportedKeys() []string {
 	return []string{"fields[service_broker]"}
 }
 
-func (l *ServiceOfferingGet) DecodeFromURLValues(values url.Values) error {
-	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseFields(values)...)
+func (g *ServiceOfferingGet) DecodeFromURLValues(values url.Values) error {
+	g.IncludeResourceRules = append(g.IncludeResourceRules, params.ParseFields(values)...)
 	return nil
 }
 
@@ -56,12 +56,12 @@ func (g ServiceOfferingUpdate) Validate() error {
 	)
 }
 
-func (c *ServiceOfferingUpdate) ToMessage(serviceOfferingGUID string) repositories.UpdateServiceOfferingMessage {
+func (g *ServiceOfferingUpdate) ToMessage(serviceOfferingGUID string) repositories.UpdateServiceOfferingMessage {
 	return repositories.UpdateServiceOfferingMessage{
 		GUID: serviceOfferingGUID,
 		MetadataPatch: repositories.MetadataPatch{
-			Labels:      c.Metadata.Labels,
-			Annotations: c.Metadata.Annotations,
+			Labels:      g.Metadata.Labels,
+			Annotations: g.Metadata.Annotations,
 		},
 	}
 }
@@ -70,6 +70,8 @@ type ServiceOfferingList struct {
 	Names                string
 	BrokerNames          string
 	IncludeResourceRules []params.IncludeResourceRule
+	OrderBy              string
+	Pagination           Pagination
 }
 
 func (l ServiceOfferingList) Validate() error {
@@ -90,6 +92,8 @@ func (l ServiceOfferingList) Validate() error {
 				"guid",
 			)).Validate(rule.Fields)
 		}))),
+		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "updated_at", "name")),
+		jellidation.Field(&l.Pagination),
 	)
 }
 
@@ -97,18 +101,21 @@ func (l *ServiceOfferingList) ToMessage() repositories.ListServiceOfferingMessag
 	return repositories.ListServiceOfferingMessage{
 		Names:       parse.ArrayParam(l.Names),
 		BrokerNames: parse.ArrayParam(l.BrokerNames),
+		OrderBy:     l.OrderBy,
+		Pagination:  l.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
 func (l *ServiceOfferingList) SupportedKeys() []string {
-	return []string{"names", "service_broker_names", "fields[service_broker]", "page", "per_page"}
+	return []string{"names", "service_broker_names", "fields[service_broker]", "order_by", "page", "per_page"}
 }
 
 func (l *ServiceOfferingList) DecodeFromURLValues(values url.Values) error {
 	l.Names = values.Get("names")
 	l.BrokerNames = values.Get("service_broker_names")
 	l.IncludeResourceRules = append(l.IncludeResourceRules, params.ParseFields(values)...)
-	return nil
+	l.OrderBy = values.Get("order_by")
+	return l.Pagination.DecodeFromURLValues(values)
 }
 
 type ServiceOfferingDelete struct {

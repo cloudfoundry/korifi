@@ -25,7 +25,7 @@ const (
 type CFServiceOfferingRepository interface {
 	GetServiceOffering(context.Context, authorization.Info, string) (repositories.ServiceOfferingRecord, error)
 	UpdateServiceOffering(context.Context, authorization.Info, repositories.UpdateServiceOfferingMessage) (repositories.ServiceOfferingRecord, error)
-	ListOfferings(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) ([]repositories.ServiceOfferingRecord, error)
+	ListOfferings(context.Context, authorization.Info, repositories.ListServiceOfferingMessage) (repositories.ListResult[repositories.ServiceOfferingRecord], error)
 	DeleteOffering(context.Context, authorization.Info, repositories.DeleteServiceOfferingMessage) error
 }
 
@@ -118,12 +118,12 @@ func (h *ServiceOffering) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list service offerings")
 	}
 
-	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, serviceOfferingList, payload.IncludeResourceRules)
+	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, serviceOfferingList.Records, payload.IncludeResourceRules)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForServiceOffering, serviceOfferingList, h.serverURL, *r.URL, includedResources...)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForServiceOffering, serviceOfferingList.Records, h.serverURL, *r.URL, includedResources...)), nil
 }
 
 func (h *ServiceOffering) delete(r *http.Request) (*routing.Response, error) {

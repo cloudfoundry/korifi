@@ -131,10 +131,18 @@ var _ = Describe("ServiceOffering", func() {
 
 	Describe("GET /v3/service_offerings", func() {
 		BeforeEach(func() {
-			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{
-				GUID:              "offering-guid",
-				ServiceBrokerGUID: "broker-guid",
-			}}, nil)
+			serviceOfferingRepo.ListOfferingsReturns(repositories.ListResult[repositories.ServiceOfferingRecord]{
+				Records: []repositories.ServiceOfferingRecord{{
+					GUID:              "offering-guid",
+					ServiceBrokerGUID: "broker-guid",
+				}},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     10,
+				},
+			}, nil)
 		})
 
 		JustBeforeEach(func() {
@@ -146,8 +154,14 @@ var _ = Describe("ServiceOffering", func() {
 
 		It("lists the service offerings", func() {
 			Expect(serviceOfferingRepo.ListOfferingsCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := serviceOfferingRepo.ListOfferingsArgsForCall(0)
+			_, actualAuthInfo, actualMessage := serviceOfferingRepo.ListOfferingsArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListServiceOfferingMessage{
+				Pagination: repositories.Pagination{
+					PerPage: 50,
+					Page:    1,
+				},
+			}))
 
 			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -163,14 +177,29 @@ var _ = Describe("ServiceOffering", func() {
 		When("filtering query params are provided", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.ServiceOfferingList{
-					Names: "a1,a2",
+					Names:                "a1,a2",
+					OrderBy:              "created_at",
+					BrokerNames:          "b1,b2",
+					IncludeResourceRules: []params.IncludeResourceRule{},
+					Pagination: payloads.Pagination{
+						PerPage: "20",
+						Page:    "1",
+					},
 				})
 			})
 
 			It("passes them to the repository", func() {
 				Expect(serviceOfferingRepo.ListOfferingsCallCount()).To(Equal(1))
 				_, _, message := serviceOfferingRepo.ListOfferingsArgsForCall(0)
-				Expect(message.Names).To(ConsistOf("a1", "a2"))
+				Expect(message).To(Equal(repositories.ListServiceOfferingMessage{
+					Names:       []string{"a1", "a2"},
+					BrokerNames: []string{"b1", "b2"},
+					OrderBy:     "created_at",
+					Pagination: repositories.Pagination{
+						PerPage: 20,
+						Page:    1,
+					},
+				}))
 			})
 		})
 
@@ -261,7 +290,7 @@ var _ = Describe("ServiceOffering", func() {
 
 		When("listing the offerings fails", func() {
 			BeforeEach(func() {
-				serviceOfferingRepo.ListOfferingsReturns(nil, errors.New("list-err"))
+				serviceOfferingRepo.ListOfferingsReturns(repositories.ListResult[repositories.ServiceOfferingRecord]{}, errors.New("list-err"))
 			})
 
 			It("returns an error", func() {

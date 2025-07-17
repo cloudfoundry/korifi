@@ -132,6 +132,7 @@ var _ = Describe("list", func() {
 			Entry("service_instances", "/v3/service_instances", MatchJSONPath("$.resources", HaveLen(1))),
 			Entry("service_credential_bindings", "/v3/service_credential_bindings", MatchJSONPath("$.resources", HaveLen(1))),
 			Entry("service brokers", "/v3/service_brokers", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("service offerings", "/v3/service_offerings", MatchJSONPath("$.resources", HaveLen(1))),
 		)
 	})
 

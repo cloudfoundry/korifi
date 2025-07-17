@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships"
 	"code.cloudfoundry.org/korifi/api/repositories/relationships/fake"
 	. "github.com/onsi/ginkgo/v2"
@@ -75,7 +76,19 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 				"service_offering": "service-offering-guid",
 			})
 
-			serviceOfferingRepo.ListOfferingsReturns([]repositories.ServiceOfferingRecord{{GUID: "service-offering-guid"}}, nil)
+			serviceOfferingRepo.ListOfferingsReturns(repositories.ListResult[repositories.ServiceOfferingRecord]{
+				Records: []repositories.ServiceOfferingRecord{
+					{
+						GUID: "service-offering-guid",
+					},
+				},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     1,
+				},
+			}, nil)
 		})
 
 		It("delegates to the service_offering repository", func() {
@@ -95,7 +108,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 
 		When("the underlying repo returns an error", func() {
 			BeforeEach(func() {
-				serviceOfferingRepo.ListOfferingsReturns(nil, errors.New("list-offering-error"))
+				serviceOfferingRepo.ListOfferingsReturns(repositories.ListResult[repositories.ServiceOfferingRecord]{}, errors.New("list-offering-error"))
 			})
 
 			It("returns an error", func() {
