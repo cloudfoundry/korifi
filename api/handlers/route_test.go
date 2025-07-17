@@ -181,8 +181,11 @@ var _ = Describe("Route", func() {
 			Expect(actualReq.URL.String()).To(HaveSuffix("/v3/routes?foo=bar"))
 
 			Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ := routeRepo.ListRoutesArgsForCall(0)
+			_, actualAuthInfo, actualMessage := routeRepo.ListRoutesArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualMessage).To(Equal(repositories.ListRoutesMessage{
+				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+			}))
 
 			Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
 			_, actualAuthInfo, actualDomainGUID := domainRepo.GetDomainArgsForCall(0)
@@ -198,6 +201,40 @@ var _ = Describe("Route", func() {
 				MatchJSONPath("$.resources[1].guid", "other-test-route-guid"),
 				MatchJSONPath("$.resources[1].url", "other-test-route-host.example.org/some_path"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.RouteList{
+					AppGUIDs:    "app-guid,app-guid2",
+					SpaceGUIDs:  "space-guid,space-guid2",
+					DomainGUIDs: "domain-guid,domain-guid2",
+					Hosts:       "host1,host2",
+					Paths:       "path1,path2",
+					OrderBy:     "created_at",
+					Pagination: payloads.Pagination{
+						PerPage: "16",
+						Page:    "32",
+					},
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
+				_, _, message := routeRepo.ListRoutesArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListRoutesMessage{
+					AppGUIDs:    []string{"app-guid", "app-guid2"},
+					SpaceGUIDs:  []string{"space-guid", "space-guid2"},
+					DomainGUIDs: []string{"domain-guid", "domain-guid2"},
+					Hosts:       []string{"host1", "host2"},
+					Paths:       []string{"path1", "path2"},
+					OrderBy:     "created_at",
+					Pagination: repositories.Pagination{
+						PerPage: 16,
+						Page:    32,
+					},
+				}))
+			})
 		})
 
 		When("there is a failure Listing Routes", func() {
