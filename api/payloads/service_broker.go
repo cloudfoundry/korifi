@@ -66,27 +66,31 @@ func (c ServiceBrokerCreate) ToMessage() repositories.CreateServiceBrokerMessage
 
 type ServiceBrokerList struct {
 	Names      string
+	OrderBy    string
 	Pagination Pagination
 }
 
 func (b *ServiceBrokerList) DecodeFromURLValues(values url.Values) error {
 	b.Names = values.Get("names")
+	b.OrderBy = values.Get("order_by")
 	return b.Pagination.DecodeFromURLValues(values)
 }
 
 func (b *ServiceBrokerList) SupportedKeys() []string {
-	return []string{"names", "page", "per_page"}
+	return []string{"names", "order_by", "page", "per_page"}
 }
 
 func (l ServiceBrokerList) Validate() error {
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.Pagination),
+		jellidation.Field(&l.OrderBy, validation.OneOfOrderBy("created_at", "updated_at", "name")),
 	)
 }
 
 func (b *ServiceBrokerList) ToMessage() repositories.ListServiceBrokerMessage {
 	return repositories.ListServiceBrokerMessage{
 		Names:      parse.ArrayParam(b.Names),
+		OrderBy:    b.OrderBy,
 		Pagination: b.Pagination.ToMessage(DefaultPageSize),
 	}
 }

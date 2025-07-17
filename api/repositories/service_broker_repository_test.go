@@ -282,6 +282,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 				message = repositories.ListServiceBrokerMessage{
 					Names:      []string{"first-broker", "second-broker"},
 					GUIDs:      []string{"broker-1", "broker-2"},
+					OrderBy:    "created_at",
 					Pagination: repositories.Pagination{Page: 1, PerPage: 10},
 				}
 			})
@@ -292,6 +293,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 				Expect(listOptions).To(ConsistOf(
 					repositories.WithLabelIn(korifiv1alpha1.GUIDLabelKey, []string{"broker-1", "broker-2"}),
 					repositories.WithLabelIn(korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey, tools.EncodeValuesToSha224("first-broker", "second-broker")),
+					repositories.WithOrdering("created_at"),
 					repositories.WithPaging(repositories.Pagination{Page: 1, PerPage: 10}),
 				))
 			})

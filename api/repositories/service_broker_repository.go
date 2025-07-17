@@ -36,6 +36,7 @@ type CreateServiceBrokerMessage struct {
 type ListServiceBrokerMessage struct {
 	Names      []string
 	GUIDs      []string
+	OrderBy    string
 	Pagination Pagination
 }
 
@@ -43,6 +44,9 @@ func (m *ListServiceBrokerMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.GUIDLabelKey, m.GUIDs),
 		WithLabelIn(korifiv1alpha1.CFServiceBrokerDisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
+		WithOrdering(m.OrderBy,
+			"name", "Display Name",
+		),
 		WithPaging(m.Pagination),
 	}
 }
