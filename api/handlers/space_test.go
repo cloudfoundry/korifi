@@ -152,16 +152,24 @@ var _ = Describe("Space", func() {
 		BeforeEach(func() {
 			requestMethod = http.MethodGet
 			requestPath += "?foo=bar"
-			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
-				{
-					Name:             "test-space-1",
-					GUID:             "test-space-1-guid",
-					OrganizationGUID: "test-org-1-guid",
+			spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{
+				Records: []repositories.SpaceRecord{
+					{
+						Name:             "test-space-1",
+						GUID:             "test-space-1-guid",
+						OrganizationGUID: "test-org-1-guid",
+					},
+					{
+						Name:             "test-space-2",
+						GUID:             "test-space-2-guid",
+						OrganizationGUID: "test-org-2-guid",
+					},
 				},
-				{
-					Name:             "test-space-2",
-					GUID:             "test-space-2-guid",
-					OrganizationGUID: "test-org-2-guid",
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     2,
 				},
 			}, nil)
 			requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{})
@@ -177,6 +185,10 @@ var _ = Describe("Space", func() {
 			Expect(info).To(Equal(authInfo))
 			Expect(message.OrganizationGUIDs).To(BeEmpty())
 			Expect(message.Names).To(BeEmpty())
+			Expect(message.Pagination).To(Equal(repositories.Pagination{
+				PerPage: 50,
+				Page:    1,
+			}))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -186,6 +198,34 @@ var _ = Describe("Space", func() {
 				MatchJSONPath("$.resources[0].links.self.href", "https://api.example.org/v3/spaces/test-space-1-guid"),
 				MatchJSONPath("$.resources[1].guid", "test-space-2-guid"),
 			)))
+		})
+
+		When("filtering query params are provided", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.SpaceList{
+					Pagination: payloads.Pagination{
+						PerPage: "20",
+						Page:    "1",
+					},
+					Names:             "a1,a2",
+					GUIDs:             "g1,g2",
+					OrganizationGUIDs: "b1,b2",
+				})
+			})
+
+			It("passes them to the repository", func() {
+				Expect(spaceRepo.ListSpacesCallCount()).To(Equal(1))
+				_, _, message := spaceRepo.ListSpacesArgsForCall(0)
+				Expect(message).To(Equal(repositories.ListSpacesMessage{
+					Pagination: repositories.Pagination{
+						PerPage: 20,
+						Page:    1,
+					},
+					Names:             []string{"a1", "a2"},
+					GUIDs:             []string{"g1", "g2"},
+					OrganizationGUIDs: []string{"b1", "b2"},
+				}))
+			})
 		})
 
 		When("orgs are included", func() {
@@ -229,7 +269,7 @@ var _ = Describe("Space", func() {
 
 		When("fetching the spaces fails", func() {
 			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns(nil, errors.New("boom!"))
+				spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{}, errors.New("boom!"))
 			})
 
 			It("returns an error", func() {

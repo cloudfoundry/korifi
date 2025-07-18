@@ -9,6 +9,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -31,6 +32,7 @@ type ListSpacesMessage struct {
 	Names             []string
 	GUIDs             []string
 	OrganizationGUIDs []string
+	Pagination        Pagination
 }
 
 func (m *ListSpacesMessage) toListOptions(orgNs string, authorizedSpaceGuids []string) []ListOption {
@@ -126,10 +128,10 @@ func (r *SpaceRepo) CreateSpace(ctx context.Context, info authorization.Info, me
 	return cfSpaceToSpaceRecord(*cfSpace), nil
 }
 
-func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info, message ListSpacesMessage) ([]SpaceRecord, error) {
+func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info, message ListSpacesMessage) (ListResult[SpaceRecord], error) {
 	authorizedOrgNamespaces, err := getAuthorizedOrgNamespaces(ctx, authInfo, r.nsPerms)
 	if err != nil {
-		return nil, err
+		return ListResult[SpaceRecord]{}, err
 	}
 
 	orgNsList := slices.Collect(it.Filter(slices.Values(authorizedOrgNamespaces), func(ns string) bool {
@@ -138,7 +140,7 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info,
 
 	authorizedSpaceNamespaces, err := r.nsPerms.GetAuthorizedSpaceNamespaces(ctx, authInfo)
 	if err != nil {
-		return nil, err
+		return ListResult[SpaceRecord]{}, err
 	}
 
 	cfSpaces := []korifiv1alpha1.CFSpace{}
@@ -149,13 +151,27 @@ func (r *SpaceRepo) ListSpaces(ctx context.Context, authInfo authorization.Info,
 			continue
 		}
 		if err != nil {
-			return nil, apierrors.FromK8sError(err, SpaceResourceType)
+			return ListResult[SpaceRecord]{}, apierrors.FromK8sError(err, SpaceResourceType)
 		}
 
 		cfSpaces = append(cfSpaces, cfSpaceList.Items...)
 	}
 
-	return slices.Collect(it.Map(slices.Values(cfSpaces), cfSpaceToSpaceRecord)), nil
+	spaceRecords := slices.Collect(it.Map(slices.Values(cfSpaces), cfSpaceToSpaceRecord))
+
+	recordsPage := descriptors.SinglePage(spaceRecords, len(spaceRecords))
+	if !message.Pagination.IsZero() {
+		var err error
+		recordsPage, err = descriptors.GetPage(spaceRecords, message.Pagination.PerPage, message.Pagination.Page)
+		if err != nil {
+			return ListResult[SpaceRecord]{}, fmt.Errorf("failed to page spaces list: %w", err)
+		}
+	}
+
+	return ListResult[SpaceRecord]{
+		PageInfo: recordsPage.PageInfo,
+		Records:  recordsPage.Items,
+	}, nil
 }
 
 func (r *SpaceRepo) GetSpace(ctx context.Context, info authorization.Info, spaceGUID string) (SpaceRecord, error) {

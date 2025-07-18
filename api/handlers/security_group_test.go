@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 
@@ -98,13 +99,12 @@ var _ = Describe("SecurityGroup", func() {
 				StagingSpaces: []string{"space2"},
 			}, nil)
 
-			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
-				{
-					Name: "space1",
+			spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{
+				Records: []repositories.SpaceRecord{
+					{Name: "space1"},
+					{Name: "space2"},
 				},
-				{
-					Name: "space2",
-				},
+				PageInfo: descriptors.PageInfo{TotalResults: 2, TotalPages: 1},
 			}, nil)
 		})
 
@@ -147,7 +147,7 @@ var _ = Describe("SecurityGroup", func() {
 
 		When("a space in the security group does not exist", func() {
 			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{}, nil)
+				spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{}, nil)
 			})
 
 			It("returns a not found error", func() {
@@ -157,7 +157,7 @@ var _ = Describe("SecurityGroup", func() {
 
 		When("fetching the spaces returns an error", func() {
 			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns(nil, errors.New("boom!"))
+				spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{}, errors.New("boom!"))
 			})
 
 			It("returns an error", func() {

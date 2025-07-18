@@ -66,7 +66,7 @@ func (h *SecurityGroup) create(r *http.Request) (*routing.Response, error) {
 			return nil, apierrors.LogAndReturn(logger, err, "failed to list spaces for binding to security group")
 		}
 
-		if len(spaces) == 0 {
+		if len(spaces.Records) == 0 {
 			return nil, apierrors.LogAndReturn(
 				logger,
 				apierrors.NewUnprocessableEntityError(fmt.Errorf("failed to create security group"), spaceNotFoundErr),

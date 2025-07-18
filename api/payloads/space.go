@@ -105,6 +105,7 @@ type SpaceList struct {
 	GUIDs                string
 	OrganizationGUIDs    string
 	IncludeResourceRules []params.IncludeResourceRule
+	Pagination           Pagination
 }
 
 func (s SpaceList) Validate() error {
@@ -121,6 +122,7 @@ func (s SpaceList) Validate() error {
 
 			return nil
 		}))),
+		jellidation.Field(&s.Pagination),
 	)
 }
 
@@ -129,6 +131,7 @@ func (l *SpaceList) ToMessage() repositories.ListSpacesMessage {
 		Names:             parse.ArrayParam(l.Names),
 		GUIDs:             parse.ArrayParam(l.GUIDs),
 		OrganizationGUIDs: parse.ArrayParam(l.OrganizationGUIDs),
+		Pagination:        l.Pagination.ToMessage(DefaultPageSize),
 	}
 }
 
@@ -150,7 +153,7 @@ func (l *SpaceList) DecodeFromURLValues(values url.Values) error {
 		}
 	}
 
-	return nil
+	return l.Pagination.DecodeFromURLValues(values)
 }
 
 type SpaceDeleteRoutes struct {

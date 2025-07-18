@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -179,7 +180,7 @@ var _ = Describe("SpaceRepository", func() {
 		var (
 			cfOrg          *korifiv1alpha1.CFOrg
 			space1, space2 *korifiv1alpha1.CFSpace
-			spaces         []repositories.SpaceRecord
+			spaces         repositories.ListResult[repositories.SpaceRecord]
 			listMessage    repositories.ListSpacesMessage
 			listErr        error
 		)
@@ -201,7 +202,7 @@ var _ = Describe("SpaceRepository", func() {
 
 		It("returns an empty list as user has no roles assigned", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(spaces).To(BeEmpty())
+			Expect(spaces.Records).To(BeEmpty())
 		})
 
 		When("the user has space roles", func() {
@@ -213,7 +214,7 @@ var _ = Describe("SpaceRepository", func() {
 			It("returns the spaces the user has role bindings in", func() {
 				Expect(listErr).NotTo(HaveOccurred())
 
-				Expect(spaces).To(ConsistOf(
+				Expect(spaces.Records).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"Name":             Equal("space1"),
 						"GUID":             Equal(space1.Name),
@@ -225,6 +226,36 @@ var _ = Describe("SpaceRepository", func() {
 						"OrganizationGUID": Equal(cfOrg.Name),
 					}),
 				))
+				Expect(spaces.PageInfo).To(Equal(descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     2,
+				}))
+			})
+
+			When("paging is requested", func() {
+				BeforeEach(func() {
+					listMessage.Pagination = repositories.Pagination{
+						PerPage: 1,
+						Page:    2,
+					}
+				})
+
+				It("returns spaces page", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(spaces.Records).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"Name": Or(Equal("space1"), Equal("space2")),
+						}),
+					))
+					Expect(spaces.PageInfo).To(Equal(descriptors.PageInfo{
+						TotalResults: 2,
+						TotalPages:   2,
+						PageNumber:   2,
+						PageSize:     1,
+					}))
+				})
 			})
 
 			When("filtering by org guids", func() {
@@ -241,7 +272,7 @@ var _ = Describe("SpaceRepository", func() {
 
 				It("only returns the spaces belonging to the specified org guids", func() {
 					Expect(listErr).NotTo(HaveOccurred())
-					Expect(spaces).To(ConsistOf(
+					Expect(spaces.Records).To(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"Name":             Equal("space1"),
 							"OrganizationGUID": Equal(cfOrg.Name),
@@ -309,7 +340,7 @@ var _ = Describe("SpaceRepository", func() {
 					spaces, err := spaceRepo.ListSpaces(ctx, authInfo, repositories.ListSpacesMessage{})
 					Expect(err).NotTo(HaveOccurred())
 
-					Expect(spaces).To(HaveLen(2))
+					Expect(spaces.Records).To(HaveLen(2))
 				})
 			})
 		})
