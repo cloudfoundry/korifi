@@ -157,9 +157,9 @@ var _ = Describe("Space", func() {
 						RelationshipPath: []string{"organization"},
 					},
 				}}),
-				Entry("order_by", "order_by=something", payloads.SpaceList{}),
-				Entry("per_page", "per_page=few", payloads.SpaceList{}),
-				Entry("page", "page=3", payloads.SpaceList{}),
+
+				Entry("names", "names=b1,b2", payloads.SpaceList{Names: "b1,b2"}),
+				Entry("page=3", "page=3", payloads.SpaceList{Pagination: payloads.Pagination{Page: "3"}}),
 			)
 			DescribeTable("invalid query",
 				func(query string, errMatcher types.GomegaMatcher) {
@@ -168,20 +168,31 @@ var _ = Describe("Space", func() {
 				},
 
 				Entry("include", "include=something", MatchError(ContainSubstring("must be organization"))),
+
+				Entry("per_page is not a number", "per_page=foo", MatchError(ContainSubstring("value must be an integer"))),
 			)
 		})
 
 		Describe("ToMessage", func() {
 			It("splits names to strings", func() {
 				spaceList := payloads.SpaceList{
-					Names:             "foo,bar",
-					GUIDs:             "g1,g2",
-					OrganizationGUIDs: "org1,org2",
+					Names:                "foo,bar",
+					GUIDs:                "g1,g2",
+					OrganizationGUIDs:    "org1,org2",
+					IncludeResourceRules: []params.IncludeResourceRule{},
+					Pagination: payloads.Pagination{
+						PerPage: "20",
+						Page:    "1",
+					},
 				}
 				Expect(spaceList.ToMessage()).To(Equal(repositories.ListSpacesMessage{
 					Names:             []string{"foo", "bar"},
 					GUIDs:             []string{"g1", "g2"},
 					OrganizationGUIDs: []string{"org1", "org2"},
+					Pagination: repositories.Pagination{
+						PerPage: 20,
+						Page:    1,
+					},
 				}))
 			})
 		})

@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -450,7 +451,12 @@ var _ = Describe("RoleRepository", func() {
 
 			It("returns the bindings in cfOrg and cfSpace only (for system user and my-user)", func() {
 				Expect(listErr).NotTo(HaveOccurred())
-				Expect(roles.PageInfo.TotalResults).To(Equal(4))
+				Expect(roles.PageInfo).To(Equal(descriptors.PageInfo{
+					TotalResults: 4,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     4,
+				}))
 				Expect(roles.Records).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{
 						"GUID":  Equal("2"),
@@ -485,6 +491,30 @@ var _ = Describe("RoleRepository", func() {
 						"Org":   Equal(cfOrg.Name),
 					}),
 				))
+			})
+
+			When("paging is requested", func() {
+				BeforeEach(func() {
+					message.Pagination = repositories.Pagination{
+						PerPage: 1,
+						Page:    2,
+					}
+				})
+
+				It("returns roles page", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(roles.Records).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"GUID": Or(Equal("1"), Equal("2"), Equal("5"), Equal("6")),
+						}),
+					))
+					Expect(roles.PageInfo).To(Equal(descriptors.PageInfo{
+						TotalResults: 4,
+						TotalPages:   4,
+						PageNumber:   2,
+						PageSize:     1,
+					}))
+				})
 			})
 
 			Describe("filtering", func() {

@@ -181,11 +181,14 @@ var _ = Describe("ServiceInstance", func() {
 					}},
 				}, nil)
 
-				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{{
-					Name:             "space-name",
-					OrganizationGUID: "org-guid",
-					GUID:             "space-guid",
-				}}, nil)
+				spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{
+					Records: []repositories.SpaceRecord{{
+						Name:             "space-name",
+						OrganizationGUID: "org-guid",
+						GUID:             "space-guid",
+					}},
+					PageInfo: descriptors.PageInfo{TotalResults: 1},
+				}, nil)
 			})
 
 			When("params to inlude fields[service_plan]", func() {
@@ -685,11 +688,14 @@ var _ = Describe("ServiceInstance", func() {
 					}},
 				}, nil)
 
-				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{{
-					Name:             "space-name",
-					OrganizationGUID: "org-guid",
-					GUID:             "space-guid",
-				}}, nil)
+				spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{
+					Records: []repositories.SpaceRecord{{
+						Name:             "space-name",
+						OrganizationGUID: "org-guid",
+						GUID:             "space-guid",
+					}},
+					PageInfo: descriptors.PageInfo{TotalResults: 1},
+				}, nil)
 			})
 
 			When("params to inlude fields[service_plan.service_offering]", func() {

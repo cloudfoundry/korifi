@@ -209,7 +209,15 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 				"space": "space-guid",
 			})
 
-			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{{GUID: "space-guid"}}, nil)
+			spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{
+				Records: []repositories.SpaceRecord{{GUID: "space-guid"}},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 1,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     1,
+				},
+			}, nil)
 		})
 
 		It("returns a list of related spaces", func() {
@@ -219,7 +227,7 @@ var _ = Describe("ResourceRelationshipsRepository", func() {
 
 		When("the underlying repo returns an error", func() {
 			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns(nil, errors.New("list-space-error"))
+				spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{}, errors.New("list-space-error"))
 			})
 
 			It("returns an error", func() {

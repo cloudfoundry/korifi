@@ -28,7 +28,7 @@ type ServicePlanRepository interface {
 
 //counterfeiter:generate -o fake -fake-name SpaceRepository . SpaceRepository
 type SpaceRepository interface {
-	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
+	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) (repositories.ListResult[repositories.SpaceRecord], error)
 }
 
 //counterfeiter:generate -o fake -fake-name OrgRepository . OrgRepository
@@ -97,7 +97,7 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 			repositories.ListServicePlanMessage{GUIDs: relatedResourceGUIDs},
 		))
 	case "space":
-		return asResourcesDeprecated(r.spaceRepo.ListSpaces(
+		return asResources(r.spaceRepo.ListSpaces(
 			ctx,
 			authInfo,
 			repositories.ListSpacesMessage{GUIDs: relatedResourceGUIDs},
@@ -116,12 +116,6 @@ func (r *ResourceRelationshipsRepo) ListRelatedResources(ctx context.Context, au
 
 func asResources[S []E, E Resource](resources repositories.ListResult[E], err error) ([]Resource, error) {
 	return slices.Collect(it.Map(itx.FromSlice(resources.Records), func(o E) Resource {
-		return o
-	})), err
-}
-
-func asResourcesDeprecated[S ~[]E, E Resource](resources S, err error) ([]Resource, error) {
-	return slices.Collect(it.Map(itx.FromSlice(resources), func(o E) Resource {
 		return o
 	})), err
 }

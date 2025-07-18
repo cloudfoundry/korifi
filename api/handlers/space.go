@@ -27,7 +27,7 @@ const (
 
 type CFSpaceRepository interface {
 	CreateSpace(context.Context, authorization.Info, repositories.CreateSpaceMessage) (repositories.SpaceRecord, error)
-	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) ([]repositories.SpaceRecord, error)
+	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) (repositories.ListResult[repositories.SpaceRecord], error)
 	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
 	PatchSpaceMetadata(context.Context, authorization.Info, repositories.PatchSpaceMetadataMessage) (repositories.SpaceRecord, error)
@@ -94,12 +94,12 @@ func (h *Space) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch spaces")
 	}
 
-	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, spaces, payload.IncludeResourceRules)
+	includedResources, err := h.includeResolver.ResolveIncludes(r.Context(), authInfo, spaces.Records, payload.IncludeResourceRules)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to build included resources")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL, includedResources...)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForSpace, spaces, h.apiBaseURL, *r.URL, includedResources...)), nil
 }
 
 //nolint:dupl
