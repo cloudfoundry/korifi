@@ -5,6 +5,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/repositories"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/uuid"
@@ -38,12 +39,20 @@ var _ = Describe("StackRepository", func() {
 		Expect(k8s.Patch(ctx, k8sClient, builderInfo, func() {
 			builderInfo.Status = korifiv1alpha1.BuilderInfoStatus{
 				Buildpacks: []korifiv1alpha1.BuilderInfoStatusBuildpack{},
-				Stacks: []korifiv1alpha1.BuilderInfoStatusStack{{
-					Name:              "my-stack",
-					Description:       "my stack",
-					CreationTimestamp: metav1.NewTime(time.UnixMilli(2000).UTC()),
-					UpdatedTimestamp:  metav1.NewTime(time.UnixMilli(3000).UTC()),
-				}},
+				Stacks: []korifiv1alpha1.BuilderInfoStatusStack{
+					{
+						Name:              "my-stack",
+						Description:       "my stack",
+						CreationTimestamp: metav1.NewTime(time.UnixMilli(2000).UTC()),
+						UpdatedTimestamp:  metav1.NewTime(time.UnixMilli(3000).UTC()),
+					},
+					{
+						Name:              "my-stack-2",
+						Description:       "my stack-2",
+						CreationTimestamp: metav1.NewTime(time.UnixMilli(2000).UTC()),
+						UpdatedTimestamp:  metav1.NewTime(time.UnixMilli(3000).UTC()),
+					},
+				},
 				Conditions: []metav1.Condition{{
 					Type:               korifiv1alpha1.StatusConditionReady,
 					Status:             metav1.ConditionTrue,
@@ -56,22 +65,61 @@ var _ = Describe("StackRepository", func() {
 
 	Describe("ListStacks", func() {
 		var (
-			stacks  []repositories.StackRecord
+			stacks  repositories.ListResult[repositories.StackRecord]
+			message repositories.ListStacksMessage
 			listErr error
 		)
 
 		JustBeforeEach(func() {
-			stacks, listErr = stackRepo.ListStacks(ctx, authInfo)
+			stacks, listErr = stackRepo.ListStacks(ctx, authInfo, message)
 		})
 
 		It("returns the stacks from the builder info", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(stacks).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
-				"Name":        Equal("my-stack"),
-				"Description": Equal("my stack"),
-				"CreatedAt":   BeTemporally("~", time.UnixMilli(2000).UTC()),
-				"UpdatedAt":   PointTo(BeTemporally("~", time.UnixMilli(3000).UTC())),
-			})))
+			Expect(stacks.Records).To(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{
+					"Name":        Equal("my-stack"),
+					"Description": Equal("my stack"),
+					"CreatedAt":   BeTemporally("~", time.UnixMilli(2000).UTC()),
+					"UpdatedAt":   PointTo(BeTemporally("~", time.UnixMilli(3000).UTC())),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":        Equal("my-stack-2"),
+					"Description": Equal("my stack-2"),
+					"CreatedAt":   BeTemporally("~", time.UnixMilli(2000).UTC()),
+					"UpdatedAt":   PointTo(BeTemporally("~", time.UnixMilli(3000).UTC())),
+				}),
+			))
+			Expect(stacks.PageInfo).To(Equal(descriptors.PageInfo{
+				TotalResults: 2,
+				TotalPages:   1,
+				PageNumber:   1,
+				PageSize:     2,
+			}))
+		})
+
+		When("paging is requested", func() {
+			BeforeEach(func() {
+				message.Pagination = repositories.Pagination{
+					PerPage: 1,
+					Page:    2,
+				}
+			})
+
+			It("returns spaces page", func() {
+				Expect(listErr).NotTo(HaveOccurred())
+				Expect(stacks.Records).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{
+						"Name": Or(Equal("my-stack"), Equal("my-stack-2")),
+					}),
+				))
+				Expect(stacks.PageInfo).To(Equal(descriptors.PageInfo{
+					TotalResults: 2,
+					TotalPages:   2,
+					PageNumber:   2,
+					PageSize:     1,
+				}))
+			})
 		})
 
 		When("the builderInfo is not ready", func() {

@@ -105,6 +105,7 @@ var _ = Describe("list", func() {
 		Entry("service offerings", "/v3/service_offerings", MatchJSONPath("$.resources", Not(BeEmpty()))),
 		Entry("service plans", "/v3/service_plans", MatchJSONPath("$.resources", Not(BeEmpty()))),
 		Entry("spaces", "/v3/spaces", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("stacks", "/v3/stacks", MatchJSONPath("$.resources", Not(BeEmpty()))),
 		Entry("tasks", "/v3/tasks", MatchJSONPath("$.resources", Not(BeEmpty()))),
 		Entry("app tasks", "/v3/apps/{{.appGUID}}/tasks", MatchJSONPath("$.resources", Not(BeEmpty()))),
 	)
@@ -135,6 +136,7 @@ var _ = Describe("list", func() {
 			Entry("service offerings", "/v3/service_offerings", MatchJSONPath("$.resources", HaveLen(1))),
 			Entry("service plans", "/v3/service_plans", MatchJSONPath("$.resources", HaveLen(1))),
 			Entry("spaces", "/v3/spaces", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("stacks", "/v3/stacks", MatchJSONPath("$.resources", HaveLen(1))),
 		)
 	})
 
@@ -180,6 +182,7 @@ var _ = Describe("list", func() {
 			Entry("service brokers", "/v3/service_brokers", MatchJSONPath("$.resources", Not(BeEmpty()))),
 			Entry("service offerings", "/v3/service_offerings", MatchJSONPath("$.resources", Not(BeEmpty()))),
 			Entry("service plans", "/v3/service_plans", MatchJSONPath("$.resources", Not(BeEmpty()))),
+			Entry("stacks", "/v3/stacks", MatchJSONPath("$.resources", Not(BeEmpty()))),
 		)
 	})
 })

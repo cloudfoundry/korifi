@@ -394,6 +394,7 @@ func main() {
 		handlers.NewStack(
 			*serverURL,
 			stackRepo,
+			requestValidator,
 		),
 		handlers.NewJob(
 			*serverURL,
