@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"code.cloudfoundry.org/korifi/api/repositories"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,29 +13,35 @@ import (
 
 var _ = Describe("User", func() {
 	var (
-		baseURL *url.URL
-		output  []byte
-		name    string
+		userRecord repositories.UserRecord
+		output     []byte
 	)
 
 	BeforeEach(func() {
-		var err error
-		baseURL, err = url.Parse("https://api.example.org")
-		Expect(err).NotTo(HaveOccurred())
-		name = "bob"
+		userRecord = repositories.UserRecord{
+			GUID: "bob-guid",
+			Name: "bob",
+		}
 	})
 
 	JustBeforeEach(func() {
-		response := presenter.ForUser(name, *baseURL)
-		var err error
+		baseURL, err := url.Parse("https://api.example.org")
+		Expect(err).NotTo(HaveOccurred())
+
+		response := presenter.ForUser(userRecord, *baseURL)
 		output, err = json.Marshal(response)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("produces expected user json", func() {
+	It("returns user response", func() {
 		Expect(output).To(MatchJSON(`{
-			"guid": "bob",
-			"username": "bob"
+			"guid": "bob-guid",
+			"username": "bob",
+			"links": {
+			  "self": {
+				"href": "https://api.example.org/v3/users/bob-guid"
+			  }
+			}
 		}`))
 	})
 })

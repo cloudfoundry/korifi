@@ -108,6 +108,7 @@ var _ = Describe("list", func() {
 		Entry("stacks", "/v3/stacks", MatchJSONPath("$.resources", Not(BeEmpty()))),
 		Entry("tasks", "/v3/tasks", MatchJSONPath("$.resources", Not(BeEmpty()))),
 		Entry("app tasks", "/v3/apps/{{.appGUID}}/tasks", MatchJSONPath("$.resources", Not(BeEmpty()))),
+		Entry("users", "/v3/users?usernames=alice", MatchJSONPath("$.resources", Not(BeEmpty()))),
 	)
 
 	When("paging params are provided", func() {
@@ -139,6 +140,7 @@ var _ = Describe("list", func() {
 			Entry("stacks", "/v3/stacks", MatchJSONPath("$.resources", HaveLen(1))),
 			Entry("tasks", "/v3/tasks", MatchJSONPath("$.resources", HaveLen(1))),
 			Entry("app tasks", "/v3/apps/{{.appGUID}}/tasks", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("users", "/v3/users?usernames=alice", MatchJSONPath("$.resources", HaveLen(1))),
 		)
 	})
 
@@ -185,6 +187,7 @@ var _ = Describe("list", func() {
 			Entry("service offerings", "/v3/service_offerings", MatchJSONPath("$.resources", Not(BeEmpty()))),
 			Entry("service plans", "/v3/service_plans", MatchJSONPath("$.resources", Not(BeEmpty()))),
 			Entry("stacks", "/v3/stacks", MatchJSONPath("$.resources", Not(BeEmpty()))),
+			Entry("users", "/v3/users?usernames=alice", MatchJSONPath("$.resources", Not(BeEmpty()))),
 		)
 	})
 })

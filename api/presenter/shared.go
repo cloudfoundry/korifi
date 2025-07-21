@@ -9,7 +9,6 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
-	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/BooleanCat/go-functional/v2/it"
 )
@@ -75,14 +74,6 @@ type ToOneRelationship struct {
 }
 
 type itemPresenter[T, S any] func(T, url.URL, ...include.Resource) S
-
-func ForListDeprecated[T, S any](itemPresenter itemPresenter[T, S], resources []T, baseURL, requestURL url.URL, includes ...include.Resource) ListResponse[S] {
-	singlePageListResult := repositories.ListResult[T]{
-		PageInfo: descriptors.SinglePageInfo(len(resources), len(resources)),
-		Records:  resources,
-	}
-	return ForList(itemPresenter, singlePageListResult, baseURL, requestURL, includes...)
-}
 
 func ForList[T, S any](itemPresenter itemPresenter[T, S], listResult repositories.ListResult[T], baseURL, requestURL url.URL, includes ...include.Resource) ListResponse[S] {
 	presenters := []S{}
