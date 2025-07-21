@@ -1,8 +1,6 @@
 package payloads_test
 
 import (
-	"net/http"
-
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -14,27 +12,101 @@ import (
 )
 
 var _ = Describe("TaskList", func() {
-	DescribeTable("decodes from url values",
-		func(query string, taskList payloads.TaskList, err string) {
-			actualTaskList := payloads.TaskList{}
-			req, reqErr := http.NewRequest("GET", "http://foo.com/?"+query, nil)
-			Expect(reqErr).NotTo(HaveOccurred())
+	DescribeTable("valid query",
+		func(query string, expectedTaskList payloads.TaskList) {
+			actualTaskList, decodeErr := decodeQuery[payloads.TaskList](query)
 
-			decodeErr := validator.DecodeAndValidateURLValues(req, &actualTaskList)
-
-			if err == "" {
-				Expect(decodeErr).NotTo(HaveOccurred())
-				Expect(actualTaskList).To(Equal(taskList))
-			} else {
-				Expect(decodeErr).To(MatchError(ContainSubstring(err)))
-			}
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualTaskList).To(Equal(expectedTaskList))
 		},
-		Entry("valid sequence_ids", "sequence_ids=1,2,3", payloads.TaskList{SequenceIDs: []int64{1, 2, 3}}, ""),
-		Entry("missing sequence_ids", "", payloads.TaskList{}, ""),
-		Entry("empty sequence_ids", "sequence_ids=", payloads.TaskList{}, ""),
-		Entry("empty sequence_id", "sequence_ids=1,,3", payloads.TaskList{SequenceIDs: []int64{1, 3}}, ""),
-		Entry("invalid sequence_ids", "sequence_ids=1,two,3", payloads.TaskList{}, "invalid syntax"),
+		Entry("order_by created_at", "order_by=created_at", payloads.TaskList{OrderBy: "created_at"}),
+		Entry("order_by -created_at", "order_by=-created_at", payloads.TaskList{OrderBy: "-created_at"}),
+		Entry("order_by updated_at", "order_by=updated_at", payloads.TaskList{OrderBy: "updated_at"}),
+		Entry("order_by -updated_at", "order_by=-updated_at", payloads.TaskList{OrderBy: "-updated_at"}),
+		Entry("pagination", "page=3", payloads.TaskList{Pagination: payloads.Pagination{Page: "3"}}),
 	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.TaskList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+		Entry("invalid parameter", "foo=bar", "unsupported query parameter: foo"),
+		Entry("invalid pagination", "per_page=foo", "value must be an integer"),
+	)
+
+	Describe("ToMessage", func() {
+		It("translates to repo message", func() {
+			taskList := payloads.TaskList{
+				OrderBy: "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "3",
+					Page:    "2",
+				},
+			}
+			Expect(taskList.ToMessage()).To(Equal(repositories.ListTasksMessage{
+				OrderBy: "created_at",
+				Pagination: repositories.Pagination{
+					Page:    2,
+					PerPage: 3,
+				},
+			}))
+		})
+	})
+})
+
+var _ = Describe("AppTaskList", func() {
+	DescribeTable("valid query",
+		func(query string, expectedAppTaskList payloads.AppTaskList) {
+			actualAppTaskList, decodeErr := decodeQuery[payloads.AppTaskList](query)
+
+			Expect(decodeErr).NotTo(HaveOccurred())
+			Expect(*actualAppTaskList).To(Equal(expectedAppTaskList))
+		},
+
+		Entry("missing sequence_ids", "", payloads.AppTaskList{}),
+		Entry("empty sequence_ids", "sequence_ids=", payloads.AppTaskList{}),
+		Entry("valid sequence_ids", "sequence_ids=1,2,3", payloads.AppTaskList{SequenceIDs: []int64{1, 2, 3}}),
+		Entry("empty sequence_id", "sequence_ids=1,,3", payloads.AppTaskList{SequenceIDs: []int64{1, 3}}),
+		Entry("order_by created_at", "order_by=created_at", payloads.AppTaskList{OrderBy: "created_at"}),
+		Entry("order_by -created_at", "order_by=-created_at", payloads.AppTaskList{OrderBy: "-created_at"}),
+		Entry("order_by updated_at", "order_by=updated_at", payloads.AppTaskList{OrderBy: "updated_at"}),
+		Entry("order_by -updated_at", "order_by=-updated_at", payloads.AppTaskList{OrderBy: "-updated_at"}),
+		Entry("pagination", "page=3", payloads.AppTaskList{Pagination: payloads.Pagination{Page: "3"}}),
+	)
+
+	DescribeTable("invalid query",
+		func(query string, expectedErrMsg string) {
+			_, decodeErr := decodeQuery[payloads.AppTaskList](query)
+			Expect(decodeErr).To(MatchError(ContainSubstring(expectedErrMsg)))
+		},
+		Entry("invalid sequence_ids", "sequence_ids=1,two,3", "invalid syntax"),
+		Entry("invalid parameter", "foo=bar", "unsupported query parameter: foo"),
+		Entry("invalid order_by", "order_by=foo", "value must be one of"),
+		Entry("invalid pagination", "per_page=foo", "value must be an integer"),
+	)
+
+	Describe("ToMessage", func() {
+		It("translates to repo message", func() {
+			appTaskList := payloads.AppTaskList{
+				SequenceIDs: []int64{1, 2, 3},
+				OrderBy:     "created_at",
+				Pagination: payloads.Pagination{
+					PerPage: "3",
+					Page:    "2",
+				},
+			}
+			Expect(appTaskList.ToMessage()).To(Equal(repositories.ListTasksMessage{
+				SequenceIDs: []int64{1, 2, 3},
+				OrderBy:     "created_at",
+				Pagination: repositories.Pagination{
+					Page:    2,
+					PerPage: 3,
+				},
+			}))
+		})
+	})
 })
 
 var _ = Describe("TaskCreate", func() {

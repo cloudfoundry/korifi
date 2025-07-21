@@ -137,6 +137,8 @@ var _ = Describe("list", func() {
 			Entry("service plans", "/v3/service_plans", MatchJSONPath("$.resources", HaveLen(1))),
 			Entry("spaces", "/v3/spaces", MatchJSONPath("$.resources", HaveLen(1))),
 			Entry("stacks", "/v3/stacks", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("tasks", "/v3/tasks", MatchJSONPath("$.resources", HaveLen(1))),
+			Entry("app tasks", "/v3/apps/{{.appGUID}}/tasks", MatchJSONPath("$.resources", HaveLen(1))),
 		)
 	})
 

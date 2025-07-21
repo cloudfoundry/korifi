@@ -59,17 +59,21 @@ type CreateTaskMessage struct {
 	Metadata
 }
 
-type ListTaskMessage struct {
+type ListTasksMessage struct {
 	AppGUIDs    []string
 	SequenceIDs []int64
+	OrderBy     string
+	Pagination  Pagination
 }
 
-func (m *ListTaskMessage) toListOptions() []ListOption {
+func (m *ListTasksMessage) toListOptions() []ListOption {
 	return []ListOption{
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.CFTaskSequenceIDLabelKey, slices.Collect(it.Map(slices.Values(m.SequenceIDs), func(id int64) string {
 			return strconv.FormatInt(int64(id), 10)
 		}))),
+		WithOrdering(m.OrderBy),
+		WithPaging(m.Pagination),
 	}
 }
 
@@ -155,14 +159,17 @@ func (r *TaskRepo) awaitCondition(ctx context.Context, task *korifiv1alpha1.CFTa
 	return awaitedTask, nil
 }
 
-func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, msg ListTaskMessage) ([]TaskRecord, error) {
+func (r *TaskRepo) ListTasks(ctx context.Context, authInfo authorization.Info, msg ListTasksMessage) (ListResult[TaskRecord], error) {
 	taskList := &korifiv1alpha1.CFTaskList{}
-	_, err := r.klient.List(ctx, taskList, msg.toListOptions()...)
+	pageInfo, err := r.klient.List(ctx, taskList, msg.toListOptions()...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list tasks: %w", apierrors.FromK8sError(err, TaskResourceType))
+		return ListResult[TaskRecord]{}, fmt.Errorf("failed to list tasks: %w", apierrors.FromK8sError(err, TaskResourceType))
 	}
 
-	return slices.Collect(it.Map(slices.Values(taskList.Items), taskToRecord)), nil
+	return ListResult[TaskRecord]{
+		Records:  slices.Collect(it.Map(slices.Values(taskList.Items), taskToRecord)),
+		PageInfo: pageInfo,
+	}, nil
 }
 
 func (r *TaskRepo) CancelTask(ctx context.Context, authInfo authorization.Info, taskGUID string) (TaskRecord, error) {
