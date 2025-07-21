@@ -10,6 +10,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/fakeawaiter"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
@@ -355,14 +356,14 @@ var _ = Describe("TaskRepository", func() {
 	Describe("List Tasks", func() {
 		var (
 			task        *korifiv1alpha1.CFTask
-			listTaskMsg repositories.ListTaskMessage
+			listTaskMsg repositories.ListTasksMessage
 
-			listedTasks []repositories.TaskRecord
-			listErr     error
+			tasks   repositories.ListResult[repositories.TaskRecord]
+			listErr error
 		)
 
 		BeforeEach(func() {
-			listTaskMsg = repositories.ListTaskMessage{}
+			listTaskMsg = repositories.ListTasksMessage{}
 
 			task = &korifiv1alpha1.CFTask{
 				ObjectMeta: metav1.ObjectMeta{
@@ -380,12 +381,12 @@ var _ = Describe("TaskRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			listedTasks, listErr = taskRepo.ListTasks(ctx, authInfo, listTaskMsg)
+			tasks, listErr = taskRepo.ListTasks(ctx, authInfo, listTaskMsg)
 		})
 
 		It("returns an empty list due to no permissions", func() {
 			Expect(listErr).NotTo(HaveOccurred())
-			Expect(listedTasks).To(BeEmpty())
+			Expect(tasks.Records).To(BeEmpty())
 		})
 
 		When("the user has the space developer role", func() {
@@ -393,34 +394,55 @@ var _ = Describe("TaskRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			It("lists tasks from that namespace only", func() {
+			It("lists tasks", func() {
 				Expect(listErr).NotTo(HaveOccurred())
-				Expect(listedTasks).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				Expect(tasks.Records).To(ConsistOf(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"GUID": Equal(task.Name),
 				})))
+				Expect(tasks.PageInfo).To(Equal(descriptors.PageInfo{
+					TotalResults: 1,
+					TotalPages:   1,
+					PageNumber:   1,
+					PageSize:     1,
+				}))
 			})
 		})
 
-		Describe("filtering", func() {
+		Describe("list options", func() {
 			var fakeKlient *fake.Klient
 
 			BeforeEach(func() {
 				fakeKlient = new(fake.Klient)
-				taskRepo = repositories.NewTaskRepo(fakeKlient, conditionAwaiter)
-
-				listTaskMsg = repositories.ListTaskMessage{
-					AppGUIDs:    []string{"app1", "app2"},
-					SequenceIDs: []int64{1, 2},
-				}
+				taskRepo = repositories.NewTaskRepo(
+					fakeKlient,
+					conditionAwaiter,
+				)
 			})
 
-			It("translates filter parameters to klient list options", func() {
-				Expect(fakeKlient.ListCallCount()).To(Equal(1))
-				_, _, listOptions := fakeKlient.ListArgsForCall(0)
-				Expect(listOptions).To(ConsistOf(
-					repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"app1", "app2"}),
-					repositories.WithLabelIn(korifiv1alpha1.CFTaskSequenceIDLabelKey, []string{"1", "2"}),
-				))
+			Describe("parameters to list options", func() {
+				BeforeEach(func() {
+					listTaskMsg = repositories.ListTasksMessage{
+						AppGUIDs:    []string{"a1", "a2"},
+						SequenceIDs: []int64{12, 34},
+						OrderBy:     "created_at",
+						Pagination: repositories.Pagination{
+							Page:    3,
+							PerPage: 4,
+						},
+					}
+				})
+
+				It("translates parameters to klient list options", func() {
+					Expect(listErr).NotTo(HaveOccurred())
+					Expect(fakeKlient.ListCallCount()).To(Equal(1))
+					_, _, listOptions := fakeKlient.ListArgsForCall(0)
+					Expect(listOptions).To(ConsistOf(
+						repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
+						repositories.WithLabelIn(korifiv1alpha1.CFTaskSequenceIDLabelKey, []string{"12", "34"}),
+						repositories.WithOrdering("created_at"),
+						repositories.WithPaging(repositories.Pagination{PerPage: 4, Page: 3}),
+					))
+				})
 			})
 		})
 	})

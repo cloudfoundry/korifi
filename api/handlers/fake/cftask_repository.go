@@ -56,19 +56,19 @@ type CFTaskRepository struct {
 		result1 repositories.TaskRecord
 		result2 error
 	}
-	ListTasksStub        func(context.Context, authorization.Info, repositories.ListTaskMessage) ([]repositories.TaskRecord, error)
+	ListTasksStub        func(context.Context, authorization.Info, repositories.ListTasksMessage) (repositories.ListResult[repositories.TaskRecord], error)
 	listTasksMutex       sync.RWMutex
 	listTasksArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.ListTaskMessage
+		arg3 repositories.ListTasksMessage
 	}
 	listTasksReturns struct {
-		result1 []repositories.TaskRecord
+		result1 repositories.ListResult[repositories.TaskRecord]
 		result2 error
 	}
 	listTasksReturnsOnCall map[int]struct {
-		result1 []repositories.TaskRecord
+		result1 repositories.ListResult[repositories.TaskRecord]
 		result2 error
 	}
 	PatchTaskMetadataStub        func(context.Context, authorization.Info, repositories.PatchTaskMetadataMessage) (repositories.TaskRecord, error)
@@ -288,13 +288,13 @@ func (fake *CFTaskRepository) GetTaskReturnsOnCall(i int, result1 repositories.T
 	}{result1, result2}
 }
 
-func (fake *CFTaskRepository) ListTasks(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListTaskMessage) ([]repositories.TaskRecord, error) {
+func (fake *CFTaskRepository) ListTasks(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListTasksMessage) (repositories.ListResult[repositories.TaskRecord], error) {
 	fake.listTasksMutex.Lock()
 	ret, specificReturn := fake.listTasksReturnsOnCall[len(fake.listTasksArgsForCall)]
 	fake.listTasksArgsForCall = append(fake.listTasksArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.ListTaskMessage
+		arg3 repositories.ListTasksMessage
 	}{arg1, arg2, arg3})
 	stub := fake.ListTasksStub
 	fakeReturns := fake.listTasksReturns
@@ -315,41 +315,41 @@ func (fake *CFTaskRepository) ListTasksCallCount() int {
 	return len(fake.listTasksArgsForCall)
 }
 
-func (fake *CFTaskRepository) ListTasksCalls(stub func(context.Context, authorization.Info, repositories.ListTaskMessage) ([]repositories.TaskRecord, error)) {
+func (fake *CFTaskRepository) ListTasksCalls(stub func(context.Context, authorization.Info, repositories.ListTasksMessage) (repositories.ListResult[repositories.TaskRecord], error)) {
 	fake.listTasksMutex.Lock()
 	defer fake.listTasksMutex.Unlock()
 	fake.ListTasksStub = stub
 }
 
-func (fake *CFTaskRepository) ListTasksArgsForCall(i int) (context.Context, authorization.Info, repositories.ListTaskMessage) {
+func (fake *CFTaskRepository) ListTasksArgsForCall(i int) (context.Context, authorization.Info, repositories.ListTasksMessage) {
 	fake.listTasksMutex.RLock()
 	defer fake.listTasksMutex.RUnlock()
 	argsForCall := fake.listTasksArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFTaskRepository) ListTasksReturns(result1 []repositories.TaskRecord, result2 error) {
+func (fake *CFTaskRepository) ListTasksReturns(result1 repositories.ListResult[repositories.TaskRecord], result2 error) {
 	fake.listTasksMutex.Lock()
 	defer fake.listTasksMutex.Unlock()
 	fake.ListTasksStub = nil
 	fake.listTasksReturns = struct {
-		result1 []repositories.TaskRecord
+		result1 repositories.ListResult[repositories.TaskRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFTaskRepository) ListTasksReturnsOnCall(i int, result1 []repositories.TaskRecord, result2 error) {
+func (fake *CFTaskRepository) ListTasksReturnsOnCall(i int, result1 repositories.ListResult[repositories.TaskRecord], result2 error) {
 	fake.listTasksMutex.Lock()
 	defer fake.listTasksMutex.Unlock()
 	fake.ListTasksStub = nil
 	if fake.listTasksReturnsOnCall == nil {
 		fake.listTasksReturnsOnCall = make(map[int]struct {
-			result1 []repositories.TaskRecord
+			result1 repositories.ListResult[repositories.TaskRecord]
 			result2 error
 		})
 	}
 	fake.listTasksReturnsOnCall[i] = struct {
-		result1 []repositories.TaskRecord
+		result1 repositories.ListResult[repositories.TaskRecord]
 		result2 error
 	}{result1, result2}
 }

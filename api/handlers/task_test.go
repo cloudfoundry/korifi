@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	"code.cloudfoundry.org/korifi/tools"
 
 	. "github.com/onsi/gomega/gstruct"
@@ -176,18 +177,31 @@ var _ = Describe("Task", func() {
 
 	Describe("listing tasks", func() {
 		BeforeEach(func() {
-			taskRepo.ListTasksReturns([]repositories.TaskRecord{
-				{GUID: "guid-1"},
-				{GUID: "guid-2"},
+			requestPath = "/v3/tasks?foo=bar"
+
+			taskRepo.ListTasksReturns(repositories.ListResult[repositories.TaskRecord]{
+				Records: []repositories.TaskRecord{
+					{GUID: "guid-1"},
+					{GUID: "guid-2"},
+				},
+				PageInfo: descriptors.PageInfo{
+					TotalResults: 2,
+				},
 			}, nil)
 		})
 
 		Describe("GET /v3/tasks", func() {
 			It("lists the tasks", func() {
+				Expect(requestValidator.DecodeAndValidateURLValuesCallCount()).To(Equal(1))
+				actualReq, _ := requestValidator.DecodeAndValidateURLValuesArgsForCall(0)
+				Expect(actualReq.URL.String()).To(HaveSuffix("foo=bar"))
+
 				Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
-				_, info, listMsg := taskRepo.ListTasksArgsForCall(0)
-				Expect(info).To(Equal(authInfo))
-				Expect(listMsg).To(Equal(repositories.ListTaskMessage{}))
+				_, actualAuthInfo, actualMessage := taskRepo.ListTasksArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualMessage).To(Equal(repositories.ListTasksMessage{
+					Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+				}))
 
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -199,9 +213,28 @@ var _ = Describe("Task", func() {
 				)))
 			})
 
+			When("filtering query params are provided", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.TaskList{
+						OrderBy:    "created_at",
+						Pagination: payloads.Pagination{PerPage: "16", Page: "32"},
+					})
+				})
+
+				It("passes them to the repository", func() {
+					Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
+					_, _, message := taskRepo.ListTasksArgsForCall(0)
+
+					Expect(message).To(Equal(repositories.ListTasksMessage{
+						OrderBy:    "created_at",
+						Pagination: repositories.Pagination{PerPage: 16, Page: 32},
+					}))
+				})
+			})
+
 			When("listing tasks fails", func() {
 				BeforeEach(func() {
-					taskRepo.ListTasksReturns(nil, errors.New("list-err"))
+					taskRepo.ListTasksReturns(repositories.ListResult[repositories.TaskRecord]{}, errors.New("list-err"))
 				})
 
 				It("returns an Internal Server Error", func() {
@@ -214,7 +247,7 @@ var _ = Describe("Task", func() {
 			BeforeEach(func() {
 				requestPath = "/v3/apps/the-app-guid/tasks?foo=bar"
 
-				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.TaskList{})
+				requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.AppTaskList{})
 			})
 
 			It("lists the tasks", func() {
@@ -225,8 +258,10 @@ var _ = Describe("Task", func() {
 				Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
 				_, info, listMsg := taskRepo.ListTasksArgsForCall(0)
 				Expect(info).To(Equal(authInfo))
-				Expect(listMsg.AppGUIDs).To(ConsistOf("the-app-guid"))
-				Expect(listMsg.SequenceIDs).To(BeEmpty())
+				Expect(listMsg).To(Equal(repositories.ListTasksMessage{
+					AppGUIDs:   []string{"the-app-guid"},
+					Pagination: repositories.Pagination{PerPage: 50, Page: 1},
+				}))
 
 				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -268,17 +303,25 @@ var _ = Describe("Task", func() {
 				})
 			})
 
-			When("filtering tasks by sequence ID", func() {
+			When("filtering query params are provided", func() {
 				BeforeEach(func() {
-					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.TaskList{
+					requestValidator.DecodeAndValidateURLValuesStub = decodeAndValidateURLValuesStub(&payloads.AppTaskList{
 						SequenceIDs: []int64{1, 2},
+						OrderBy:     "created_at",
+						Pagination:  payloads.Pagination{PerPage: "16", Page: "32"},
 					})
 				})
 
-				It("provides a list task message with the sequence ids to the repository", func() {
+				It("passes them to the repository", func() {
 					Expect(taskRepo.ListTasksCallCount()).To(Equal(1))
-					_, _, listMsg := taskRepo.ListTasksArgsForCall(0)
-					Expect(listMsg.SequenceIDs).To(ConsistOf(int64(1), int64(2)))
+					_, _, message := taskRepo.ListTasksArgsForCall(0)
+
+					Expect(message).To(Equal(repositories.ListTasksMessage{
+						SequenceIDs: []int64{1, 2},
+						AppGUIDs:    []string{"the-app-guid"},
+						OrderBy:     "created_at",
+						Pagination:  repositories.Pagination{PerPage: 16, Page: 32},
+					}))
 				})
 			})
 
@@ -294,7 +337,7 @@ var _ = Describe("Task", func() {
 
 			When("listing tasks fails", func() {
 				BeforeEach(func() {
-					taskRepo.ListTasksReturns(nil, errors.New("list-err"))
+					taskRepo.ListTasksReturns(repositories.ListResult[repositories.TaskRecord]{}, errors.New("list-err"))
 				})
 
 				It("returns an Internal Server Error", func() {

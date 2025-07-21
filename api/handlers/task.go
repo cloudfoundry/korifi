@@ -27,7 +27,7 @@ const (
 type CFTaskRepository interface {
 	CreateTask(context.Context, authorization.Info, repositories.CreateTaskMessage) (repositories.TaskRecord, error)
 	GetTask(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
-	ListTasks(context.Context, authorization.Info, repositories.ListTaskMessage) ([]repositories.TaskRecord, error)
+	ListTasks(context.Context, authorization.Info, repositories.ListTasksMessage) (repositories.ListResult[repositories.TaskRecord], error)
 	CancelTask(context.Context, authorization.Info, string) (repositories.TaskRecord, error)
 	PatchTaskMetadata(ctx context.Context, info authorization.Info, message repositories.PatchTaskMetadataMessage) (repositories.TaskRecord, error)
 }
@@ -71,12 +71,18 @@ func (h *Task) list(r *http.Request) (*routing.Response, error) {
 	authInfo, _ := authorization.InfoFromContext(r.Context())
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.task.list")
 
-	tasks, err := h.taskRepo.ListTasks(r.Context(), authInfo, repositories.ListTaskMessage{})
+	payload := new(payloads.TaskList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, payload)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
+	tasks, err := h.taskRepo.ListTasks(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list tasks")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForTask, tasks, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForTask, tasks, h.serverURL, *r.URL)), nil
 }
 
 func (h *Task) create(r *http.Request) (*routing.Response, error) {
@@ -121,20 +127,20 @@ func (h *Task) listForApp(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "error finding app", "appGUID", appGUID)
 	}
 
-	taskListFilter := new(payloads.TaskList)
-	if err := h.requestValidator.DecodeAndValidateURLValues(r, taskListFilter); err != nil {
+	payload := new(payloads.AppTaskList)
+	if err := h.requestValidator.DecodeAndValidateURLValues(r, payload); err != nil {
 		logger.Info("unable to decode request query parameters", "reason", err)
 		return nil, err
 	}
 
-	taskListMessage := taskListFilter.ToMessage()
+	taskListMessage := payload.ToMessage()
 	taskListMessage.AppGUIDs = []string{appGUID}
 	tasks, err := h.taskRepo.ListTasks(r.Context(), authInfo, taskListMessage)
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to list tasks")
 	}
 
-	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForListDeprecated(presenter.ForTask, tasks, h.serverURL, *r.URL)), nil
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForTask, tasks, h.serverURL, *r.URL)), nil
 }
 
 func (h *Task) cancel(r *http.Request) (*routing.Response, error) {
