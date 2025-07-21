@@ -261,6 +261,7 @@ func main() {
 	serviceOfferingRepo := repositories.NewServiceOfferingRepo(rootNSKlient, spaceScopedKlient, cfg.RootNamespace)
 	servicePlanRepo := repositories.NewServicePlanRepo(rootNSKlient, cfg.RootNamespace, orgRepo)
 	securityGroupRepo := repositories.NewSecurityGroupRepo(rootNSKlient, cfg.RootNamespace)
+	userRepo := repositories.NewUserRepository()
 
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(
@@ -446,7 +447,7 @@ func main() {
 			requestValidator,
 		),
 		handlers.NewWhoAmI(cachingIdentityProvider, *serverURL),
-		handlers.NewUser(*serverURL),
+		handlers.NewUser(*serverURL, userRepo, requestValidator),
 		handlers.NewBuildpack(
 			*serverURL,
 			buildpackRepo,
