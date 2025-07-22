@@ -70,6 +70,10 @@ var _ = Describe("StackRepository", func() {
 			listErr error
 		)
 
+		BeforeEach(func() {
+			message = repositories.ListStacksMessage{}
+		})
+
 		JustBeforeEach(func() {
 			stacks, listErr = stackRepo.ListStacks(ctx, authInfo, message)
 		})
