@@ -24,6 +24,7 @@ var _ = Describe("Mapper", func() {
 		mapper      *descriptors.ObjectListMapper
 		objectGUIDs []string
 		objectList  client.ObjectList
+		err         error
 	)
 
 	BeforeEach(func() {
@@ -62,12 +63,11 @@ var _ = Describe("Mapper", func() {
 			Kind:    "CFAppList",
 		}
 
-		var err error
 		objectList, err = mapper.GUIDsToObjectList(ctx, gvk, objectGUIDs)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("returns an empty list", func() {
+		Expect(err).NotTo(HaveOccurred())
 		Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
 		object := objectList.(*korifiv1alpha1.CFAppList)
 		Expect(object.Items).To(BeEmpty())
@@ -80,6 +80,7 @@ var _ = Describe("Mapper", func() {
 		})
 
 		It("returns a list of objects ordered in the specified order", func() {
+			Expect(err).NotTo(HaveOccurred())
 			Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
 			object := objectList.(*korifiv1alpha1.CFAppList)
 			Expect(object.Items).To(HaveLen(3))
@@ -97,6 +98,7 @@ var _ = Describe("Mapper", func() {
 		})
 
 		It("returns an empty list", func() {
+			Expect(err).NotTo(HaveOccurred())
 			Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
 			object := objectList.(*korifiv1alpha1.CFAppList)
 			Expect(object.Items).To(BeEmpty())

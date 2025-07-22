@@ -6,7 +6,6 @@ import (
 	"reflect"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -61,8 +60,16 @@ func (m *ObjectListMapper) GUIDsToObjectList(ctx context.Context, listObjectGVK 
 	return order(ctx, orderedGUIDs, listObjectGVK, list)
 }
 
+type ObjectResolutionError struct {
+	guid string
+	gvk  schema.GroupVersionKind
+}
+
+func (e ObjectResolutionError) Error() string {
+	return fmt.Sprintf("item not found: guid %q, gvk %q", e.guid, e.gvk)
+}
+
 func order(ctx context.Context, orderedGUIDs []string, listObjectGVK schema.GroupVersionKind, list client.ObjectList) (client.ObjectList, error) {
-	logger := logr.FromContextOrDiscard(ctx).WithName("k8sklient-mapper")
 	resultList, err := scheme.Scheme.New(listObjectGVK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new object list: %w", err)
@@ -77,11 +84,12 @@ func order(ctx context.Context, orderedGUIDs []string, listObjectGVK schema.Grou
 	for _, guid := range orderedGUIDs {
 		item, ok := itemsIndex[guid]
 		if !ok {
-			logger.Info("item not found in list", "guid", guid, "listGVK", listObjectGVK, "itemsIndex", itemsIndex)
-			continue
+			return nil, &ObjectResolutionError{
+				guid: guid,
+				gvk:  listObjectGVK,
+			}
 		}
 		orderedObjects = append(orderedObjects, item)
-
 	}
 
 	if err = appendToList(resultList, orderedObjects); err != nil {

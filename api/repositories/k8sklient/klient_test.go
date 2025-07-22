@@ -60,9 +60,8 @@ var _ = Describe("Klient", func() {
 
 		klient = k8sklient.NewK8sKlient(
 			nsRetriever,
-			descriptorClient,
-			objectListMapper,
 			userClientFactory,
+			k8sklient.NewDescriptorsBasedLister(descriptorClient, objectListMapper),
 			scheme.Scheme,
 		)
 	})
