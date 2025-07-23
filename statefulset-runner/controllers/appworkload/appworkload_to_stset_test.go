@@ -227,6 +227,11 @@ var _ = Describe("AppWorkload to StatefulSet Converter", func() {
 		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(appworkload.LabelVersion, "version_1234"))
 	})
 
+	It("should set workload type as a label", func() {
+		Expect(statefulSet.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFWorkloadTypeLabelkey, korifiv1alpha1.CFWorkloadTypeApp))
+		Expect(statefulSet.Spec.Template.Labels).To(HaveKeyWithValue(korifiv1alpha1.CFWorkloadTypeLabelkey, korifiv1alpha1.CFWorkloadTypeApp))
+	})
+
 	It("should set guid as a label selector", func() {
 		Expect(statefulSet.Spec.Selector.MatchLabels).To(HaveKeyWithValue(controllers.LabelGUID, "guid_1234"))
 	})

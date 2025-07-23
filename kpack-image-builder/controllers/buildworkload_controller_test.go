@@ -247,7 +247,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						Name:      appGUID,
 						Namespace: namespaceGUID,
 						Labels: map[string]string{
-							controllers.BuildWorkloadLabelKey: buildWorkloadGUID,
+							controllers.BuildWorkloadLabelKey:     buildWorkloadGUID,
+							korifiv1alpha1.CFWorkloadTypeLabelkey: korifiv1alpha1.CFWorkloadTypeBuild,
 						},
 					},
 					Spec: buildv1alpha2.ImageSpec{
@@ -278,7 +279,8 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 						Name:      appGUID,
 						Namespace: namespaceGUID,
 						Labels: map[string]string{
-							controllers.BuildWorkloadLabelKey: buildWorkloadGUID,
+							controllers.BuildWorkloadLabelKey:     buildWorkloadGUID,
+							korifiv1alpha1.CFWorkloadTypeLabelkey: korifiv1alpha1.CFWorkloadTypeBuild,
 						},
 					},
 					Spec: buildv1alpha2.ImageSpec{
@@ -1100,11 +1102,12 @@ var _ = Describe("BuildWorkloadReconciler", func() {
 					Name:      "build",
 					Namespace: namespaceGUID,
 					Labels: map[string]string{
-						korifiv1alpha1.CFAppGUIDLabelKey:   appGUID,
-						buildv1alpha2.ImageLabel:           appGUID,
-						buildv1alpha2.ImageGenerationLabel: "1",
-						buildv1alpha2.BuildNumberLabel:     "1",
-						controllers.BuildWorkloadLabelKey:  buildWorkload.Name,
+						korifiv1alpha1.CFAppGUIDLabelKey:      appGUID,
+						buildv1alpha2.ImageLabel:              appGUID,
+						buildv1alpha2.ImageGenerationLabel:    "1",
+						buildv1alpha2.BuildNumberLabel:        "1",
+						controllers.BuildWorkloadLabelKey:     buildWorkload.Name,
+						korifiv1alpha1.CFWorkloadTypeLabelkey: korifiv1alpha1.CFWorkloadTypeBuild,
 					},
 				},
 			}
@@ -1286,7 +1289,8 @@ func buildKpackImageObject(name string, namespace string, source korifiv1alpha1.
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				controllers.BuildWorkloadLabelKey: name,
+				controllers.BuildWorkloadLabelKey:     name,
+				korifiv1alpha1.CFWorkloadTypeLabelkey: korifiv1alpha1.CFWorkloadTypeBuild,
 			},
 		},
 		Spec: buildv1alpha2.ImageSpec{

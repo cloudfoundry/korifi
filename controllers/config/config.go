@@ -27,6 +27,7 @@ type ControllerConfig struct {
 	Networking Networking `yaml:"networking"`
 
 	ExperimentalManagedServicesEnabled bool `yaml:"experimentalManagedServicesEnabled"`
+	ExperimentalSecurityGroupsEnabled  bool `yaml:"experimentalSecurityGroupsEnabled"`
 	TrustInsecureServiceBrokers        bool `yaml:"trustInsecureServiceBrokers"`
 	DisableRouteController             bool `yaml:"disableRouteController"`
 }
