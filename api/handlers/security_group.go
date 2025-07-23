@@ -35,6 +35,7 @@ type SecurityGroup struct {
 //counterfeiter:generate -o fake -fake-name CFSecurityGroupRepository . CFSecurityGroupRepository
 type CFSecurityGroupRepository interface {
 	GetSecurityGroup(context.Context, authorization.Info, string) (repositories.SecurityGroupRecord, error)
+	ListSecurityGroups(context.Context, authorization.Info, repositories.ListSecurityGroupMessage) ([]repositories.SecurityGroupRecord, error)
 	CreateSecurityGroup(context.Context, authorization.Info, repositories.CreateSecurityGroupMessage) (repositories.SecurityGroupRecord, error)
 	BindSecurityGroup(context.Context, authorization.Info, repositories.BindSecurityGroupMessage) (repositories.SecurityGroupRecord, error)
 }
@@ -64,6 +65,26 @@ func (h *SecurityGroup) get(r *http.Request) (*routing.Response, error) {
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForSecurityGroup(securityGroup, h.serverURL)), nil
+}
+
+func (h *SecurityGroup) list(r *http.Request) (*routing.Response, error) {
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.security-group.list")
+
+	payload := new(payloads.SecurityGroupList)
+	err := h.requestValidator.DecodeAndValidateURLValues(r, payload)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
+	}
+
+	logger.Info("Listing security groups", "payload", payload)
+
+	securityGroups, err := h.securityGroupRepo.ListSecurityGroups(r.Context(), authInfo, payload.ToMessage())
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "failed to list security groups")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.ForSecurityGroup, securityGroups, h.serverURL, *r.URL)), nil
 }
 
 func (h *SecurityGroup) create(r *http.Request) (*routing.Response, error) {
@@ -172,6 +193,7 @@ func (h *SecurityGroup) UnauthenticatedRoutes() []routing.Route {
 func (h *SecurityGroup) AuthenticatedRoutes() []routing.Route {
 	return []routing.Route{
 		{Method: "GET", Pattern: SecurityGroupPath, Handler: h.get},
+		{Method: "GET", Pattern: SecurityGroupsPath, Handler: h.list},
 		{Method: "POST", Pattern: SecurityGroupsPath, Handler: h.create},
 		{Method: "POST", Pattern: SecurityGroupRunningSpacesPath, Handler: h.bindRunning},
 		{Method: "POST", Pattern: SecurityGroupStagingSpacesPath, Handler: h.bindStaging},

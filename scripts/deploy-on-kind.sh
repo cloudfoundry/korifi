@@ -262,6 +262,17 @@ function create_cluster_builder() {
   kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
 }
 
+function install_calico() {
+  curl -s https://raw.githubusercontent.com/projectcalico/calico/v3.30.2/manifests/operator-crds.yaml -o $SCRIPT_DIR/calico-operator-crds.yaml
+  curl -s https://raw.githubusercontent.com/projectcalico/calico/v3.30.2/manifests/tigera-operator.yaml -o $SCRIPT_DIR/calico-tigera-operator.yaml
+  curl -s https://raw.githubusercontent.com/projectcalico/calico/v3.30.2/manifests/custom-resources.yaml -o $SCRIPT_DIR/calico-custom-resources.yaml
+  sed -i 's/cidr: 192.168.0.0\/16/cidr: 10.244.0.0\/16/g' $SCRIPT_DIR/calico-custom-resources.yaml
+  
+  kubectl apply -f $SCRIPT_DIR/calico-operator-crds.yaml --server-side
+  kubectl apply -f $SCRIPT_DIR/calico-tigera-operator.yaml --server-side
+  kubectl apply -f $SCRIPT_DIR/calico-custom-resources.yaml
+}
+
 function main() {
   make -C "$ROOT_DIR" bin/yq
 
@@ -269,6 +280,7 @@ function main() {
   validate_registry_params
   ensure_kind_cluster "$CLUSTER_NAME"
   ensure_local_registry
+  install_calico
   install_dependencies
   create_namespaces
   create_registry_secret
