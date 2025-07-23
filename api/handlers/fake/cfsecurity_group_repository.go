@@ -56,7 +56,7 @@ type CFSecurityGroupRepository struct {
 		result1 repositories.SecurityGroupRecord
 		result2 error
 	}
-	ListSecurityGroupsStub        func(context.Context, authorization.Info, repositories.ListSecurityGroupMessage) ([]repositories.SecurityGroupRecord, error)
+	ListSecurityGroupsStub        func(context.Context, authorization.Info, repositories.ListSecurityGroupMessage) (repositories.ListResult[repositories.SecurityGroupRecord], error)
 	listSecurityGroupsMutex       sync.RWMutex
 	listSecurityGroupsArgsForCall []struct {
 		arg1 context.Context
@@ -64,11 +64,11 @@ type CFSecurityGroupRepository struct {
 		arg3 repositories.ListSecurityGroupMessage
 	}
 	listSecurityGroupsReturns struct {
-		result1 []repositories.SecurityGroupRecord
+		result1 repositories.ListResult[repositories.SecurityGroupRecord]
 		result2 error
 	}
 	listSecurityGroupsReturnsOnCall map[int]struct {
-		result1 []repositories.SecurityGroupRecord
+		result1 repositories.ListResult[repositories.SecurityGroupRecord]
 		result2 error
 	}
 	invocations      map[string][][]interface{}
@@ -273,7 +273,7 @@ func (fake *CFSecurityGroupRepository) GetSecurityGroupReturnsOnCall(i int, resu
 	}{result1, result2}
 }
 
-func (fake *CFSecurityGroupRepository) ListSecurityGroups(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListSecurityGroupMessage) ([]repositories.SecurityGroupRecord, error) {
+func (fake *CFSecurityGroupRepository) ListSecurityGroups(arg1 context.Context, arg2 authorization.Info, arg3 repositories.ListSecurityGroupMessage) (repositories.ListResult[repositories.SecurityGroupRecord], error) {
 	fake.listSecurityGroupsMutex.Lock()
 	ret, specificReturn := fake.listSecurityGroupsReturnsOnCall[len(fake.listSecurityGroupsArgsForCall)]
 	fake.listSecurityGroupsArgsForCall = append(fake.listSecurityGroupsArgsForCall, struct {
@@ -300,7 +300,7 @@ func (fake *CFSecurityGroupRepository) ListSecurityGroupsCallCount() int {
 	return len(fake.listSecurityGroupsArgsForCall)
 }
 
-func (fake *CFSecurityGroupRepository) ListSecurityGroupsCalls(stub func(context.Context, authorization.Info, repositories.ListSecurityGroupMessage) ([]repositories.SecurityGroupRecord, error)) {
+func (fake *CFSecurityGroupRepository) ListSecurityGroupsCalls(stub func(context.Context, authorization.Info, repositories.ListSecurityGroupMessage) (repositories.ListResult[repositories.SecurityGroupRecord], error)) {
 	fake.listSecurityGroupsMutex.Lock()
 	defer fake.listSecurityGroupsMutex.Unlock()
 	fake.ListSecurityGroupsStub = stub
@@ -313,28 +313,28 @@ func (fake *CFSecurityGroupRepository) ListSecurityGroupsArgsForCall(i int) (con
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFSecurityGroupRepository) ListSecurityGroupsReturns(result1 []repositories.SecurityGroupRecord, result2 error) {
+func (fake *CFSecurityGroupRepository) ListSecurityGroupsReturns(result1 repositories.ListResult[repositories.SecurityGroupRecord], result2 error) {
 	fake.listSecurityGroupsMutex.Lock()
 	defer fake.listSecurityGroupsMutex.Unlock()
 	fake.ListSecurityGroupsStub = nil
 	fake.listSecurityGroupsReturns = struct {
-		result1 []repositories.SecurityGroupRecord
+		result1 repositories.ListResult[repositories.SecurityGroupRecord]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFSecurityGroupRepository) ListSecurityGroupsReturnsOnCall(i int, result1 []repositories.SecurityGroupRecord, result2 error) {
+func (fake *CFSecurityGroupRepository) ListSecurityGroupsReturnsOnCall(i int, result1 repositories.ListResult[repositories.SecurityGroupRecord], result2 error) {
 	fake.listSecurityGroupsMutex.Lock()
 	defer fake.listSecurityGroupsMutex.Unlock()
 	fake.ListSecurityGroupsStub = nil
 	if fake.listSecurityGroupsReturnsOnCall == nil {
 		fake.listSecurityGroupsReturnsOnCall = make(map[int]struct {
-			result1 []repositories.SecurityGroupRecord
+			result1 repositories.ListResult[repositories.SecurityGroupRecord]
 			result2 error
 		})
 	}
 	fake.listSecurityGroupsReturnsOnCall[i] = struct {
-		result1 []repositories.SecurityGroupRecord
+		result1 repositories.ListResult[repositories.SecurityGroupRecord]
 		result2 error
 	}{result1, result2}
 }
@@ -342,14 +342,6 @@ func (fake *CFSecurityGroupRepository) ListSecurityGroupsReturnsOnCall(i int, re
 func (fake *CFSecurityGroupRepository) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.bindSecurityGroupMutex.RLock()
-	defer fake.bindSecurityGroupMutex.RUnlock()
-	fake.createSecurityGroupMutex.RLock()
-	defer fake.createSecurityGroupMutex.RUnlock()
-	fake.getSecurityGroupMutex.RLock()
-	defer fake.getSecurityGroupMutex.RUnlock()
-	fake.listSecurityGroupsMutex.RLock()
-	defer fake.listSecurityGroupsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

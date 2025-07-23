@@ -253,8 +253,11 @@ var _ = Describe("SecurityGroup", func() {
 				},
 			}, nil)
 
-			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
-				{GUID: "space1"},
+			spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{
+				Records: []repositories.SpaceRecord{
+					{GUID: "space1"},
+				},
+				PageInfo: descriptors.PageInfo{TotalResults: 1, TotalPages: 1},
 			}, nil)
 
 			securityGroupRepo.BindSecurityGroupReturns(repositories.SecurityGroupRecord{
@@ -319,7 +322,7 @@ var _ = Describe("SecurityGroup", func() {
 
 		When("the spaces does not exist", func() {
 			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{}, nil)
+				spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{}, nil)
 			})
 
 			It("returns an  error", func() {
@@ -329,7 +332,7 @@ var _ = Describe("SecurityGroup", func() {
 
 		When("fetching the spaces returns an error", func() {
 			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns(nil, errors.New("boom!"))
+				spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{}, errors.New("boom!"))
 			})
 
 			It("returns an error", func() {
@@ -373,8 +376,11 @@ var _ = Describe("SecurityGroup", func() {
 				},
 			}, nil)
 
-			spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{
-				{GUID: "space1"},
+			spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{
+				Records: []repositories.SpaceRecord{
+					{GUID: "space1"},
+				},
+				PageInfo: descriptors.PageInfo{TotalResults: 1, TotalPages: 1},
 			}, nil)
 
 			securityGroupRepo.BindSecurityGroupReturns(repositories.SecurityGroupRecord{
@@ -439,7 +445,7 @@ var _ = Describe("SecurityGroup", func() {
 
 		When("the spaces does not exist", func() {
 			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns([]repositories.SpaceRecord{}, nil)
+				spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{}, nil)
 			})
 
 			It("returns an error", func() {
@@ -449,7 +455,7 @@ var _ = Describe("SecurityGroup", func() {
 
 		When("fetching the spaces returns an error", func() {
 			BeforeEach(func() {
-				spaceRepo.ListSpacesReturns(nil, errors.New("boom!"))
+				spaceRepo.ListSpacesReturns(repositories.ListResult[repositories.SpaceRecord]{}, errors.New("boom!"))
 			})
 
 			It("returns an error", func() {

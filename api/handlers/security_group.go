@@ -35,7 +35,7 @@ type SecurityGroup struct {
 //counterfeiter:generate -o fake -fake-name CFSecurityGroupRepository . CFSecurityGroupRepository
 type CFSecurityGroupRepository interface {
 	GetSecurityGroup(context.Context, authorization.Info, string) (repositories.SecurityGroupRecord, error)
-	ListSecurityGroups(context.Context, authorization.Info, repositories.ListSecurityGroupMessage) ([]repositories.SecurityGroupRecord, error)
+	ListSecurityGroups(context.Context, authorization.Info, repositories.ListSecurityGroupMessage) (repositories.ListResult[repositories.SecurityGroupRecord], error)
 	CreateSecurityGroup(context.Context, authorization.Info, repositories.CreateSecurityGroupMessage) (repositories.SecurityGroupRecord, error)
 	BindSecurityGroup(context.Context, authorization.Info, repositories.BindSecurityGroupMessage) (repositories.SecurityGroupRecord, error)
 }
@@ -170,7 +170,7 @@ func (h *SecurityGroup) bind(logger logr.Logger, authInfo authorization.Info, ct
 		return repositories.SecurityGroupRecord{}, apierrors.LogAndReturn(logger, err, "failed to list spaces for binding to security group", "securityGroupGUID", guid)
 	}
 
-	if len(spaces) == 0 {
+	if len(spaces.Records) == 0 {
 		return repositories.SecurityGroupRecord{}, apierrors.LogAndReturn(
 			logger,
 			apierrors.NewUnprocessableEntityError(fmt.Errorf("failed bind %s space to security group", spaceType), spaceNotFoundErr),

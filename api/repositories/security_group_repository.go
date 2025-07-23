@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
@@ -68,6 +67,7 @@ type ListSecurityGroupMessage struct {
 	RunningSpaceGUIDs      []string
 	StagingSpaceGUIDs      []string
 	OrderBy                string
+	Pagination             Pagination
 	Namespace              string
 }
 
@@ -80,27 +80,10 @@ func (m *ListSecurityGroupMessage) toListOptions() []ListOption {
 		WithLabel(korifiv1alpha1.CFSecurityGroupGloballyEnabledRunningLabel, fmt.Sprintf("%t", m.GloballyEnabledRunning)),
 		WithLabel(korifiv1alpha1.CFSecurityGroupGloballyEnabledStagingLabel, fmt.Sprintf("%t", m.GloballyEnabledStaging)),
 		InNamespace(m.Namespace),
-		m.toSortOption(),
-	}
-}
-
-func (m *ListSecurityGroupMessage) toSortOption() ListOption {
-	desc := false
-	orderBy := m.OrderBy
-	if strings.HasPrefix(m.OrderBy, "-") {
-		desc = true
-		orderBy = strings.TrimPrefix(m.OrderBy, "-")
-	}
-
-	switch orderBy {
-	case "created_at":
-		return SortBy("Created At", desc)
-	case "updated_at":
-		return SortBy("Updated At", desc)
-	case "":
-		return NoopListOption{}
-	default:
-		return ErroringListOption(fmt.Sprintf("unsupported field for ordering: %q", orderBy))
+		WithOrdering(m.OrderBy,
+			"name", "Display Name",
+		),
+		WithPaging(m.Pagination),
 	}
 }
 
@@ -155,16 +138,29 @@ func (r *SecurityGroupRepo) GetSecurityGroup(ctx context.Context, authInfo autho
 	return toSecurityGroupRecord(*cfSecurityGroup), nil
 }
 
-func (r *SecurityGroupRepo) ListSecurityGroups(ctx context.Context, authInfo authorization.Info, message ListSecurityGroupMessage) ([]SecurityGroupRecord, error) {
+func (r *SecurityGroupRepo) ListSecurityGroups(ctx context.Context, authInfo authorization.Info, message ListSecurityGroupMessage) (ListResult[SecurityGroupRecord], error) {
 	cfSecurityGroupList := &korifiv1alpha1.CFSecurityGroupList{}
 	message.Namespace = r.rootNamespace
-	if err := r.klient.List(ctx, cfSecurityGroupList, message.toListOptions()...); err != nil {
-		return []SecurityGroupRecord{}, fmt.Errorf("failed to list security-groups: %w", apierrors.FromK8sError(err, SecurityGroupResourceType))
+	pageInfo, err := r.klient.List(ctx, cfSecurityGroupList, message.toListOptions()...)
+	if err != nil {
+		return ListResult[SecurityGroupRecord]{}, fmt.Errorf("failed to list security-groups: %w", apierrors.FromK8sError(err, SecurityGroupResourceType))
 	}
 	fmt.Println("Security Group List:", cfSecurityGroupList)
 
-	sgRecords := itx.FromSlice(cfSecurityGroupList.Items)
-	return slices.Collect(it.Map(sgRecords, toSecurityGroupRecord)), nil
+	//sgRecords := itx.FromSlice(cfSecurityGroupList.Items)
+	//return slices.Collect(it.Map(sgRecords, toSecurityGroupRecord)), nil
+
+	records, err := it.TryCollect(it.MapError(itx.FromSlice(cfSecurityGroupList.Items), func(item korifiv1alpha1.CFSecurityGroup) (SecurityGroupRecord, error) {
+		return toSecurityGroupRecord(item), nil
+	}))
+	if err != nil {
+		return ListResult[SecurityGroupRecord]{}, err
+	}
+
+	return ListResult[SecurityGroupRecord]{
+		PageInfo: pageInfo,
+		Records:  records,
+	}, nil
 }
 
 func (r *SecurityGroupRepo) CreateSecurityGroup(ctx context.Context, authInfo authorization.Info, message CreateSecurityGroupMessage) (SecurityGroupRecord, error) {
