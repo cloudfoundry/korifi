@@ -57,6 +57,11 @@ func (m *ObjectListMapper) GUIDsToObjectList(ctx context.Context, listObjectGVK 
 		return nil, fmt.Errorf("failed to list objects: %w", err)
 	}
 
+	// if true {
+	// 	// Ensure the resultList is a client.ObjectListMapper
+	// 	panic(list.GetObjectKind())
+	// }
+
 	return order(ctx, orderedGUIDs, listObjectGVK, list)
 }
 

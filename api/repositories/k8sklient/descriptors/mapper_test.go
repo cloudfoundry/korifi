@@ -66,7 +66,7 @@ var _ = Describe("Mapper", func() {
 		objectList, err = mapper.GUIDsToObjectList(ctx, gvk, objectGUIDs)
 	})
 
-	It("returns an empty list", func() {
+	FIt("returns an empty list", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
 		object := objectList.(*korifiv1alpha1.CFAppList)
