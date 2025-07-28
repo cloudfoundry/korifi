@@ -186,14 +186,23 @@ var _ = BeforeEach(func() {
 		return authorization.NewSpaceFilteringClient(client, k8sClient, authorization.NewSpaceFilteringOpts(nsPerms))
 	})
 	spaceScopedObjectListMapper := descriptors.NewObjectListMapper(spaceScopedUserClientFactory)
-	spaceScopedKlient = k8sklient.NewK8sKlient(namespaceRetriever, spaceScopedDescriptorsClient, spaceScopedObjectListMapper, spaceScopedUserClientFactory, k8sClient.Scheme())
+	spaceScopedKlient = k8sklient.NewK8sKlient(
+		namespaceRetriever,
+		spaceScopedUserClientFactory,
+		k8sklient.NewDescriptorsBasedLister(spaceScopedDescriptorsClient, spaceScopedObjectListMapper),
+		k8sClient.Scheme(),
+	)
 
 	rootNsUserClientFactory := userClientFactory.WithWrappingFunc(func(client client.WithWatch) client.WithWatch {
 		return authorization.NewRootNSFilteringClient(client, rootNamespace)
 	})
 	rootNSObjectListMapper := descriptors.NewObjectListMapper(rootNsUserClientFactory)
 	rootNsDescriptorsClient := descriptors.NewClient(restClient, pluralizer, k8sClient.Scheme(), authorization.NewRootNsFilteringOpts(rootNamespace))
-	rootNSKlient = k8sklient.NewK8sKlient(namespaceRetriever, rootNsDescriptorsClient, rootNSObjectListMapper, rootNsUserClientFactory, k8sClient.Scheme())
+	rootNSKlient = k8sklient.NewK8sKlient(
+		namespaceRetriever,
+		rootNsUserClientFactory,
+		k8sklient.NewDescriptorsBasedLister(rootNsDescriptorsClient, rootNSObjectListMapper),
+		k8sClient.Scheme())
 
 	Expect(k8sClient.Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 	createRoleBinding(context.Background(), userName, rootNamespaceUserRole.Name, rootNamespace)

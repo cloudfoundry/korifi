@@ -23,36 +23,28 @@ type NamespaceRetriever interface {
 	NamespaceFor(ctx context.Context, resourceGUID, resourceType string) (string, error)
 }
 
+//counterfeiter:generate -o fake -fake-name Lister . Lister
+type Lister interface {
+	List(ctx context.Context, listObjectGVK schema.GroupVersionKind, listOpts repositories.ListOptions) (client.ObjectList, descriptors.PageInfo, error)
+}
+
 type K8sKlient struct {
 	namespaceRetriever NamespaceRetriever
-	descriptorClient   DescriptorClient
-	objectListMapper   ObjectListMapper
 	userClientFactory  authorization.UserClientFactory
+	lister             Lister
 	scheme             *runtime.Scheme
-}
-
-//counterfeiter:generate -o fake -fake-name DescriptorClient . DescriptorClient
-type DescriptorClient interface {
-	List(ctx context.Context, listObjectGVK schema.GroupVersionKind, opts ...client.ListOption) (descriptors.ResultSetDescriptor, error)
-}
-
-//counterfeiter:generate -o fake -fake-name ObjectListMapper . ObjectListMapper
-type ObjectListMapper interface {
-	GUIDsToObjectList(ctx context.Context, listObjectGVK schema.GroupVersionKind, orderedGUIDs []string) (client.ObjectList, error)
 }
 
 func NewK8sKlient(
 	namespaceRetriever NamespaceRetriever,
-	descriptorClient DescriptorClient,
-	objectListMapper ObjectListMapper,
 	userClientFactory authorization.UserClientFactory,
+	lister Lister,
 	scheme *runtime.Scheme,
 ) *K8sKlient {
 	return &K8sKlient{
 		namespaceRetriever: namespaceRetriever,
-		descriptorClient:   descriptorClient,
-		objectListMapper:   objectListMapper,
 		userClientFactory:  userClientFactory,
+		lister:             lister,
 		scheme:             scheme,
 	}
 }
@@ -121,20 +113,9 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 		return descriptors.PageInfo{}, fmt.Errorf("failed to get GVK for list %T: %w", list, err)
 	}
 
-	objectGUIDs, err := k.fetchObjectGUIDs(ctx, listObjectGVK, listOpts)
+	listResult, pageInfo, err := k.lister.List(ctx, listObjectGVK, listOpts)
 	if err != nil {
-		return descriptors.PageInfo{}, fmt.Errorf("failed to fetch object guids: %w", err)
-	}
-
-	var pageInfo descriptors.PageInfo
-	objectGUIDs, pageInfo, err = pageGUIDs(objectGUIDs, listOpts)
-	if err != nil {
-		return descriptors.PageInfo{}, fmt.Errorf("failed to page object guids: %w", err)
-	}
-
-	listResult, err := k.objectListMapper.GUIDsToObjectList(ctx, listObjectGVK, objectGUIDs)
-	if err != nil {
-		return descriptors.PageInfo{}, fmt.Errorf("failed to map sorted object GUIDs to objects: %w", err)
+		return descriptors.PageInfo{}, fmt.Errorf("failed to list objects: %w", err)
 	}
 
 	if err := transferItems(listResult, list); err != nil {
@@ -142,39 +123,6 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 	}
 
 	return pageInfo, nil
-}
-
-func (k *K8sKlient) fetchObjectGUIDs(ctx context.Context, listObjectGVK schema.GroupVersionKind, listOpts repositories.ListOptions) ([]string, error) {
-	objectDescriptors, err := k.descriptorClient.List(ctx, listObjectGVK, listOpts.AsClientListOptions())
-	if err != nil {
-		return nil, fmt.Errorf("failed to list object descriptors: %w", err)
-	}
-
-	if listOpts.Sort != nil {
-		if err = objectDescriptors.Sort(listOpts.Sort.By, listOpts.Sort.Desc); err != nil {
-			return nil, fmt.Errorf("failed to sort object descriptors: %w", err)
-		}
-	}
-
-	objectGUIDs, err := objectDescriptors.GUIDs()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get sorted object GUIDs: %w", err)
-	}
-
-	return objectGUIDs, nil
-}
-
-func pageGUIDs(objectGUIDs []string, listOpts repositories.ListOptions) ([]string, descriptors.PageInfo, error) {
-	if listOpts.Paging == nil {
-		return objectGUIDs, descriptors.SinglePageInfo(len(objectGUIDs), len(objectGUIDs)), nil
-	}
-
-	page, err := descriptors.GetPage(objectGUIDs, listOpts.Paging.PageSize, listOpts.Paging.PageNumber)
-	if err != nil {
-		return nil, descriptors.PageInfo{}, fmt.Errorf("failed to page object guids: %w", err)
-	}
-
-	return page.Items, page.PageInfo, nil
 }
 
 func isSimpleList(listOpts repositories.ListOptions) bool {

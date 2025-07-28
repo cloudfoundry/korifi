@@ -24,6 +24,7 @@ var _ = Describe("Mapper", func() {
 		mapper      *descriptors.ObjectListMapper
 		objectGUIDs []string
 		objectList  client.ObjectList
+		err         error
 	)
 
 	BeforeEach(func() {
@@ -62,15 +63,7 @@ var _ = Describe("Mapper", func() {
 			Kind:    "CFAppList",
 		}
 
-		var err error
 		objectList, err = mapper.GUIDsToObjectList(ctx, gvk, objectGUIDs)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("returns an empty list", func() {
-		Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
-		object := objectList.(*korifiv1alpha1.CFAppList)
-		Expect(object.Items).To(BeEmpty())
 	})
 
 	When("the user is allowed to list the objects", func() {
@@ -80,6 +73,7 @@ var _ = Describe("Mapper", func() {
 		})
 
 		It("returns a list of objects ordered in the specified order", func() {
+			Expect(err).NotTo(HaveOccurred())
 			Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
 			object := objectList.(*korifiv1alpha1.CFAppList)
 			Expect(object.Items).To(HaveLen(3))
@@ -89,6 +83,16 @@ var _ = Describe("Mapper", func() {
 			}))
 			Expect(resultGUIDs).To(Equal(objectGUIDs))
 		})
+
+		When("the guid is not found in the list", func() {
+			BeforeEach(func() {
+				objectGUIDs = append(objectGUIDs, "obj-not-found")
+			})
+
+			It("returns an error", func() {
+				Expect(err).To(MatchError(ContainSubstring("item not found: guid \"obj-not-found\", gvk \"korifi.cloudfoundry.org/v1alpha1, Kind=CFAppList\"")))
+			})
+		})
 	})
 
 	When("the ordered guids slice is empty", func() {
@@ -97,6 +101,7 @@ var _ = Describe("Mapper", func() {
 		})
 
 		It("returns an empty list", func() {
+			Expect(err).NotTo(HaveOccurred())
 			Expect(objectList).To(BeAssignableToTypeOf(&korifiv1alpha1.CFAppList{}))
 			object := objectList.(*korifiv1alpha1.CFAppList)
 			Expect(object.Items).To(BeEmpty())
