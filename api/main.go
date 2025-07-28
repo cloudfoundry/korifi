@@ -140,9 +140,11 @@ func main() {
 	})
 	spaceScopedKlient := k8sklient.NewK8sKlient(
 		namespaceRetriever,
-		descriptors.NewClient(restClient, pluralizer, scheme.Scheme, authorization.NewSpaceFilteringOpts(nsPermissions)),
-		descriptors.NewObjectListMapper(spaceScopedUserClientFactory),
 		spaceScopedUserClientFactory,
+		k8sklient.NewDescriptorsBasedLister(
+			descriptors.NewClient(restClient, pluralizer, scheme.Scheme, authorization.NewSpaceFilteringOpts(nsPermissions)),
+			descriptors.NewObjectListMapper(spaceScopedUserClientFactory),
+		),
 		scheme.Scheme,
 	)
 
@@ -151,9 +153,11 @@ func main() {
 	})
 	rootNSKlient := k8sklient.NewK8sKlient(
 		namespaceRetriever,
-		descriptors.NewClient(restClient, pluralizer, scheme.Scheme, authorization.NewRootNsFilteringOpts(cfg.RootNamespace)),
-		descriptors.NewObjectListMapper(rootNsUserClientFactory),
 		rootNsUserClientFactory,
+		k8sklient.NewDescriptorsBasedLister(
+			descriptors.NewClient(restClient, pluralizer, scheme.Scheme, authorization.NewRootNsFilteringOpts(cfg.RootNamespace)),
+			descriptors.NewObjectListMapper(rootNsUserClientFactory),
+		),
 		scheme.Scheme,
 	)
 
