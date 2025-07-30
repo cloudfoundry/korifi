@@ -12,7 +12,7 @@ require (
 	github.com/BooleanCat/go-functional/v2 v2.5.1
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
-	github.com/aws/aws-sdk-go-v2/config v1.30.0
+	github.com/aws/aws-sdk-go-v2/config v1.30.1
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.47.0
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.38.2
@@ -120,8 +120,8 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.37.0 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.18.0 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.17.0 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.18.1 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
