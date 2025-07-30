@@ -2,11 +2,11 @@ package k8sklient
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors/errors"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -57,7 +57,7 @@ func (k *DescriptorsBasedLister) retryList(ctx context.Context, listObjectGVK sc
 		err        error
 	)
 
-	err = retry.OnError(k8s.NewDefaultBackoff(), isObjectResolutionError, func() error {
+	err = retry.OnError(k8s.NewDefaultBackoff(), errors.IsObjectResolutionError, func() error {
 		listResult, pageInfo, err = k.descriptorsBasedList(ctx, listObjectGVK, listOpts)
 		if err != nil {
 			logger.Info("failed to resolve objects, retrying", "error", err)
@@ -66,16 +66,6 @@ func (k *DescriptorsBasedLister) retryList(ctx context.Context, listObjectGVK sc
 	})
 
 	return listResult, pageInfo, err
-}
-
-func isObjectResolutionError(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.As(err, new(descriptors.ObjectResolutionError)) {
-		return true
-	}
-	return false
 }
 
 func (k *DescriptorsBasedLister) descriptorsBasedList(ctx context.Context, listObjectGVK schema.GroupVersionKind, listOpts repositories.ListOptions) (client.ObjectList, descriptors.PageInfo, error) {

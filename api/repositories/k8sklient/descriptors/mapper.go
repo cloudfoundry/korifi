@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"code.cloudfoundry.org/korifi/api/authorization"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -60,15 +61,6 @@ func (m *ObjectListMapper) GUIDsToObjectList(ctx context.Context, listObjectGVK 
 	return order(orderedGUIDs, listObjectGVK, list)
 }
 
-type ObjectResolutionError struct {
-	guid string
-	gvk  schema.GroupVersionKind
-}
-
-func (e ObjectResolutionError) Error() string {
-	return fmt.Sprintf("item not found: guid %q, gvk %q", e.guid, e.gvk)
-}
-
 func order(orderedGUIDs []string, listObjectGVK schema.GroupVersionKind, list client.ObjectList) (client.ObjectList, error) {
 	resultList, err := scheme.Scheme.New(listObjectGVK)
 	if err != nil {
@@ -84,10 +76,7 @@ func order(orderedGUIDs []string, listObjectGVK schema.GroupVersionKind, list cl
 	for _, guid := range orderedGUIDs {
 		item, ok := itemsIndex[guid]
 		if !ok {
-			return nil, &ObjectResolutionError{
-				guid: guid,
-				gvk:  listObjectGVK,
-			}
+			return nil, errors.NewObjectResolutionError(guid, listObjectGVK)
 		}
 		orderedObjects = append(orderedObjects, item)
 	}
