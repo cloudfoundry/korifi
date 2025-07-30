@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
+	desc_errs "code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors/errors"
 	descfake "code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors/fake"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/fake"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -163,7 +164,7 @@ var _ = Describe("Lister", func() {
 				},
 			}
 
-			objectListMapper.GUIDsToObjectListReturnsOnCall(0, nil, descriptors.ObjectResolutionError{})
+			objectListMapper.GUIDsToObjectListReturnsOnCall(0, nil, desc_errs.NewObjectResolutionError("1234", schema.GroupVersionKind{}))
 			objectListMapper.GUIDsToObjectListReturns(appList, nil)
 		})
 
