@@ -204,11 +204,12 @@ func (r *AppWorkloadToStatefulsetConverter) Convert(appWorkload *korifiv1alpha1.
 	}
 
 	labels := map[string]string{
-		controllers.LabelGUID: appWorkload.Spec.GUID,
-		LabelProcessType:      appWorkload.Spec.ProcessType,
-		LabelVersion:          appWorkload.Spec.Version,
-		LabelAppGUID:          appWorkload.Spec.AppGUID,
-		LabelAppWorkloadGUID:  appWorkload.Name,
+		controllers.LabelGUID:                 appWorkload.Spec.GUID,
+		LabelProcessType:                      appWorkload.Spec.ProcessType,
+		LabelVersion:                          appWorkload.Spec.Version,
+		LabelAppGUID:                          appWorkload.Spec.AppGUID,
+		LabelAppWorkloadGUID:                  appWorkload.Name,
+		korifiv1alpha1.CFWorkloadTypeLabelkey: korifiv1alpha1.CFWorkloadTypeApp,
 	}
 
 	statefulSet.Spec.Template.Labels = labels

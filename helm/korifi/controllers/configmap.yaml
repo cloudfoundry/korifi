@@ -39,5 +39,6 @@ data:
       gatewayNamespace: {{ .Release.Namespace }}-gateway
       gatewayName: korifi
     experimentalManagedServicesEnabled: {{ .Values.experimental.managedServices.enabled }}
+    experimentalSecurityGroupsEnabled: {{ .Values.experimental.securityGroups.enabled }}
     trustInsecureServiceBrokers: {{ .Values.experimental.managedServices.trustInsecureBrokers }}
     disableRouteController: {{ .Values.experimental.routing.disableRouteController }}
