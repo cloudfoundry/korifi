@@ -126,7 +126,7 @@ func test(testObj client.Object) func() {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
 				g.Expect(obj.GetLabels()).To(HaveKey(korifiv1alpha1.CreatedAtLabelKey))
 				g.Expect(parseTime(obj.GetLabels()[korifiv1alpha1.CreatedAtLabelKey])).To(
-					BeTemporally("~", obj.GetCreationTimestamp().Time, 2*time.Second),
+					BeTemporally("~", obj.GetCreationTimestamp().Time.UTC(), 2*time.Second),
 				)
 			}).Should(Succeed())
 		})
@@ -159,7 +159,7 @@ func test(testObj client.Object) func() {
 
 					g.Expect(obj.GetLabels()).To(HaveKey(korifiv1alpha1.UpdatedAtLabelKey))
 					g.Expect(parseTime(obj.GetLabels()[korifiv1alpha1.UpdatedAtLabelKey])).To(
-						BeTemporally(">", obj.GetCreationTimestamp().Time),
+						BeTemporally(">", obj.GetCreationTimestamp().Time.UTC(), 2*time.Second),
 					)
 				}).Should(Succeed())
 			})
@@ -176,7 +176,7 @@ func test(testObj client.Object) func() {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
 						g.Expect(obj.GetLabels()).To(HaveKey(korifiv1alpha1.CreatedAtLabelKey))
 						g.Expect(parseTime(obj.GetLabels()[korifiv1alpha1.CreatedAtLabelKey])).To(
-							BeTemporally("~", obj.GetCreationTimestamp().Time),
+							BeTemporally("~", obj.GetCreationTimestamp().Time.UTC(), 2*time.Second),
 						)
 					}).Should(Succeed())
 				})

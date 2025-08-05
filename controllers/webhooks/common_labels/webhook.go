@@ -47,12 +47,12 @@ func (r *CommonLabelsWebhook) Handle(ctx context.Context, req admission.Request)
 	obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.GUIDLabelKey, obj.GetName()))
 
 	if req.Operation == admissionv1.Create {
-		obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.CreatedAtLabelKey, time.Now().Format(korifiv1alpha1.LabelDateFormat)))
+		obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.CreatedAtLabelKey, time.Now().UTC().Format(korifiv1alpha1.LabelDateFormat)))
 	}
 
 	if req.Operation == admissionv1.Update {
-		obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.CreatedAtLabelKey, obj.CreationTimestamp.Format(korifiv1alpha1.LabelDateFormat)))
-		obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.UpdatedAtLabelKey, time.Now().Format(korifiv1alpha1.LabelDateFormat)))
+		obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.CreatedAtLabelKey, obj.CreationTimestamp.UTC().Format(korifiv1alpha1.LabelDateFormat)))
+		obj.SetLabels(tools.SetMapValue(obj.GetLabels(), korifiv1alpha1.UpdatedAtLabelKey, time.Now().UTC().Format(korifiv1alpha1.LabelDateFormat)))
 	}
 
 	marshalled, err := json.Marshal(obj)
