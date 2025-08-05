@@ -262,6 +262,35 @@ function create_cluster_builder() {
   kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
 }
 
+function allow_calico() {
+  kubectl apply -f - <<EOF
+apiVersion: projectcalico.org/v3
+kind: GlobalNetworkPolicy
+metadata:
+  name: allow-apps
+spec:
+  namespaceSelector: has(korifi.cloudfoundry.org/space-guid)
+  types:
+  - Ingress
+  - Egress
+  ingress:
+  - action: Allow
+    protocol: TCP
+    source:
+      selector: 'app == "envoy-korifi"'
+    destination:
+      ports:
+      - 8080
+  egress:
+   # allow all namespaces to communicate to DNS pods
+  - action: Allow
+    protocol: TCP
+    destination:
+      ports:
+      - 1:65535
+EOF
+}
+
 function main() {
   make -C "$ROOT_DIR" bin/yq
 
@@ -270,6 +299,7 @@ function main() {
   ensure_kind_cluster "$CLUSTER_NAME"
   ensure_local_registry
   install_dependencies
+  allow_calico
   create_namespaces
   create_registry_secret
   deploy_korifi
