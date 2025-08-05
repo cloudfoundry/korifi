@@ -1,0 +1,23 @@
+apiVersion: projectcalico.org/v3
+kind: GlobalNetworkPolicy
+metadata:
+  name: allow-apps
+spec:
+  namespaceSelector: has(korifi.cloudfoundry.org/space-guid)
+  types:
+  - Ingress
+  - Egress
+  ingress:
+  - action: Allow
+    protocol: TCP
+    source:
+      selector: 'app == "envoy-korifi"'
+    destination:
+      ports:
+      - 8080
+  egress:
+  - action: Allow
+    protocol: TCP
+    destination:
+      ports:
+      - 1:65535
