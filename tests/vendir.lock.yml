@@ -14,6 +14,12 @@ directories:
       url: https://api.github.com/repos/cert-manager/cert-manager/releases/229382677
     path: cert-manager
   - git:
+      commitTitle: Add unshallowing repository to CI preflight checks
+      sha: cf50b562271b7c2ad896af0488d48eddabbb74eb
+      tags:
+      - v3.30.2
+    path: calico
+  - git:
       commitTitle: Update Contour Docker image to v1.32.0....
       sha: 0d1b6666b7c0b1abd75880142bb52d2d80108ae5
       tags:

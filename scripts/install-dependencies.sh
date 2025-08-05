@@ -105,3 +105,21 @@ if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
     kubectl apply -f "$VENDOR_DIR/metrics-server-local"
   fi
 fi
+
+echo "********************"
+echo " Installing Calico"
+echo "********************"
+
+kubectl apply -f "$VENDOR_DIR/calico/operator-crds.yaml" --server-side
+kubectl apply -f "$VENDOR_DIR/calico/tigera-operator.yaml" --server-side
+
+kubectl -n tigera-operator rollout status deployment/tigera-operator --watch=true
+
+TEMP_FILES+=("$DEP_DIR/calico/custom-resources.yaml")
+cp "$VENDOR_DIR/calico/custom-resources.yaml" "$DEP_DIR/calico/custom-resources.yaml"
+kubectl apply -k "$DEP_DIR/calico"
+
+while ! kubectl get ns calico-system >/dev/null 2>&1; do
+  sleep 1
+done
+kubectl -n calico-system rollout status deployment/whisker --watch=true
