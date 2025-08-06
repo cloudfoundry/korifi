@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,6 +35,7 @@ func main() {
 	http.HandleFunc("/servicebindings", serviceBindingsHandler)
 	http.HandleFunc("/exit", exitHandler)
 	http.HandleFunc("/log", logHandler)
+	http.HandleFunc("/ip", ipHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -40,6 +43,45 @@ func main() {
 	}
 	fmt.Printf("Listening on port %s\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
+}
+
+func ipHandler(w http.ResponseWriter, r *http.Request) {
+	ip, err := getPrivateIP()
+	if err != nil {
+		fmt.Fprintf(w, "Failed to get private ip: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprintf(w, "%s\n", ip.String())
+}
+
+func getPrivateIP() (net.IP, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if !ip.IsLoopback() && ip.IsPrivate() {
+				return ip, nil
+			}
+		}
+	}
+	return nil, errors.New("no private ip found")
 }
 
 func exitHandler(w http.ResponseWriter, r *http.Request) {
