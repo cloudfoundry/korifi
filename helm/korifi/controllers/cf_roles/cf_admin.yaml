@@ -167,7 +167,12 @@ rules:
   resources:
   - cfsecuritygroups
   verbs:
+  - get
   - create
+  - delete
+  - list
+  - patch
+  - watch
 
 - apiGroups:
   - korifi.cloudfoundry.org
