@@ -76,7 +76,7 @@ func (b *BuildRepo) GetLatestBuildByAppGUID(ctx context.Context, authInfo author
 	_, err := b.klient.List(ctx, buildList,
 		InNamespace(spaceGUID),
 		WithLabel(korifiv1alpha1.CFAppGUIDLabelKey, appGUID),
-		WithOrdering("created_at"),
+		WithOrdering("-created_at"),
 	)
 	if err != nil {
 		return BuildRecord{}, apierrors.FromK8sError(err, BuildResourceType)

@@ -26,6 +26,7 @@ var _ = Describe("BuildRepository", func() {
 		buildRepo *repositories.BuildRepo
 
 		cfSpace *korifiv1alpha1.CFSpace
+		appGUID string
 		build   *korifiv1alpha1.CFBuild
 	)
 
@@ -35,7 +36,7 @@ var _ = Describe("BuildRepository", func() {
 		org := createOrgWithCleanup(ctx, uuid.NewString())
 		cfSpace = createSpaceWithCleanup(ctx, org.Name, uuid.NewString())
 
-		appGUID := uuid.NewString()
+		appGUID = uuid.NewString()
 		packageGUID := uuid.NewString()
 		build = &korifiv1alpha1.CFBuild{
 			ObjectMeta: metav1.ObjectMeta{
@@ -182,14 +183,12 @@ var _ = Describe("BuildRepository", func() {
 
 	Describe("GetLatestBuildByAppGUID", func() {
 		var (
-			appGUID   string
 			spaceGUID string
 			record    repositories.BuildRecord
 			err       error
 		)
 
 		BeforeEach(func() {
-			appGUID = uuid.NewString()
 			spaceGUID = cfSpace.Name
 		})
 
@@ -198,7 +197,7 @@ var _ = Describe("BuildRepository", func() {
 		})
 
 		It("returns a not found error", func() {
-			Expect(err).To(BeAssignableToTypeOf(apierrors.NotFoundError{}))
+			Expect(err).To(MatchError(ContainSubstring("not found")))
 		})
 
 		When("the user is a space developer", func() {
