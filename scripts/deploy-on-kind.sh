@@ -168,7 +168,7 @@ function deploy_korifi() {
         kbld_file="scripts/assets/korifi-debug-kbld.yml"
       fi
 
-      export VERSION=$(git describe --tags | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}' | awk '{print substr($1,2)}')
+      export VERSION=$(git describe --tags --long | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}' | awk '{print substr($1,2)}')
 
       chart_dir=$(mktemp -d)
       trap "rm -rf $chart_dir" RETURN
