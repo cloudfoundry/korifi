@@ -105,3 +105,13 @@ if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
     kubectl apply -f "$VENDOR_DIR/metrics-server-local"
   fi
 fi
+
+echo "********************"
+echo " Installing Calico"
+echo "********************"
+
+sed -i 's/cidr: 192.168.0.0\/16/cidr: 10.244.0.0\/16/g' "$VENDOR_DIR/calico/custom-resources.yaml"
+
+kubectl apply -f "$VENDOR_DIR/calico/operator-crds.yaml" --server-side
+kubectl apply -f "$VENDOR_DIR/calico/tigera-operator.yaml" --server-side
+kubectl apply -f "$VENDOR_DIR/calico/custom-resources.yaml" 
