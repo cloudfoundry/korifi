@@ -279,6 +279,7 @@ function deploy_crossplane_service_broker() {
     --create-namespace \
     crossplane \
     crossplane-stable/crossplane \
+    --version v1.20 \
     --wait
 
   echo "Deploy crossplane providers"
