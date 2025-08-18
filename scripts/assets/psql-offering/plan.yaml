@@ -62,6 +62,9 @@ spec:
               version: 16.7.15
             namespace: crossplane-services
             skipCreateNamespace: true
+            set:
+            - name: "primary.persistence.size"
+              value: "1Gi"
           rollbackLimit: 3
       patches:
         - fromFieldPath: metadata.labels
