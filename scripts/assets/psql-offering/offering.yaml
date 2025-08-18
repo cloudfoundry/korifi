@@ -33,6 +33,15 @@ spec:
           properties:
             spec:
               type: object
+              properties:
+                parameters:
+                  type: object
+                  description: "The service instance parameters"
+                  properties:
+                    size:
+                      type: string
+                      description: "The size of the database volume"
+                  required: ["size"]
 
       referenceable: true
       served: true
