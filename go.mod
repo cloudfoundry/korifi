@@ -5,7 +5,7 @@ go 1.24.4
 replace github.com/google/gnostic-models => github.com/google/gnostic-models v0.6.9
 
 require (
-	code.cloudfoundry.org/bytefmt v0.46.0
+	code.cloudfoundry.org/bytefmt v0.47.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.1.1
 	code.cloudfoundry.org/go-loggregator/v10 v10.2.0
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
@@ -32,7 +32,7 @@ require (
 	github.com/jellydator/validation v1.1.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3
 	github.com/mileusna/useragent v1.3.5
-	github.com/onsi/ginkgo/v2 v2.23.4
+	github.com/onsi/ginkgo/v2 v2.24.0
 	github.com/onsi/gomega v1.38.0
 	github.com/pivotal/kpack v0.17.0
 	github.com/satori/go.uuid v1.2.0
