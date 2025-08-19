@@ -3,7 +3,7 @@ kind: CompositeResourceDefinition
 metadata:
   name: compositepsqlinstances.syn.tools
   labels:
-    service.syn.tools/id: 6ca63cdb-0cfa-4c5e-b080-72f22ff5f3e6 # uuidgen | tr '[:upper:]' '[:lower:]'
+    service.syn.tools/id: psql-offering # uuidgen | tr '[:upper:]' '[:lower:]'
     service.syn.tools/name: psql
     service.syn.tools/updatable: 'false'
   annotations:
@@ -19,7 +19,7 @@ spec:
   connectionSecretKeys:
     - endpoint
     - port
-    - username
+    - user
     - password
   group: syn.tools
   names:

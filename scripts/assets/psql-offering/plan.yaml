@@ -1,10 +1,10 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: 43905323-ed5f-466a-9d7f-ddc16cb74864 # uuidgen | tr '[:upper:]' '[:lower:]'
+  name: psql-plan-small
   labels:
     service.syn.tools/cluster: local-helm-provider
-    service.syn.tools/id: 6ca63cdb-0cfa-4c5e-b080-72f22ff5f3e6 # This is the ID from 'compositefooinstances.syn.tools' above
+    service.syn.tools/id: psql-offering # This is the ID from 'compositefooinstances.syn.tools' above
     service.syn.tools/name: psql
     service.syn.tools/plan: small
     service.syn.tools/updatable: "false"
@@ -14,90 +14,81 @@ metadata:
       {
         "displayName": "Small",
         "memory": "1Gi",
-        "storageCapacity": "8Gi"
       }
 spec:
   compositeTypeRef:
     apiVersion: syn.tools/v1
     kind: CompositePSQLInstance
   writeConnectionSecretsToNamespace: crossplane-services # Namespace to collect all connection secrets
-  resources:
-    - name: psql-helm-release
-      connectionDetails:
-        - fromConnectionSecretKey: endpoint
-        - fromConnectionSecretKey: port
-        - name: username
-          value: postgres
-        - fromConnectionSecretKey: password
-      base:
-        apiVersion: helm.crossplane.io/v1beta1
-        kind: Release
-        spec:
-          # Read back information from provisioned K8s resources in the target namespace
-          connectionDetails:
+  mode: Pipeline
+  pipeline:
+  - step: create-release
+    functionRef:
+      name: crossplane-contrib-function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          apiVersion: helm.crossplane.io/v1beta1
+          kind: Release
+          metadata:
+            annotations:
+              {{ setResourceNameAnnotation "psql-release" }}
+          spec:
+            connectionDetails:
             - apiVersion: v1
-              kind: Service
-              namespace: crossplane-services
-              name: my-release-postgresql
               fieldPath: spec.clusterIP
+              kind: Service
+              name: psql-{{ .observed.composite.resource.metadata.name }}
+              namespace: crossplane-services
               toConnectionSecretKey: endpoint
             - apiVersion: v1
-              kind: Service
-              namespace: crossplane-services
-              name: my-release-postgresql
               fieldPath: spec.ports[0].port
+              kind: Service
+              name: psql-{{ .observed.composite.resource.metadata.name }}
+              namespace: crossplane-services
               toConnectionSecretKey: port
             - apiVersion: v1
-              kind: Secret
-              namespace: crossplane-services
-              name: my-release-postgresql
               fieldPath: data.postgres-password
+              kind: Secret
+              name: psql-{{ .observed.composite.resource.metadata.name }}
+              namespace: crossplane-services
               toConnectionSecretKey: password
-          writeConnectionSecretToRef:
-            namespace: crossplane-services
-          forProvider:
-            chart:
-              name: postgresql
-              repository: oci://registry-1.docker.io/bitnamicharts
-              version: 16.7.15
-            namespace: crossplane-services
-            skipCreateNamespace: true
-            set:
-            - name: "primary.persistence.size"
-              value: "1Gi"
-          rollbackLimit: 3
-      patches:
-        - fromFieldPath: metadata.labels
-        - fromFieldPath: metadata.annotations
-        - fromFieldPath: metadata.labels[service.syn.tools/cluster]
-          toFieldPath: spec.providerConfigRef.name
-        - fromFieldPath: metadata.labels[crossplane.io/composite]
-          toFieldPath: spec.writeConnectionSecretToRef.name
-          transforms:
-            - string:
-                fmt: "%s-connection-details"
-              type: string
-        - fromFieldPath: metadata.labels[crossplane.io/composite]
-          toFieldPath: metadata.name
-          transforms:
-            - string:
-                fmt: "postgresql-%s"
-              type: string
-        - fromFieldPath: metadata.labels[crossplane.io/composite]
-          toFieldPath: spec.connectionDetails[0].name
-          transforms:
-            - string:
-                fmt: "postgresql-%s"
-              type: string
-        - fromFieldPath: metadata.labels[crossplane.io/composite]
-          toFieldPath: spec.connectionDetails[1].name
-          transforms:
-            - string:
-                fmt: "postgresql-%s"
-              type: string
-        - fromFieldPath: metadata.labels[crossplane.io/composite]
-          toFieldPath: spec.connectionDetails[2].name
-          transforms:
-            - string:
-                fmt: "postgresql-%s"
-              type: string
+            deletionPolicy: Delete
+            forProvider:
+              set:
+              - name: "primary.persistence.size"
+                value: {{ .observed.composite.resource.spec.parameters.size }}
+              - name: "global.postgresql.fullnameOverride"
+                value: psql-{{ .observed.composite.resource.metadata.name }}
+              chart:
+                name: postgresql
+                repository: oci://registry-1.docker.io/bitnamicharts
+                version: 16.7.15
+              namespace: crossplane-services
+              skipCreateNamespace: true
+            managementPolicies:
+            - '*'
+            providerConfigRef:
+              name: local-helm-provider
+            rollbackLimit: 3
+            writeConnectionSecretToRef:
+              name: "{{ .observed.composite.resource.metadata.name }}-connection-details"
+              namespace: crossplane-services
+          ---
+          apiVersion: meta.gotemplating.fn.crossplane.io/v1alpha1
+          kind: CompositeConnectionDetails
+          {{ if eq $.observed.resources nil }}
+          data: {}
+          {{ else }}
+          data:
+            endpoint: {{ ( index $.observed.resources "psql-release" ).connectionDetails.endpoint }}
+            port: {{ ( index $.observed.resources "psql-release" ).connectionDetails.port }}
+            user: {{ "postgres" | b64enc }}
+            password: {{ ( index $.observed.resources "psql-release" ).connectionDetails.password }}
+          {{ end }}
+  - step: automatically-detect-readiness
+    functionRef:
+      name: crossplane-contrib-function-auto-ready

@@ -282,13 +282,16 @@ function deploy_crossplane_service_broker() {
     --version v1.20 \
     --wait
 
+  echo "Deploy crossplane functions"
+  kubectl apply -f "$SCRIPT_DIR/assets/crossplane-functions"
+
   echo "Deploy crossplane providers"
   kubectl apply -f "$SCRIPT_DIR/assets/crossplane-providers"
   retry kubectl apply -f "$SCRIPT_DIR/assets/crossplane-providerconfigs"
 
   echo "Building Crossplane Service Broker..."
   export CROSSPLANE_BROKER_IMAGE="crossplane-service-broker:$(uuidgen)"
-  export OSB_SERVICE_IDS="6ca63cdb-0cfa-4c5e-b080-72f22ff5f3e6"
+  export OSB_SERVICE_IDS="psql-offering"
   pushd "$HOME/workspace/crossplane-service-broker"
   {
     make build
