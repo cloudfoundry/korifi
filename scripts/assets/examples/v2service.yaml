@@ -1,0 +1,31 @@
+apiVersion: cloudrun.gcp.upbound.io/v1beta2
+kind: V2Service
+metadata:
+  name: test-service
+spec:
+  providerConfigRef:
+    name: gcp-family-providerconfig
+  forProvider:
+    ingress: INGRESS_TRAFFIC_ALL
+    location: europe-west1
+    template:
+      containers:
+        - image: korifi/hello-function
+---
+# Needed to make service available without authentication
+apiVersion: cloudrun.gcp.upbound.io/v1beta2
+kind: ServiceIAMMember
+metadata:
+  annotations:
+    meta.upbound.io/example-id: cloudrun/v1beta2/service
+  labels:
+    testing.upbound.io/example-name: cloudrun-service
+  name: cloudrun-service
+spec:
+  providerConfigRef:
+    name: gcp-family-providerconfig
+  forProvider:
+    location: europe-west1
+    member: allUsers
+    role: roles/run.invoker
+    service: test-service

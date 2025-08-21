@@ -1,0 +1,13 @@
+---
+apiVersion: gcp.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: gcp-family-providerconfig
+spec:
+  projectID: cf-on-k8s-wg
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: gcp-family-providerconfig
+      key: sa.json
