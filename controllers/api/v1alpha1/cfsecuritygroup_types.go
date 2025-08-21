@@ -8,9 +8,21 @@ import (
 )
 
 const (
-	ProtocolTCP = "tcp"
-	ProtocolUDP = "udp"
-	ProtocolALL = "all"
+	ProtocolTCP                                = "tcp"
+	ProtocolUDP                                = "udp"
+	ProtocolALL                                = "all"
+	CFWorkloadTypeApp                          = "app"
+	CFWorkloadTypeBuild                        = "build"
+	CFSecurityGroupTypeGlobal                  = "global"
+	CFSecurityGroupTypeSpaceScoped             = "space-scoped"
+	CFSecurityGroupTypeLabel                   = "korifi.cloudfoundry.org/security-group-type"
+	CFSecurityGroupDisplayNameLabel            = "korifi.cloudfoundry.org/security-group-display-name"
+	CFSecurityGroupRunningSpaceGUIDsLabel      = "korifi.cloudfoundry.org/security-group-running-space-guids"
+	CFSecurityGroupStagingSpaceGUIDsLabel      = "korifi.cloudfoundry.org/security-group-staging-space-guids"
+	CFSecurityGroupGloballyEnabledRunningLabel = "korifi.cloudfoundry.org/security-group-globally-enabled-running"
+	CFSecurityGroupGloballyEnabledStagingLabel = "korifi.cloudfoundry.org/security-group-globally-enabled-staging"
+	CFSecurityGroupFinalizerName               = "cfSecurityGroup.korifi.cloudfoundry.org"
+	CFWorkloadTypeLabelkey                     = "korifi.cloudfoundry.org/workload-type"
 )
 
 type SecurityGroupRule struct {

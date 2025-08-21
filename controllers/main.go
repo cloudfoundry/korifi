@@ -29,6 +29,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/domains"
 	"code.cloudfoundry.org/korifi/controllers/controllers/networking/routes"
+	securitygroups "code.cloudfoundry.org/korifi/controllers/controllers/networking/security_groups"
 	"code.cloudfoundry.org/korifi/controllers/controllers/services/bindings"
 	managed_bindings "code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/managed"
 	upsi_bindings "code.cloudfoundry.org/korifi/controllers/controllers/services/bindings/upsi"
@@ -65,11 +66,14 @@ import (
 	packageswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/packages"
 	spaceswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/spaces"
 	taskswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/tasks"
+	projectcalicoV3 "github.com/projectcalico/api/pkg/apis/projectcalico/v3"
+
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/version"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
+	"github.com/projectcalico/api/pkg/client/clientset_generated/clientset"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	k8sclient "k8s.io/client-go/kubernetes"
@@ -99,6 +103,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(gatewayv1beta1.Install(scheme))
 	utilruntime.Must(korifiv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(projectcalicoV3.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -143,6 +148,11 @@ func main() {
 	ctrl.Log.Info("starting Korifi controllers", "version", version.Version)
 
 	conf := ctrl.GetConfigOrDie()
+	calicoClient, err := clientset.NewForConfig(conf)
+	if err != nil {
+		panic(fmt.Sprintf("unable to create Calico client: %v", err))
+	}
+
 	k8sClient, err := k8sclient.NewForConfig(conf)
 	if err != nil {
 		panic(fmt.Sprintf("could not create k8s client: %v", err))
@@ -309,6 +319,18 @@ func main() {
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFDomain")
 			os.Exit(1)
+		}
+
+		if controllerConfig.ExperimentalSecurityGroupsEnabled {
+			if err = securitygroups.NewReconciler(
+				mgr.GetClient(),
+				calicoClient,
+				controllersLog,
+				controllerConfig.CFRootNamespace,
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "CFSecurityGroup")
+				os.Exit(1)
+			}
 		}
 
 		if controllerConfig.ExperimentalManagedServicesEnabled {
