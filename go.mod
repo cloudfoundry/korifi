@@ -5,15 +5,15 @@ go 1.24.4
 replace github.com/google/gnostic-models => github.com/google/gnostic-models v0.6.9
 
 require (
-	code.cloudfoundry.org/bytefmt v0.46.0
+	code.cloudfoundry.org/bytefmt v0.47.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.1.1
 	code.cloudfoundry.org/go-loggregator/v10 v10.2.0
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
 	github.com/BooleanCat/go-functional/v2 v2.5.1
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
-	github.com/aws/aws-sdk-go-v2/config v1.31.0
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.49.0
+	github.com/aws/aws-sdk-go-v2/config v1.31.1
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.49.1
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.38.2
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
@@ -32,7 +32,7 @@ require (
 	github.com/jellydator/validation v1.1.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3
 	github.com/mileusna/useragent v1.3.5
-	github.com/onsi/ginkgo/v2 v2.23.4
+	github.com/onsi/ginkgo/v2 v2.24.0
 	github.com/onsi/gomega v1.38.0
 	github.com/pivotal/kpack v0.17.0
 	github.com/satori/go.uuid v1.2.0
@@ -120,16 +120,16 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.38.0 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.18.4 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.18.5 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.33.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.28.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.33.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.37.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.28.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.33.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.37.1 // indirect
 	github.com/aws/smithy-go v1.22.5 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.9.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
