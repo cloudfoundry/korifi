@@ -1,0 +1,19 @@
+apiVersion: eventarc.gcp.upbound.io/v1beta2
+kind: Trigger
+metadata:
+  name: my-bucket-trigger
+spec:
+  providerConfigRef:
+    name: gcp-family-providerconfig
+  forProvider:
+    serviceAccount: gcloud-functions@cf-on-k8s-wg.iam.gserviceaccount.com
+    destination:
+      cloudRunService:
+        region: europe-west1
+        service: test-service
+    location: europe-west1
+    matchingCriteria:
+      - attribute: type
+        value: google.cloud.storage.object.v1.finalized
+      - attribute: bucket
+        value: cf-on-k8s-wg-test-bucket
