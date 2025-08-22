@@ -118,6 +118,7 @@ spec:
             --set=networking.gatewayPorts.https="32443" \
             --set=experimental.managedServices.enabled="true" \
             --set=experimental.managedServices.trustInsecureBrokers="true" \
+            --timeout="15m" \
             --wait
 
           kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
