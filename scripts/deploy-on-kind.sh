@@ -286,7 +286,7 @@ function deploy_crossplane_service_broker() {
   kubectl apply -f "$SCRIPT_DIR/assets/crossplane-functions"
 
   echo "Creating crossplane secrets"
-  kubectl -n crossplane-system delete secret gcp-functions-provider --ignore-not-found
+  kubectl -n crossplane-system delete secret gcp-family-providerconfig --ignore-not-found
   vault kv get -field=value common/gcp/functions-key |
     kubectl -n crossplane-system create secret generic gcp-family-providerconfig --from-file=sa.json=/dev/stdin
 

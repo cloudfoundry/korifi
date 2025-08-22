@@ -10,7 +10,7 @@ spec:
     location: europe-west1
     template:
       containers:
-        - image: korifi/hello-function
+        - image: korifi/hello-event:noerror
 ---
 # Needed to make service available without authentication
 apiVersion: cloudrun.gcp.upbound.io/v1beta2

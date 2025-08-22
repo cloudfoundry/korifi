@@ -1,0 +1,13 @@
+apiVersion: storage.gcp.upbound.io/v1beta2
+kind: Bucket
+metadata:
+  # IMPORTANT: This name MUST be globally unique in google cloud otherwise it
+  # errors with a very confusing error (no read permissions for bucket) likely
+  # because the name is claimed by another gcloud user
+  # That' why we use our project id as a namespace prefix
+  name: cf-on-k8s-wg-test-bucket
+spec:
+  providerConfigRef:
+    name: gcp-family-providerconfig
+  forProvider:
+    location: europe-west1
