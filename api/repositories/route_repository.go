@@ -116,9 +116,9 @@ func (m *ListRoutesMessage) toListOptions() []ListOption {
 		WithOrdering(m.OrderBy),
 	}
 
-	listOptions = append(listOptions, slices.Collect(it.Map(slices.Values(m.AppGUIDs), func(s string) ListOption {
-		return WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix + s)
-	}))...)
+	// listOptions = append(listOptions, slices.Collect(it.Map(slices.Values(m.AppGUIDs), func(s string) ListOption {
+	// 	return WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix + s)
+	// }))...)
 
 	if m.IsUnmapped != nil {
 		listOptions = append(listOptions, WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, strconv.FormatBool(*m.IsUnmapped)))
@@ -184,9 +184,27 @@ func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		return ListResult[RouteRecord]{}, fmt.Errorf("failed to list routes: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
+	routes := slices.Collect(it.Filter(slices.Values(cfRouteList.Items), func(r korifiv1alpha1.CFRoute) bool {
+		if len(message.AppGUIDs) == 0 {
+			return true
+		}
+
+		appsForRoute := slices.Collect(it.Map(slices.Values(r.Spec.Destinations), func(d korifiv1alpha1.Destination) string {
+			return d.AppRef.Name
+		}))
+
+		for _, app := range appsForRoute {
+			if tools.EmptyOrContains(message.AppGUIDs, app) {
+				return true
+			}
+		}
+
+		return false
+	}))
+
 	return ListResult[RouteRecord]{
 		PageInfo: pageInfo,
-		Records:  slices.Collect(it.Map(slices.Values(cfRouteList.Items), cfRouteToRouteRecord)),
+		Records:  slices.Collect(it.Map(slices.Values(routes), cfRouteToRouteRecord)),
 	}, nil
 }
 
