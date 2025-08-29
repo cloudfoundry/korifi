@@ -102,6 +102,7 @@ type DeleteServiceBindingMessage struct {
 }
 
 type ListServiceBindingsMessage struct {
+	Names                []string
 	AppGUIDs             []string
 	ServiceInstanceGUIDs []string
 	LabelSelector        string
@@ -117,6 +118,7 @@ func (m *ListServiceBindingsMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.CFServiceInstanceGUIDLabelKey, m.ServiceInstanceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, m.PlanGUIDs),
+		WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
 		WithOrdering(m.OrderBy,
 			"name", "Display Name",
 		),
