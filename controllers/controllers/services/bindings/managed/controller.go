@@ -190,7 +190,7 @@ func (r *ManagedBindingsReconciler) processBindOperation(
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingFailed").WithMessage(lastOperation.Description)
 	}
 
-	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingInProgress").WithRequeue()
+	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("BindingInProgress").WithRequeueAfter(time.Second)
 }
 
 func (r *ManagedBindingsReconciler) createEnvSecret(ctx context.Context, cfServiceBinding *korifiv1alpha1.CFServiceBinding, creds map[string]any) (*corev1.Secret, error) {
