@@ -264,7 +264,7 @@ func (r *Reconciler) processProvisionOperation(
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionFailed")
 	}
 
-	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionInProgress").WithRequeue()
+	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionInProgress").WithRequeueAfter(time.Second)
 }
 
 func (r *Reconciler) finalize(
