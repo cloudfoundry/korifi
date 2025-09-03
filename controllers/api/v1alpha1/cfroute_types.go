@@ -28,7 +28,8 @@ const (
 	// Deprecated. Used for removing leftover finalizers
 	CFRouteFinalizerName = "cfRoute.korifi.cloudfoundry.org"
 
-	CFRouteIsUnmappedLabelKey = "korifi.cloudfoundry.org/unmapped"
+	DestinationAppGUIDLabelPrefix = "korifi.cloudfoundry.org/destination-app-guid-"
+	CFRouteIsUnmappedLabelKey     = "korifi.cloudfoundry.org/unmapped"
 )
 
 // Destination defines a target for a CFRoute, does not carry meaning outside of a CF context
