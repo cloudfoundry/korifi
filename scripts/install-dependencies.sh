@@ -123,3 +123,4 @@ while ! kubectl get ns calico-system >/dev/null 2>&1; do
   sleep 1
 done
 kubectl -n calico-system rollout status deployment/whisker --watch=true
+sleep 1 

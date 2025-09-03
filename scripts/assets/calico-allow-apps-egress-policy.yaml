@@ -1,30 +1,26 @@
-{{- if .Values.experimental.securityGroups.enabled }}
 apiVersion: projectcalico.org/v3
 kind: GlobalNetworkPolicy
 metadata:
-  name: deny-apps-policy
+  name: allow-apps-egress
 spec:
+  order: 10
   namespaceSelector: has(korifi.cloudfoundry.org/space-guid)
   types:
   - Egress
   egress:
-   # allow all namespaces to communicate to DNS pods
-  - action: Allow
-    protocol: UDP
-    destination:
-      selector: 'k8s-app == "kube-dns"'
-      ports:
-      - 53
   - action: Allow
     protocol: TCP
     destination:
-      selector: 'k8s-app == "kube-dns"'
       ports:
-      - 53
+      - 1:65535
+  - action: Allow
+    protocol: UDP
+    destination:
+      ports:
+      - 1:65535
   - action: Allow
     protocol: TCP
     destination:
       services:
         name: localregistry-docker-registry
         namespace: default
-{{- end }}
