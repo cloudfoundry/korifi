@@ -2,8 +2,6 @@ module code.cloudfoundry.org/korifi
 
 go 1.24.4
 
-replace github.com/google/gnostic-models => github.com/google/gnostic-models v0.6.9
-
 require (
 	code.cloudfoundry.org/bytefmt v0.48.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.1.1
