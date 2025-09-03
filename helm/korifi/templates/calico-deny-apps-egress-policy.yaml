@@ -1,0 +1,11 @@
+{{- if .Values.experimental.securityGroups.enabled }}
+apiVersion: projectcalico.org/v3
+kind: GlobalNetworkPolicy
+metadata:
+  name: deny-apps-egress
+spec:
+  order: 100
+  namespaceSelector: has(korifi.cloudfoundry.org/space-guid)
+  types:
+  - Egress
+{{- end }}
