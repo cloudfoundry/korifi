@@ -12,6 +12,19 @@ import (
 )
 
 type Client struct {
+	ApplyStub        func(context.Context, runtime.ApplyConfiguration, ...client.ApplyOption) error
+	applyMutex       sync.RWMutex
+	applyArgsForCall []struct {
+		arg1 context.Context
+		arg2 runtime.ApplyConfiguration
+		arg3 []client.ApplyOption
+	}
+	applyReturns struct {
+		result1 error
+	}
+	applyReturnsOnCall map[int]struct {
+		result1 error
+	}
 	CreateStub        func(context.Context, client.Object, ...client.CreateOption) error
 	createMutex       sync.RWMutex
 	createArgsForCall []struct {
@@ -174,6 +187,69 @@ type Client struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *Client) Apply(arg1 context.Context, arg2 runtime.ApplyConfiguration, arg3 ...client.ApplyOption) error {
+	fake.applyMutex.Lock()
+	ret, specificReturn := fake.applyReturnsOnCall[len(fake.applyArgsForCall)]
+	fake.applyArgsForCall = append(fake.applyArgsForCall, struct {
+		arg1 context.Context
+		arg2 runtime.ApplyConfiguration
+		arg3 []client.ApplyOption
+	}{arg1, arg2, arg3})
+	stub := fake.ApplyStub
+	fakeReturns := fake.applyReturns
+	fake.recordInvocation("Apply", []interface{}{arg1, arg2, arg3})
+	fake.applyMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Client) ApplyCallCount() int {
+	fake.applyMutex.RLock()
+	defer fake.applyMutex.RUnlock()
+	return len(fake.applyArgsForCall)
+}
+
+func (fake *Client) ApplyCalls(stub func(context.Context, runtime.ApplyConfiguration, ...client.ApplyOption) error) {
+	fake.applyMutex.Lock()
+	defer fake.applyMutex.Unlock()
+	fake.ApplyStub = stub
+}
+
+func (fake *Client) ApplyArgsForCall(i int) (context.Context, runtime.ApplyConfiguration, []client.ApplyOption) {
+	fake.applyMutex.RLock()
+	defer fake.applyMutex.RUnlock()
+	argsForCall := fake.applyArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *Client) ApplyReturns(result1 error) {
+	fake.applyMutex.Lock()
+	defer fake.applyMutex.Unlock()
+	fake.ApplyStub = nil
+	fake.applyReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *Client) ApplyReturnsOnCall(i int, result1 error) {
+	fake.applyMutex.Lock()
+	defer fake.applyMutex.Unlock()
+	fake.ApplyStub = nil
+	if fake.applyReturnsOnCall == nil {
+		fake.applyReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.applyReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *Client) Create(arg1 context.Context, arg2 client.Object, arg3 ...client.CreateOption) error {

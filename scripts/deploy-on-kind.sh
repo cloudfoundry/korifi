@@ -212,6 +212,7 @@ function deploy_korifi() {
       --set=experimental.securityGroups.enabled="true" \
       --set=experimental.managedServices.trustInsecureBrokers="true" \
       --set=api.list.defaultPageSize="5000" \
+      --timeout="15m" \
       --wait
   }
   popd >/dev/null
