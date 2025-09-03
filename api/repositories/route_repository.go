@@ -116,10 +116,6 @@ func (m *ListRoutesMessage) toListOptions() []ListOption {
 		WithOrdering(m.OrderBy),
 	}
 
-	listOptions = append(listOptions, slices.Collect(it.Map(slices.Values(m.AppGUIDs), func(s string) ListOption {
-		return WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix + s)
-	}))...)
-
 	if m.IsUnmapped != nil {
 		listOptions = append(listOptions, WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, strconv.FormatBool(*m.IsUnmapped)))
 	}
@@ -184,9 +180,11 @@ func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		return ListResult[RouteRecord]{}, fmt.Errorf("failed to list routes: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
+	routes := FilterRoutesByAppGUID(cfRouteList, message.AppGUIDs)
+
 	return ListResult[RouteRecord]{
 		PageInfo: pageInfo,
-		Records:  slices.Collect(it.Map(slices.Values(cfRouteList.Items), cfRouteToRouteRecord)),
+		Records:  slices.Collect(it.Map(slices.Values(routes), cfRouteToRouteRecord)),
 	}, nil
 }
 
