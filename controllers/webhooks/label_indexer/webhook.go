@@ -34,6 +34,7 @@ func NewWebhook() *LabelIndexerWebhook {
 				LabelRule{Label: korifiv1alpha1.CFRouteHostLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.host"))},
 				LabelRule{Label: korifiv1alpha1.CFRoutePathLabelKey, IndexingFunc: SHA224(Unquote(JSONValue("$.spec.path")))},
 				LabelRule{Label: korifiv1alpha1.CFRouteIsUnmappedLabelKey, IndexingFunc: IsEmptyValue(JSONValue("$.spec.destinations[*]"))},
+				MultiLabelRule{LabelRules: DestinationAppGuidLabelRules},
 			},
 			"CFApp": {
 				LabelRule{Label: korifiv1alpha1.SpaceGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.metadata.namespace"))},

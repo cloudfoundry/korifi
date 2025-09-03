@@ -1,6 +1,8 @@
 package label_indexer_test
 
 import (
+	"maps"
+
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/uuid"
@@ -48,6 +50,46 @@ var _ = Describe("LabelIndexerWebhook", func() {
 					korifiv1alpha1.CFRoutePathLabelKey:       Equal("4757e8253d1d2e04aa277d3b9178cf69d8383d43fd9f894f9460ebda"), // SHA224 hash of "/example"
 				}))
 			}).Should(Succeed())
+		})
+
+		When("the route has destinations", func() {
+			var app1GUID, app2GUID string
+
+			BeforeEach(func() {
+				app1GUID = uuid.NewString()
+				app2GUID = uuid.NewString()
+
+				route.Spec.Destinations = []korifiv1alpha1.Destination{
+					{AppRef: corev1.LocalObjectReference{Name: app1GUID}},
+					{AppRef: corev1.LocalObjectReference{Name: app2GUID}},
+				}
+			})
+
+			It("adds labels per every destination app", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(route), route)).To(Succeed())
+					g.Expect(route.Labels).To(MatchKeys(IgnoreExtras, Keys{
+						korifiv1alpha1.DestinationAppGUIDLabelPrefix + app1GUID: BeEmpty(),
+						korifiv1alpha1.DestinationAppGUIDLabelPrefix + app2GUID: BeEmpty(),
+						korifiv1alpha1.CFRouteIsUnmappedLabelKey:                Equal("false"),
+					}))
+				}).Should(Succeed())
+			})
+
+			When("the destination does not have app ref", func() {
+				BeforeEach(func() {
+					route.Spec.Destinations = []korifiv1alpha1.Destination{
+						{GUID: "dest-guid"},
+					}
+				})
+
+				It("does not add destination app labels", func() {
+					Consistently(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(route), route)).To(Succeed())
+						g.Expect(maps.Keys(route.Labels)).NotTo(ContainElement(HavePrefix(korifiv1alpha1.DestinationAppGUIDLabelPrefix)))
+					}).Should(Succeed())
+				})
+			})
 		})
 	})
 
