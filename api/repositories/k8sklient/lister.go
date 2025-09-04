@@ -100,6 +100,12 @@ func (k *DescriptorsBasedLister) fetchObjectGUIDs(ctx context.Context, listObjec
 		}
 	}
 
+	if listOpts.Filter != nil {
+		if err = objectDescriptors.Filter(listOpts.Filter.By, listOpts.Filter.FilterFunc); err != nil {
+			return nil, fmt.Errorf("failed to filter object descriptors: %w", err)
+		}
+	}
+
 	objectGUIDs, err := objectDescriptors.GUIDs()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sorted object GUIDs: %w", err)

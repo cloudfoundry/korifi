@@ -8,11 +8,22 @@ import (
 )
 
 type ResultSetDescriptor struct {
+	FilterStub        func(string, func(value any) bool) error
+	filterMutex       sync.RWMutex
+	filterArgsForCall []struct {
+		arg1 string
+		arg2 func(value any) bool
+	}
+	filterReturns struct {
+		result1 error
+	}
+	filterReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GUIDsStub        func() ([]string, error)
 	gUIDsMutex       sync.RWMutex
-	gUIDsArgsForCall []struct {
-	}
-	gUIDsReturns struct {
+	gUIDsArgsForCall []struct{}
+	gUIDsReturns     struct {
 		result1 []string
 		result2 error
 	}
@@ -36,11 +47,72 @@ type ResultSetDescriptor struct {
 	invocationsMutex sync.RWMutex
 }
 
+func (fake *ResultSetDescriptor) Filter(arg1 string, arg2 func(value any) bool) error {
+	fake.filterMutex.Lock()
+	ret, specificReturn := fake.filterReturnsOnCall[len(fake.filterArgsForCall)]
+	fake.filterArgsForCall = append(fake.filterArgsForCall, struct {
+		arg1 string
+		arg2 func(value any) bool
+	}{arg1, arg2})
+	stub := fake.FilterStub
+	fakeReturns := fake.filterReturns
+	fake.recordInvocation("Filter", []interface{}{arg1, arg2})
+	fake.filterMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ResultSetDescriptor) FilterCallCount() int {
+	fake.filterMutex.RLock()
+	defer fake.filterMutex.RUnlock()
+	return len(fake.filterArgsForCall)
+}
+
+func (fake *ResultSetDescriptor) FilterCalls(stub func(string, func(value any) bool) error) {
+	fake.filterMutex.Lock()
+	defer fake.filterMutex.Unlock()
+	fake.FilterStub = stub
+}
+
+func (fake *ResultSetDescriptor) FilterArgsForCall(i int) (string, func(value any) bool) {
+	fake.filterMutex.RLock()
+	defer fake.filterMutex.RUnlock()
+	argsForCall := fake.filterArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *ResultSetDescriptor) FilterReturns(result1 error) {
+	fake.filterMutex.Lock()
+	defer fake.filterMutex.Unlock()
+	fake.FilterStub = nil
+	fake.filterReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *ResultSetDescriptor) FilterReturnsOnCall(i int, result1 error) {
+	fake.filterMutex.Lock()
+	defer fake.filterMutex.Unlock()
+	fake.FilterStub = nil
+	if fake.filterReturnsOnCall == nil {
+		fake.filterReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.filterReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *ResultSetDescriptor) GUIDs() ([]string, error) {
 	fake.gUIDsMutex.Lock()
 	ret, specificReturn := fake.gUIDsReturnsOnCall[len(fake.gUIDsArgsForCall)]
-	fake.gUIDsArgsForCall = append(fake.gUIDsArgsForCall, struct {
-	}{})
+	fake.gUIDsArgsForCall = append(fake.gUIDsArgsForCall, struct{}{})
 	stub := fake.GUIDsStub
 	fakeReturns := fake.gUIDsReturns
 	fake.recordInvocation("GUIDs", []interface{}{})

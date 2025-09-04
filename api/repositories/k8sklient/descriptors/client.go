@@ -16,6 +16,7 @@ import (
 type ResultSetDescriptor interface {
 	GUIDs() ([]string, error)
 	Sort(column string, desc bool) error
+	Filter(columnName string, filterFunc func(value any) bool) error
 }
 
 type Pluralizer interface {

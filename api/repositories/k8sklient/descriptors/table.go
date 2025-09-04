@@ -39,6 +39,19 @@ func (d *TableResultSetDescriptor) Sort(column string, desc bool) error {
 	return nil
 }
 
+func (d *TableResultSetDescriptor) Filter(columnName string, filterFunc func(value any) bool) error {
+	columnIndex, _, err := d.getColumn(columnName)
+	if err != nil {
+		return err
+	}
+
+	d.Table.Rows = slices.Collect(it.Filter(slices.Values(d.Table.Rows), func(row metav1.TableRow) bool {
+		return filterFunc(row.Cells[columnIndex])
+	}))
+
+	return nil
+}
+
 func (d *TableResultSetDescriptor) getColumn(column string) (int, metav1.TableColumnDefinition, error) {
 	for i, columnDef := range d.Table.ColumnDefinitions {
 		if columnDef.Name == column {

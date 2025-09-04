@@ -116,6 +116,15 @@ func (m *ListRoutesMessage) toListOptions() []ListOption {
 		WithOrdering(m.OrderBy),
 	}
 
+	if len(m.AppGUIDs) > 0 {
+		listOptions = append(listOptions, WithFiltering("AppGUIDs", func(value any) bool {
+			destinationAppUIDs := value.([]string)
+			return it.Any(it.Map(slices.Values(m.AppGUIDs), func(appGUID string) bool {
+				return slices.Contains(destinationAppUIDs, appGUID)
+			}))
+		}))
+	}
+
 	if m.IsUnmapped != nil {
 		listOptions = append(listOptions, WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, strconv.FormatBool(*m.IsUnmapped)))
 	}
