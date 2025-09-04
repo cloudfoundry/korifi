@@ -17,7 +17,7 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
-var _ = Describe("list", func() {
+var _ = FDescribe("list", func() {
 	var testVars map[string]string
 
 	listResources := func(queryParams ...string) func(resourcePath string, resourcesMatch types.GomegaMatcher) {

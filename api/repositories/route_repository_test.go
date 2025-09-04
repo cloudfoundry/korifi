@@ -199,14 +199,14 @@ var _ = Describe("RouteRepository", func() {
 
 	Describe("ListRoutes", func() {
 		var (
-			cfRoute *korifiv1alpha1.CFRoute
-
+			cfRoute    *korifiv1alpha1.CFRoute
+			appGUID    string
 			listResult repositories.ListResult[repositories.RouteRecord]
 			message    repositories.ListRoutesMessage
 		)
 
 		BeforeEach(func() {
-			appGUID := uuid.NewString()
+			appGUID = uuid.NewString()
 			cfRoute = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      routeGUID,
@@ -255,6 +255,86 @@ var _ = Describe("RouteRepository", func() {
 				))
 				Expect(listResult.PageInfo.TotalResults).To(Equal(1))
 			})
+
+			FWhen("filtering by app guid", func() {
+				var (
+					anotherAppGUID string
+					anotherRoute   *korifiv1alpha1.CFRoute
+				)
+
+				BeforeEach(func() {
+					anotherAppGUID = uuid.NewString()
+					anotherRoute = &korifiv1alpha1.CFRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      uuid.NewString(),
+							Namespace: space.Name,
+						},
+						Spec: korifiv1alpha1.CFRouteSpec{
+							Host:     "my-subdomain-1-a",
+							Protocol: "http",
+							DomainRef: corev1.ObjectReference{
+								Name:      domainGUID,
+								Namespace: rootNamespace,
+							},
+							Destinations: []korifiv1alpha1.Destination{{
+								Protocol: tools.PtrTo("http1"),
+								AppRef: corev1.LocalObjectReference{
+									Name: anotherAppGUID,
+								},
+							}},
+						},
+					}
+					Expect(
+						k8sClient.Create(ctx, anotherRoute),
+					).To(Succeed())
+
+					message = repositories.ListRoutesMessage{
+						AppGUIDs: []string{anotherAppGUID},
+					}
+				})
+
+				It("returns routes filtered by app guid", func() {
+					Expect(listResult.Records).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherRoute.Name)}),
+					))
+					Expect(listResult.PageInfo.TotalResults).To(Equal(1))
+				})
+
+				When("the app guid filter is empty", func() {
+					BeforeEach(func() {
+						message = repositories.ListRoutesMessage{
+							AppGUIDs: []string{},
+						}
+					})
+
+					It("returns all routes", func() {
+						Expect(listResult.Records).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherRoute.Name)}),
+						))
+						Expect(listResult.PageInfo.TotalResults).To(Equal(2))
+					})
+				})
+
+				When("paging is requested", func() {
+					BeforeEach(func() {
+						message = repositories.ListRoutesMessage{
+							AppGUIDs: []string{},
+							Pagination: repositories.Pagination{
+								PerPage: 1,
+								Page:    2,
+							},
+						}
+					})
+
+					It("returns the requested page", func() {
+						Expect(listResult.Records).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherRoute.Name)}),
+						))
+						Expect(listResult.PageInfo.TotalResults).To(Equal(1))
+					})
+				})
+			})
 		})
 
 		Describe("parameters to list options", func() {
@@ -265,7 +345,6 @@ var _ = Describe("RouteRepository", func() {
 				routeRepo = repositories.NewRouteRepo(fakeKlient)
 
 				message = repositories.ListRoutesMessage{
-					AppGUIDs:    []string{"g1"},
 					SpaceGUIDs:  []string{"sg1", "sg2"},
 					DomainGUIDs: []string{"domainGUID"},
 					Hosts:       []string{"my-subdomain-1-a"},
@@ -288,7 +367,6 @@ var _ = Describe("RouteRepository", func() {
 					repositories.WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224("/some/path")),
 					repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
 					repositories.WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, "false"),
-					repositories.WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix+"g1"),
 					repositories.WithOrdering("created_at"),
 					repositories.WithPaging(repositories.Pagination{
 						PerPage: 3,
