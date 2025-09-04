@@ -255,20 +255,85 @@ var _ = Describe("RouteRepository", func() {
 				))
 				Expect(listResult.PageInfo.TotalResults).To(Equal(1))
 			})
-		})
 
-		When("filtering by app guid", func() {
-			BeforeEach(func() {
-				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
-				message = repositories.ListRoutesMessage{
-					AppGUIDs: []string{appGUID},
-				}
-			})
+			FWhen("filtering by app guid", func() {
+				var (
+					anotherAppGUID string
+					anotherRoute   *korifiv1alpha1.CFRoute
+				)
 
-			It("returns a list of routeRecords", func() {
-				Expect(listResult.Records).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute.Name)}),
-				))
+				BeforeEach(func() {
+					anotherAppGUID = uuid.NewString()
+					anotherRoute = &korifiv1alpha1.CFRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      uuid.NewString(),
+							Namespace: space.Name,
+						},
+						Spec: korifiv1alpha1.CFRouteSpec{
+							Host:     "my-subdomain-1-a",
+							Protocol: "http",
+							DomainRef: corev1.ObjectReference{
+								Name:      domainGUID,
+								Namespace: rootNamespace,
+							},
+							Destinations: []korifiv1alpha1.Destination{{
+								Protocol: tools.PtrTo("http1"),
+								AppRef: corev1.LocalObjectReference{
+									Name: anotherAppGUID,
+								},
+							}},
+						},
+					}
+					Expect(
+						k8sClient.Create(ctx, anotherRoute),
+					).To(Succeed())
+
+					message = repositories.ListRoutesMessage{
+						AppGUIDs: []string{anotherAppGUID},
+					}
+				})
+
+				It("returns routes filtered by app guid", func() {
+					Expect(listResult.Records).To(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherRoute.Name)}),
+					))
+					Expect(listResult.PageInfo.TotalResults).To(Equal(1))
+				})
+
+				When("the app guid filter is empty", func() {
+					BeforeEach(func() {
+						message = repositories.ListRoutesMessage{
+							AppGUIDs: []string{},
+						}
+					})
+
+					It("returns all routes", func() {
+						Expect(listResult.Records).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute.Name)}),
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherRoute.Name)}),
+						))
+						Expect(listResult.PageInfo.TotalResults).To(Equal(2))
+					})
+				})
+
+				When("paging is requested", func() {
+					BeforeEach(func() {
+						message = repositories.ListRoutesMessage{
+							AppGUIDs: []string{},
+							Pagination: repositories.Pagination{
+								PerPage: 1,
+								Page:    2,
+							},
+						}
+					})
+
+					It("returns the requested page", func() {
+						Expect(listResult.Records).To(ConsistOf(
+							MatchFields(IgnoreExtras, Fields{"GUID": Equal(anotherRoute.Name)}),
+						))
+						Expect(listResult.PageInfo.TotalResults).To(Equal(1))
+					})
+				})
 			})
 		})
 

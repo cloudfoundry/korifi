@@ -9,6 +9,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -112,8 +113,13 @@ func (m *ListRoutesMessage) toListOptions() []ListOption {
 		WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, m.SpaceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFRouteHostLabelKey, m.Hosts),
 		WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224(m.Paths...)),
-		WithPaging(m.Pagination),
 		WithOrdering(m.OrderBy),
+	}
+
+	if len(m.AppGUIDs) == 0 {
+		listOptions = append(listOptions, WithPaging(m.Pagination))
+	} else {
+		listOptions = append(listOptions, WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, appSpaceGUIDs))
 	}
 
 	if m.IsUnmapped != nil {
@@ -180,7 +186,19 @@ func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		return ListResult[RouteRecord]{}, fmt.Errorf("failed to list routes: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	routes := FilterRoutesByAppGUID(cfRouteList, message.AppGUIDs)
+	routes := cfRouteList.Items
+	if len(message.AppGUIDs) > 0 {
+		routes = FilterRoutesByAppGUID(routes, message.AppGUIDs)
+
+		recordsPage := descriptors.SinglePage(records, len(records))
+		if !message.Pagination.IsZero() {
+			var err error
+			recordsPage, err = descriptors.GetPage(records, message.Pagination.PerPage, message.Pagination.Page)
+			if err != nil {
+				return ListResult[RoleRecord]{}, fmt.Errorf("failed to page buildpacks list: %w", err)
+			}
+		}
+	}
 
 	return ListResult[RouteRecord]{
 		PageInfo: pageInfo,

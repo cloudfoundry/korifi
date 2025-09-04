@@ -11,7 +11,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 )
 
-var _ = Describe("FilterRoutesByAppGUID", func() {
+var _ = FDescribe("FilterRoutesByAppGUID", func() {
 	var (
 		appGUID     string
 		appGUID1    string
@@ -46,7 +46,7 @@ var _ = Describe("FilterRoutesByAppGUID", func() {
 	})
 
 	JustBeforeEach(func() {
-		routes = repositories.FilterRoutesByAppGUID(cfRouteList, appGUIDs)
+		routes = repositories.FilterRoutesByAppGUID(cfRouteList.Items, appGUIDs)
 	})
 
 	It("returns the route when filtering by an app guid", func() {
@@ -128,18 +128,6 @@ var _ = Describe("FilterRoutesByAppGUID", func() {
 			It("returns only the route with destinations", func() {
 				Expect(routes).To(HaveLen(1))
 				Expect(routes[0].Name).To(Equal(cfRoute.Name))
-			})
-		})
-
-		When("there is no app guids passed", func() {
-			BeforeEach(func() {
-				appGUIDs = []string{}
-			})
-
-			It("returns all routes", func() {
-				Expect(routes).To(HaveLen(2))
-				Expect(routes[0].Name).To(Equal(cfRoute.Name))
-				Expect(routes[1].Name).To(Equal(cfRoute1.Name))
 			})
 		})
 	})
