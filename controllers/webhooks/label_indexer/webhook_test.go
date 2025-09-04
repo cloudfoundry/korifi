@@ -4,6 +4,7 @@ import (
 	"maps"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -326,7 +327,8 @@ var _ = Describe("LabelIndexerWebhook", func() {
 					Namespace: namespace,
 				},
 				Spec: korifiv1alpha1.CFServiceBindingSpec{
-					Type: "app",
+					Type:        "app",
+					DisplayName: tools.PtrTo("my-awesome-binding"),
 					Service: corev1.ObjectReference{
 						Name: uuid.NewString(),
 					},
@@ -346,6 +348,7 @@ var _ = Describe("LabelIndexerWebhook", func() {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(binding), binding)).To(Succeed())
 				g.Expect(binding.Labels).To(MatchKeys(IgnoreExtras, Keys{
 					korifiv1alpha1.SpaceGUIDLabelKey:             Equal(binding.Namespace),
+					korifiv1alpha1.DisplayNameLabelKey:           Equal("473e539de6d59aeed16a5e053c3e1180d10f4dd63da6bd7fdba3d2c9"), // SHA224 hash of "my-awesome-binding"
 					korifiv1alpha1.CFServiceInstanceGUIDLabelKey: Equal(binding.Spec.Service.Name),
 					korifiv1alpha1.CFAppGUIDLabelKey:             Equal(binding.Spec.AppRef.Name),
 					korifiv1alpha1.CFServiceBindingTypeLabelKey:  Equal(binding.Spec.Type),
