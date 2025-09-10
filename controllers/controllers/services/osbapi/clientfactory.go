@@ -17,6 +17,7 @@ import (
 //counterfeiter:generate -o fake -fake-name BrokerClient code.cloudfoundry.org/korifi/controllers/controllers/services/osbapi.BrokerClient
 type BrokerClient interface {
 	Provision(context.Context, ProvisionPayload) (ProvisionResponse, error)
+	Update(context.Context, UpdatePayload) (UpdateResponse, error)
 	Deprovision(context.Context, DeprovisionPayload) (ProvisionResponse, error)
 	GetServiceInstanceLastOperation(context.Context, GetInstanceLastOperationRequest) (LastOperationResponse, error)
 	GetCatalog(context.Context) (Catalog, error)

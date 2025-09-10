@@ -533,7 +533,7 @@ var _ = Describe("ServiceInstancePatch", func() {
 
 	Context("ToServiceInstancePatchMessage", func() {
 		It("converts to repo message correctly", func() {
-			msg := serviceInstancePatch.ToServiceInstancePatchMessage("space-guid", "app-guid")
+			msg := serviceInstancePatch.ToUPSIPatchMessage("space-guid", "app-guid")
 			Expect(msg.SpaceGUID).To(Equal("space-guid"))
 			Expect(msg.GUID).To(Equal("app-guid"))
 			Expect(msg.Name).To(PointTo(Equal("service-instance-name")))

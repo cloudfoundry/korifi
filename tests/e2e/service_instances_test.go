@@ -18,15 +18,19 @@ var _ = Describe("Service Instances", func() {
 		upsiGUID          string
 		upsiWithCredsGUID string
 		upsiName          string
-		httpResp          *resty.Response
-		httpError         error
+		// managedName       string
+		// managedGUID       string
+		httpResp  *resty.Response
+		httpError error
 	)
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
-		upsiName = generateGUID("service-instance")
-		upsiWithCredsGUID = generateGUID("service-instance-creds")
-		upsiGUID = createServiceInstance(spaceGUID, upsiName, nil)
+		upsiName = generateGUID("upsi-service-instance")
+		upsiWithCredsGUID = generateGUID("upsi-service-instance-creds")
+		upsiGUID = createUPServiceInstance(spaceGUID, upsiName, nil)
+		// managedName = generateGUID("managed-service-instance")
+		// managedGUID = createManagedServiceInstance(spaceGUID, managedName)
 	})
 
 	AfterEach(func() {
@@ -53,7 +57,7 @@ var _ = Describe("Service Instances", func() {
 		var result map[string]any
 
 		BeforeEach(func() {
-			upsiWithCredsGUID = createServiceInstance(spaceGUID, generateGUID("service-instance2"), map[string]string{"a": "b"})
+			upsiWithCredsGUID = createUPServiceInstance(spaceGUID, generateGUID("service-instance2"), map[string]string{"a": "b"})
 		})
 
 		JustBeforeEach(func() {
@@ -256,7 +260,7 @@ var _ = Describe("Service Instances", func() {
 
 		BeforeEach(func() {
 			anotherSpaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
-			anotherInstanceGUID = createServiceInstance(anotherSpaceGUID, generateGUID("service-instance"), nil)
+			anotherInstanceGUID = createUPServiceInstance(anotherSpaceGUID, generateGUID("service-instance"), nil)
 		})
 
 		JustBeforeEach(func() {

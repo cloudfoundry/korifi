@@ -83,6 +83,21 @@ type ProvisionResponse struct {
 	Operation string `json:"operation,omitempty"`
 }
 
+type UpdatePayload struct {
+	InstanceID string
+	UpdateRequest
+}
+
+type UpdateRequest struct {
+	ServiceId string `json:"service_id"`
+	PlanID    string `json:"plan_id,omitempty"`
+}
+
+type UpdateResponse struct {
+	IsAsync   bool
+	Operation string `json:"operation,omitempty"`
+}
+
 type GetBindingRequest struct {
 	InstanceID string
 	BindingID  string

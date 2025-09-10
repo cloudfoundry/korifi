@@ -846,7 +846,7 @@ var _ = Describe("ServiceInstance", func() {
 				},
 			})
 
-			serviceInstanceRepo.PatchServiceInstanceReturns(repositories.ServiceInstanceRecord{
+			serviceInstanceRepo.PatchUserProvidedServiceInstanceReturns(repositories.ServiceInstanceRecord{
 				Name: "new-name",
 				GUID: "service-instance-guid",
 			}, nil)
@@ -865,10 +865,10 @@ var _ = Describe("ServiceInstance", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualGUID).To(Equal("service-instance-guid"))
 
-			Expect(serviceInstanceRepo.PatchServiceInstanceCallCount()).To(Equal(1))
-			_, actualAuthInfo, patchMessage := serviceInstanceRepo.PatchServiceInstanceArgsForCall(0)
+			Expect(serviceInstanceRepo.PatchUserProvidedServiceInstanceCallCount()).To(Equal(1))
+			_, actualAuthInfo, patchMessage := serviceInstanceRepo.PatchUserProvidedServiceInstanceArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(patchMessage).To(Equal(repositories.PatchServiceInstanceMessage{
+			Expect(patchMessage).To(Equal(repositories.PatchUPSIMessage{
 				GUID:        "service-instance-guid",
 				SpaceGUID:   "space-guid",
 				Name:        tools.PtrTo("new-name"),
@@ -927,7 +927,7 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("patching the service instances fails", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.PatchServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("oops"))
+				serviceInstanceRepo.PatchUserProvidedServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("oops"))
 			})
 
 			It("returns the error", func() {
