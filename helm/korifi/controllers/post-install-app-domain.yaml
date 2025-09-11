@@ -42,11 +42,12 @@ spec:
         - sh
         - -c
         - |
+          uuid=$(cat /proc/sys/kernel/random/uuid)
           cat <<EOF | kubectl -n {{ .Values.rootNamespace }} apply -f -
           apiVersion: korifi.cloudfoundry.org/v1alpha1
           kind: CFDomain
           metadata:
-            name: default-domain
+            name: $uuid
           spec:
             name: {{ .Values.defaultAppDomainName }}
           EOF
