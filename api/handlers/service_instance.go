@@ -193,7 +193,8 @@ func (h *ServiceInstance) patch(r *http.Request) (*routing.Response, error) {
 			return nil, apierrors.LogAndReturn(logger, err, "failed to patch managed service instance")
 		}
 
-		return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceInstance(serviceInstance, h.serverURL)), nil
+		return routing.NewResponse(http.StatusAccepted).
+			WithHeader("Location", presenter.JobURLForRedirects(serviceInstance.GUID, presenter.ManagedServiceInstancePatchOperation, h.serverURL)), nil
 	}
 
 	patchMessage := payload.ToUPSIPatchMessage(serviceInstance.SpaceGUID, serviceInstance.GUID)

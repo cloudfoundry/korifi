@@ -835,103 +835,175 @@ var _ = Describe("ServiceInstance", func() {
 	})
 
 	Describe("PATCH /v3/service_instances/:guid", func() {
-		BeforeEach(func() {
-			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstancePatch{
-				Name:        tools.PtrTo("new-name"),
-				Tags:        &[]string{"alice", "bob"},
-				Credentials: &map[string]any{"foo": "bar"},
-				Metadata: payloads.MetadataPatch{
-					Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
-					Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
-				},
-			})
 
-			serviceInstanceRepo.PatchUserProvidedServiceInstanceReturns(repositories.ServiceInstanceRecord{
-				Name: "new-name",
-				GUID: "service-instance-guid",
-			}, nil)
-
-			reqPath += "/service-instance-guid"
-			reqMethod = http.MethodPatch
-		})
-
-		It("patches the service instance", func() {
-			Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
-			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
-			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
-
-			Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualGUID).To(Equal("service-instance-guid"))
-
-			Expect(serviceInstanceRepo.PatchUserProvidedServiceInstanceCallCount()).To(Equal(1))
-			_, actualAuthInfo, patchMessage := serviceInstanceRepo.PatchUserProvidedServiceInstanceArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(patchMessage).To(Equal(repositories.PatchUPSIMessage{
-				GUID:        "service-instance-guid",
-				SpaceGUID:   "space-guid",
-				Name:        tools.PtrTo("new-name"),
-				Credentials: &map[string]any{"foo": "bar"},
-				Tags:        &[]string{"alice", "bob"},
-				MetadataPatch: repositories.MetadataPatch{
-					Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
-					Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
-				},
-			}))
-
-			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
-			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
-			Expect(rr).To(HaveHTTPBody(SatisfyAll(
-				MatchJSONPath("$.guid", "service-instance-guid"),
-				MatchJSONPath("$.name", "new-name"),
-				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/service_instances/service-instance-guid"),
-			)))
-		})
-
-		When("decoding the payload fails", func() {
+		When("updating a user provided service instance", func() {
 			BeforeEach(func() {
-				requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "nope"))
+				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstancePatch{
+					Name:        tools.PtrTo("new-name"),
+					Tags:        &[]string{"alice", "bob"},
+					Credentials: &map[string]any{"foo": "bar"},
+					Metadata: payloads.MetadataPatch{
+						Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
+						Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
+					},
+				})
+
+				serviceInstanceRepo.PatchUserProvidedServiceInstanceReturns(repositories.ServiceInstanceRecord{
+					Name: "new-name",
+					GUID: "service-instance-guid",
+				}, nil)
+
+				reqPath += "/service-instance-guid"
+				reqMethod = http.MethodPatch
+			})
+			It("patches the user provided service instance", func() {
+				Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+				actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+				Expect(bodyString(actualReq)).To(Equal("the-json-body"))
+
+				Expect(serviceInstanceRepo.GetServiceInstanceCallCount()).To(Equal(1))
+				_, actualAuthInfo, actualGUID := serviceInstanceRepo.GetServiceInstanceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(actualGUID).To(Equal("service-instance-guid"))
+
+				Expect(serviceInstanceRepo.PatchUserProvidedServiceInstanceCallCount()).To(Equal(1))
+				_, actualAuthInfo, patchMessage := serviceInstanceRepo.PatchUserProvidedServiceInstanceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(patchMessage).To(Equal(repositories.PatchUPSIMessage{
+					GUID:        "service-instance-guid",
+					SpaceGUID:   "space-guid",
+					Name:        tools.PtrTo("new-name"),
+					Credentials: &map[string]any{"foo": "bar"},
+					Tags:        &[]string{"alice", "bob"},
+					MetadataPatch: repositories.MetadataPatch{
+						Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
+						Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
+					},
+				}))
+
+				Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+				Expect(rr).To(HaveHTTPBody(SatisfyAll(
+					MatchJSONPath("$.guid", "service-instance-guid"),
+					MatchJSONPath("$.name", "new-name"),
+					MatchJSONPath("$.links.self.href", "https://api.example.org/v3/service_instances/service-instance-guid"),
+				)))
 			})
 
-			It("returns an error", func() {
-				expectUnprocessableEntityError("nope")
+			When("decoding the payload fails", func() {
+				BeforeEach(func() {
+					requestValidator.DecodeAndValidateJSONPayloadReturns(apierrors.NewUnprocessableEntityError(nil, "nope"))
+				})
+
+				It("returns an error", func() {
+					expectUnprocessableEntityError("nope")
+				})
+			})
+
+			When("getting the service instance fails with not found", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(
+						repositories.ServiceInstanceRecord{},
+						apierrors.NewNotFoundError(nil, repositories.ServiceInstanceResourceType),
+					)
+				})
+
+				It("returns 404 Not Found", func() {
+					expectNotFoundError("Service Instance")
+				})
+			})
+
+			When("getting the service instance fails with forbidden", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.GetServiceInstanceReturns(
+						repositories.ServiceInstanceRecord{},
+						apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType),
+					)
+				})
+
+				It("returns 404 Not Found", func() {
+					expectNotFoundError("Service Instance")
+				})
+			})
+
+			When("patching the user provided service instances fails", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.PatchUserProvidedServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("oops"))
+				})
+
+				It("returns the error", func() {
+					expectUnknownError()
+				})
 			})
 		})
-
-		When("getting the service instance fails with not found", func() {
+		When("updating a managed service instance", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(
-					repositories.ServiceInstanceRecord{},
-					apierrors.NewNotFoundError(nil, repositories.ServiceInstanceResourceType),
-				)
+				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstancePatch{
+					Name:        tools.PtrTo("new-name"),
+					Type:        "managed",
+					Tags:        &[]string{"alice", "bob"},
+					Credentials: &map[string]any{"foo": "bar"},
+					Relationships: &payloads.ServiceInstanceRelationships{
+						ServicePlan: &payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: "plan-guid",
+							},
+						},
+					},
+					Metadata: payloads.MetadataPatch{
+						Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
+						Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
+					},
+				})
+
+				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+					GUID:      "service-instance-guid",
+					SpaceGUID: "space-guid",
+					Type:      korifiv1alpha1.ManagedType,
+				}, nil)
+				serviceInstanceRepo.PatchManagedServiceInstanceReturns(repositories.ServiceInstanceRecord{
+					Name: "new-name",
+					GUID: "service-instance-guid",
+				}, nil)
+
+				reqPath += "/service-instance-guid"
+				reqMethod = http.MethodPatch
 			})
 
-			It("returns 404 Not Found", func() {
-				expectNotFoundError("Service Instance")
-			})
-		})
+			It("patches the managed service instance", func() {
+				Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+				actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+				Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
-		When("getting the service instance fails with forbidden", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.GetServiceInstanceReturns(
-					repositories.ServiceInstanceRecord{},
-					apierrors.NewForbiddenError(nil, repositories.ServiceInstanceResourceType),
-				)
+				Expect(serviceInstanceRepo.PatchManagedServiceInstanceCallCount()).To(Equal(1))
+				_, actualAuthInfo, patchMessage := serviceInstanceRepo.PatchManagedServiceInstanceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(patchMessage).To(Equal(repositories.PatchManagedSIMessage{
+					GUID:        "service-instance-guid",
+					SpaceGUID:   "space-guid",
+					PlanGUID:    "plan-guid",
+					Name:        tools.PtrTo("new-name"),
+					Credentials: &map[string]any{"foo": "bar"},
+					Tags:        &[]string{"alice", "bob"},
+					MetadataPatch: repositories.MetadataPatch{
+						Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
+						Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
+					},
+				}))
 			})
-
-			It("returns 404 Not Found", func() {
-				expectNotFoundError("Service Instance")
+			It("returns HTTP 202 Accepted response", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location",
+					ContainSubstring("/v3/jobs/managed_service_instance.patch~service-instance-guid")))
 			})
-		})
+			When("patching the managed service instances fails", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.PatchManagedServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("oops"))
+				})
 
-		When("patching the service instances fails", func() {
-			BeforeEach(func() {
-				serviceInstanceRepo.PatchUserProvidedServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("oops"))
-			})
-
-			It("returns the error", func() {
-				expectUnknownError()
+				It("returns the error", func() {
+					expectUnknownError()
+				})
 			})
 		})
 	})
