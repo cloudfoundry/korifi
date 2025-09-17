@@ -288,6 +288,22 @@ var _ = Describe("ListOptions", func() {
 			})
 		})
 
+		Describe("WithFiltering", func() {
+			BeforeEach(func() {
+				option = repositories.WithFiltering("field", func(value any) bool {
+					return value == "value"
+				})
+			})
+
+			It("adds the filter by field and function to the list options", func() {
+				Expect(applyToListErr).NotTo(HaveOccurred())
+				Expect(listOptions.Filter).To(PointTo(MatchFields(IgnoreExtras, Fields{
+					"By":         Equal("field"),
+					"FilterFunc": Not(BeNil()),
+				})))
+			})
+		})
+
 		Describe("WithOrdering", func() {
 			Describe("created_at", func() {
 				BeforeEach(func() {

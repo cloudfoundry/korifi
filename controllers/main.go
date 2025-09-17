@@ -54,6 +54,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
 	domainswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
+	routesdestwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes/app_destinations"
 	securitygroupswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/security_groups"
 	bindingswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
 	brokerswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/brokers"
@@ -465,6 +466,7 @@ func main() {
 		controllersfinalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
 		common_labels.NewWebhook().SetupWebhookWithManager(mgr)
 		label_indexer.NewWebhook().SetupWebhookWithManager(mgr)
+		routesdestwebhook.NewRouteAppDestinationsWebhook().SetupWebhookWithManager(mgr)
 
 		if err = packageswebhook.NewValidator().SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")

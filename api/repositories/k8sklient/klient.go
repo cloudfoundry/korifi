@@ -126,7 +126,7 @@ func (k *K8sKlient) List(ctx context.Context, list client.ObjectList, opts ...re
 }
 
 func isSimpleList(listOpts repositories.ListOptions) bool {
-	return listOpts.Sort == nil && listOpts.Paging == nil
+	return listOpts.Sort == nil && listOpts.Paging == nil && listOpts.Filter == nil
 }
 
 func (k *K8sKlient) listViaUserClient(ctx context.Context, list client.ObjectList, opts ...client.ListOption) (descriptors.PageInfo, error) {
