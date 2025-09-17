@@ -27,6 +27,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.annotations.korifi\.cloudfoundry\.org/app-guids
+      name: AppGUIDs
+      priority: 1
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:

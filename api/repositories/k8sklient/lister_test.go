@@ -252,4 +252,48 @@ var _ = Describe("Lister", func() {
 			})
 		})
 	})
+
+	When("filtering is requested", func() {
+		BeforeEach(func() {
+			listOpts = append(listOpts, repositories.FilterOpt{
+				By:         "foo",
+				FilterFunc: func(value any) bool { return true },
+			})
+		})
+
+		It("uses the descriptor client and the object mapper", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(descriptorClient.ListCallCount()).To(Equal(1))
+			Expect(fakeDescriptor.GUIDsCallCount()).To(Equal(1))
+			Expect(objectListMapper.GUIDsToObjectListCallCount()).To(Equal(1))
+		})
+
+		It("filters the objects", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fakeDescriptor.FilterCallCount()).To(Equal(1))
+			by, filterFunc := fakeDescriptor.FilterArgsForCall(0)
+			Expect(by).To(Equal("foo"))
+			Expect(filterFunc).NotTo(BeNil())
+			Expect(fakeDescriptor.GUIDsCallCount()).To(Equal(1))
+		})
+
+		It("returns a single page info", func() {
+			Expect(pageInfo).To(Equal(descriptors.PageInfo{
+				TotalResults: 2,
+				TotalPages:   1,
+				PageNumber:   1,
+				PageSize:     2,
+			}))
+		})
+
+		When("filtering fails", func() {
+			BeforeEach(func() {
+				fakeDescriptor.FilterReturns(errors.New("filter-err"))
+			})
+
+			It("returns the error", func() {
+				Expect(err).To(MatchError(ContainSubstring("filter-err")))
+			})
+		})
+	})
 })

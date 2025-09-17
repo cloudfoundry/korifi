@@ -359,6 +359,22 @@ var _ = Describe("Klient", func() {
 			})
 		})
 
+		When("filtering is requested", func() {
+			BeforeEach(func() {
+				listOpts = append(listOpts, repositories.WithFiltering("foo", func(value any) bool {
+					return value == "bar"
+				}))
+			})
+
+			It("delegates to the descriptor based lister", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(descriptorBasedLister.ListCallCount()).To(Equal(1))
+				_, _, actualListOptions := descriptorBasedLister.ListArgsForCall(0)
+				Expect(actualListOptions.Filter.By).To(Equal("foo"))
+				Expect(actualListOptions.Filter.FilterFunc("bar")).To(BeTrue())
+			})
+		})
+
 		When("a list option errors", func() {
 			BeforeEach(func() {
 				listOpts = []repositories.ListOption{repositories.ErroringListOption("list-opt-err")}

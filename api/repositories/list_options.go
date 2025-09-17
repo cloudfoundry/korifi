@@ -33,6 +33,7 @@ type ListOptions struct {
 	FieldSelector fields.Selector
 	Requrements   []labels.Requirement
 	Sort          *SortOpt
+	Filter        *FilterOpt
 	Paging        *PagingOpt
 }
 
@@ -240,6 +241,23 @@ type SortOpt struct {
 func (o SortOpt) ApplyToList(opts *ListOptions) error {
 	opts.Sort = &o
 	return nil
+}
+
+type FilterOpt struct {
+	By         string
+	FilterFunc func(value any) bool
+}
+
+func (o FilterOpt) ApplyToList(opts *ListOptions) error {
+	opts.Filter = &o
+	return nil
+}
+
+func WithFiltering(filterBy string, filterFunc func(value any) bool) ListOption {
+	return FilterOpt{
+		By:         filterBy,
+		FilterFunc: filterFunc,
+	}
 }
 
 func WithPaging(pagination Pagination) ListOption {

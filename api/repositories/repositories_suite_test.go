@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/discovery"
 	k8sclient "k8s.io/client-go/kubernetes"
 
+	routesdestwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes/app_destinations"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/stdr"
 	"github.com/google/uuid"
@@ -87,6 +88,7 @@ var _ = BeforeSuite(func() {
 	webhooksManifest := helpers.GenerateWebhookManifest(
 		"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels",
 		"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer",
+		"code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes/app_destinations",
 	)
 
 	DeferCleanup(func() {
@@ -114,6 +116,7 @@ var _ = BeforeSuite(func() {
 
 	common_labels.NewWebhook().SetupWebhookWithManager(k8sManager)
 	label_indexer.NewWebhook().SetupWebhookWithManager(k8sManager)
+	routesdestwebhook.NewRouteAppDestinationsWebhook().SetupWebhookWithManager(k8sManager)
 
 	DeferCleanup(helpers.StartK8sManager(k8sManager))
 

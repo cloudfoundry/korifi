@@ -9,6 +9,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+	"code.cloudfoundry.org/korifi/api/repositories/filter"
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 
@@ -116,9 +117,9 @@ func (m *ListRoutesMessage) toListOptions() []ListOption {
 		WithOrdering(m.OrderBy),
 	}
 
-	listOptions = append(listOptions, slices.Collect(it.Map(slices.Values(m.AppGUIDs), func(s string) ListOption {
-		return WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix + s)
-	}))...)
+	if len(m.AppGUIDs) > 0 {
+		listOptions = append(listOptions, WithFiltering("AppGUIDs", filter.RoutesByAppGUIDsPredicate(m.AppGUIDs)))
+	}
 
 	if m.IsUnmapped != nil {
 		listOptions = append(listOptions, WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, strconv.FormatBool(*m.IsUnmapped)))
