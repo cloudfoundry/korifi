@@ -264,7 +264,7 @@ function create_cluster_builder() {
 }
 
 function allow_apps_egress() {
-  kubectl apply -f "$SCRIPT_DIR/assets/calico-allow-policy.yaml"
+  kubectl apply -f "$SCRIPT_DIR/assets/calico-allow-apps-egress-policy.yaml"
 }
 
 function main() {
