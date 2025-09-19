@@ -18,6 +18,7 @@ const MigratedByLabelKey = "korifi.cloudfoundry.org/migrated-by"
 
 var korifiObjectLists = []client.ObjectList{
 	&korifiv1alpha1.CFRouteList{},
+	&korifiv1alpha1.CFServiceBindingList{},
 }
 
 type Migrator struct {
