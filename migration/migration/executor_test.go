@@ -20,6 +20,12 @@ var _ = Describe("Executor", func() {
 			},
 		},
 	}))
+
+	Describe("CFServiceBinding", test(&korifiv1alpha1.CFServiceBinding{
+		Spec: korifiv1alpha1.CFServiceBindingSpec{
+			Type: "key",
+		},
+	}))
 })
 
 func test(testObj client.Object) func() {

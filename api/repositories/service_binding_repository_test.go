@@ -999,6 +999,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				fakeKlient = new(fake.Klient)
 				repo = repositories.NewServiceBindingRepo(fakeKlient, nil, nil, nil)
 				requestMessage = repositories.ListServiceBindingsMessage{
+					Names:                []string{"b1", "b2"},
 					AppGUIDs:             []string{"a1", "a2"},
 					ServiceInstanceGUIDs: []string{"s1", "s2"},
 					LabelSelector:        "foo=bar",
@@ -1019,6 +1020,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					repositories.WithLabelSelector("foo=bar"),
 					repositories.WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, []string{"p1", "p2"}),
 					repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
+					repositories.WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224("b1", "b2")),
 					repositories.WithLabelIn(korifiv1alpha1.CFServiceInstanceGUIDLabelKey, []string{"s1", "s2"}),
 					repositories.WithOrdering("created_at"),
 					repositories.WithPaging(repositories.Pagination{
