@@ -120,6 +120,20 @@ type BrokerClient struct {
 		result1 osbapi.UnbindResponse
 		result2 error
 	}
+	UpdateStub        func(context.Context, osbapi.UpdatePayload) (osbapi.UpdateResponse, error)
+	updateMutex       sync.RWMutex
+	updateArgsForCall []struct {
+		arg1 context.Context
+		arg2 osbapi.UpdatePayload
+	}
+	updateReturns struct {
+		result1 osbapi.UpdateResponse
+		result2 error
+	}
+	updateReturnsOnCall map[int]struct {
+		result1 osbapi.UpdateResponse
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -639,6 +653,71 @@ func (fake *BrokerClient) UnbindReturnsOnCall(i int, result1 osbapi.UnbindRespon
 	}
 	fake.unbindReturnsOnCall[i] = struct {
 		result1 osbapi.UnbindResponse
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *BrokerClient) Update(arg1 context.Context, arg2 osbapi.UpdatePayload) (osbapi.UpdateResponse, error) {
+	fake.updateMutex.Lock()
+	ret, specificReturn := fake.updateReturnsOnCall[len(fake.updateArgsForCall)]
+	fake.updateArgsForCall = append(fake.updateArgsForCall, struct {
+		arg1 context.Context
+		arg2 osbapi.UpdatePayload
+	}{arg1, arg2})
+	stub := fake.UpdateStub
+	fakeReturns := fake.updateReturns
+	fake.recordInvocation("Update", []interface{}{arg1, arg2})
+	fake.updateMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *BrokerClient) UpdateCallCount() int {
+	fake.updateMutex.RLock()
+	defer fake.updateMutex.RUnlock()
+	return len(fake.updateArgsForCall)
+}
+
+func (fake *BrokerClient) UpdateCalls(stub func(context.Context, osbapi.UpdatePayload) (osbapi.UpdateResponse, error)) {
+	fake.updateMutex.Lock()
+	defer fake.updateMutex.Unlock()
+	fake.UpdateStub = stub
+}
+
+func (fake *BrokerClient) UpdateArgsForCall(i int) (context.Context, osbapi.UpdatePayload) {
+	fake.updateMutex.RLock()
+	defer fake.updateMutex.RUnlock()
+	argsForCall := fake.updateArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *BrokerClient) UpdateReturns(result1 osbapi.UpdateResponse, result2 error) {
+	fake.updateMutex.Lock()
+	defer fake.updateMutex.Unlock()
+	fake.UpdateStub = nil
+	fake.updateReturns = struct {
+		result1 osbapi.UpdateResponse
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *BrokerClient) UpdateReturnsOnCall(i int, result1 osbapi.UpdateResponse, result2 error) {
+	fake.updateMutex.Lock()
+	defer fake.updateMutex.Unlock()
+	fake.UpdateStub = nil
+	if fake.updateReturnsOnCall == nil {
+		fake.updateReturnsOnCall = make(map[int]struct {
+			result1 osbapi.UpdateResponse
+			result2 error
+		})
+	}
+	fake.updateReturnsOnCall[i] = struct {
+		result1 osbapi.UpdateResponse
 		result2 error
 	}{result1, result2}
 }
