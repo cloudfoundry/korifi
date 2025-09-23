@@ -3,14 +3,14 @@ module code.cloudfoundry.org/korifi
 go 1.24.4
 
 require (
-	code.cloudfoundry.org/bytefmt v0.51.0
+	code.cloudfoundry.org/bytefmt v0.52.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.1.1
 	code.cloudfoundry.org/go-loggregator/v10 v10.2.0
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
 	github.com/BooleanCat/go-functional/v2 v2.5.1
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
-	github.com/aws/aws-sdk-go-v2/config v1.31.8
+	github.com/aws/aws-sdk-go-v2/config v1.31.9
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.50.3
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.38.2
@@ -120,7 +120,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.39.0 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.18.12 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.18.13 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.7 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.7 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.7 // indirect
@@ -128,7 +128,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.33.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.29.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.34.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.34.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.4 // indirect
 	github.com/aws/smithy-go v1.23.0 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.9.1 // indirect
@@ -161,7 +161,7 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230822174451-190ad0e4d556
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20241111191718-6bce25ecf029 // indirect
-	github.com/google/pprof v0.0.0-20250903194437-c28834ac2320 // indirect
+	github.com/google/pprof v0.0.0-20250919162441-8b542baf5bcf // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
