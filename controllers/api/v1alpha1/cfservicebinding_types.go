@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"fmt"
 
+	"code.cloudfoundry.org/korifi/tools"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -118,7 +119,7 @@ func (b *CFServiceBinding) StatusConditions() *[]metav1.Condition {
 }
 
 func (b CFServiceBinding) UniqueName() string {
-	return fmt.Sprintf("sb::%s::%s::%s", b.Spec.AppRef.Name, b.Spec.Service.Namespace, b.Spec.Service.Name)
+	return fmt.Sprintf("sb::%s::%s::%s::%s", b.Spec.AppRef.Name, b.Spec.Service.Namespace, b.Spec.Service.Name, tools.ZeroIfNil(b.Spec.DisplayName))
 }
 
 func (b CFServiceBinding) UniqueValidationErrorMessage() string {
