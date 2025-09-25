@@ -305,6 +305,10 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 		return apierrors.FromK8sError(err, ServiceBindingResourceType)
 	}
 
+	if binding.Spec.Type == korifiv1alpha1.CFServiceBindingTypeKey {
+		return nil
+	}
+
 	cfApp := &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: binding.Namespace,
