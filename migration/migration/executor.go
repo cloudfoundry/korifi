@@ -65,6 +65,12 @@ func (m *Migrator) Run(ctx context.Context) error {
 					fmt.Fprintf(os.Stderr, "Failed to set label on object %v %s/%s: %v\n", obj.GetObjectKind(), obj.GetNamespace(), obj.GetName(), err)
 				}
 				fmt.Fprintf(os.Stdout, "%s %s/%s migrated\n", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind, obj.GetNamespace(), obj.GetName())
+
+				binding, ok := obj.(*korifiv1alpha1.CFServiceBinding)
+				if !ok {
+					continue
+				}
+				fmt.Printf("binding = %+v\n", binding)
 			}
 		}()
 	}
