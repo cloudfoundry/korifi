@@ -76,7 +76,23 @@ var _ = Describe("CFServiceBindingValidatingWebhook", func() {
 			_, _, actualNamespace, actualResource := duplicateValidator.ValidateCreateArgsForCall(0)
 			Expect(actualNamespace).To(Equal(defaultNamespace))
 			Expect(actualResource).To(Equal(serviceBinding))
-			Expect(actualResource.UniqueValidationErrorMessage()).To(Equal("Service binding already exists: App: " + appGUID + " Service Instance: " + serviceInstanceGUID))
+			Expect(actualResource.UniqueName()).To(Equal("sb::" + appGUID + "::" + defaultNamespace + "::" + serviceInstanceGUID + "::" + serviceInstanceGUID))
+			Expect(actualResource.UniqueValidationErrorMessage()).To(Equal("Service binding already exists: App: " + appGUID + " Service Instance: " + serviceInstanceGUID + " Service Binding: " + serviceInstanceGUID))
+		})
+
+		When("the service binding has a display name", func() {
+			BeforeEach(func() {
+				serviceBinding.Spec.DisplayName = tools.PtrTo("my-binding")
+			})
+
+			It("uses the display name in the unique name", func() {
+				Expect(duplicateValidator.ValidateCreateCallCount()).To(Equal(1))
+				_, _, actualNamespace, actualResource := duplicateValidator.ValidateCreateArgsForCall(0)
+				Expect(actualNamespace).To(Equal(defaultNamespace))
+				Expect(actualResource).To(Equal(serviceBinding))
+				Expect(actualResource.UniqueName()).To(Equal("sb::" + appGUID + "::" + defaultNamespace + "::" + serviceInstanceGUID + "::my-binding"))
+				Expect(actualResource.UniqueValidationErrorMessage()).To(Equal("Service binding already exists: App: " + appGUID + " Service Instance: " + serviceInstanceGUID + " Service Binding: my-binding"))
+			})
 		})
 
 		When("a duplicate service binding already exists", func() {
