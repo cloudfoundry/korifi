@@ -306,8 +306,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOlocH6Fxy8MmwDt+yVQYULKfN0RoTN8A=
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99/go.mod h1:1lJo3i6rXxKeerYnT8Nvf0QmHCRC1n8sfWVwXF2Frvo=
-github.com/jellydator/validation v1.1.0 h1:TBkx56y6dd0By2AhtStRdTIhDjtcuoSE9w6G6z7wQ4o=
-github.com/jellydator/validation v1.1.0/go.mod h1:AaCjfkQ4Ykdcb+YCwqCtaI3wDsf2UAGhJ06lJs0VgOw=
+github.com/jellydator/validation v1.2.0 h1:z3P3Hk5kdT9epXDraWAfMZtOIUM7UQ0PkNAnFEUjcAk=
+github.com/jellydator/validation v1.2.0/go.mod h1:AaCjfkQ4Ykdcb+YCwqCtaI3wDsf2UAGhJ06lJs0VgOw=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=

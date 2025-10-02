@@ -26,7 +26,7 @@ var _ = Describe("Lifecycle", func() {
 	When("type is not set", func() {
 		BeforeEach(func() {
 			payload = payloads.Lifecycle{
-				Data: &payloads.LifecycleData{
+				Data: payloads.LifecycleData{
 					Buildpacks: []string{"foo", "bar"},
 					Stack:      "baz",
 				},
@@ -42,7 +42,7 @@ var _ = Describe("Lifecycle", func() {
 		BeforeEach(func() {
 			payload = payloads.Lifecycle{
 				Type: "buildpack",
-				Data: &payloads.LifecycleData{
+				Data: payloads.LifecycleData{
 					Buildpacks: []string{"foo", "bar"},
 					Stack:      "baz",
 				},
@@ -56,7 +56,7 @@ var _ = Describe("Lifecycle", func() {
 
 		When("lifecycle data is not set", func() {
 			BeforeEach(func() {
-				payload.Data = nil
+				payload.Data = payloads.LifecycleData{}
 			})
 
 			It("returns an appropriate error", func() {
@@ -79,23 +79,12 @@ var _ = Describe("Lifecycle", func() {
 		BeforeEach(func() {
 			payload = payloads.Lifecycle{
 				Type: "docker",
-				Data: &payloads.LifecycleData{},
 			}
 		})
 
 		It("succeeds", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
 			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
-		})
-
-		When("data is nil", func() {
-			BeforeEach(func() {
-				payload.Data = nil
-			})
-
-			It("returns an error", func() {
-				expectUnprocessableEntityError(validatorErr, "data cannot be blank")
-			})
 		})
 
 		When("buildpacks are specified in the data", func() {

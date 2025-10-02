@@ -7,50 +7,40 @@ import (
 	jellidation "github.com/jellydator/validation"
 )
 
+var validLifecycleData lifeCycleDataRule
+
+type lifeCycleDataRule struct{}
+
+func (d lifeCycleDataRule) Validate(value any) error {
+	data, ok := value.(LifecycleData)
+	if !ok {
+		return fmt.Errorf("%T is not supported, LifecycleData is expected", value)
+	}
+	return jellidation.ValidateStruct(&data,
+		jellidation.Field(&data.Stack, jellidation.Required),
+	)
+}
+
 type Lifecycle struct {
-	Type string         `json:"type"`
-	Data *LifecycleData `json:"data"`
+	Type string        `json:"type"`
+	Data LifecycleData `json:"data"`
 }
 
 func (l Lifecycle) Validate() error {
-	lifecycleDataRule := jellidation.By(func(value any) error {
-		data, ok := value.(*LifecycleData)
-		if !ok {
-			return fmt.Errorf("%T is not supported, LifecycleData is expected", value)
-		}
-
-		if l.Type == "docker" {
-			return data.ValidateDockerLifecycleData()
-		}
-
-		if l.Type == "buildpack" {
-			return data.ValidateBuildpackLifecycleData()
-		}
-
-		return nil
-	})
-
 	return jellidation.ValidateStruct(&l,
 		jellidation.Field(&l.Type,
 			jellidation.Required,
 			validation.OneOf("buildpack", "docker")),
-		jellidation.Field(&l.Data, jellidation.Required, lifecycleDataRule),
+		jellidation.Field(&l.Data,
+			jellidation.When(l.Type == "buildpack", jellidation.Required, validLifecycleData).
+				Else(jellidation.Empty.Error("must be an empty object")),
+		),
 	)
 }
 
 type LifecycleData struct {
 	Buildpacks []string `json:"buildpacks,omitempty"`
 	Stack      string   `json:"stack,omitempty"`
-}
-
-func (d LifecycleData) ValidateBuildpackLifecycleData() error {
-	return jellidation.ValidateStruct(&d,
-		jellidation.Field(&d.Stack, jellidation.Required),
-	)
-}
-
-func (d LifecycleData) ValidateDockerLifecycleData() error {
-	return jellidation.Validate(&d, jellidation.In(LifecycleData{}).Error("must be an empty object"))
 }
 
 type LifecyclePatch struct {

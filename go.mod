@@ -27,7 +27,7 @@ require (
 	github.com/google/go-containerregistry v0.20.6
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/jellydator/validation v1.1.0
+	github.com/jellydator/validation v1.2.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.0
 	github.com/mileusna/useragent v1.3.5
 	github.com/onsi/ginkgo/v2 v2.25.3

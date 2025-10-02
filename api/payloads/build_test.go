@@ -19,7 +19,7 @@ var _ = Describe("Build", func() {
 				},
 				Lifecycle: &payloads.Lifecycle{
 					Type: "buildpack",
-					Data: &payloads.LifecycleData{
+					Data: payloads.LifecycleData{
 						Buildpacks: []string{"bp1"},
 						Stack:      "stack",
 					},
