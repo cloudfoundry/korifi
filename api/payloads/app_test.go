@@ -240,7 +240,7 @@ var _ = Describe("App payload validation", func() {
 				BeforeEach(func() {
 					payload.Lifecycle = &payloads.Lifecycle{
 						Type: "buildpack",
-						Data: &payloads.LifecycleData{
+						Data: payloads.LifecycleData{
 							Buildpacks: []string{"my-bp"},
 							Stack:      "my-stack",
 						},
@@ -262,14 +262,12 @@ var _ = Describe("App payload validation", func() {
 				BeforeEach(func() {
 					payload.Lifecycle = &payloads.Lifecycle{
 						Type: "docker",
-						Data: &payloads.LifecycleData{},
 					}
 				})
 
 				It("sets the lifecycle to the repo message", func() {
 					Expect(repoMessage.Lifecycle).To(Equal(repositories.Lifecycle{
 						Type: "docker",
-						Data: repositories.LifecycleData{},
 					}))
 				})
 			})
