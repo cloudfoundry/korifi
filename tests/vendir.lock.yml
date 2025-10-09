@@ -10,8 +10,8 @@ directories:
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/229645413
     path: metrics-server-local
   - githubRelease:
-      tag: v1.18.2
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/229382677
+      tag: v1.19.0
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/252689218
     path: cert-manager
   - git:
       commitTitle: Update Contour Docker image to v1.33.0....
@@ -20,8 +20,8 @@ directories:
       - v1.33.0
     path: contour
   - githubRelease:
-      tag: v1.3.0
-      url: https://api.github.com/repos/kubernetes-sigs/gateway-api/releases/214381245
+      tag: v1.4.0
+      url: https://api.github.com/repos/kubernetes-sigs/gateway-api/releases/252387623
     path: gateway-api
   path: vendor
 kind: LockConfig
