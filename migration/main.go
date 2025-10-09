@@ -17,7 +17,7 @@ import (
 func main() {
 	err := korifiv1alpha1.AddToScheme(scheme.Scheme)
 	if err != nil {
-		panic(fmt.Sprintf("could not add CFApp to scheme: %v", err))
+		panic(fmt.Sprintf("could not add to scheme: %v", err))
 	}
 
 	k8sClientConfig := ctrl.GetConfigOrDie()

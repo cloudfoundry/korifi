@@ -790,16 +790,15 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 	Describe("DeleteServiceBinding", func() {
 		var (
-			deleteErr          error
-			serviceBindingGUID string
+			deleteErr   error
+			binding     *korifiv1alpha1.CFServiceBinding
+			bindingGUID string
 		)
 
 		BeforeEach(func() {
-			serviceBindingGUID = uuid.NewString()
-
-			serviceBinding := &korifiv1alpha1.CFServiceBinding{
+			binding = &korifiv1alpha1.CFServiceBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceBindingGUID,
+					Name:      uuid.NewString(),
 					Namespace: space.Name,
 					Annotations: map[string]string{
 						korifiv1alpha1.ServiceInstanceTypeAnnotation: korifiv1alpha1.UserProvidedType,
@@ -819,8 +818,10 @@ var _ = Describe("ServiceBindingRepo", func() {
 				},
 			}
 			Expect(
-				k8sClient.Create(ctx, serviceBinding),
+				k8sClient.Create(ctx, binding),
 			).To(Succeed())
+
+			bindingGUID = binding.Name
 
 			appConditionAwaiter.AwaitStateStub = func(ctx context.Context, _ repositories.Klient, object client.Object, checkState func(a *korifiv1alpha1.CFApp) error) (*korifiv1alpha1.CFApp, error) {
 				cfApp, ok := object.(*korifiv1alpha1.CFApp)
@@ -829,7 +830,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
 					cfApp.Status.ObservedGeneration = cfApp.Generation
 					cfApp.Status.ServiceBindings = slices.Collect(it.Exclude(slices.Values(cfApp.Status.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) bool {
-						return b.GUID == serviceBindingGUID
+						return b.GUID == bindingGUID
 					}))
 				})).To(Succeed())
 
@@ -839,7 +840,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 		})
 
 		JustBeforeEach(func() {
-			deleteErr = repo.DeleteServiceBinding(ctx, authInfo, serviceBindingGUID)
+			deleteErr = repo.DeleteServiceBinding(ctx, authInfo, bindingGUID)
 		})
 
 		It("returns a not-found error for users with no role in the space", func() {
@@ -863,11 +864,19 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 			It("deletes the binding", func() {
 				Expect(deleteErr).NotTo(HaveOccurred())
+				actualBinding := &korifiv1alpha1.CFServiceBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      binding.Name,
+						Namespace: binding.Namespace,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(actualBinding), actualBinding)).To(Succeed())
+				Expect(actualBinding.DeletionTimestamp).NotTo(BeNil())
 			})
 
 			When("the binding doesn't exist", func() {
 				BeforeEach(func() {
-					serviceBindingGUID = "something-that-does-not-match"
+					bindingGUID = "something-that-does-not-match"
 				})
 
 				It("returns a not-found error", func() {
@@ -903,7 +912,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 						Expect(k8s.Patch(ctx, k8sClient, cfApp, func() {
 							cfApp.Status.ServiceBindings = slices.Collect(it.Exclude(slices.Values(cfApp.Status.ServiceBindings), func(b korifiv1alpha1.ServiceBinding) bool {
-								return b.GUID == serviceBindingGUID
+								return b.GUID == bindingGUID
 							}))
 						})).To(Succeed())
 
@@ -914,6 +923,52 @@ var _ = Describe("ServiceBindingRepo", func() {
 
 				It("returns error", func() {
 					Expect(deleteErr).To(MatchError(ContainSubstring("outdated")))
+				})
+			})
+
+			When("the binding is of type key", func() {
+				BeforeEach(func() {
+					binding = &korifiv1alpha1.CFServiceBinding{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      uuid.NewString(),
+							Namespace: space.Name,
+							Annotations: map[string]string{
+								korifiv1alpha1.ServiceInstanceTypeAnnotation: korifiv1alpha1.ManagedType,
+							},
+							Finalizers: []string{korifiv1alpha1.CFServiceBindingFinalizerName},
+						},
+						Spec: korifiv1alpha1.CFServiceBindingSpec{
+							Service: corev1.ObjectReference{
+								Kind:       "CFServiceInstance",
+								APIVersion: korifiv1alpha1.SchemeGroupVersion.Identifier(),
+								Name:       uuid.NewString(),
+							},
+							Type: korifiv1alpha1.CFServiceBindingTypeKey,
+						},
+					}
+					Expect(
+						k8sClient.Create(ctx, binding),
+					).To(Succeed())
+
+					bindingGUID = binding.Name
+				})
+
+				It("deletes the binding", func() {
+					Expect(deleteErr).NotTo(HaveOccurred())
+					actualBinding := &korifiv1alpha1.CFServiceBinding{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      binding.Name,
+							Namespace: binding.Namespace,
+						},
+					}
+					Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(actualBinding), actualBinding)).To(Succeed())
+					Expect(actualBinding.DeletionTimestamp).NotTo(BeNil())
+				})
+
+				It("does not await app state", func() {
+					Expect(deleteErr).NotTo(HaveOccurred())
+
+					Expect(appConditionAwaiter.AwaitStateCallCount()).To(Equal(0))
 				})
 			})
 		})
@@ -999,6 +1054,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 				fakeKlient = new(fake.Klient)
 				repo = repositories.NewServiceBindingRepo(fakeKlient, nil, nil, nil)
 				requestMessage = repositories.ListServiceBindingsMessage{
+					Names:                []string{"b1", "b2"},
 					AppGUIDs:             []string{"a1", "a2"},
 					ServiceInstanceGUIDs: []string{"s1", "s2"},
 					LabelSelector:        "foo=bar",
@@ -1019,6 +1075,7 @@ var _ = Describe("ServiceBindingRepo", func() {
 					repositories.WithLabelSelector("foo=bar"),
 					repositories.WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, []string{"p1", "p2"}),
 					repositories.WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, []string{"a1", "a2"}),
+					repositories.WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224("b1", "b2")),
 					repositories.WithLabelIn(korifiv1alpha1.CFServiceInstanceGUIDLabelKey, []string{"s1", "s2"}),
 					repositories.WithOrdering("created_at"),
 					repositories.WithPaging(repositories.Pagination{

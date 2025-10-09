@@ -197,7 +197,7 @@ var _ = Describe("App", func() {
 			BeforeEach(func() {
 				payload.Lifecycle = &payloads.Lifecycle{
 					Type: "buildpack",
-					Data: &payloads.LifecycleData{
+					Data: payloads.LifecycleData{
 						Buildpacks: []string{"bp1"},
 						Stack:      "my-stack",
 					},
@@ -222,7 +222,7 @@ var _ = Describe("App", func() {
 			BeforeEach(func() {
 				payload.Lifecycle = &payloads.Lifecycle{
 					Type: "docker",
-					Data: &payloads.LifecycleData{},
+					Data: payloads.LifecycleData{},
 				}
 			})
 

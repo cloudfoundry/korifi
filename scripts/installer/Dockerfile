@@ -21,8 +21,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # helm
-RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" >/etc/apt/sources.list.d/helm-stable-debian.list \
-  && curl -fsSL https://baltocdn.com/helm/signing.asc | gpg --dearmor >/usr/share/keyrings/helm.gpg
+RUN echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" >/etc/apt/sources.list.d/helm-stable-debian.list \
+  && curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor >/usr/share/keyrings/helm.gpg
 
 RUN apt-get update \
   && apt-get install --yes \

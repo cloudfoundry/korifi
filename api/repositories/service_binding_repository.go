@@ -102,6 +102,7 @@ type DeleteServiceBindingMessage struct {
 }
 
 type ListServiceBindingsMessage struct {
+	Names                []string
 	AppGUIDs             []string
 	ServiceInstanceGUIDs []string
 	LabelSelector        string
@@ -114,6 +115,7 @@ type ListServiceBindingsMessage struct {
 func (m *ListServiceBindingsMessage) toListOptions() []ListOption {
 	opts := []ListOption{
 		WithLabelSelector(m.LabelSelector),
+		WithLabelIn(korifiv1alpha1.DisplayNameLabelKey, tools.EncodeValuesToSha224(m.Names...)),
 		WithLabelIn(korifiv1alpha1.CFServiceInstanceGUIDLabelKey, m.ServiceInstanceGUIDs),
 		WithLabelIn(korifiv1alpha1.CFAppGUIDLabelKey, m.AppGUIDs),
 		WithLabelIn(korifiv1alpha1.PlanGUIDLabelKey, m.PlanGUIDs),
@@ -301,6 +303,10 @@ func (r *ServiceBindingRepo) DeleteServiceBinding(ctx context.Context, authInfo 
 	err = r.klient.Delete(ctx, binding)
 	if err != nil {
 		return apierrors.FromK8sError(err, ServiceBindingResourceType)
+	}
+
+	if binding.Spec.Type == korifiv1alpha1.CFServiceBindingTypeKey {
+		return nil
 	}
 
 	cfApp := &korifiv1alpha1.CFApp{

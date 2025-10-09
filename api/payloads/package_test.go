@@ -55,7 +55,9 @@ var _ = Describe("PackageCreate", func() {
 
 		When("data is specified", func() {
 			BeforeEach(func() {
-				createPayload.Data = &payloads.PackageData{}
+				createPayload.Data = payloads.PackageData{
+					Image: "foo/bar",
+				}
 			})
 
 			It("returns an appropriate error", func() {
@@ -66,7 +68,7 @@ var _ = Describe("PackageCreate", func() {
 		When("type is docker", func() {
 			BeforeEach(func() {
 				createPayload.Type = "docker"
-				createPayload.Data = &payloads.PackageData{
+				createPayload.Data = payloads.PackageData{
 					Image: "some/image",
 				}
 			})
@@ -76,9 +78,21 @@ var _ = Describe("PackageCreate", func() {
 				Expect(packageCreate).To(gstruct.PointTo(Equal(createPayload)))
 			})
 
-			When("image is not specified", func() {
+			When("data is not set", func() {
 				BeforeEach(func() {
-					createPayload.Data = &payloads.PackageData{}
+					createPayload.Data = payloads.PackageData{}
+				})
+
+				It("returns an appropriate error", func() {
+					expectUnprocessableEntityError(validatorErr, "data cannot be blank")
+				})
+			})
+
+			When("image is not set", func() {
+				BeforeEach(func() {
+					createPayload.Data = payloads.PackageData{
+						Username: tools.PtrTo("user"),
+					}
 				})
 
 				It("returns an appropriate error", func() {
@@ -181,7 +195,7 @@ var _ = Describe("PackageCreate", func() {
 		When("package type is docker", func() {
 			BeforeEach(func() {
 				createPayload.Type = "docker"
-				createPayload.Data = &payloads.PackageData{
+				createPayload.Data = payloads.PackageData{
 					Image: "some/image",
 				}
 			})

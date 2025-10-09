@@ -17,20 +17,8 @@ import (
 const MigratedByLabelKey = "korifi.cloudfoundry.org/migrated-by"
 
 var korifiObjectLists = []client.ObjectList{
-	&korifiv1alpha1.CFAppList{},
-	&korifiv1alpha1.CFBuildList{},
-	&korifiv1alpha1.CFDomainList{},
-	&korifiv1alpha1.CFOrgList{},
-	&korifiv1alpha1.CFPackageList{},
-	&korifiv1alpha1.CFProcessList{},
 	&korifiv1alpha1.CFRouteList{},
 	&korifiv1alpha1.CFServiceBindingList{},
-	&korifiv1alpha1.CFServiceBrokerList{},
-	&korifiv1alpha1.CFServiceInstanceList{},
-	&korifiv1alpha1.CFServiceOfferingList{},
-	&korifiv1alpha1.CFServicePlanList{},
-	&korifiv1alpha1.CFSpaceList{},
-	&korifiv1alpha1.CFTaskList{},
 }
 
 type Migrator struct {
