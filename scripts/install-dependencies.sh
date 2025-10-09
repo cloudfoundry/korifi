@@ -18,6 +18,8 @@ Usage:
 flags:
   -i, --insecure-tls-metrics-server
       (optional) Provide insecure TLS args to Metrics Server. This is useful for distributions such as Kind, Minikube, etc.
+  -c, --install-vendored-calico
+      (optional) Installed vendored calico. Useful for testing on Kind.
 EOF
   exit 1
 }
@@ -35,6 +37,10 @@ while [[ $# -gt 0 ]]; do
   case $i in
     -i | --insecure-tls-metrics-server)
       INSECURE_TLS_METRICS_SERVER=true
+      shift
+      ;;
+    -c | --install-vendored-calico)
+      INSTALL_VENDORED_CALICO=true
       shift
       ;;
     *)
@@ -106,21 +112,23 @@ if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
   fi
 fi
 
-echo "********************"
-echo " Installing Calico"
-echo "********************"
+if [[ "${INSTALL_VENDORED_CALICO:-}" == "true" ]]; then
+  echo "********************"
+  echo " Installing Calico"
+  echo "********************"
 
-kubectl apply -f "$VENDOR_DIR/calico/operator-crds.yaml" --server-side
-kubectl apply -f "$VENDOR_DIR/calico/tigera-operator.yaml" --server-side
+  kubectl apply -f "$VENDOR_DIR/calico/operator-crds.yaml" --server-side
+  kubectl apply -f "$VENDOR_DIR/calico/tigera-operator.yaml" --server-side
 
-kubectl -n tigera-operator rollout status deployment/tigera-operator --watch=true
+  kubectl -n tigera-operator rollout status deployment/tigera-operator --watch=true
 
-TEMP_FILES+=("$DEP_DIR/calico/custom-resources.yaml")
-cp "$VENDOR_DIR/calico/custom-resources.yaml" "$DEP_DIR/calico/custom-resources.yaml"
-kubectl apply -k "$DEP_DIR/calico"
+  TEMP_FILES+=("$DEP_DIR/calico/custom-resources.yaml")
+  cp "$VENDOR_DIR/calico/custom-resources.yaml" "$DEP_DIR/calico/custom-resources.yaml"
+  kubectl apply -k "$DEP_DIR/calico"
 
-while ! kubectl get ns calico-system >/dev/null 2>&1; do
+  while ! kubectl get ns calico-system >/dev/null 2>&1; do
+    sleep 1
+  done
+  kubectl -n calico-system rollout status deployment/whisker --watch=true
   sleep 1
-done
-kubectl -n calico-system rollout status deployment/whisker --watch=true
-sleep 1 
+fi

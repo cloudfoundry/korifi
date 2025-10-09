@@ -122,7 +122,9 @@ function ensure_local_registry() {
 function install_dependencies() {
   pushd "${ROOT_DIR}" >/dev/null
   {
-    "${SCRIPT_DIR}/install-dependencies.sh" -i
+    "${SCRIPT_DIR}/install-dependencies.sh" \
+      --insecure-tls-metrics-server \
+      --install-vendored-calico
   }
   popd >/dev/null
 }
