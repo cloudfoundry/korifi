@@ -1,7 +1,7 @@
-apiVersion: projectcalico.org/v3
+apiVersion: crd.projectcalico.org/v1
 kind: GlobalNetworkPolicy
 metadata:
-  name: allow-apps-egress
+  name: default.allow-apps-egress
 spec:
   order: 10
   namespaceSelector: has(korifi.cloudfoundry.org/space-guid)

@@ -1,8 +1,8 @@
 {{- if .Values.experimental.securityGroups.enabled }}
-apiVersion: projectcalico.org/v3
+apiVersion: crd.projectcalico.org/v1
 kind: GlobalNetworkPolicy
 metadata:
-  name: deny-apps-egress
+  name: default.deny-apps-egress
 spec:
   order: 100
   namespaceSelector: has(korifi.cloudfoundry.org/space-guid)
