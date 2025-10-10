@@ -1,0 +1,26 @@
+apiVersion: crd.projectcalico.org/v1
+kind: GlobalNetworkPolicy
+metadata:
+  name: default.allow-apps-egress
+spec:
+  order: 10
+  namespaceSelector: has(korifi.cloudfoundry.org/space-guid)
+  types:
+  - Egress
+  egress:
+  - action: Allow
+    protocol: TCP
+    destination:
+      ports:
+      - 1:65535
+  - action: Allow
+    protocol: UDP
+    destination:
+      ports:
+      - 1:65535
+  - action: Allow
+    protocol: TCP
+    destination:
+      services:
+        name: localregistry-docker-registry
+        namespace: default

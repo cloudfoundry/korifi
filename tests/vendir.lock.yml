@@ -14,6 +14,12 @@ directories:
       url: https://api.github.com/repos/cert-manager/cert-manager/releases/252689218
     path: cert-manager
   - git:
+      commitTitle: Fix parent-release-branch
+      sha: 068c7aa62a62c7459c9ecbf929c92f2a6594f22d
+      tags:
+      - v3.30.3
+    path: calico
+  - git:
       commitTitle: Update Contour Docker image to v1.33.0....
       sha: 3635b068e25d74b7089c272eefd6ccb6a08f2861
       tags:

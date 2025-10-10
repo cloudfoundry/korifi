@@ -1,0 +1,13 @@
+resources:
+  - custom-resources.yaml
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/calicoNetwork/ipPools/0/cidr
+        value: 10.244.0.0/16
+    target:
+      kind: Installation
+      group: operator.tigera.io
+      version: v1
+      name: default
