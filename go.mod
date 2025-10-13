@@ -22,7 +22,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/stdr v1.2.2
 	github.com/go-resty/resty/v2 v2.16.5
-	github.com/gofrs/flock v0.12.1
+	github.com/gofrs/flock v0.13.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/go-containerregistry v0.20.6
 	github.com/google/uuid v1.6.0
@@ -93,7 +93,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/term v0.35.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect

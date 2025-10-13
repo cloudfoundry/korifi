@@ -53,9 +53,9 @@ DockerHub allows only one private repository per free account. In case the Docke
 
 ### Kpack
 
-[Kpack](https://github.com/pivotal/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/pivotal/kpack/blob/main/docs/install.md) to install the [latest version](https://github.com/pivotal/kpack/releases/latest).
+[Kpack](https://github.com/buildpacks-community/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/buildpacks-community/kpack/blob/main/docs/install.md) to install the [latest version](https://github.com/buildpacks-community/kpack/releases/latest).
 
-The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpackImageBuilder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
+The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpackImageBuilder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/buildpacks-community/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
 
 ### Contour
 
@@ -183,9 +183,9 @@ kubectl --namespace "$KORIFI_NAMESPACE" create secret generic <registry-ca-secre
 You can then specify the `<registry-ca-secret-name>` using the `containerRegistryCACertSecret`.
 
 > **Warning**
-> Kpack does not support self-signed/internal CA configuration out of the box (see [pivotal/kpack#207](https://github.com/pivotal/kpack/issues/207)).
+> Kpack does not support self-signed/internal CA configuration out of the box (see [buildpacks-community/kpack#207](https://github.com/buildpacks-community/kpack/issues/207)).
 > In order to make Kpack trust your CA certificate, you will have to inject it in both the Kpack controller and the Kpack build pods.
-> * The [`kpack-controller` `Deployment`](https://github.com/pivotal/kpack/blob/main/config/controller.yaml) can be modified to mount a `Secret` similar to the one created above: see the [Korifi API `Deployment`](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/api/deployment.yaml) for an example of how to do this.
+> * The [`kpack-controller` `Deployment`](https://github.com/buildpacks-community/kpack/blob/main/config/controller.yaml) can be modified to mount a `Secret` similar to the one created above: see the [Korifi API `Deployment`](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/api/deployment.yaml) for an example of how to do this.
 > * For the build pods you can use the [cert-injection-webhook](https://github.com/vmware-tanzu/cert-injection-webhook), configured on the `kpack.io/build` label.
 
 ## Install Korifi
