@@ -32,6 +32,7 @@ func main() {
 	http.HandleFunc("/servicebindingroot", serviceBindingRootHandler)
 	http.HandleFunc("/servicebindings", serviceBindingsHandler)
 	http.HandleFunc("/exit", exitHandler)
+	http.HandleFunc("/outbound", outboundHandler)
 	http.HandleFunc("/log", logHandler)
 
 	port := os.Getenv("PORT")
@@ -84,6 +85,21 @@ func helloWorldHandler(arg string) func(w http.ResponseWriter, _ *http.Request) 
 			fmt.Fprintf(w, "Hi, I'm Dorifi (%s)!\n", arg)
 		}
 	}
+}
+
+func outboundHandler(w http.ResponseWriter, _ *http.Request) {
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+	}
+	resp, err := client.Get("http://google.com/")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to make outbound request: %v", err), http.StatusBadRequest)
+		return
+	}
+	defer resp.Body.Close()
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, "Outbound request to google.com was successful")
+	fmt.Fprintln(w, "Response status code:", resp.StatusCode)
 }
 
 func envJsonHandler(w http.ResponseWriter, _ *http.Request) {

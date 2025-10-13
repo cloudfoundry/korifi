@@ -20,6 +20,18 @@ directories:
       latest: true
       disableAutoChecksumValidation: true
       assetNames: ["cert-manager*.yaml"]
+  - path: calico
+    git:
+      url: https://github.com/projectcalico/calico
+      depth: 1
+      refSelection:
+        semver:
+          constraints: ">=3.30.2"
+    includePaths:
+      - manifests/operator-crds.yaml
+      - manifests/tigera-operator.yaml
+      - manifests/custom-resources.yaml
+    newRootPath: manifests
   - path: contour
     git:
       url: https://github.com/projectcontour/contour

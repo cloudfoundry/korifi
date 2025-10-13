@@ -122,7 +122,9 @@ function ensure_local_registry() {
 function install_dependencies() {
   pushd "${ROOT_DIR}" >/dev/null
   {
-    "${SCRIPT_DIR}/install-dependencies.sh" -i
+    "${SCRIPT_DIR}/install-dependencies.sh" \
+      --insecure-tls-metrics-server \
+      --install-vendored-calico
   }
   popd >/dev/null
 }
@@ -263,6 +265,10 @@ function create_cluster_builder() {
   kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m
 }
 
+function allow_apps_egress() {
+  kubectl apply -f "$SCRIPT_DIR/assets/calico-allow-apps-egress-policy.yaml"
+}
+
 function main() {
   make -C "$ROOT_DIR" bin/yq
 
@@ -271,6 +277,7 @@ function main() {
   ensure_kind_cluster "$CLUSTER_NAME"
   ensure_local_registry
   install_dependencies
+  allow_apps_egress
   create_namespaces
   create_registry_secret
   deploy_korifi
