@@ -14,8 +14,8 @@ directories:
       url: https://api.github.com/repos/cert-manager/cert-manager/releases/252689218
     path: cert-manager
   - git:
-      commitTitle: Fix parent-release-branch
-      sha: 068c7aa62a62c7459c9ecbf929c92f2a6594f22d
+      commitTitle: Release updates for v3.30.3 (#10868)...
+      sha: 3302e8bfd48e6375013d1d79ccb2c693306400a9
       tags:
       - v3.30.3
     path: calico
