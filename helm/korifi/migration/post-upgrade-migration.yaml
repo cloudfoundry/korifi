@@ -10,7 +10,7 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
     app.kubernetes.io/instance: {{ .Release.Name | quote }}
-    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app.kubernetes.io/version: {{ .Chart.Version }}
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
   name: post-upgrade-migration
   namespace: {{ .Release.Namespace }}
