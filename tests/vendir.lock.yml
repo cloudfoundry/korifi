@@ -10,14 +10,14 @@ directories:
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/229645413
     path: metrics-server-local
   - githubRelease:
-      tag: v1.19.0
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/252689218
+      tag: v1.19.1
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/254726664
     path: cert-manager
   - git:
-      commitTitle: Release updates for v3.30.3 (#10868)...
-      sha: 3302e8bfd48e6375013d1d79ccb2c693306400a9
+      commitTitle: Fix remaining EnvVars reference
+      sha: b370415ad69ddc139a0981f8c5c6773e4703846b
       tags:
-      - v3.30.3
+      - v3.30.4
     path: calico
   - git:
       commitTitle: Update Contour Docker image to v1.33.0....
