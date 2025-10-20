@@ -178,7 +178,7 @@ function deploy_korifi() {
       cp -a helm/korifi/* "$chart_dir"
       values_file="$chart_dir/values.yaml"
 
-      yq -i 'with(.; .version=env(VERSION))' "$chart_dir/Chart.yaml"
+      "${ROOT_DIR}/bin/yq" -i 'with(.; .version=env(VERSION))' "$chart_dir/Chart.yaml"
       "${ROOT_DIR}/bin/yq" "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=$VERSION\"])" $kbld_file |
         kbld \
           --images-annotation=false \
