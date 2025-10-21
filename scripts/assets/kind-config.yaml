@@ -21,18 +21,3 @@ nodes:
   - containerPort: 30050
     hostPort: 30050
     protocol: TCP
-  - containerPort: 30051
-    hostPort: 30051
-    protocol: TCP
-  - containerPort: 30052
-    hostPort: 30052
-    protocol: TCP
-  - containerPort: 30053
-    hostPort: 30053
-    protocol: TCP
-  - containerPort: 30054
-    hostPort: 30054
-    protocol: TCP
-  - containerPort: 30055
-    hostPort: 30055
-    protocol: TCP

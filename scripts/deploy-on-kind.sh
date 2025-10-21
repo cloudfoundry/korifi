@@ -7,7 +7,6 @@ SCRIPT_DIR="${ROOT_DIR}/scripts"
 
 LOCAL_DOCKER_REGISTRY_ADDRESS="localregistry-docker-registry.default.svc.cluster.local:30050"
 CLUSTER_NAME=""
-DEBUG="false"
 
 # workaround for https://github.com/carvel-dev/kbld/issues/213
 # kbld fails with git error messages in languages than other english
@@ -22,12 +21,6 @@ flags:
   -v, --verbose
       Verbose output (bash -x).
 
-  -D, --debug
-      Builds controller and api images with debugging hooks and
-      wires up ports for remote debugging:
-        localhost:30051 (controllers)
-        localhost:30052 (api)
-
   -s, --use-registry-service-account
       Use a service account credentials to access the registry (testing not using secrets)
 
@@ -39,10 +32,6 @@ function parse_cmdline_args() {
   while [[ $# -gt 0 ]]; do
     i=$1
     case $i in
-      -D | --debug)
-        DEBUG="true"
-        shift
-        ;;
       -v | --verbose)
         set -x
         shift
@@ -165,11 +154,6 @@ function deploy_korifi() {
 
       make generate manifests
 
-      kbld_file="scripts/assets/korifi-kbld.yml"
-      if [[ "$DEBUG" == "true" ]]; then
-        kbld_file="scripts/assets/korifi-debug-kbld.yml"
-      fi
-
       export VERSION=$(git describe --tags --long | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}' | awk '{print substr($1,2)}')
 
       chart_dir=$(mktemp -d)
@@ -179,7 +163,7 @@ function deploy_korifi() {
       values_file="$chart_dir/values.yaml"
 
       "${ROOT_DIR}/bin/yq" -i 'with(.; .version=env(VERSION))' "$chart_dir/Chart.yaml"
-      "${ROOT_DIR}/bin/yq" "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=$VERSION\"])" $kbld_file |
+      "${ROOT_DIR}/bin/yq" "with(.sources[]; .docker.buildx.rawOptions += [\"--build-arg\", \"version=$VERSION\"])" "$SCRIPT_DIR/assets/korifi-kbld.yml" |
         kbld \
           --images-annotation=false \
           -f "${ROOT_DIR}/helm/korifi/values.yaml" \
@@ -200,7 +184,6 @@ function deploy_korifi() {
       --set=defaultAppDomainName="apps-127-0-0-1.nip.io" \
       --set=generateIngressCertificates="true" \
       --set=logLevel="debug" \
-      --set=debug="$DEBUG" \
       --set=stagingRequirements.buildCacheMB="1024" \
       --set=api.apiServer.url="localhost" \
       --set=controllers.taskTTL="5s" \
@@ -221,22 +204,14 @@ function deploy_korifi() {
 }
 
 function create_namespaces() {
-  local security_policy
-
-  security_policy="restricted"
-
-  if [[ "$DEBUG" == "true" ]]; then
-    security_policy="privileged"
-  fi
-
   for ns in cf korifi; do
     cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    pod-security.kubernetes.io/audit: $security_policy
-    pod-security.kubernetes.io/enforce: $security_policy
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: restricted
   name: $ns
 EOF
   done
