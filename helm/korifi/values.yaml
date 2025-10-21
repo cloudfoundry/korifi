@@ -1,6 +1,5 @@
 adminUserName:
 rootNamespace: cf
-debug: false
 logLevel: info
 defaultAppDomainName:
 containerRegistrySecrets:

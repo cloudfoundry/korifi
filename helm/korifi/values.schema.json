@@ -9,10 +9,6 @@
       "description": "Root of the Cloud Foundry namespace hierarchy.",
       "type": "string"
     },
-    "debug": {
-      "description": "Enables remote debugging with [Delve](https://github.com/go-delve/delve).",
-      "type": "boolean"
-    },
     "logLevel": {
       "description": "Sets level of logging for api and controllers components. Can be 'info' or 'debug'.",
       "type": "string",

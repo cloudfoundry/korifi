@@ -14,22 +14,3 @@ spec:
   selector:
     app: korifi-api
   type: ClusterIP
-
----
-{{- if .Values.debug }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: api-debug-port
-  namespace: {{ .Release.Namespace }}
-spec:
-  ports:
-    - name: debug-30052
-      nodePort: 30052
-      port: 30052
-      protocol: TCP
-      targetPort: 40000
-  selector:
-    app: korifi-api
-  type: NodePort
-{{- end }}

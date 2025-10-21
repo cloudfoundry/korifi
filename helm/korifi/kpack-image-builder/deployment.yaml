@@ -24,27 +24,10 @@ spec:
       containers:
       - name: manager
         image: {{ .Values.kpackImageBuilder.image }}
-{{- if .Values.debug }}
-        command:
-        - "/dlv"
-        args:
-        - "--listen=:40000"
-        - "--headless=true"
-        - "--api-version=2"
-        - "exec"
-        - "/manager"
-        - "--continue"
-        - "--accept-multiclient"
-        - "--"
-        - "--health-probe-bind-address=:8081"
-        - "--leader-elect"
-        - "--config=/etc/korifi-kpack-image-builder-config"
-{{- else }}
         args:
         - --health-probe-bind-address=:8081
         - --leader-elect
         - --config=/etc/korifi-kpack-image-builder-config
-{{- end }}
         livenessProbe:
           httpGet:
             path: /healthz

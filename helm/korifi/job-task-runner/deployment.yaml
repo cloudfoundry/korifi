@@ -23,27 +23,10 @@ spec:
       containers:
       - name: manager
         image: {{ .Values.jobTaskRunner.image }}
-{{- if .Values.debug }}
-        command:
-        - "/dlv"
-        args:
-        - "--listen=:40000"
-        - "--headless=true"
-        - "--api-version=2"
-        - "exec"
-        - "/manager"
-        - "--continue"
-        - "--accept-multiclient"
-        - "--"
-        - "--health-probe-bind-address=:8081"
-        - "--leader-elect"
-        - "--ttl={{ required "jobTTL is required" .Values.jobTaskRunner.jobTTL }}"
-{{- else }}
         args:
         - --health-probe-bind-address=:8081
         - --leader-elect
         - --ttl={{ required "jobTTL is required" .Values.jobTaskRunner.jobTTL }}
-{{- end }}
         livenessProbe:
           httpGet:
             path: /healthz
