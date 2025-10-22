@@ -212,7 +212,6 @@ rules:
       - apiservers/status
       - gatewayapis
       - gatewayapis/finalizers
-      - gatewayapis/status
       - goldmanes
       - goldmanes/finalizers
       - goldmanes/status
@@ -254,9 +253,9 @@ rules:
     verbs:
       - delete
   - apiGroups:
-    - networking.k8s.io
+      - networking.k8s.io
     resources:
-    - networkpolicies
+      - networkpolicies
     verbs:
       - create
       - update
@@ -265,46 +264,47 @@ rules:
       - list
       - watch
   - apiGroups:
-    - crd.projectcalico.org
+      - crd.projectcalico.org
     resources:
-    - felixconfigurations
-    - ippools
+      - felixconfigurations
+      - ippools
     verbs:
-    - create
-    - patch
-    - list
-    - get
-    - watch
+      - create
+      - patch
+      - list
+      - get
+      - watch
   - apiGroups:
-    - crd.projectcalico.org
+      - crd.projectcalico.org
     resources:
-    - kubecontrollersconfigurations
-    - bgpconfigurations
-    - clusterinformations
+      - kubecontrollersconfigurations
+      - bgpconfigurations
+      - clusterinformations
     verbs:
-    - get
-    - list
-    - watch
+      - get
+      - list
+      - watch
   - apiGroups:
-    - projectcalico.org
+      - projectcalico.org
     resources:
-    - ippools
+      - ippools
     verbs:
-    - create
-    - update
-    - delete
-    - patch
-    - get
-    - list
-    - watch
+      - create
+      - update
+      - delete
+      - patch
+      - get
+      - list
+      - watch
   - apiGroups:
-    - projectcalico.org
+      - projectcalico.org
     resources:
-    - ipamconfigurations
+      - ipamconfigurations
+      - clusterinformations
     verbs:
-    - get
-    - list
-    - watch
+      - get
+      - list
+      - watch
   - apiGroups:
       - scheduling.k8s.io
     resources:
@@ -337,11 +337,22 @@ rules:
       - create
       - update
   - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - admissionregistration.k8s.io
     resources:
       - mutatingwebhookconfigurations
     verbs:
       - delete
+      - get
+      - list
+      - watch
   # Needed for operator lock
   - apiGroups:
       - coordination.k8s.io
@@ -505,9 +516,9 @@ metadata:
   labels:
     k8s-app: tigera-operator
 subjects:
-- kind: ServiceAccount
-  name: tigera-operator
-  namespace: tigera-operator
+  - kind: ServiceAccount
+    name: tigera-operator
+    namespace: tigera-operator
 roleRef:
   kind: ClusterRole
   name: tigera-operator
@@ -565,7 +576,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: tigera-operator
-          image: quay.io/tigera/operator:v1.38.7
+          image: quay.io/tigera/operator:v1.40.0
           imagePullPolicy: IfNotPresent
           command:
             - operator
@@ -586,7 +597,7 @@ spec:
             - name: OPERATOR_NAME
               value: "tigera-operator"
             - name: TIGERA_OPERATOR_INIT_IMAGE_VERSION
-              value: v1.38.7
+              value: v1.40.0
           envFrom:
             - configMapRef:
                 name: kubernetes-services-endpoint
