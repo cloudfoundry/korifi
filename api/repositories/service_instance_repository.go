@@ -78,12 +78,11 @@ type PatchUPSIMessage struct {
 }
 
 type PatchManagedSIMessage struct {
-	GUID        string
-	SpaceGUID   string
-	PlanGUID    string
-	Name        *string
-	Credentials *map[string]any
-	Tags        *[]string
+	GUID      string
+	SpaceGUID string
+	PlanGUID  *string
+	Name      *string
+	Tags      *[]string
 	MetadataPatch
 }
 
@@ -103,6 +102,9 @@ func (p PatchManagedSIMessage) Apply(cfServiceInstance *korifiv1alpha1.CFService
 	}
 	if p.Tags != nil {
 		cfServiceInstance.Spec.Tags = *p.Tags
+	}
+	if p.PlanGUID != nil {
+		cfServiceInstance.Spec.PlanGUID = *p.PlanGUID
 	}
 	p.MetadataPatch.Apply(cfServiceInstance)
 }
@@ -344,17 +346,6 @@ func (r *ServiceInstanceRepo) PatchManagedServiceInstance(ctx context.Context, a
 	})
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
-	}
-
-	if message.Credentials != nil {
-		cfServiceInstance, err = r.migrateLegacyCredentials(ctx, cfServiceInstance)
-		if err != nil {
-			return ServiceInstanceRecord{}, err
-		}
-		err = r.patchCredentialsSecret(ctx, cfServiceInstance, *message.Credentials)
-		if err != nil {
-			return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
-		}
 	}
 
 	return cfServiceInstanceToRecord(*cfServiceInstance), nil

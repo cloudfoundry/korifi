@@ -835,7 +835,6 @@ var _ = Describe("ServiceInstance", func() {
 	})
 
 	Describe("PATCH /v3/service_instances/:guid", func() {
-
 		When("updating a user provided service instance", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstancePatch{
@@ -979,12 +978,11 @@ var _ = Describe("ServiceInstance", func() {
 				_, actualAuthInfo, patchMessage := serviceInstanceRepo.PatchManagedServiceInstanceArgsForCall(0)
 				Expect(actualAuthInfo).To(Equal(authInfo))
 				Expect(patchMessage).To(Equal(repositories.PatchManagedSIMessage{
-					GUID:        "service-instance-guid",
-					SpaceGUID:   "space-guid",
-					PlanGUID:    "plan-guid",
-					Name:        tools.PtrTo("new-name"),
-					Credentials: &map[string]any{"foo": "bar"},
-					Tags:        &[]string{"alice", "bob"},
+					GUID:      "service-instance-guid",
+					SpaceGUID: "space-guid",
+					PlanGUID:  tools.PtrTo("plan-guid"),
+					Name:      tools.PtrTo("new-name"),
+					Tags:      &[]string{"alice", "bob"},
 					MetadataPatch: repositories.MetadataPatch{
 						Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
 						Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},

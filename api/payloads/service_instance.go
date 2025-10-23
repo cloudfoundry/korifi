@@ -200,13 +200,16 @@ func (p ServiceInstancePatch) ToUPSIPatchMessage(spaceGUID, appGUID string) repo
 }
 
 func (p ServiceInstancePatch) ToManagedSIPatchMessage(spaceGUID, appGUID string) repositories.PatchManagedSIMessage {
+	var planGUID *string
+	if p.Relationships.ServicePlan.Data.GUID != "" {
+		planGUID = &p.Relationships.ServicePlan.Data.GUID
+	}
 	return repositories.PatchManagedSIMessage{
-		SpaceGUID:   spaceGUID,
-		PlanGUID:    p.Relationships.ServicePlan.Data.GUID,
-		GUID:        appGUID,
-		Name:        p.Name,
-		Credentials: p.Credentials,
-		Tags:        p.Tags,
+		SpaceGUID: spaceGUID,
+		PlanGUID:  planGUID,
+		GUID:      appGUID,
+		Name:      p.Name,
+		Tags:      p.Tags,
 		MetadataPatch: repositories.MetadataPatch{
 			Labels:      p.Metadata.Labels,
 			Annotations: p.Metadata.Annotations,
