@@ -40,7 +40,7 @@ type (
 		ContainerRegistryType                    string                 `yaml:"containerRegistryType"`
 		PackageRegistrySecretNames               []string               `yaml:"packageRegistrySecretNames"`
 		DefaultDomainName                        string                 `yaml:"defaultDomainName"`
-		UserCertificateExpirationWarningDuration string                 `yaml:"userCertificateExpirationWarningDuration"`
+		UserCertificateExpirationWarningDuration time.Duration          `yaml:"userCertificateExpirationWarningDuration"`
 		DefaultLifecycleConfig                   DefaultLifecycleConfig `yaml:"defaultLifecycleConfig"`
 
 		RoleMappings map[string]Role `yaml:"roleMappings"`
@@ -153,25 +153,11 @@ func (c *APIConfig) validate() error {
 		return errors.New("AuthProxyCACert requires a value for AuthProxyHost")
 	}
 
-	if c.UserCertificateExpirationWarningDuration != "" {
-		if _, err := time.ParseDuration(c.UserCertificateExpirationWarningDuration); err != nil {
-			return errors.New(`invalid duration format for userCertificateExpirationWarningDuration. Use a format like "48h"`)
-		}
-	}
-
 	if c.BuilderName == "" {
 		return errors.New("BuilderName must have a value")
 	}
 
 	return nil
-}
-
-func (c *APIConfig) GetUserCertificateDuration() time.Duration {
-	if c.UserCertificateExpirationWarningDuration == "" {
-		return time.Hour * 24 * 7
-	}
-	d, _ := time.ParseDuration(c.UserCertificateExpirationWarningDuration)
-	return d
 }
 
 func (c *APIConfig) GenerateK8sClientConfig(k8sClientConfig *rest.Config) *rest.Config {

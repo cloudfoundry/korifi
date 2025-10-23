@@ -54,6 +54,10 @@
       "description": "Amazon Resource Name (ARN) of the IAM role to use to access the ECR registry from an EKS deployed Korifi. Required if containerRegistrySecret not set.",
       "type": "string"
     },
+    "containerRegistryCACertSecret": {
+      "description": "The secret that holds the CA of the container registry.",
+      "type": "string"
+    },
     "reconcilers": {
       "type": "object",
       "properties": {
@@ -387,7 +391,7 @@
           "required": ["memoryMB", "diskQuotaMB"]
         },
         "taskTTL": {
-          "description": "How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.",
+          "description": "How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.",
           "type": "string"
         },
         "workloadsTLSSecret": {
@@ -421,166 +425,43 @@
     "kpackImageBuilder": {
       "properties": {
         "include": {
-          "description": "Deploy the `kpack-image-builder` component.",
+          "description": "Enable the `kpack-image-builder` component.",
           "type": "boolean"
-        },
-        "replicas": {
-          "description": "Number of replicas.",
-          "type": "integer"
-        },
-        "resources": {
-          "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
-          "type": "object",
-          "properties": {
-            "requests": {
-              "description": "Resource requests.",
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "description": "CPU request.",
-                  "type": "string"
-                },
-                "memory": {
-                  "description": "Memory request.",
-                  "type": "string"
-                }
-              }
-            },
-            "limits": {
-              "description": "Resource limits.",
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "description": "CPU limit.",
-                  "type": "string"
-                },
-                "memory": {
-                  "description": "Memory limit.",
-                  "type": "string"
-                }
-              }
-            }
-          }
         },
         "clusterBuilderName": {
           "description": "The name of the `ClusterBuilder` Kpack has been configured with. Leave blank to let `kpack-image-builder` create an example `ClusterBuilder`.",
           "type": "string"
         },
         "builderReadinessTimeout": {
-          "description": "The time that the kpack Builder will be waited for if not in ready state, berfore the build workload fails. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.",
+          "description": "The time that the kpack Builder will be waited for if not in ready state, berfore the build workload fails. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.",
           "type": "string"
         },
         "builderRepository": {
           "description": "Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.",
           "type": "string",
           "pattern": "^([a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*)?$"
-        },
-        "webhookCertSecret": {
-          "description": "A secert containing the CA bundle and the certificate for the webhook server.",
-          "type": "string"
-        }
-      },
-      "required": ["include", "builderReadinessTimeout", "webhookCertSecret"],
+        }      },
+      "required": ["include", "builderReadinessTimeout"],
       "type": "object"
     },
     "statefulsetRunner": {
       "properties": {
         "include": {
-          "description": "Deploy the `statefulset-runner` component.",
+          "description": "Enable the `statefulset-runner` component.",
           "type": "boolean"
-        },
-        "replicas": {
-          "description": "Number of replicas.",
-          "type": "integer"
-        },
-        "webhookCertSecret": {
-          "description": "A secert containing the CA bundle and the certificate for the webhook server.",
-          "type": "string"
-        },
-        "resources": {
-          "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
-          "type": "object",
-          "properties": {
-            "requests": {
-              "description": "Resource requests.",
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "description": "CPU request.",
-                  "type": "string"
-                },
-                "memory": {
-                  "description": "Memory request.",
-                  "type": "string"
-                }
-              }
-            },
-            "limits": {
-              "description": "Resource limits.",
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "description": "CPU limit.",
-                  "type": "string"
-                },
-                "memory": {
-                  "description": "Memory limit.",
-                  "type": "string"
-                }
-              }
-            }
-          }
         }
       },
-      "required": ["include", "webhookCertSecret"],
+      "required": ["include"],
       "type": "object"
     },
     "jobTaskRunner": {
       "properties": {
         "include": {
-          "description": "Deploy the `job-task-runner` component.",
+          "description": "Enable the `job-task-runner` component.",
           "type": "boolean"
         },
-        "replicas": {
-          "description": "Number of replicas.",
-          "type": "integer"
-        },
-        "resources": {
-          "description": "[`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.",
-          "type": "object",
-          "properties": {
-            "requests": {
-              "description": "Resource requests.",
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "description": "CPU request.",
-                  "type": "string"
-                },
-                "memory": {
-                  "description": "Memory request.",
-                  "type": "string"
-                }
-              }
-            },
-            "limits": {
-              "description": "Resource limits.",
-              "type": "object",
-              "properties": {
-                "cpu": {
-                  "description": "CPU limit.",
-                  "type": "string"
-                },
-                "memory": {
-                  "description": "Memory limit.",
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
         "jobTTL": {
-          "description": "How long before the `Job` backing up a task is deleted after completion. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.",
+          "description": "How long before the `Job` backing up a task is deleted after completion. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.",
           "type": "string"
         }
       },
@@ -632,6 +513,10 @@
         "include": {
           "description": "Deploy the migration component.",
           "type": "boolean"
+        },
+        "image": {
+          "description": "The container image of the migration job",
+          "type": "string"
         }
       },
       "required": ["include"],

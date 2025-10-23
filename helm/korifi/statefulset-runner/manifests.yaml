@@ -4,17 +4,17 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: korifi-statefulset-runner-mutating-webhook-configuration
   annotations:
-    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/{{ .Values.statefulsetRunner.webhookCertSecret }}'
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/{{ .Values.controllers.webhookCertSecret }}'
 webhooks:
   - admissionReviewVersions:
       - v1
       - v1beta1
     clientConfig:
       service:
-        name: korifi-statefulset-runner-webhook-service
+        name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-appworkload
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "statefulsetRunner") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mappworkload.korifi.cloudfoundry.org
     rules:

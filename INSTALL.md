@@ -167,8 +167,6 @@ If you want to generate certificates yourself, set `generateIngressCertificates`
 1. `api.apiServer.internalCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing a certificate that is valid for `korifi-api-svc.korifi.svc.cluster.local` (the internal dns of the korifi api); defaults to `korifi-api-internal-cert`.
 1. `controllers.workloadsTLSSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the workload ingress certificate; defaults to `korifi-workloads-ingress-cert`.
 1. `controllers.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the controllers deployment; defaults to `korifi-controllers-webhook-cert`.
-1. `kpackImageBuilder.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the kpackImageBuilder deployment; defaults to `korifi-kpack-image-builder-webhook-cert`.
-1. `statefulsetRunner.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the statefulsetRunner deployment; defaults to `korifi-statefulset-runner-webhook-cert`.
 
 
 ### Container registry Certificate Authority

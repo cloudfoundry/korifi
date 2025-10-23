@@ -428,7 +428,7 @@ func main() {
 			orgRepo,
 			domainRepo,
 			requestValidator,
-			cfg.GetUserCertificateDuration(),
+			cfg.UserCertificateExpirationWarningDuration,
 			cfg.DefaultDomainName,
 		),
 		handlers.NewSpace(

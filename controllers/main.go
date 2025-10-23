@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
@@ -50,7 +49,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/controllers/k8s"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels"
-	controllersfinalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
+	controllers_finalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
 	domainswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
@@ -66,8 +65,16 @@ import (
 	packageswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/packages"
 	spaceswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/spaces"
 	taskswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/workloads/tasks"
+	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
+	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
+	kpackimagebuilder_finalizer "code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/runnerinfo"
+	appworkload_finalizer "code.cloudfoundry.org/korifi/statefulset-runner/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/image"
+	"code.cloudfoundry.org/korifi/tools/registry"
 	"code.cloudfoundry.org/korifi/version"
 
 	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
@@ -284,20 +291,13 @@ func main() {
 			os.Exit(1)
 		}
 
-		var taskTTL time.Duration
-		taskTTL, err = controllerConfig.ParseTaskTTL()
-		if err != nil {
-			setupLog.Error(err, "failed to parse task TTL", "controller", "CFTask", "taskTTL", controllerConfig.TaskTTL)
-			os.Exit(1)
-
-		}
 		if err = tasks.NewReconciler(
 			controllersClient,
 			mgr.GetScheme(),
 			mgr.GetEventRecorderFor("cftask-controller"),
 			controllersLog,
 			env.NewAppEnvBuilder(controllersClient),
-			taskTTL,
+			controllerConfig.TaskTTL,
 		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFTask")
 			os.Exit(1)
@@ -344,6 +344,78 @@ func main() {
 			os.Exit(1)
 		}
 
+		if controllerConfig.IncludeKpackImageBuilder {
+			if err = controllers.NewBuildWorkloadReconciler(
+				controllersClient,
+				mgr.GetScheme(),
+				controllersLog,
+				controllerConfig,
+				imageClient,
+				registry.NewRepositoryCreator(controllerConfig.ContainerRegistryType),
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "BuildWorkload")
+				os.Exit(1)
+			}
+
+			if err = controllers.NewBuilderInfoReconciler(
+				mgr.GetClient(),
+				mgr.GetScheme(),
+				controllersLog,
+				controllerConfig.ClusterBuilderName,
+				controllerConfig.CFRootNamespace,
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "BuilderInfo")
+				os.Exit(1)
+			}
+
+			if err = controllers.NewKpackBuildController(
+				mgr.GetClient(),
+				controllersLog,
+				imageClient,
+				controllerConfig.BuilderServiceAccount,
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "KpackBuild")
+				os.Exit(1)
+			}
+		}
+
+		if controllerConfig.IncludeJobTaskRunner {
+			taskWorkloadReconciler := jobtaskrunnercontrollers.NewTaskWorkloadReconciler(
+				controllersLog,
+				mgr.GetClient(),
+				mgr.GetScheme(),
+				jobtaskrunnercontrollers.NewStatusGetter(mgr.GetClient()),
+				controllerConfig.JobTTL,
+			)
+			if err = taskWorkloadReconciler.SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "TaskWorkload")
+				os.Exit(1)
+			}
+		}
+
+		if controllerConfig.IncludeStatefulsetRunner {
+			if err = appworkload.NewAppWorkloadReconciler(
+				controllersClient,
+				mgr.GetScheme(),
+				appworkload.NewAppWorkloadToStatefulsetConverter(mgr.GetScheme()),
+				appworkload.NewPDBUpdater(controllersClient),
+				controllersLog,
+				state.NewAppWorkloadStateCollector(controllersClient),
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "AppWorkload")
+				os.Exit(1)
+			}
+
+			if err = runnerinfo.NewRunnerInfoReconciler(
+				controllersClient,
+				mgr.GetScheme(),
+				controllersLog,
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "RunnerInfo")
+				os.Exit(1)
+			}
+		}
+
 		if !controllerConfig.DisableRouteController {
 			if err = routes.NewReconciler(
 				controllersClient,
@@ -359,126 +431,130 @@ func main() {
 
 	// Setup webhooks with manager
 
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = korifiv1alpha1.NewCFAppDefaulter().SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
-			os.Exit(1)
-		}
+	if err = korifiv1alpha1.NewCFAppDefaulter().SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
+		os.Exit(1)
+	}
 
-		(&appswebhook.AppRevWebhook{}).SetupWebhookWithManager(mgr)
+	(&appswebhook.AppRevWebhook{}).SetupWebhookWithManager(mgr)
 
-		if err = korifiv1alpha1.NewCFProcessDefaulter(
-			controllerConfig.CFProcessDefaults.MemoryMB,
-			controllerConfig.CFProcessDefaults.DiskQuotaMB,
-			*controllerConfig.CFProcessDefaults.Timeout,
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFProcess")
-			os.Exit(1)
-		}
+	if err = korifiv1alpha1.NewCFProcessDefaulter(
+		controllerConfig.CFProcessDefaults.MemoryMB,
+		controllerConfig.CFProcessDefaults.DiskQuotaMB,
+		*controllerConfig.CFProcessDefaults.Timeout,
+	).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFProcess")
+		os.Exit(1)
+	}
 
-		uncachedClient, err := client.New(mgr.GetConfig(), client.Options{
-			Scheme: scheme,
-		})
-		if err != nil {
-			setupLog.Error(err, "unable to create uncached client")
-			os.Exit(1)
-		}
+	uncachedClient, err := client.New(mgr.GetConfig(), client.Options{
+		Scheme: scheme,
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to create uncached client")
+		os.Exit(1)
+	}
 
-		if err = appswebhook.NewValidator(
-			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, appswebhook.AppEntityType)),
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
-			os.Exit(1)
-		}
+	if err = appswebhook.NewValidator(
+		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, appswebhook.AppEntityType)),
+	).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFApp")
+		os.Exit(1)
+	}
 
-		if err = routeswebhook.NewValidator(
-			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, routeswebhook.RouteEntityType)),
-			controllerConfig.CFRootNamespace,
-			uncachedClient,
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
-			os.Exit(1)
-		}
+	if err = routeswebhook.NewValidator(
+		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, routeswebhook.RouteEntityType)),
+		controllerConfig.CFRootNamespace,
+		uncachedClient,
+	).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFRoute")
+		os.Exit(1)
+	}
 
-		if err = instanceswebhook.NewValidator(
-			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, instanceswebhook.ServiceInstanceEntityType)),
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceInstance")
-			os.Exit(1)
-		}
+	if err = instanceswebhook.NewValidator(
+		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, instanceswebhook.ServiceInstanceEntityType)),
+	).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceInstance")
+		os.Exit(1)
+	}
 
-		if err = bindingswebhook.NewCFServiceBindingValidator(
-			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, bindingswebhook.ServiceBindingEntityType)),
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBinding")
-			os.Exit(1)
-		}
+	if err = bindingswebhook.NewCFServiceBindingValidator(
+		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, bindingswebhook.ServiceBindingEntityType)),
+	).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBinding")
+		os.Exit(1)
+	}
 
-		if err = domainswebhook.NewValidator(
-			uncachedClient,
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFDomain")
-			os.Exit(1)
-		}
+	if err = domainswebhook.NewValidator(
+		uncachedClient,
+	).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFDomain")
+		os.Exit(1)
+	}
 
-		if err = orgswebhook.NewValidator(
-			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, orgswebhook.CFOrgEntityType)),
-			validation.NewPlacementValidator(uncachedClient, controllerConfig.CFRootNamespace),
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFOrg")
-			os.Exit(1)
-		}
+	if err = orgswebhook.NewValidator(
+		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, orgswebhook.CFOrgEntityType)),
+		validation.NewPlacementValidator(uncachedClient, controllerConfig.CFRootNamespace),
+	).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFOrg")
+		os.Exit(1)
+	}
 
-		if err = spaceswebhook.NewValidator(
-			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, spaceswebhook.CFSpaceEntityType)),
-			validation.NewPlacementValidator(uncachedClient, controllerConfig.CFRootNamespace),
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFSpace")
-			os.Exit(1)
-		}
+	if err = spaceswebhook.NewValidator(
+		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, spaceswebhook.CFSpaceEntityType)),
+		validation.NewPlacementValidator(uncachedClient, controllerConfig.CFRootNamespace),
+	).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFSpace")
+		os.Exit(1)
+	}
 
-		if err = brokerswebhook.NewValidator(
-			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, brokerswebhook.ServiceBrokerEntityType)),
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBroker")
-			os.Exit(1)
-		}
+	if err = brokerswebhook.NewValidator(
+		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, brokerswebhook.ServiceBrokerEntityType)),
+	).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFServiceBroker")
+		os.Exit(1)
+	}
 
-		if err = securitygroupswebhook.NewValidator(
-			validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, securitygroupswebhook.SecurityGroupEntityType)),
-			controllerConfig.CFRootNamespace,
-		).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFSecurityGroup")
-			os.Exit(1)
-		}
+	if err = securitygroupswebhook.NewValidator(
+		validation.NewDuplicateValidator(coordination.NewNameRegistry(uncachedClient, securitygroupswebhook.SecurityGroupEntityType)),
+		controllerConfig.CFRootNamespace,
+	).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFSecurityGroup")
+		os.Exit(1)
+	}
 
-		if err = taskswebhook.NewDefaulter(controllerConfig.CFProcessDefaults).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFTask")
-			os.Exit(1)
-		}
+	if err = taskswebhook.NewDefaulter(controllerConfig.CFProcessDefaults).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFTask")
+		os.Exit(1)
+	}
 
-		if err = taskswebhook.NewValidator().SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFTask")
-			os.Exit(1)
-		}
+	if err = taskswebhook.NewValidator().SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFTask")
+		os.Exit(1)
+	}
 
-		versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
-		controllersfinalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
-		common_labels.NewWebhook().SetupWebhookWithManager(mgr)
-		label_indexer.NewWebhook().SetupWebhookWithManager(mgr)
-		routesdestwebhook.NewRouteAppDestinationsWebhook().SetupWebhookWithManager(mgr)
+	versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
+	controllers_finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
+	common_labels.NewWebhook().SetupWebhookWithManager(mgr)
+	label_indexer.NewWebhook().SetupWebhookWithManager(mgr)
+	routesdestwebhook.NewRouteAppDestinationsWebhook().SetupWebhookWithManager(mgr)
 
-		if err = packageswebhook.NewValidator().SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
-			os.Exit(1)
-		}
+	if err = packageswebhook.NewValidator().SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "CFPackage")
+		os.Exit(1)
+	}
 
-		if err = mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
-			setupLog.Error(err, "unable to set up ready check")
-			os.Exit(1)
-		}
-	} else {
-		setupLog.Info("skipping webhook setup because ENABLE_WEBHOOKS set to false.")
+	if controllerConfig.IncludeKpackImageBuilder {
+		kpackimagebuilder_finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(mgr)
+	}
+
+	if controllerConfig.IncludeStatefulsetRunner {
+		appworkload_finalizer.NewWebhook().SetupWebhookWithManager(mgr)
+	}
+
+	if err = mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
+		os.Exit(1)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

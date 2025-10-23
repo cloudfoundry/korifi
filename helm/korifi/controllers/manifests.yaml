@@ -14,7 +14,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mcfapp.korifi.cloudfoundry.org
     rules:
@@ -36,7 +36,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfprocess
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mcfprocess.korifi.cloudfoundry.org
     rules:
@@ -58,7 +58,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-controllers-common-labels
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mcfcommonlabels.korifi.cloudfoundry.org
     rules:
@@ -94,7 +94,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-controllers-finalizer
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mcffinalizer.korifi.cloudfoundry.org
     rules:
@@ -122,7 +122,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-controllers-label-indexer
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mcflabelindexer.korifi.cloudfoundry.org
     rules:
@@ -157,7 +157,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-route-appdestinations
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mcfrouteappdestinations.korifi.cloudfoundry.org
     rules:
@@ -179,7 +179,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-all-version
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mcfversion.korifi.cloudfoundry.org
     rules:
@@ -215,7 +215,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp-apprev
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mcfapprev.korifi.cloudfoundry.org
     rules:
@@ -236,7 +236,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-cftask
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mcftask.korifi.cloudfoundry.org
     rules:
@@ -265,7 +265,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfdomain
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcfdomain.korifi.cloudfoundry.org
     rules:
@@ -287,7 +287,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfroute
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcfroute.korifi.cloudfoundry.org
     rules:
@@ -310,7 +310,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfsecuritygroup
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcfsecuritygroup.korifi.cloudfoundry.org
     rules:
@@ -333,7 +333,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfservicebinding
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcfservicebinding.korifi.cloudfoundry.org
     rules:
@@ -356,7 +356,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfservicebroker
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcfservicebroker.korifi.cloudfoundry.org
     rules:
@@ -379,7 +379,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfserviceinstance
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcfserviceinstance.korifi.cloudfoundry.org
     rules:
@@ -402,7 +402,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfapp
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcfapp.korifi.cloudfoundry.org
     rules:
@@ -425,7 +425,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cforg
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcforg.korifi.cloudfoundry.org
     rules:
@@ -448,7 +448,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfpackage
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcfpackage.korifi.cloudfoundry.org
     rules:
@@ -469,7 +469,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cfspace
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcfspace.korifi.cloudfoundry.org
     rules:
@@ -492,7 +492,7 @@ webhooks:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cftask
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "controllers") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: vcftask.korifi.cloudfoundry.org
     rules:

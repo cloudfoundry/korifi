@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"os"
+	"time"
 
 	"go.uber.org/zap/zapcore"
 
@@ -14,7 +15,7 @@ import (
 
 var _ = Describe("Config", func() {
 	var (
-		configMap map[string]interface{}
+		configMap map[string]any
 		cfg       *config.APIConfig
 		loadErr   error
 		cfgDir    string
@@ -26,7 +27,7 @@ var _ = Describe("Config", func() {
 		cfgDir, err = os.MkdirTemp("", "")
 		Expect(err).NotTo(HaveOccurred())
 
-		configMap = map[string]interface{}{
+		configMap = map[string]any{
 			"idleTimeout":       2,
 			"readTimeout":       3,
 			"readHeaderTimeout": 4,
@@ -105,7 +106,7 @@ var _ = Describe("Config", func() {
 		Expect(cfg.ContainerRepositoryPrefix).To(Equal("container.registry/my-prefix"))
 		Expect(cfg.PackageRegistrySecretNames).To(ConsistOf("package-registry-secret"))
 		Expect(cfg.DefaultDomainName).To(Equal("default.domain"))
-		Expect(cfg.UserCertificateExpirationWarningDuration).To(Equal("10s"))
+		Expect(cfg.UserCertificateExpirationWarningDuration).To(Equal(10 * time.Second))
 		Expect(cfg.DefaultLifecycleConfig).To(Equal(config.DefaultLifecycleConfig{
 			Type:            "lc-type",
 			Stack:           "lc-stack",
@@ -198,16 +199,6 @@ var _ = Describe("Config", func() {
 				Expect(loadErr).NotTo(HaveOccurred())
 				Expect(cfg.LogLevel).To(Equal(zapcore.InfoLevel))
 			})
-		})
-	})
-
-	When("the UserCertificateExpirationWarningDuration is invalid", func() {
-		BeforeEach(func() {
-			configMap["userCertificateExpirationWarningDuration"] = "invalid-duration"
-		})
-
-		It("returns an error", func() {
-			Expect(loadErr).To(MatchError(ContainSubstring("invalid duration format")))
 		})
 	})
 

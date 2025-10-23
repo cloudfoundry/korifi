@@ -11,6 +11,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
 COPY controllers controllers
+COPY kpack-image-builder kpack-image-builder
+COPY job-task-runner job-task-runner
+COPY statefulset-runner statefulset-runner
 COPY tools tools
 COPY version version
 
