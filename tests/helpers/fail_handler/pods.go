@@ -215,24 +215,6 @@ func PrintKorifiLogs(config *rest.Config, correlationId string, since time.Time)
 			LabelValue: "korifi-controllers",
 			Since:      tools.PtrTo(metav1.NewTime(since)),
 		},
-		{
-			Namespace:  "korifi",
-			LabelKey:   "app",
-			LabelValue: "korifi-kpack-image-builder",
-			Since:      tools.PtrTo(metav1.NewTime(since)),
-		},
-		{
-			Namespace:  "korifi",
-			LabelKey:   "app",
-			LabelValue: "korifi-statefulset-runner",
-			Since:      tools.PtrTo(metav1.NewTime(since)),
-		},
-		{
-			Namespace:  "korifi",
-			LabelKey:   "app",
-			LabelValue: "korifi-job-task-runner",
-			Since:      tools.PtrTo(metav1.NewTime(since)),
-		},
 	})
 }
 

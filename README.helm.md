@@ -51,6 +51,7 @@ Here are all the values that can be set for the chart:
       - `memory` (_String_): Memory request.
   - `tolerations` (_Array_): Korifi-api pod tolerations for taints.
   - `userCertificateExpirationWarningDuration` (_String_): Issue a warning if the user certificate provided for login has a long expiry. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.
+- `containerRegistryCACertSecret` (_String_): The secret that holds the CA of the container registry.
 - `containerRegistrySecret` (_String_): Deprecated in favor of containerRegistrySecrets.
 - `containerRegistrySecrets` (_Array_): List of `Secret` names to use when pushing or pulling from package, droplet and kpack builder repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.
 - `containerRepositoryPrefix` (_String_): The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.
@@ -72,7 +73,7 @@ Here are all the values that can be set for the chart:
     - `requests`: Resource requests.
       - `cpu` (_String_): CPU request.
       - `memory` (_String_): Memory request.
-  - `taskTTL` (_String_): How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
+  - `taskTTL` (_String_): How long before the `CFTask` object is deleted after the task has completed. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.
   - `tolerations` (_Array_): Korifi-controllers pod tolerations for taints.
   - `webhookCertSecret` (_String_): A secert containing the CA bundle and the certificate for the webhook server.
   - `workloadsTLSSecret` (_String_): TLS secret used when setting up an app routes.
@@ -101,32 +102,16 @@ Here are all the values that can be set for the chart:
 - `helm`:
   - `hooksImage` (_String_): Image for the helm hooks containing kubectl
 - `jobTaskRunner`:
-  - `include` (_Boolean_): Deploy the `job-task-runner` component.
-  - `jobTTL` (_String_): How long before the `Job` backing up a task is deleted after completion. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
-  - `replicas` (_Integer_): Number of replicas.
-  - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
-    - `limits`: Resource limits.
-      - `cpu` (_String_): CPU limit.
-      - `memory` (_String_): Memory limit.
-    - `requests`: Resource requests.
-      - `cpu` (_String_): CPU request.
-      - `memory` (_String_): Memory request.
+  - `include` (_Boolean_): Enable the `job-task-runner` component.
+  - `jobTTL` (_String_): How long before the `Job` backing up a task is deleted after completion. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.
 - `kpackImageBuilder`:
-  - `builderReadinessTimeout` (_String_): The time that the kpack Builder will be waited for if not in ready state, berfore the build workload fails. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format, an additional `d` suffix for days is supported.
+  - `builderReadinessTimeout` (_String_): The time that the kpack Builder will be waited for if not in ready state, berfore the build workload fails. See [`time.ParseDuration`](https://pkg.go.dev/time#ParseDuration) for details on the format.
   - `builderRepository` (_String_): Container image repository to store the `ClusterBuilder` image. Required when `clusterBuilderName` is not provided.
   - `clusterBuilderName` (_String_): The name of the `ClusterBuilder` Kpack has been configured with. Leave blank to let `kpack-image-builder` create an example `ClusterBuilder`.
-  - `include` (_Boolean_): Deploy the `kpack-image-builder` component.
-  - `replicas` (_Integer_): Number of replicas.
-  - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
-    - `limits`: Resource limits.
-      - `cpu` (_String_): CPU limit.
-      - `memory` (_String_): Memory limit.
-    - `requests`: Resource requests.
-      - `cpu` (_String_): CPU request.
-      - `memory` (_String_): Memory request.
-  - `webhookCertSecret` (_String_): A secert containing the CA bundle and the certificate for the webhook server.
+  - `include` (_Boolean_): Enable the `kpack-image-builder` component.
 - `logLevel` (_String_): Sets level of logging for api and controllers components. Can be 'info' or 'debug'.
 - `migration`:
+  - `image` (_String_): The container image of the migration job
   - `include` (_Boolean_): Deploy the migration component.
 - `networking`: Networking configuration
   - `gatewayClass` (_String_): The name of the GatewayClass Korifi Gateway references
@@ -143,14 +128,5 @@ Here are all the values that can be set for the chart:
   - `diskMB` (_Integer_): Ephemeral Disk request in MB for staging apps.
   - `memoryMB` (_Integer_): Memory request in MB for staging.
 - `statefulsetRunner`:
-  - `include` (_Boolean_): Deploy the `statefulset-runner` component.
-  - `replicas` (_Integer_): Number of replicas.
-  - `resources`: [`ResourceRequirements`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#resourcerequirements-v1-core) for the API.
-    - `limits`: Resource limits.
-      - `cpu` (_String_): CPU limit.
-      - `memory` (_String_): Memory limit.
-    - `requests`: Resource requests.
-      - `cpu` (_String_): CPU request.
-      - `memory` (_String_): Memory request.
-  - `webhookCertSecret` (_String_): A secert containing the CA bundle and the certificate for the webhook server.
+  - `include` (_Boolean_): Enable the `statefulset-runner` component.
 - `systemImagePullSecrets` (_Array_): List of `Secret` names to be used when pulling Korifi system images from private registries

@@ -4,17 +4,17 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: korifi-kpack-image-builder-mutating-webhook-configuration
   annotations:
-    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/{{ .Values.kpackImageBuilder.webhookCertSecret }}'
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/{{ .Values.controllers.webhookCertSecret }}'
 webhooks:
   - admissionReviewVersions:
       - v1
       - v1beta1
     clientConfig:
       service:
-        name: korifi-kpack-image-builder-webhook-service
+        name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-kpack-image-builder-finalizer
-      caBundle: '{{ include "korifi.webhookCaBundle" (set . "component" "kpackImageBuilder") }}'
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
     name: mcf-kib-finalizer.korifi.cloudfoundry.org
     rules:
