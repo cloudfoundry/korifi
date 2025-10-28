@@ -3,7 +3,7 @@ module code.cloudfoundry.org/korifi
 go 1.24.4
 
 require (
-	code.cloudfoundry.org/bytefmt v0.55.0
+	code.cloudfoundry.org/bytefmt v0.56.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.1.1
 	code.cloudfoundry.org/go-loggregator/v10 v10.2.0
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
@@ -30,7 +30,7 @@ require (
 	github.com/jellydator/validation v1.2.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.0
 	github.com/mileusna/useragent v1.3.5
-	github.com/onsi/ginkgo/v2 v2.27.1
+	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
 	github.com/pivotal/kpack v0.17.0
 	github.com/satori/go.uuid v1.2.0
@@ -91,7 +91,6 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.37.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
-	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/term v0.36.0 // indirect
