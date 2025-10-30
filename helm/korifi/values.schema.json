@@ -58,11 +58,6 @@
       "description": "The secret that holds the CA of the container registry.",
       "type": "string"
     },
-    "korifiGatewayNamespace": {
-      "description": "The namespace where the Korifi Gateway will be created. If the namespace does not exist, the helm chart will fail.",
-      "type": "string",
-      "default": "korifi-gateway"
-    },
     "reconcilers": {
       "type": "object",
       "properties": {
@@ -473,15 +468,15 @@
       "required": ["include", "jobTTL"],
       "type": "object"
     },
+    "korifiGatewayNamespace": {
+      "description": "The namespace where the Korifi Gateway will be created. If the namespace does not exist, the helm chart will fail.",
+      "type": "string",
+      "default": "korifi-gateway"
+    },
     "networking": {
       "type": "object",
       "description": "Networking configuration",
       "properties": {
-        "korifiGatewayNamespace": {
-          "description": "The namespace where the Korifi Gateway will be created. If the namespace does not exist, the helm chart will fail.",
-          "type": "string",
-          "default": "korifi-gateway"
-        },
         "gatewayClass": {
           "description": "The name of the GatewayClass Korifi Gateway references",
           "type": "string"
