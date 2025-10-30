@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.Version }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  name: validate-gateway-namespace
+  namespace: {{ .Release.Namespace }}
+spec:
+  ttlSecondsAfterFinished: 60
+  template:
+    metadata:
+      name: validate-gateway-namespace
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      serviceAccountName: korifi-controllers-controller-manager
+      restartPolicy: Never
+      {{- include "korifi.podSecurityContext" . | indent 6 }}
+      containers:
+      - name: validate-gateway-namespace
+        image: {{ .Values.helm.hooksImage }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          echo "Validating gateway namespace: {{ .Values.korifiGatewayNamespace }}"
+          if ! kubectl get namespace {{ .Values.korifiGatewayNamespace }} >/dev/null 2>&1; then
+            echo "ERROR: Gateway namespace '{{ .Values.korifiGatewayNamespace }}' does not exist."
+            echo "Please create the namespace before installing Korifi, or specify a different namespace using the 'korifiGatewayNamespace' value."
+            exit 1
+          fi
+          echo "Gateway namespace validation successful."

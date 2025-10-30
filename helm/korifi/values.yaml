@@ -114,6 +114,10 @@ jobTaskRunner:
 helm:
   hooksImage: alpine/k8s:1.25.2
 
+# If you override korifiGatewayNamespace, ensure that the namespace you define is created 
+# before deploying the Helm chart, otherwise it will fail.
+korifiGatewayNamespace: korifi-gateway 
+
 networking:
   gatewayPorts:
     http: 80
