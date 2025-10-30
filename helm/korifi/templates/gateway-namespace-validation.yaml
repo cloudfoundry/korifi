@@ -44,10 +44,10 @@ spec:
         - -c
         - |
           set -e
-          echo "Validating gateway namespace: {{ .Values.korifiGatewayNamespace }}"
-          if ! kubectl get namespace {{ .Values.korifiGatewayNamespace }} >/dev/null 2>&1; then
-            echo "ERROR: Gateway namespace '{{ .Values.korifiGatewayNamespace }}' does not exist."
-            echo "Please create the namespace before installing Korifi, or specify a different namespace using the 'korifiGatewayNamespace' value."
+          echo "Validating gateway namespace: {{ .Values.networking.gatewayNamespace }}"
+          if ! kubectl get namespace {{ .Values.networking.gatewayNamespace }} >/dev/null 2>&1; then
+            echo "ERROR: Gateway namespace '{{ .Values.networking.gatewayNamespace }}' does not exist."
+            echo "Please create the namespace before installing Korifi, or specify a different namespace using the 'networking.gatewayNamespace' value."
             exit 1
           fi
           echo "Gateway namespace validation successful."
