@@ -504,7 +504,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			cfServiceInstance     *korifiv1alpha1.CFServiceInstance
 			secret                *corev1.Secret
 			serviceInstanceRecord repositories.ServiceInstanceRecord
-			patchMessage          repositories.PatchServiceInstanceMessage
+			patchMessage          repositories.PatchUPSIMessage
 			err                   error
 		)
 
@@ -528,7 +528,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			}
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 
-			patchMessage = repositories.PatchServiceInstanceMessage{
+			patchMessage = repositories.PatchUPSIMessage{
 				GUID:        cfServiceInstance.Name,
 				SpaceGUID:   space.Name,
 				Name:        tools.PtrTo("new-name"),
@@ -542,7 +542,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 
 		JustBeforeEach(func() {
-			serviceInstanceRecord, err = serviceInstanceRepo.PatchServiceInstance(ctx, authInfo, patchMessage)
+			serviceInstanceRecord, err = serviceInstanceRepo.PatchUserProvidedServiceInstance(ctx, authInfo, patchMessage)
 		})
 
 		When("authorized in the space", func() {
