@@ -73,12 +73,10 @@ func (r *PatchingReconciler[T]) Reconcile(ctx context.Context, req ctrl.Request)
 
 		var notReadyErr NotReadyError
 		if errors.As(delegateErr, &notReadyErr) {
-			reason := notReadyErr.reason
-			if reason == "" {
-				reason = "Unknown"
-			}
+			delegateErr = fmt.Errorf("resource not ready: %w", notReadyErr)
 
-			readyConditionBuilder.WithReason(reason).WithMessage(notReadyErr.message)
+			reason := tools.IfZero(notReadyErr.reason, "Unknown")
+			readyConditionBuilder.WithReason(reason).WithMessage(reason)
 
 			if notReadyErr.noRequeue {
 				result = ctrl.Result{}
