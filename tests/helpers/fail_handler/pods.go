@@ -218,6 +218,23 @@ func PrintKorifiLogs(config *rest.Config, correlationId string, since time.Time)
 	})
 }
 
+func PrintKpackLogs(config *rest.Config, since time.Time) {
+	PrintPodsLogs(config, []PodDescriptor{
+		{
+			Namespace:  "kpack",
+			LabelKey:   "app",
+			LabelValue: "kpack-controller",
+			Since:      tools.PtrTo(metav1.NewTime(since)),
+		},
+		{
+			Namespace:  "kpack",
+			LabelKey:   "app",
+			LabelValue: "kpack-webhook",
+			Since:      tools.PtrTo(metav1.NewTime(since)),
+		},
+	})
+}
+
 func PrintAllBuildLogs(config *rest.Config, namespace string) {
 	PrintPodsLogs(config, []PodDescriptor{
 		{

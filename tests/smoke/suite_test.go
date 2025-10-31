@@ -1,7 +1,6 @@
 package smoke_test
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -20,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/types"
-	"gopkg.in/yaml.v2"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -34,6 +33,7 @@ type SmokeTestSharedData struct {
 	CfAdmin          string `json:"cf_admin"`
 	RootNamespace    string `json:"root_namespace"`
 	OrgName          string `json:"org_name"`
+	OrgGUID          string `json:"org_guid"`
 	BrokerOrgName    string `json:"broker_org_name"`
 	SpaceName        string `json:"space_name"`
 	AppsDomain       string `json:"apps_domain"`
@@ -53,6 +53,9 @@ func TestSmoke(t *testing.T) {
 				printCfApp(config)
 				fail_handler.PrintKorifiLogs(config, "", failure.StartTime)
 				printBuildLogs(config)
+				fail_handler.PrintKpackLogs(config, failure.StartTime)
+				fail_handler.PrintAllObjects(config, sharedData.OrgGUID, &buildv1alpha2.BuildList{})
+				fail_handler.PrintAllObjects(config, sharedData.OrgGUID, &buildv1alpha2.ImageList{})
 			},
 		}).Fail)
 
@@ -95,6 +98,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	sharedData.BrokerURL = helpers.GetInClusterURL(getAppGUID(brokerAppName))
 
 	Expect(helpers.Cf("create-org", sharedData.OrgName)).To(Exit(0))
+	sharedData.OrgGUID, err = sessionOutput(helpers.Cf("org", sharedData.OrgName, "--guid"))
+	Expect(err).NotTo(HaveOccurred())
+
 	Expect(helpers.Cf("create-space", "-o", sharedData.OrgName, sharedData.SpaceName)).To(Exit(0))
 	Expect(helpers.Cf("target", "-o", sharedData.OrgName, "-s", sharedData.SpaceName)).To(Exit(0))
 
@@ -110,6 +116,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 })
 
 var _ = SynchronizedAfterSuite(func() {
@@ -192,7 +199,7 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
-	if err := printObject(k8sClient, &korifiv1alpha1.CFApp{
+	if err := fail_handler.PrintObject(k8sClient, &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfAppGUID,
 			Namespace: cfAppNamespace,
@@ -201,21 +208,6 @@ func printCfApp(config *rest.Config) {
 		fmt.Fprintf(GinkgoWriter, "failed printing cfapp: %v\n", err)
 		return
 	}
-}
-
-func printObject(k8sClient client.Client, obj client.Object) error {
-	if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(obj), obj); err != nil {
-		return fmt.Errorf("failed to get object %q: %v\n", client.ObjectKeyFromObject(obj), err)
-	}
-
-	fmt.Fprintf(GinkgoWriter, "\n\n========== %T %s/%s (skipping managed fields) ==========\n", obj, obj.GetNamespace(), obj.GetName())
-	obj.SetManagedFields([]metav1.ManagedFieldsEntry{})
-	objBytes, err := yaml.Marshal(obj)
-	if err != nil {
-		return fmt.Errorf("failed marshalling object %v: %v\n", obj, err)
-	}
-	fmt.Fprintln(GinkgoWriter, string(objBytes))
-	return nil
 }
 
 func printBuildLogs(config *rest.Config) {
