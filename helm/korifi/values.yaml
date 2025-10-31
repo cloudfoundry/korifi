@@ -115,6 +115,7 @@ helm:
   hooksImage: alpine/k8s:1.25.2
 
 networking:
+  gatewayNamespace: korifi-gateway
   gatewayPorts:
     http: 80
     https: 443

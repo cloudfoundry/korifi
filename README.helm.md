@@ -116,6 +116,7 @@ Here are all the values that can be set for the chart:
 - `networking`: Networking configuration
   - `gatewayClass` (_String_): The name of the GatewayClass Korifi Gateway references
   - `gatewayInfrastructure`: Optional GatewayInfrastructure property of the Gateway, see https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.GatewayInfrastructure for contents
+  - `gatewayNamespace` (_String_): The namespace where the Korifi Gateway will be created. If the namespace does not exist, the helm chart will fail.
   - `gatewayPorts`: Ports for the Gateway listeners
     - `http` (_Integer_): HTTP port
     - `https` (_Integer_): HTTPS port
