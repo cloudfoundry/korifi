@@ -16,16 +16,16 @@ import (
 	"testing"
 	"time"
 
+	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
 	"code.cloudfoundry.org/korifi/api/payloads"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tests/helpers/fail_handler"
-
-	"code.cloudfoundry.org/go-loggregator/v8/rpc/loggregator_v2"
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	"go.yaml.in/yaml/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -325,6 +325,9 @@ func TestE2E(t *testing.T) {
 			Matcher: fail_handler.Always,
 			Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
 				fail_handler.PrintKorifiLogs(config, correlationId, failure.StartTime)
+				fail_handler.PrintKpackLogs(config, failure.StartTime)
+				fail_handler.PrintAllObjects(config, commonTestOrgGUID, &buildv1alpha2.BuildList{})
+				fail_handler.PrintAllObjects(config, commonTestOrgGUID, &buildv1alpha2.ImageList{})
 			},
 		},
 		fail_handler.Hook{
