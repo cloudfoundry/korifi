@@ -7,6 +7,8 @@ import (
 	"runtime"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/coordination"
+	bindingswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/services/bindings"
 	"code.cloudfoundry.org/korifi/migration/migration"
 	"code.cloudfoundry.org/korifi/tools"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -33,7 +35,8 @@ func main() {
 
 	workersCount := tools.Max(1, runtime.NumCPU()/2)
 
-	err = migration.New(k8sClient, korifiVersion, workersCount).Run(context.Background())
+	migrator := migration.New(k8sClient, korifiVersion, workersCount, coordination.NewNameRegistry(k8sClient, bindingswebhook.ServiceBindingEntityType))
+	err = migrator.Run(context.Background())
 	if err != nil {
 		panic(err)
 	}
