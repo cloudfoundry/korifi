@@ -73,12 +73,7 @@ func (r *PatchingReconciler[T]) Reconcile(ctx context.Context, req ctrl.Request)
 
 		var notReadyErr NotReadyError
 		if errors.As(delegateErr, &notReadyErr) {
-			reason := notReadyErr.reason
-			if reason == "" {
-				reason = "Unknown"
-			}
-
-			readyConditionBuilder.WithReason(reason).WithMessage(notReadyErr.message)
+			readyConditionBuilder.WithReason(tools.IfZero(notReadyErr.reason, "Unknown")).WithMessage(notReadyErr.message)
 
 			if notReadyErr.noRequeue {
 				result = ctrl.Result{}
@@ -118,16 +113,21 @@ type NotReadyError struct {
 }
 
 func (e NotReadyError) Error() string {
-	if e.cause == nil {
-		return e.message
+	composedMessage := "resource not ready"
+
+	if e.reason != "" {
+		composedMessage = composedMessage + ": " + e.reason
 	}
 
-	message := e.message
-	if message != "" {
-		message = message + ": "
+	if e.message != "" {
+		composedMessage = composedMessage + ": " + e.message
 	}
 
-	return fmt.Sprintf("%s%s", message, e.cause.Error())
+	if e.cause != nil {
+		composedMessage = composedMessage + ": " + e.cause.Error()
+	}
+
+	return composedMessage
 }
 
 func NewNotReadyError() NotReadyError {

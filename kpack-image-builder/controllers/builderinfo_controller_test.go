@@ -171,7 +171,7 @@ var _ = Describe("BuilderInfoReconciler", func() {
 				g.Expect(readyCondition).NotTo(BeNil())
 				g.Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(readyCondition.Reason).To(Equal("ClusterBuilderNotReady"))
-				g.Expect(readyCondition.Message).To(Equal(fmt.Sprintf("ClusterBuilder %q is not ready: something happened", clusterBuilderName)))
+				g.Expect(readyCondition.Message).To(ContainSubstring(fmt.Sprintf("ClusterBuilder %q is not ready: something happened", clusterBuilderName)))
 				g.Expect(readyCondition.ObservedGeneration).To(Equal(info.Generation))
 			}).Should(Succeed())
 		})
