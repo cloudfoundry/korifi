@@ -71,41 +71,50 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(err).NotTo(HaveOccurred())
 
 	sharedData = SmokeTestSharedData{
-		CfAdmin:          uuid.NewString(),
-		RootNamespace:    helpers.GetDefaultedEnvVar("ROOT_NAMESPACE", "cf"),
-		OrgName:          uuid.NewString(),
-		BrokerOrgName:    uuid.NewString(),
-		SpaceName:        uuid.NewString(),
-		AppsDomain:       helpers.GetRequiredEnvVar("APP_FQDN"),
-		BuildpackAppName: uuid.NewString(),
-		DockerAppName:    uuid.NewString(),
-		FLockPath:        filepath.Join(lockDir, "lock"),
+		RootNamespace: helpers.GetDefaultedEnvVar("ROOT_NAMESPACE", "cf"),
+		AppsDomain:    helpers.GetRequiredEnvVar("APP_FQDN"),
+		FLockPath:     filepath.Join(lockDir, "lock"),
 	}
 	serviceAccountFactory := helpers.NewServiceAccountFactory(sharedData.RootNamespace)
 
-	cfAdminToken := serviceAccountFactory.CreateAdminServiceAccount(sharedData.CfAdmin)
-	helpers.AddUserToKubeConfig(sharedData.CfAdmin, cfAdminToken)
+	cfAdminUser := uuid.NewString()
+	cfAdminToken := serviceAccountFactory.CreateAdminServiceAccount(cfAdminUser)
+	helpers.AddUserToKubeConfig(cfAdminUser, cfAdminToken)
+	sharedData.CfAdmin = cfAdminUser
 
 	Expect(helpers.Cf("api", helpers.GetRequiredEnvVar("API_SERVER_ROOT"), "--skip-ssl-validation")).To(Exit(0))
 	Expect(helpers.Cf("auth", sharedData.CfAdmin)).To(Exit(0))
 
+	brokerOrgName := uuid.NewString()
+	Expect(helpers.Cf("create-org", brokerOrgName)).To(Exit(0))
+	sharedData.BrokerOrgName = brokerOrgName
+
 	brokerSpaceName := uuid.NewString()
-	brokerAppName := uuid.NewString()
-	Expect(helpers.Cf("create-org", sharedData.BrokerOrgName)).To(Exit(0))
 	Expect(helpers.Cf("create-space", "-o", sharedData.BrokerOrgName, brokerSpaceName)).To(Exit(0))
 	Expect(helpers.Cf("target", "-o", sharedData.BrokerOrgName, "-s", brokerSpaceName)).To(Exit(0))
+
+	brokerAppName := uuid.NewString()
 	Expect(helpers.Cf("push", brokerAppName, "-p", "../assets/sample-broker")).To(Exit(0))
 	sharedData.BrokerURL = helpers.GetInClusterURL(getAppGUID(brokerAppName))
 
-	Expect(helpers.Cf("create-org", sharedData.OrgName)).To(Exit(0))
-	sharedData.OrgGUID, err = sessionOutput(helpers.Cf("org", sharedData.OrgName, "--guid"))
+	orgName := uuid.NewString()
+	Expect(helpers.Cf("create-org", orgName)).To(Exit(0))
+	sharedData.OrgName = orgName
+	sharedData.OrgGUID, err = sessionOutput(helpers.Cf("org", orgName, "--guid"))
 	Expect(err).NotTo(HaveOccurred())
 
-	Expect(helpers.Cf("create-space", "-o", sharedData.OrgName, sharedData.SpaceName)).To(Exit(0))
-	Expect(helpers.Cf("target", "-o", sharedData.OrgName, "-s", sharedData.SpaceName)).To(Exit(0))
+	spaceName := uuid.NewString()
+	Expect(helpers.Cf("create-space", "-o", sharedData.OrgName, spaceName)).To(Exit(0))
+	Expect(helpers.Cf("target", "-o", sharedData.OrgName, "-s", spaceName)).To(Exit(0))
+	sharedData.SpaceName = spaceName
 
-	Expect(helpers.Cf("push", sharedData.BuildpackAppName, "-p", "../assets/dorifi")).To(Exit(0))
-	Expect(helpers.Cf("push", sharedData.DockerAppName, "-o", "eirini/dorini")).To(Exit(0))
+	buildpackAppName := uuid.NewString()
+	Expect(helpers.Cf("push", buildpackAppName, "-p", "../assets/dorifi")).To(Exit(0))
+	sharedData.BuildpackAppName = buildpackAppName
+
+	dockerAppName := uuid.NewString()
+	Expect(helpers.Cf("push", dockerAppName, "-o", "eirini/dorini")).To(Exit(0))
+	sharedData.DockerAppName = dockerAppName
 
 	sharedDataBytes, err := json.Marshal(sharedData)
 	Expect(err).NotTo(HaveOccurred())
@@ -187,15 +196,25 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
+	if sharedData.CfAdmin == "" {
+		return
+	}
 	Expect(helpers.Cf("auth", sharedData.CfAdmin)).To(Exit(0))
+
+	if sharedData.SpaceName == "" {
+		return
+	}
 	cfAppNamespace, err := sessionOutput(helpers.Cf("space", sharedData.SpaceName, "--guid"))
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "failed to run 'cf space %s --guid': %v\n", sharedData.SpaceName, err)
 		return
 	}
+
+	if sharedData.BuildpackAppName == "" {
+		return
+	}
 	cfAppGUID, err := sessionOutput(helpers.Cf("app", sharedData.BuildpackAppName, "--guid"))
 	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to run 'cf app %s --guid': %v\n", sharedData.BuildpackAppName, err)
 		return
 	}
 
@@ -211,6 +230,9 @@ func printCfApp(config *rest.Config) {
 }
 
 func printBuildLogs(config *rest.Config) {
+	if sharedData.SpaceName == "" {
+		return
+	}
 	spaceGUID, err := sessionOutput(helpers.Cf("space", sharedData.SpaceName, "--guid").Wait())
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "failed to get space guid: %v\n", err)
