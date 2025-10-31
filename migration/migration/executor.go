@@ -9,6 +9,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/coordination"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,21 +18,22 @@ import (
 const MigratedByLabelKey = "korifi.cloudfoundry.org/migrated-by"
 
 var korifiObjectLists = []client.ObjectList{
-	&korifiv1alpha1.CFRouteList{},
 	&korifiv1alpha1.CFServiceBindingList{},
 }
 
 type Migrator struct {
-	k8sClient     client.Client
-	korifiVersion string
-	workersCount  int
+	k8sClient                  client.Client
+	korifiVersion              string
+	workersCount               int
+	serviceBindingNameRegistry coordination.NameRegistry
 }
 
-func New(k8sClient client.Client, korifiVersion string, workersCount int) *Migrator {
+func New(k8sClient client.Client, korifiVersion string, workersCount int, serviceBindingNameRegistry coordination.NameRegistry) *Migrator {
 	return &Migrator{
-		k8sClient:     k8sClient,
-		korifiVersion: korifiVersion,
-		workersCount:  workersCount,
+		k8sClient:                  k8sClient,
+		korifiVersion:              korifiVersion,
+		workersCount:               workersCount,
+		serviceBindingNameRegistry: serviceBindingNameRegistry,
 	}
 }
 
@@ -40,7 +42,7 @@ func (m *Migrator) Run(ctx context.Context) error {
 
 	objectsToUpdate, err := m.collectObjects(ctx, korifiObjectLists)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to collect objects to migrate: %v", err)
 	}
 
 	fmt.Println("==========================================================")
@@ -61,8 +63,18 @@ func (m *Migrator) Run(ctx context.Context) error {
 			defer wg.Done()
 
 			for obj := range objectChan {
-				if err := m.setMigratedByLabel(ctx, obj); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to set label on object %v %s/%s: %v\n", obj.GetObjectKind(), obj.GetNamespace(), obj.GetName(), err)
+				binding, ok := obj.(*korifiv1alpha1.CFServiceBinding)
+				if !ok {
+					continue
+				}
+
+				if binding.Labels[MigratedByLabelKey] == m.korifiVersion {
+					continue
+				}
+
+				if err := m.migrateServiceBindingUniqueName(ctx, binding); err != nil {
+					fmt.Fprintf(os.Stderr, "failed to migrate lease for service binding %s/%s: %v\n", binding.Namespace, binding.Name, err)
+					continue
 				}
 				fmt.Fprintf(os.Stdout, "%s %s/%s migrated\n", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind, obj.GetNamespace(), obj.GetName())
 			}
@@ -76,6 +88,37 @@ func (m *Migrator) Run(ctx context.Context) error {
 	fmt.Fprintf(os.Stdout, "Migration completed successfully, took %s!\n", time.Since(startTime))
 
 	return nil
+}
+
+func (m *Migrator) migrateServiceBindingUniqueName(ctx context.Context, binding *korifiv1alpha1.CFServiceBinding) error {
+	err := m.registerServiceBindingUniqueName(ctx, binding)
+	if err != nil {
+		return fmt.Errorf("failed to register the new unique name for service binding %s/%s: %v", binding.Namespace, binding.Name, err)
+	}
+
+	err = m.serviceBindingNameRegistry.DeregisterName(ctx, binding.Namespace, oldUniqueName(binding))
+	if err != nil {
+		return fmt.Errorf("failed to unregister old unique name for service binding %s/%s: %v", binding.Namespace, binding.Name, err)
+	}
+
+	return m.setMigratedByLabel(ctx, binding)
+}
+
+func (m *Migrator) registerServiceBindingUniqueName(ctx context.Context, binding *korifiv1alpha1.CFServiceBinding) error {
+	isOwned, err := m.serviceBindingNameRegistry.CheckNameOwnership(ctx, binding.Namespace, binding.UniqueName(), binding.Namespace, binding.Name)
+	// NotFound means that there is no lease for that unique name
+	if client.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to check ownership of the new binding unique name:  %w", err)
+	}
+
+	if isOwned {
+		return nil
+	}
+	return m.serviceBindingNameRegistry.RegisterName(ctx, binding.Namespace, binding.UniqueName(), binding.Namespace, binding.Name)
+}
+
+func oldUniqueName(binding *korifiv1alpha1.CFServiceBinding) string {
+	return fmt.Sprintf("sb::%s::%s::%s", binding.Spec.AppRef.Name, binding.Spec.Service.Namespace, binding.Spec.Service.Name)
 }
 
 func (m *Migrator) setMigratedByLabel(ctx context.Context, obj client.Object) error {
