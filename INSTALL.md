@@ -94,7 +94,7 @@ Follow the dynamic provisioning [instructions](https://projectcontour.io/docs/1.
       controllerName: projectcontour.io/gateway-controller
     EOF
     ```
-  - You DO NOT need to create a gateway as per the instructions. The Korifi helm chart defines a gateway that will be used for all korifi ingress traffic. The gateway will be created in the `korifi-gateway` namespace.
+  - You DO NOT need to create a gateway as per the instructions. The Korifi helm chart defines a gateway that will be used for all korifi ingress traffic. The gateway will be created in the `$KORIFI_GATEWAY_NAMESPACE` namespace.
 
 ### Metrics Server
 
@@ -261,7 +261,7 @@ kubectl get service envoy -n projectcontour -ojsonpath='{.status.loadBalancer.in
 If you used dynamic provisioning of a Contour gateway, discover your endpoint with:
 
 ```sh
-kubectl get service envoy-korifi -n korifi-gateway -ojsonpath='{.status.loadBalancer.ingress[0]}'
+kubectl get service envoy-korifi -n $KORIFI_GATEWAY_NAMESPACE -ojsonpath='{.status.loadBalancer.ingress[0]}'
 ```
 
 It may take some time before the address is available. Retry this until you see a result.
