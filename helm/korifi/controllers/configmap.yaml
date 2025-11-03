@@ -55,7 +55,7 @@ data:
     jobTTL: {{ required "jobTTL is required" .Values.jobTaskRunner.jobTTL }}
     {{- end }}
     networking:
-      gatewayNamespace: {{ .Release.Namespace }}-gateway
+      gatewayNamespace: {{ .Values.networking.gatewayNamespace }}
       gatewayName: korifi
     experimentalManagedServicesEnabled: {{ .Values.experimental.managedServices.enabled }}
     trustInsecureServiceBrokers: {{ .Values.experimental.managedServices.trustInsecureBrokers }}

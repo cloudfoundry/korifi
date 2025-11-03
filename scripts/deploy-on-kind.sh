@@ -215,6 +215,13 @@ metadata:
   name: $ns
 EOF
   done
+
+  cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: korifi-gateway
+EOF
 }
 
 function create_registry_secret() {
