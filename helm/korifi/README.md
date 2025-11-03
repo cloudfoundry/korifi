@@ -7,16 +7,17 @@ If you want to try out Korifi on your local machine we recommend [installing kor
 
 # Installation
 
-1. Make sure [dependencies](https://github.com/cloudfoundry/korifi/blob/main/INSTALL.md#dependencies) are installed
+1. 🚨 When upgrading from a previous release, please review the [release notes](https://github.com/cloudfoundry/korifi/releases) of the version you are upgrading to for any breaking changes. 🚨
 
+2. Make sure [dependencies](https://github.com/cloudfoundry/korifi/blob/main/INSTALL.md#dependencies) are installed
 
-2. Add the korifi repository:
+3. Add the korifi repository:
 
 ```
 helm repo add korifi https://cloudfoundry.github.io/korifi/
 ```
 
-3. Install the korifi helm chart
+4. Install the korifi helm chart
 
 ```
 helm install my-korifi korifi/korifi
