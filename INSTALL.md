@@ -36,6 +36,7 @@ Here are the example values we'll use in this guide:
 ```sh
 export ROOT_NAMESPACE="cf"
 export KORIFI_NAMESPACE="korifi"
+export KORIFI_GATEWAY_NAMESPACE="korifi-gateway"
 export ADMIN_USERNAME="cf-admin"
 export BASE_DOMAIN="korifi.example.org"
 export GATEWAY_CLASS_NAME="contour"
@@ -104,7 +105,7 @@ Most Kubernetes distributions will come with `metrics-server` already installed.
 
 ### Namespace creation
 
-Create the root and korifi namespaces:
+Create the root, korifi and gateway namespaces:
 
 ```sh
 cat <<EOF | kubectl apply -f -
@@ -125,6 +126,13 @@ metadata:
   labels:
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/enforce: restricted
+EOF
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: $KORIFI_GATEWAY_NAMESPACE
 EOF
 ```
 
@@ -203,6 +211,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
     --set=containerRepositoryPrefix=europe-docker.pkg.dev/my-project/korifi/ \
     --set=kpackImageBuilder.builderRepository=europe-docker.pkg.dev/my-project/korifi/kpack-builder \
     --set=networking.gatewayClass=$GATEWAY_CLASS_NAME \
+    --set=networking.gatewayNamespace=$KORIFI_GATEWAY_NAMESPACE \
     --wait
 ```
 
