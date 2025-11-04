@@ -34,6 +34,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/pivotal/kpack v0.17.0
 	github.com/satori/go.uuid v1.2.0
+	go.yaml.in/yaml/v2 v2.4.2
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	golang.org/x/text v0.30.0
@@ -43,7 +44,7 @@ require (
 	k8s.io/metrics v0.34.1
 	k8s.io/pod-security-admission v0.34.1
 	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
-	sigs.k8s.io/controller-runtime v0.22.3
+	sigs.k8s.io/controller-runtime v0.22.4
 	sigs.k8s.io/controller-tools v0.19.0
 	sigs.k8s.io/gateway-api v1.4.0
 )
@@ -91,7 +92,6 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.37.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
-	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/term v0.36.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
@@ -202,7 +202,7 @@ require (
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/apiextensions-apiserver v0.34.1 // indirect
+	k8s.io/apiextensions-apiserver v0.34.1
 	k8s.io/component-base v0.34.1 // indirect
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20250814151709-d7b6acb124c3 // indirect
