@@ -10,8 +10,8 @@ require (
 	github.com/BooleanCat/go-functional/v2 v2.5.1
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
-	github.com/aws/aws-sdk-go-v2/config v1.31.16
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.51.1
+	github.com/aws/aws-sdk-go-v2/config v1.31.17
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.51.2
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.38.2
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
@@ -34,7 +34,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/pivotal/kpack v0.17.0
 	github.com/satori/go.uuid v1.2.0
-	go.yaml.in/yaml/v2 v2.4.2
+	go.yaml.in/yaml/v2 v2.4.3
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	golang.org/x/text v0.30.0
@@ -50,7 +50,7 @@ require (
 )
 
 require (
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.3 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
@@ -118,18 +118,18 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20190301055215-6c0105aabd46 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/PaesslerAG/gval v1.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.39.5 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.18.20 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.12 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.12 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.12 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.39.6 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.18.21 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.13 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.33.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.12 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.30.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.39.0 // indirect
-	github.com/aws/smithy-go v1.23.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.13 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.30.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.39.1 // indirect
+	github.com/aws/smithy-go v1.23.2 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.9.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
