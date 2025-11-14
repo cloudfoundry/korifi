@@ -14,10 +14,10 @@ directories:
       url: https://api.github.com/repos/cert-manager/cert-manager/releases/254726664
     path: cert-manager
   - git:
-      commitTitle: 'fix: update release notes based on review feedback'
-      sha: b1f3c43f84370504e218eb5be8a34c81348f866a
+      commitTitle: Add v3.31.1 release notes
+      sha: 7517d28a5fdb00ccf57088353c82862aad43e710
       tags:
-      - v3.31.0
+      - v3.31.1
     path: calico
   - git:
       commitTitle: Update Contour Docker image to v1.33.0....
