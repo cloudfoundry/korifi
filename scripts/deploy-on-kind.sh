@@ -97,7 +97,7 @@ function ensure_local_registry() {
     return
   fi
 
-  helm repo add twuni https://helm.twun.io
+  helm repo add twuni https://twuni.github.io/docker-registry.helm
   # the htpasswd value below is username: user, password: password encoded using `htpasswd` binary
   # e.g. `docker run --entrypoint htpasswd httpd:2 -Bbn user password`
   helm upgrade --install localregistry twuni/docker-registry \
