@@ -349,10 +349,19 @@ rules:
     resources:
       - mutatingwebhookconfigurations
     verbs:
+      - create
       - delete
       - get
       - list
       - watch
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - mutatingwebhookconfigurations
+    resourceNames:
+      - envoy-gateway-topology-injector.tigera-gateway
+    verbs:
+      - update
   # Needed for operator lock
   - apiGroups:
       - coordination.k8s.io
@@ -458,6 +467,8 @@ rules:
       - tcproutes.gateway.networking.k8s.io
       - tlsroutes.gateway.networking.k8s.io
       - udproutes.gateway.networking.k8s.io
+      - xbackendtrafficpolicies.gateway.networking.x-k8s.io
+      - xlistenersets.gateway.networking.x-k8s.io
       - backends.gateway.envoyproxy.io
       - backendtrafficpolicies.gateway.envoyproxy.io
       - clienttrafficpolicies.gateway.envoyproxy.io
@@ -576,7 +587,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: tigera-operator
-          image: quay.io/tigera/operator:v1.40.0
+          image: quay.io/tigera/operator:v1.40.1
           imagePullPolicy: IfNotPresent
           command:
             - operator
@@ -597,7 +608,7 @@ spec:
             - name: OPERATOR_NAME
               value: "tigera-operator"
             - name: TIGERA_OPERATOR_INIT_IMAGE_VERSION
-              value: v1.40.0
+              value: v1.40.1
           envFrom:
             - configMapRef:
                 name: kubernetes-services-endpoint
