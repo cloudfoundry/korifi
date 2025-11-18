@@ -3,7 +3,8 @@ updates:
 - package-ecosystem: "gomod"
   directory: "/"
   schedule:
-    interval: "daily"
+    interval: "cron"
+    cronjob: "* 10-22 * * MON-FRI"
   groups:
     gomod:
       patterns:
@@ -12,29 +13,35 @@ updates:
 - package-ecosystem: "docker"
   directory: "/api"
   schedule:
-    interval: "daily"
+    interval: "cron"
+    cronjob: "* 10-22 * * MON-FRI"
 
 - package-ecosystem: "docker"
   directory: "/controllers"
   schedule:
-    interval: "daily"
+    interval: "cron"
+    cronjob: "* 10-22 * * MON-FRI"
 
 - package-ecosystem: "docker"
   directory: "/job-task-runner"
   schedule:
-    interval: "daily"
+    interval: "cron"
+    cronjob: "* 10-22 * * MON-FRI"
 
 - package-ecosystem: "docker"
   directory: "/kpack-image-builder"
   schedule:
-    interval: "daily"
+    interval: "cron"
+    cronjob: "* 10-22 * * MON-FRI"
 
 - package-ecosystem: "docker"
   directory: "/statefulset-runner"
   schedule:
-    interval: "daily"
+    interval: "cron"
+    cronjob: "* 10-22 * * MON-FRI"
 
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:
-    interval: "daily"
+    interval: "cron"
+    cronjob: "* 10-22 * * MON-FRI"
