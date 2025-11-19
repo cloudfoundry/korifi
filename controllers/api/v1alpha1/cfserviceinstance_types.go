@@ -33,6 +33,7 @@ const (
 	DeprovisionWithoutBrokerAnnotation = "korifi.cloudfoundry.org/deprovision-without-broker"
 
 	ProvisioningFailedCondition   = "ProvisioningFailed"
+	UpdateFailedCondition         = "UpdateFailed"
 	DeprovisioningFailedCondition = "DeprovisioningFailed"
 )
 
