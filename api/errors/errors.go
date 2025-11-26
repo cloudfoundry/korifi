@@ -47,11 +47,12 @@ type apiError struct {
 }
 
 func (e apiError) Error() string {
-	if e.cause == nil {
-		return "unknown"
+	causeMessage := "unknown"
+	if e.cause != nil {
+		causeMessage = e.cause.Error()
 	}
 
-	return e.cause.Error()
+	return fmt.Sprintf("%s: %s", e.detail, causeMessage)
 }
 
 func (e apiError) Unwrap() error {
