@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -21,6 +22,7 @@ const (
 	SpacesPath         = "/v3/spaces"
 	SpacePath          = "/v3/spaces/{guid}"
 	RoutesForSpacePath = "/v3/spaces/{guid}/routes"
+	SpaceFeaturePath   = "/v3/spaces/{guid}/features/{name}"
 )
 
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
@@ -197,6 +199,21 @@ func (h *Space) deleteUnmappedRoutes(r *http.Request) (*routing.Response, error)
 	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteUnmappedRoutesOperation, h.apiBaseURL)), nil
 }
 
+func (h *Space) getspaceFeature(r *http.Request) (*routing.Response, error) {
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.get-feature")
+
+	featureName := routing.URLParam(r, "name")
+	if featureName != "ssh" {
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewUnprocessableEntityError(nil, fmt.Sprintf("feature %q is not supported", featureName)), "feature not supported")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
+		"name":        "ssh",
+		"description": "Enable SSHing into apps in the space.",
+		"enabled":     false,
+	}), nil
+}
+
 func (h *Space) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -209,5 +226,6 @@ func (h *Space) AuthenticatedRoutes() []routing.Route {
 		{Method: "DELETE", Pattern: SpacePath, Handler: h.delete},
 		{Method: "GET", Pattern: SpacePath, Handler: h.get},
 		{Method: "DELETE", Pattern: RoutesForSpacePath, Handler: h.deleteUnmappedRoutes},
+		{Method: "GET", Pattern: SpaceFeaturePath, Handler: h.getspaceFeature},
 	}
 }
