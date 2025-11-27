@@ -116,6 +116,8 @@ func (h *Route) create(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
+	logger.Info("creating route", "payload", payload)
+
 	spaceGUID := payload.Relationships.Space.Data.GUID
 	_, err := h.spaceRepo.GetSpace(r.Context(), authInfo, spaceGUID)
 	if err != nil {
