@@ -103,7 +103,7 @@ var _ = Describe("Space", func() {
 
 		BeforeEach(func() {
 			payload = payloads.SpacePatch{
-				Name: tools.Ptrto("new-space-name"),
+				Name: tools.PtrTo("new-space-name"),
 				Metadata: payloads.MetadataPatch{
 					Annotations: map[string]*string{
 						"foo": tools.PtrTo("bar"),
