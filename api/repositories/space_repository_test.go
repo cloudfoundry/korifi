@@ -649,7 +649,7 @@ var _ = Describe("SpaceRepository", func() {
 				spaceNewName = nil
 			})
 
-			It("org display name remains unchanged", func() {
+			It("space display name remains unchanged", func() {
 				Expect(spaceRecord.Name).To(Equal(displayName))
 			})
 		})
