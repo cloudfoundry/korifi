@@ -27,8 +27,8 @@
       "type": "boolean"
     },
     "containerRepositoryPrefix": {
-      "description": "The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.",
-      "type": "string",
+    "description": "The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, `index.docker.io/korifi/` results in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets`. The default Helm value is empty, so you must override it for your registry.",
+    "type": "string",
       "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*/?$"
     },
     "containerRegistrySecret": {

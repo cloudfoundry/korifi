@@ -41,7 +41,7 @@ data:
     {{- if .Values.kpackImageBuilder.include }}
     clusterBuilderName: {{ .Values.kpackImageBuilder.clusterBuilderName | default "cf-kpack-cluster-builder" }}
     builderReadinessTimeout: {{ required "builderReadinessTimeout is required" .Values.kpackImageBuilder.builderReadinessTimeout }}
-    containerRepositoryPrefix: {{ .Values.containerRepositoryPrefix | quote }}
+    containerRepositoryPrefix: {{ required "containerRepositoryPrefix is required" .Values.containerRepositoryPrefix | quote }}
     builderServiceAccount: kpack-service-account
     cfStagingResources:
       buildCacheMB: {{ .Values.stagingRequirements.buildCacheMB }}
