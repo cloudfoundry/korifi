@@ -328,13 +328,15 @@ var _ = Describe("Space", func() {
 			requestMethod = http.MethodPatch
 			requestPath += "/the-space-guid"
 
-			spaceRepo.PatchSpaceMetadataReturns(repositories.SpaceRecord{
-				Name:             "the-space",
+			newSpaceName := tools.PtrTo("new-space-name")
+			spaceRepo.PatchSpaceReturns(repositories.SpaceRecord{
+				Name:             *newSpaceName,
 				GUID:             "the-space-guid",
 				OrganizationGUID: "the-org-guid",
 			}, nil)
 
 			requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.SpacePatch{
+				Name: newSpaceName,
 				Metadata: payloads.MetadataPatch{
 					Annotations: map[string]*string{
 						"hello":                       tools.PtrTo("there"),
@@ -353,9 +355,10 @@ var _ = Describe("Space", func() {
 			actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
 			Expect(bodyString(actualReq)).To(Equal("the-json-body"))
 
-			Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(1))
-			_, _, msg := spaceRepo.PatchSpaceMetadataArgsForCall(0)
+			Expect(spaceRepo.PatchSpaceCallCount()).To(Equal(1))
+			_, _, msg := spaceRepo.PatchSpaceArgsForCall(0)
 			Expect(msg.GUID).To(Equal("the-space-guid"))
+			Expect(msg.Name).To(PointTo(Equal("new-space-name")))
 			Expect(msg.OrgGUID).To(Equal("the-org-guid"))
 			Expect(msg.Annotations).To(HaveKeyWithValue("hello", PointTo(Equal("there"))))
 			Expect(msg.Annotations).To(HaveKeyWithValue("foo.example.com/lorem-ipsum", PointTo(Equal("Lorem ipsum."))))
@@ -366,6 +369,7 @@ var _ = Describe("Space", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.name", "new-space-name"),
 				MatchJSONPath("$.guid", "the-space-guid"),
 				MatchJSONPath("$.links.self.href", "https://api.example.org/v3/spaces/the-space-guid"),
 			)))
@@ -378,7 +382,7 @@ var _ = Describe("Space", func() {
 
 			It("returns a not found error and does not try updating the space", func() {
 				expectNotFoundError(repositories.SpaceResourceType)
-				Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(0))
+				Expect(spaceRepo.PatchSpaceCallCount()).To(Equal(0))
 			})
 		})
 
@@ -389,13 +393,13 @@ var _ = Describe("Space", func() {
 
 			It("returns an error and does not try updating the space", func() {
 				expectUnknownError()
-				Expect(spaceRepo.PatchSpaceMetadataCallCount()).To(Equal(0))
+				Expect(spaceRepo.PatchSpaceCallCount()).To(Equal(0))
 			})
 		})
 
 		When("patching the org errors", func() {
 			BeforeEach(func() {
-				spaceRepo.PatchSpaceMetadataReturns(repositories.SpaceRecord{}, errors.New("boom"))
+				spaceRepo.PatchSpaceReturns(repositories.SpaceRecord{}, errors.New("boom"))
 			})
 
 			It("returns an error", func() {

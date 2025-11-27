@@ -49,7 +49,7 @@ type SpacePatch struct {
 func (p SpacePatch) Validate() error {
 	return jellidation.ValidateStruct(&p,
 		jellidation.Field(&p.Metadata),
-		jellidation.Field(&p.Name, validation.NilOrNotEmpty),
+		jellidation.Field(&p.Name, jellidation.NilOrNotEmpty),
 	)
 }
 
