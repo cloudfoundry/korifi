@@ -54,7 +54,7 @@ Here are all the values that can be set for the chart:
 - `containerRegistryCACertSecret` (_String_): The secret that holds the CA of the container registry.
 - `containerRegistrySecret` (_String_): Deprecated in favor of containerRegistrySecrets.
 - `containerRegistrySecrets` (_Array_): List of `Secret` names to use when pushing or pulling from package, droplet and kpack builder repositories. Required if eksContainerRegistryRoleARN not set. Ignored if eksContainerRegistryRoleARN is set.
-- `containerRepositoryPrefix` (_String_): The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, a value of `index.docker.io/korifi/` will result in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets` being pushed.
+- `containerRepositoryPrefix` (_String_): The prefix of the container repository where package and droplet images will be pushed. This is suffixed with the app GUID and `-packages` or `-droplets`. For example, `index.docker.io/korifi/` results in `index.docker.io/korifi/<appGUID>-packages` and `index.docker.io/korifi/<appGUID>-droplets`. The default Helm value is empty, so you must override it for your registry.
 - `controllers`:
   - `extraVCAPApplicationValues`: Key-value pairs that are going to be set in the VCAP_APPLICATION env var on apps. Nested values are not supported.
   - `image` (_String_): Reference to the controllers container image.
