@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -446,9 +447,11 @@ var _ = Describe("SpaceRepository", func() {
 		})
 	})
 
-	Describe("PatchSpaceMetadata", func() {
+	Describe("PatchSpace", func() {
 		var (
 			spaceGUID                     string
+			displayName                   string
+			spaceNewName                  *string
 			orgGUID                       string
 			cfSpace                       *korifiv1alpha1.CFSpace
 			cfOrg                         *korifiv1alpha1.CFOrg
@@ -460,23 +463,26 @@ var _ = Describe("SpaceRepository", func() {
 		BeforeEach(func() {
 			cfOrg = createOrgWithCleanup(ctx, prefixedGUID("org"))
 			orgGUID = cfOrg.Name
-			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, "the-space")
+			displayName = uuid.NewString()
+			cfSpace = createSpaceWithCleanup(ctx, cfOrg.Name, displayName)
 			spaceGUID = cfSpace.Name
 			labelsPatch = nil
 			annotationsPatch = nil
+			spaceNewName = tools.PtrTo(uuid.NewString())
 		})
 
 		JustBeforeEach(func() {
-			patchMsg := repositories.PatchSpaceMetadataMessage{
+			patchMsg := repositories.PatchSpaceMessage{
 				GUID:    spaceGUID,
 				OrgGUID: orgGUID,
+				Name:    spaceNewName,
 				MetadataPatch: repositories.MetadataPatch{
 					Annotations: annotationsPatch,
 					Labels:      labelsPatch,
 				},
 			}
 
-			spaceRecord, patchErr = spaceRepo.PatchSpaceMetadata(ctx, authInfo, patchMsg)
+			spaceRecord, patchErr = spaceRepo.PatchSpace(ctx, authInfo, patchMsg)
 		})
 
 		When("the user is authorized and the space exists", func() {
@@ -514,6 +520,7 @@ var _ = Describe("SpaceRepository", func() {
 							"key-two": "value-two",
 						},
 					))
+					Expect(spaceRecord.Name).To(Equal(*spaceNewName))
 				})
 
 				It("sets the k8s CFSpace resource", func() {
@@ -530,6 +537,7 @@ var _ = Describe("SpaceRepository", func() {
 							"key-two": "value-two",
 						},
 					))
+					Expect(updatedCFSpace.Spec.DisplayName).To(Equal(*spaceNewName))
 				})
 			})
 
@@ -576,6 +584,7 @@ var _ = Describe("SpaceRepository", func() {
 							"key-two":        "value-two",
 						},
 					))
+					Expect(spaceRecord.Name).To(Equal(*spaceNewName))
 				})
 
 				It("sets the k8s CFSpace resource", func() {
@@ -594,6 +603,7 @@ var _ = Describe("SpaceRepository", func() {
 							"key-two":        "value-two",
 						},
 					))
+					Expect(spaceRecord.Name).To(Equal(*spaceNewName))
 				})
 			})
 
@@ -630,6 +640,17 @@ var _ = Describe("SpaceRepository", func() {
 						ContainSubstring(`"-bad-label"`),
 						ContainSubstring("alphanumeric"),
 					))
+				})
+			})
+
+			When("the name is nil", func() {
+				BeforeEach(func() {
+					spaceNewName = nil
+				})
+
+				It("space display name remains unchanged", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					Expect(spaceRecord.Name).To(Equal(displayName))
 				})
 			})
 		})
