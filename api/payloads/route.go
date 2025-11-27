@@ -12,6 +12,7 @@ import (
 
 type RouteCreate struct {
 	Host          string              `json:"host"`
+	Port          int                 `json:"port"`
 	Path          string              `json:"path"`
 	Relationships *RouteRelationships `json:"relationships"`
 	Metadata      Metadata            `json:"metadata"`
