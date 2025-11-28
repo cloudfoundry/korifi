@@ -642,15 +642,16 @@ var _ = Describe("SpaceRepository", func() {
 					))
 				})
 			})
-		})
 
-		When("the name is nil", func() {
-			BeforeEach(func() {
-				spaceNewName = nil
-			})
+			When("the name is nil", func() {
+				BeforeEach(func() {
+					spaceNewName = nil
+				})
 
-			It("space display name remains unchanged", func() {
-				Expect(spaceRecord.Name).To(Equal(displayName))
+				It("space display name remains unchanged", func() {
+					Expect(patchErr).NotTo(HaveOccurred())
+					Expect(spaceRecord.Name).To(Equal(displayName))
+				})
 			})
 		})
 
