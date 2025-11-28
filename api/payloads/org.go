@@ -31,8 +31,9 @@ func (p OrgCreate) ToMessage() repositories.CreateOrgMessage {
 }
 
 type OrgPatch struct {
-	Name     *string       `json:"name"`
-	Metadata MetadataPatch `json:"metadata"`
+	Name      *string       `json:"name"`
+	Suspended bool          `json:"suspended"`
+	Metadata  MetadataPatch `json:"metadata"`
 }
 
 func (p OrgPatch) Validate() error {

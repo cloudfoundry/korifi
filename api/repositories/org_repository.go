@@ -60,8 +60,9 @@ type DeleteOrgMessage struct {
 
 type PatchOrgMessage struct {
 	MetadataPatch
-	GUID string
-	Name *string
+	Suspended bool
+	GUID      string
+	Name      *string
 }
 
 func (p *PatchOrgMessage) Apply(org *korifiv1alpha1.CFOrg) {
