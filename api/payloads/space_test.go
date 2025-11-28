@@ -103,6 +103,7 @@ var _ = Describe("Space", func() {
 
 		BeforeEach(func() {
 			payload = payloads.SpacePatch{
+				Name: tools.PtrTo("new-space-name"),
 				Metadata: payloads.MetadataPatch{
 					Annotations: map[string]*string{
 						"foo": tools.PtrTo("bar"),
@@ -134,6 +135,18 @@ var _ = Describe("Space", func() {
 				expectUnprocessableEntityError(
 					validatorErr,
 					"label/annotation key cannot use the cloudfoundry.org domain",
+				)
+			})
+		})
+		When("the name is invalid", func() {
+			BeforeEach(func() {
+				payload.Name = tools.PtrTo("")
+			})
+
+			It("returns an unprocessable entity error", func() {
+				expectUnprocessableEntityError(
+					validatorErr,
+					"name cannot be blank",
 				)
 			})
 		})

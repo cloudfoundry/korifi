@@ -42,19 +42,22 @@ func (r SpaceRelationships) Validate() error {
 }
 
 type SpacePatch struct {
+	Name     *string       `json:"name"`
 	Metadata MetadataPatch `json:"metadata"`
 }
 
 func (p SpacePatch) Validate() error {
 	return jellidation.ValidateStruct(&p,
 		jellidation.Field(&p.Metadata),
+		jellidation.Field(&p.Name, jellidation.NilOrNotEmpty),
 	)
 }
 
-func (p SpacePatch) ToMessage(spaceGUID, orgGUID string) repositories.PatchSpaceMetadataMessage {
-	return repositories.PatchSpaceMetadataMessage{
+func (p SpacePatch) ToMessage(spaceGUID, orgGUID string) repositories.PatchSpaceMessage {
+	return repositories.PatchSpaceMessage{
 		GUID:    spaceGUID,
 		OrgGUID: orgGUID,
+		Name:    p.Name,
 		MetadataPatch: repositories.MetadataPatch{
 			Labels:      p.Metadata.Labels,
 			Annotations: p.Metadata.Annotations,

@@ -56,10 +56,18 @@ type DeleteSpaceMessage struct {
 	OrganizationGUID string
 }
 
-type PatchSpaceMetadataMessage struct {
+type PatchSpaceMessage struct {
 	MetadataPatch
 	GUID    string
 	OrgGUID string
+	Name    *string
+}
+
+func (p *PatchSpaceMessage) Apply(space *korifiv1alpha1.CFSpace) {
+	if p.Name != nil {
+		space.Spec.DisplayName = *p.Name
+	}
+	p.MetadataPatch.Apply(space)
 }
 
 type SpaceRecord struct {
@@ -212,7 +220,7 @@ func (r *SpaceRepo) DeleteSpace(ctx context.Context, info authorization.Info, me
 	return apierrors.FromK8sError(err, SpaceResourceType)
 }
 
-func (r *SpaceRepo) PatchSpaceMetadata(ctx context.Context, authInfo authorization.Info, message PatchSpaceMetadataMessage) (SpaceRecord, error) {
+func (r *SpaceRepo) PatchSpace(ctx context.Context, authInfo authorization.Info, message PatchSpaceMessage) (SpaceRecord, error) {
 	cfSpace := &korifiv1alpha1.CFSpace{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: message.OrgGUID,
