@@ -45,7 +45,11 @@ type ManifestApplication struct {
 	Buildpack *string                      `json:"buildpack" yaml:"buildpack"`
 	Metadata  MetadataPatch                `json:"metadata" yaml:"metadata"`
 	Services  []ManifestApplicationService `json:"services" yaml:"services"`
-	Docker    any                          `json:"docker,omitempty" yaml:"docker,omitempty"`
+	Docker    ManifestApplicationDocker    `json:"docker,omitempty" yaml:"docker,omitempty"`
+}
+
+type ManifestApplicationDocker struct {
+	Image string `json:"image"`
 }
 
 // TODO: Why is kebab-case used everywhere anyway and we have a deprecated field that claims to use

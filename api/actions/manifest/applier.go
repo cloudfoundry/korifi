@@ -23,6 +23,8 @@ type Applier struct {
 	routeRepo           shared.CFRouteRepository
 	serviceInstanceRepo shared.CFServiceInstanceRepository
 	serviceBindingRepo  shared.CFServiceBindingRepository
+	buildRepo           shared.CFBuildRepository
+	packageRepo         shared.CFPackageRepository
 }
 
 func NewApplier(
@@ -32,6 +34,8 @@ func NewApplier(
 	routeRepo shared.CFRouteRepository,
 	serviceInstanceRepo shared.CFServiceInstanceRepository,
 	serviceBindingRepo shared.CFServiceBindingRepository,
+	buildRepo shared.CFBuildRepository,
+	packageRepo shared.CFPackageRepository,
 ) *Applier {
 	return &Applier{
 		appRepo:             appRepo,
@@ -40,6 +44,8 @@ func NewApplier(
 		routeRepo:           routeRepo,
 		serviceInstanceRepo: serviceInstanceRepo,
 		serviceBindingRepo:  serviceBindingRepo,
+		buildRepo:           buildRepo,
+		packageRepo:         packageRepo,
 	}
 }
 
@@ -47,6 +53,12 @@ func (a *Applier) Apply(ctx context.Context, authInfo authorization.Info, spaceG
 	appState, err := a.applyApp(ctx, authInfo, spaceGUID, appInfo, appState)
 	if err != nil {
 		return err
+	}
+
+	if appInfo.Docker.Image != "" {
+		if err := a.createDockerBuild(ctx, authInfo, spaceGUID, appInfo, appState); err != nil {
+			return err
+		}
 	}
 
 	if err := a.applyProcesses(ctx, authInfo, appInfo, appState); err != nil {
@@ -58,6 +70,43 @@ func (a *Applier) Apply(ctx context.Context, authInfo authorization.Info, spaceG
 	}
 
 	return a.applyServices(ctx, authInfo, appInfo, appState)
+}
+
+func (a *Applier) createDockerBuild(ctx context.Context, authInfo authorization.Info, spaceGUID string, appInfo payloads.ManifestApplication, appState AppState) error {
+	pkgRecord, err := a.packageRepo.CreatePackage(ctx, authInfo, repositories.CreatePackageMessage{
+		Type:      "docker",
+		AppGUID:   appState.App.GUID,
+		SpaceGUID: spaceGUID,
+		Data: &repositories.PackageData{
+			Image: appInfo.Docker.Image,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create docker package for image %s: %w", appInfo.Docker.Image, err)
+	}
+
+	build, err := a.buildRepo.CreateBuild(ctx, authInfo, repositories.CreateBuildMessage{
+		AppGUID:     appState.App.GUID,
+		PackageGUID: pkgRecord.GUID,
+		SpaceGUID:   spaceGUID,
+		Lifecycle: repositories.Lifecycle{
+			Type: "docker",
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create docker package for image %s: %w", appInfo.Docker.Image, err)
+	}
+
+	_, err = a.appRepo.SetCurrentDroplet(ctx, authInfo, repositories.SetCurrentDropletMessage{
+		AppGUID:     appState.App.GUID,
+		DropletGUID: build.GUID,
+		SpaceGUID:   spaceGUID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set current droplet on app %s: %w", appState.App.GUID, err)
+	}
+
+	return nil
 }
 
 func (a *Applier) applyApp(
