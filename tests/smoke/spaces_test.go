@@ -23,7 +23,7 @@ var _ = Describe("Spaces", func() {
 
 	Describe("cf rename-space", func() {
 		It("renames the space", func() {
-			session := helpers.Cf("renamed-space", spaceName, "renamed-space")
+			session := helpers.Cf("rename-space", spaceName, "renamed-space")
 			Expect(session).To(Exit(0))
 
 			session = helpers.Cf("spaces")
