@@ -493,6 +493,33 @@ var _ = Describe("Space", func() {
 		})
 	})
 
+	Describe("Get space feature", func() {
+		BeforeEach(func() {
+			requestMethod = http.MethodGet
+			requestPath += "/the-space-guid/features/ssh"
+		})
+
+		It("returns the correct response body", func() {
+			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+			Expect(rr).To(HaveHTTPBody(SatisfyAll(
+				MatchJSONPath("$.name", "ssh"),
+				MatchJSONPath("$.description", "Enable SSHing into apps in the space."),
+				MatchJSONPath("$.enabled", false),
+			)))
+		})
+
+		When("the feature is not ssh", func() {
+			BeforeEach(func() {
+				requestPath = "/v3/spaces/the-space-guid/features/invalid-feature"
+			})
+
+			It("returns error", func() {
+				expectUnprocessableEntityError("feature \"invalid-feature\" is not supported")
+			})
+		})
+	})
+
 	Describe("Delete unmapped routes for a space", func() {
 		BeforeEach(func() {
 			requestMethod = http.MethodDelete

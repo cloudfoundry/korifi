@@ -447,4 +447,31 @@ var _ = Describe("Spaces", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 		})
 	})
+
+	Describe("features", func() {
+		var (
+			spaceGUID string
+			result    resource
+		)
+
+		BeforeEach(func() {
+			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().
+				SetResult(&result).
+				Get("/v3/spaces/" + spaceGUID + "/features/ssh")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns StatusOK", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+
+			respUnmarshalled := map[string]interface{}{}
+			Expect(json.Unmarshal(resp.Body(), &respUnmarshalled)).To(Succeed())
+			Expect(respUnmarshalled).To(HaveKeyWithValue("enabled", BeFalse()))
+		})
+	})
 })

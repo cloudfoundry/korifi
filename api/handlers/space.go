@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -21,6 +22,7 @@ const (
 	SpacesPath                    = "/v3/spaces"
 	SpacePath                     = "/v3/spaces/{guid}"
 	RoutesForSpacePath            = "/v3/spaces/{guid}/routes"
+	SpaceFeaturePath              = "/v3/spaces/{guid}/features/{name}"
 	IsolationSegmentsForSpacePath = "/v3/spaces/{guid}/relationships/isolation_segment"
 )
 
@@ -202,6 +204,21 @@ func (h *Space) getIsolationSegments(r *http.Request) (*routing.Response, error)
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForIsolationSegment(h.apiBaseURL)), nil
 }
 
+func (h *Space) getSpaceFeature(r *http.Request) (*routing.Response, error) {
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.get-feature")
+
+	featureName := routing.URLParam(r, "name")
+	if featureName != "ssh" {
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewUnprocessableEntityError(nil, fmt.Sprintf("feature %q is not supported", featureName)), "feature not supported")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
+		"name":        "ssh",
+		"description": "Enable SSHing into apps in the space.",
+		"enabled":     false,
+	}), nil
+}
+
 func (h *Space) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -215,5 +232,6 @@ func (h *Space) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: SpacePath, Handler: h.get},
 		{Method: "DELETE", Pattern: RoutesForSpacePath, Handler: h.deleteUnmappedRoutes},
 		{Method: "GET", Pattern: IsolationSegmentsForSpacePath, Handler: h.getIsolationSegments},
+		{Method: "GET", Pattern: SpaceFeaturePath, Handler: h.getSpaceFeature},
 	}
 }
