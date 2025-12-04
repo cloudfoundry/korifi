@@ -424,4 +424,27 @@ var _ = Describe("Spaces", func() {
 			Expect(result.GUID).To(Equal(spaceGUID))
 		})
 	})
+
+	Describe("isolation_segment", func() {
+		var (
+			spaceGUID string
+			result    resource
+		)
+
+		BeforeEach(func() {
+			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().
+				SetResult(&result).
+				Get("/v3/spaces/" + spaceGUID + "/relationships/isolation_segment")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns StatusOK", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+		})
+	})
 })
