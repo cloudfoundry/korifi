@@ -31,7 +31,7 @@ type CFSpaceRepository interface {
 	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) (repositories.ListResult[repositories.SpaceRecord], error)
 	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
-	PatchSpaceMetadata(context.Context, authorization.Info, repositories.PatchSpaceMetadataMessage) (repositories.SpaceRecord, error)
+	PatchSpace(context.Context, authorization.Info, repositories.PatchSpaceMessage) (repositories.SpaceRecord, error)
 	GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
 }
 
@@ -120,7 +120,7 @@ func (h *Space) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	space, err = h.spaceRepo.PatchSpaceMetadata(r.Context(), authInfo, payload.ToMessage(spaceGUID, space.OrganizationGUID))
+	space, err = h.spaceRepo.PatchSpace(r.Context(), authInfo, payload.ToMessage(spaceGUID, space.OrganizationGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch space metadata", "GUID", spaceGUID)
 	}
