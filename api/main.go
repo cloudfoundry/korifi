@@ -501,6 +501,12 @@ func main() {
 			spaceRepo,
 			requestValidator,
 		),
+		handlers.NewOrgQuota(
+			*serverURL,
+		),
+		handlers.NewIsolationSegment(
+			*serverURL,
+		),
 	}
 
 	if !cfg.Experimental.ExternalLogCache.Enabled {
