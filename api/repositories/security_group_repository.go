@@ -109,7 +109,7 @@ func (r *SecurityGroupRepo) CreateSecurityGroup(ctx context.Context, authInfo au
 			}
 		}
 
-		return SecurityGroupRecord{}, apierrors.FromK8sError(err, AppResourceType)
+		return SecurityGroupRecord{}, apierrors.FromK8sError(err, SecurityGroupResourceType)
 	}
 
 	return toSecurityGroupRecord(*cfSecurityGroup), nil
