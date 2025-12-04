@@ -110,6 +110,9 @@ func (v *Validator) validateRules(rules []korifiv1alpha1.SecurityGroupRule) erro
 		if err := validateRulePorts(rule.Ports, rule.Protocol); err != nil {
 			return fmt.Errorf("rules[%d]: %w", i, err)
 		}
+		if err := validateRuleICMP(rule.Type, rule.Code, rule.Protocol); err != nil {
+			return fmt.Errorf("rules[%d]: %w", i, err)
+		}
 	}
 	return nil
 }
@@ -134,8 +137,27 @@ func validateRuleDestination(destination string) error {
 	return errors.New(InvalidDestinationErrorMessage)
 }
 
+func validateRuleICMP(icmpType, icmpCode int, protocol string) error {
+	if protocol != korifiv1alpha1.ProtocolICMP && protocol != korifiv1alpha1.ProtocolICMPv6 {
+		if icmpType != 0 || icmpCode != 0 {
+			return fmt.Errorf("type and code are only allowed for ICMP and ICMPv6 protocols")
+		}
+		return nil
+	}
+
+	if icmpType < -1 || icmpType > 255 {
+		return fmt.Errorf("valid type values are between -1 and 255 (inclusive), where -1 allows all")
+	}
+
+	if icmpCode < -1 || icmpCode > 255 {
+		return fmt.Errorf("valid code values are between -1 and 255 (inclusive), where -1 allows all")
+	}
+
+	return nil
+}
+
 func validateRulePorts(ports, protocol string) error {
-	if !slices.Contains([]string{"tcp", "udp", "all"}, protocol) {
+	if !slices.Contains([]string{"tcp", "udp", "icmp", "icmpv6", "all"}, protocol) {
 		return fmt.Errorf("protocol must be 'tcp', 'udp', or 'all'")
 	}
 
@@ -146,28 +168,30 @@ func validateRulePorts(ports, protocol string) error {
 		return nil
 	}
 
-	if ports == "" {
-		return fmt.Errorf("ports are required for protocols of type TCP and UDP, %s", InvalidPortsErrorMessage)
-	}
-
-	portRange := strings.Split(ports, "-")
-	portValues := strings.Split(ports, ",")
-
-	if len(portRange) > 1 && len(portValues) > 1 {
-		return errors.New(InvalidPortsErrorMessage)
-	}
-
-	if len(portRange) == 2 {
-		parts := portRange
-		if isValidPort(parts[0]) && isValidPort(parts[1]) {
-			return nil
+	if protocol == korifiv1alpha1.ProtocolTCP || protocol == korifiv1alpha1.ProtocolUDP {
+		if ports == "" {
+			return fmt.Errorf("ports are required for protocols of type TCP and UDP, %s", InvalidPortsErrorMessage)
 		}
-	}
 
-	parts := portValues
-	for _, part := range parts {
-		if !isValidPort(part) {
+		portRange := strings.Split(ports, "-")
+		portValues := strings.Split(ports, ",")
+
+		if len(portRange) > 1 && len(portValues) > 1 {
 			return errors.New(InvalidPortsErrorMessage)
+		}
+
+		if len(portRange) == 2 {
+			parts := portRange
+			if isValidPort(parts[0]) && isValidPort(parts[1]) {
+				return nil
+			}
+		}
+
+		parts := portValues
+		for _, part := range parts {
+			if !isValidPort(part) {
+				return errors.New(InvalidPortsErrorMessage)
+			}
 		}
 	}
 	return nil

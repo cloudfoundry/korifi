@@ -8,9 +8,11 @@ import (
 )
 
 const (
-	ProtocolTCP = "tcp"
-	ProtocolUDP = "udp"
-	ProtocolALL = "all"
+	ProtocolTCP    = "tcp"
+	ProtocolUDP    = "udp"
+	ProtocolALL    = "all"
+	ProtocolICMP   = "icmp"
+	ProtocolICMPv6 = "icmpv6"
 )
 
 type SecurityGroupRule struct {
