@@ -64,6 +64,8 @@ spec:
                 items:
                   properties:
                     code:
+                      maximum: 255
+                      minimum: -1
                       type: integer
                     description:
                       type: string
@@ -74,8 +76,16 @@ spec:
                     ports:
                       type: string
                     protocol:
+                      enum:
+                      - tcp
+                      - udp
+                      - icmp
+                      - icmpv6
+                      - all
                       type: string
                     type:
+                      maximum: 255
+                      minimum: -1
                       type: integer
                   required:
                   - destination

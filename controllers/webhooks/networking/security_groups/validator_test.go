@@ -3,6 +3,7 @@ package security_groups_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -84,99 +85,11 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 				Expect(retErr).To(MatchError("foo"))
 			})
 		})
-	})
-
-	Describe("ValidateUpdate", func() {
-		var updatedSecurityGroup *korifiv1alpha1.CFSecurityGroup
-
-		BeforeEach(func() {
-			updatedSecurityGroup = securityGroup.DeepCopy()
-			updatedSecurityGroup.Spec.DisplayName = "the-new-name"
-		})
-
-		JustBeforeEach(func() {
-			_, retErr = validatingWebhook.ValidateUpdate(ctx, securityGroup, updatedSecurityGroup)
-		})
-
-		It("invokes the validator correctly", func() {
-			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, oldResource, newResource := duplicateValidator.ValidateUpdateArgsForCall(0)
-			Expect(actualContext).To(Equal(ctx))
-			Expect(actualNamespace).To(Equal(securityGroup.Namespace))
-			Expect(oldResource).To(Equal(securityGroup))
-			Expect(newResource).To(Equal(updatedSecurityGroup))
-		})
-
-		When("the security group is being deleted", func() {
-			BeforeEach(func() {
-				updatedSecurityGroup.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-			})
-
-			It("does not return an error", func() {
-				Expect(retErr).NotTo(HaveOccurred())
-			})
-		})
-
-		When("the new security group name is a duplicate", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateUpdateReturns(errors.New("foo"))
-			})
-
-			It("denies the request", func() {
-				Expect(retErr).To(MatchError("foo"))
-			})
-		})
-	})
-
-	Describe("ValidateDelete", func() {
-		JustBeforeEach(func() {
-			_, retErr = validatingWebhook.ValidateDelete(ctx, securityGroup)
-		})
-
-		It("allows the request", func() {
-			Expect(retErr).NotTo(HaveOccurred())
-		})
-
-		It("invokes the validator correctly", func() {
-			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
-			actualContext, _, actualNamespace, actualResource := duplicateValidator.ValidateDeleteArgsForCall(0)
-			Expect(actualContext).To(Equal(ctx))
-			Expect(actualNamespace).To(Equal(securityGroup.Namespace))
-			Expect(actualResource).To(Equal(securityGroup))
-		})
-
-		When("delete validation fails", func() {
-			BeforeEach(func() {
-				duplicateValidator.ValidateDeleteReturns(errors.New("foo"))
-			})
-
-			It("disallows the request", func() {
-				Expect(retErr).To(MatchError("foo"))
-			})
-		})
-	})
-
-	Describe("Validating the security group rules when creating", func() {
-		JustBeforeEach(func() {
-			_, retErr = validatingWebhook.ValidateCreate(ctx, securityGroup)
-		})
-
-		When("the protocol is invalid", func() {
-			BeforeEach(func() {
-				securityGroup.Spec.Rules[0].Protocol = "invalid"
-			})
-
-			It("returns an error", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					security_groups.InvalidSecurityGroupRuleErrorType,
-					ContainSubstring("protocol must be 'tcp', 'udp', or 'all'"),
-				))
-			})
-		})
 
 		When("the protocol is ALL and has ports", func() {
 			BeforeEach(func() {
 				securityGroup.Spec.Rules[0].Protocol = "all"
+				securityGroup.Spec.Rules[0].Ports = "80"
 			})
 
 			It("returns an error", func() {
@@ -239,6 +152,53 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 			})
 		})
 
+		When("the protocol is ALL and has no ports", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0].Protocol = "all"
+				securityGroup.Spec.Rules[0].Ports = ""
+			})
+
+			It("allows the request", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("ports specify a valid TCP range", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0].Protocol = "tcp"
+				securityGroup.Spec.Rules[0].Ports = "80-443"
+			})
+
+			It("allows the request", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("ports specify a valid UDP list", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0].Protocol = "udp"
+				securityGroup.Spec.Rules[0].Ports = "53,67,68"
+			})
+
+			It("allows the request", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("ports mix list and range", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0].Protocol = "tcp"
+				securityGroup.Spec.Rules[0].Ports = "80-90,100"
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					security_groups.InvalidSecurityGroupRuleErrorType,
+					ContainSubstring("ports must be a valid single port, comma separated list of ports, or range or ports, formatted as a string"),
+				))
+			})
+		})
+
 		When("the destination is not a valid IPV4", func() {
 			BeforeEach(func() {
 				securityGroup.Spec.Rules[0].Destination = "invalid"
@@ -277,32 +237,20 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 				))
 			})
 		})
-	})
 
-	Describe("Validating the security group rules when updating", func() {
-		var updatedSecurityGroup *korifiv1alpha1.CFSecurityGroup
-
-		JustBeforeEach(func() {
-			updatedSecurityGroup = securityGroup.DeepCopy()
-			_, retErr = validatingWebhook.ValidateUpdate(ctx, securityGroup, updatedSecurityGroup)
-		})
-
-		When("the protocol is invalid", func() {
+		When("the destination contains multiple valid entries", func() {
 			BeforeEach(func() {
-				securityGroup.Spec.Rules[0].Protocol = "invalid"
+				securityGroup.Spec.Rules[0].Destination = "192.168.1.1, 10.0.0.0/24, 192.168.1.10-192.168.1.20"
 			})
 
-			It("returns an error", func() {
-				Expect(retErr).To(matchers.BeValidationError(
-					security_groups.InvalidSecurityGroupRuleErrorType,
-					ContainSubstring("protocol must be 'tcp', 'udp', or 'all'"),
-				))
+			It("allows the request", func() {
+				Expect(retErr).NotTo(HaveOccurred())
 			})
 		})
 
-		When("the destination is not a valid IPV4", func() {
+		When("the destination contains an invalid entry among valids", func() {
 			BeforeEach(func() {
-				securityGroup.Spec.Rules[0].Destination = "invalid"
+				securityGroup.Spec.Rules[0].Destination = "192.168.1.1, invalid"
 			})
 
 			It("returns an error", func() {
@@ -312,5 +260,213 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 				))
 			})
 		})
+
+		When("protocol is icmp with type/code", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0] = korifiv1alpha1.SecurityGroupRule{
+					Protocol:    "icmp",
+					Type:        8,
+					Code:        0,
+					Destination: "192.168.1.1",
+				}
+			})
+
+			It("allows the request", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("protocol is icmpv6 with type/code", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0] = korifiv1alpha1.SecurityGroupRule{
+					Protocol:    "icmpv6",
+					Type:        128,
+					Code:        0,
+					Destination: "192.168.1.1",
+				}
+			})
+
+			It("allows the request", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("non-ICMP protocol has type set", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0].Protocol = "tcp"
+				securityGroup.Spec.Rules[0].Type = 8
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					security_groups.InvalidSecurityGroupRuleErrorType,
+					ContainSubstring("type allowed for ICMP and ICMPv6 only"),
+				))
+			})
+		})
+
+		When("non-ICMP protocol has code set", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0].Protocol = "udp"
+				securityGroup.Spec.Rules[0].Code = 3
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					security_groups.InvalidSecurityGroupRuleErrorType,
+					ContainSubstring("code allowed for ICMP and ICMPv6 only"),
+				))
+			})
+		})
+
+		When("the display name is empty", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.DisplayName = ""
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					security_groups.InvalidNameErrorMessage,
+					ContainSubstring("display name cannot be empty"),
+				))
+			})
+		})
+
+		When("the display name exceeds 255 characters", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.DisplayName = strings.Repeat("a", 256)
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					security_groups.InvalidNameErrorMessage,
+					ContainSubstring("must be less than 255 characters"),
+				))
+			})
+		})
+
+		When("the display name is exactly 255 characters", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.DisplayName = strings.Repeat("a", 255)
+			})
+
+			It("allows the request", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
 	})
+
+	Describe("ValidateUpdate", func() {
+		var updatedSecurityGroup *korifiv1alpha1.CFSecurityGroup
+
+		BeforeEach(func() {
+			updatedSecurityGroup = securityGroup.DeepCopy()
+			updatedSecurityGroup.Spec.DisplayName = "the-new-name"
+		})
+
+		JustBeforeEach(func() {
+			_, retErr = validatingWebhook.ValidateUpdate(ctx, securityGroup, updatedSecurityGroup)
+		})
+
+		It("invokes the validator correctly", func() {
+			Expect(duplicateValidator.ValidateUpdateCallCount()).To(Equal(1))
+			actualContext, _, actualNamespace, oldResource, newResource := duplicateValidator.ValidateUpdateArgsForCall(0)
+			Expect(actualContext).To(Equal(ctx))
+			Expect(actualNamespace).To(Equal(securityGroup.Namespace))
+			Expect(oldResource).To(Equal(securityGroup))
+			Expect(newResource).To(Equal(updatedSecurityGroup))
+		})
+
+		When("protocol is icmp with type/code", func() {
+			BeforeEach(func() {
+				securityGroup.Spec.Rules[0] = korifiv1alpha1.SecurityGroupRule{
+					Protocol:    "icmp",
+					Type:        8,
+					Code:        0,
+					Destination: "192.168.1.1",
+				}
+			})
+
+			It("allows the request", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("the security group is being deleted", func() {
+			BeforeEach(func() {
+				updatedSecurityGroup.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			})
+
+			It("does not return an error", func() {
+				Expect(retErr).NotTo(HaveOccurred())
+			})
+		})
+
+		When("the new security group name is a duplicate", func() {
+			BeforeEach(func() {
+				duplicateValidator.ValidateUpdateReturns(errors.New("foo"))
+			})
+
+			It("denies the request", func() {
+				Expect(retErr).To(MatchError("foo"))
+			})
+		})
+
+		When("the destination is not a valid IPV4", func() {
+			BeforeEach(func() {
+				updatedSecurityGroup.Spec.Rules[0].Destination = "invalid"
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					security_groups.InvalidSecurityGroupRuleErrorType,
+					ContainSubstring("destination must contain valid CIDR(s), IP address(es), or IP address range(s)"),
+				))
+			})
+		})
+
+		When("non-ICMP protocol has type set", func() {
+			BeforeEach(func() {
+				updatedSecurityGroup.Spec.Rules[0].Protocol = "tcp"
+				updatedSecurityGroup.Spec.Rules[0].Type = 8
+			})
+
+			It("returns an error", func() {
+				Expect(retErr).To(matchers.BeValidationError(
+					security_groups.InvalidSecurityGroupRuleErrorType,
+					ContainSubstring("type allowed for ICMP and ICMPv6 only"),
+				))
+			})
+		})
+
+	})
+
+	Describe("ValidateDelete", func() {
+		JustBeforeEach(func() {
+			_, retErr = validatingWebhook.ValidateDelete(ctx, securityGroup)
+		})
+
+		It("allows the request", func() {
+			Expect(retErr).NotTo(HaveOccurred())
+		})
+
+		It("invokes the validator correctly", func() {
+			Expect(duplicateValidator.ValidateDeleteCallCount()).To(Equal(1))
+			actualContext, _, actualNamespace, actualResource := duplicateValidator.ValidateDeleteArgsForCall(0)
+			Expect(actualContext).To(Equal(ctx))
+			Expect(actualNamespace).To(Equal(securityGroup.Namespace))
+			Expect(actualResource).To(Equal(securityGroup))
+		})
+
+		When("delete validation fails", func() {
+			BeforeEach(func() {
+				duplicateValidator.ValidateDeleteReturns(errors.New("foo"))
+			})
+
+			It("disallows the request", func() {
+				Expect(retErr).To(MatchError("foo"))
+			})
+		})
+	})
+
 })
