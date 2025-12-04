@@ -2,6 +2,7 @@ adminUserName:
 rootNamespace: cf
 logLevel: info
 defaultAppDomainName:
+containerRepositoryPrefix: ""
 containerRegistrySecrets:
 - image-registry-credentials
 eksContainerRegistryRoleARN: ""
