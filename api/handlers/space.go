@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	SpacesPath         = "/v3/spaces"
-	SpacePath          = "/v3/spaces/{guid}"
-	RoutesForSpacePath = "/v3/spaces/{guid}/routes"
+	SpacesPath                    = "/v3/spaces"
+	SpacePath                     = "/v3/spaces/{guid}"
+	RoutesForSpacePath            = "/v3/spaces/{guid}/routes"
+	IsolationSegmentsForSpacePath = "/v3/spaces/{guid}/relationships/isolation_segment"
 )
 
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
@@ -197,6 +198,10 @@ func (h *Space) deleteUnmappedRoutes(r *http.Request) (*routing.Response, error)
 	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteUnmappedRoutesOperation, h.apiBaseURL)), nil
 }
 
+func (h *Space) getIsolationSegments(r *http.Request) (*routing.Response, error) {
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForIsolationSegment(h.apiBaseURL)), nil
+}
+
 func (h *Space) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -209,5 +214,6 @@ func (h *Space) AuthenticatedRoutes() []routing.Route {
 		{Method: "DELETE", Pattern: SpacePath, Handler: h.delete},
 		{Method: "GET", Pattern: SpacePath, Handler: h.get},
 		{Method: "DELETE", Pattern: RoutesForSpacePath, Handler: h.deleteUnmappedRoutes},
+		{Method: "GET", Pattern: IsolationSegmentsForSpacePath, Handler: h.getIsolationSegments},
 	}
 }

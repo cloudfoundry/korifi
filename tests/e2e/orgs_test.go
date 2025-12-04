@@ -266,4 +266,20 @@ var _ = Describe("Orgs", func() {
 			Expect(result.GUID).To(Equal(commonTestOrgGUID))
 		})
 	})
+
+	Describe("default isolation segment", func() {
+		var result resource
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().
+				SetResult(&result).
+				Get("/v3/organizations/" + commonTestOrgGUID + "/relationships/default_isolation_segment")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns StatusOK", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+		})
+	})
 })
