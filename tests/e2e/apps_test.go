@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"gopkg.in/yaml.v2"
 )
 
 var _ = Describe("Apps", func() {
@@ -419,6 +420,31 @@ var _ = Describe("Apps", func() {
 			It("succeeds", func() {
 				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 				Expect(resultList.Resources[0].GUID).To(Equal(buildGUID))
+			})
+		})
+
+		Describe("Get manifest yaml", func() {
+			BeforeEach(func() {
+				setCurrentDroplet(appGUID, buildGUID)
+			})
+
+			JustBeforeEach(func() {
+				var err error
+				resp, err = adminClient.R().Get("/v3/apps/" + appGUID + "/manifest")
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("succeeds", func() {
+				Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+				var manifestResource manifestResource
+				err := yaml.Unmarshal(resp.Body(), &manifestResource)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(manifestResource.Applications).To(ConsistOf(applicationResource{
+					Name: "myApp",
+					Docker: dockerResource{
+						Image: "",
+					},
+				}))
 			})
 		})
 

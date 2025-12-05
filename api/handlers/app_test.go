@@ -17,6 +17,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
+	"go.yaml.in/yaml/v3"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -82,7 +83,7 @@ var _ = Describe("App", func() {
 			SpaceGUID:   spaceGUID,
 			State:       "STOPPED",
 			Revision:    "0",
-			DropletGUID: "test-droplet-guid",
+			DropletGUID: dropletGUID,
 			Lifecycle: repositories.Lifecycle{
 				Type: "buildpack",
 				Data: repositories.LifecycleData{
@@ -521,6 +522,116 @@ var _ = Describe("App", func() {
 
 			It("returns an unprocessable entity error", func() {
 				expectUnprocessableEntityError("validation error")
+			})
+		})
+	})
+
+	Describe("GET /v3/apps/{guid}/manifest", func() {
+		BeforeEach(func() {
+			appRecord.Lifecycle.Type = "docker"
+			appRepo.GetAppReturns(appRecord, nil)
+			dropletRepo.GetDropletReturns(repositories.DropletRecord{
+				GUID:    dropletGUID,
+				AppGUID: appGUID,
+				Image:   "docker-image",
+			}, nil)
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/manifest", nil)
+		})
+
+		It("returns the manifest as yaml", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualAppGUID).To(Equal(appGUID))
+
+			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualDropletGUID := dropletRepo.GetDropletArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualDropletGUID).To(Equal(dropletGUID))
+
+			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/x-yaml"))
+
+			var manifest payloads.Manifest
+			err := yaml.Unmarshal(rr.Body.Bytes(), &manifest)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(manifest.Applications).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":   Equal(appName),
+				"Docker": HaveKeyWithValue("image", "docker-image"),
+			})))
+		})
+
+		When("the app lifecycle type is not docker", func() {
+			BeforeEach(func() {
+				appRecord.Lifecycle.Type = "buildpack"
+				appRepo.GetAppReturns(appRecord, nil)
+			})
+
+			It("does not set docker image url on manifest", func() {
+				var manifest payloads.Manifest
+				err := yaml.Unmarshal(rr.Body.Bytes(), &manifest)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(manifest.Applications).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Name":   Equal(appName),
+					"Docker": BeNil(),
+				})))
+			})
+		})
+
+		When("the droplet guid is not set", func() {
+			BeforeEach(func() {
+				appRecord.DropletGUID = ""
+				appRepo.GetAppReturns(appRecord, nil)
+			})
+
+			It("does not set docker image url on manifest", func() {
+				var manifest payloads.Manifest
+				err := yaml.Unmarshal(rr.Body.Bytes(), &manifest)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(manifest.Applications).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Name":   Equal(appName),
+					"Docker": BeNil(),
+				})))
+			})
+		})
+
+		When("getting the app fails", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("get-app-failed"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the App cannot be accessed", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App")
+			})
+		})
+
+		When("getting the droplet fails", func() {
+			BeforeEach(func() {
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, errors.New("get-droplet-failed"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the Droplet doesn't exist", func() {
+			BeforeEach(func() {
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, apierrors.NewNotFoundError(nil, repositories.DropletResourceType))
+			})
+
+			It("returns error", func() {
+				expectNotFoundError("Droplet")
 			})
 		})
 	})

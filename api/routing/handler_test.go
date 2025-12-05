@@ -54,6 +54,16 @@ var _ = Describe("Handler", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 		})
 
+		When("content type option is used", func() {
+			BeforeEach(func() {
+				response = response.WithContentType("text/plain")
+			})
+
+			It("sets the specified content type header on the response", func() {
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "text/plain"))
+			})
+		})
+
 		It("encodes the body into JSON", func() {
 			Expect(rr).To(HaveHTTPBody(MatchJSON(`{"hello":"world"}`)))
 		})

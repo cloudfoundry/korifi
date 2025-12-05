@@ -13,15 +13,17 @@ import (
 )
 
 type Response struct {
-	httpStatus int
-	body       interface{}
-	headers    map[string][]string
+	httpStatus  int
+	body        interface{}
+	headers     map[string][]string
+	contentType string
 }
 
 func NewResponse(httpStatus int) *Response {
 	return &Response{
-		httpStatus: httpStatus,
-		headers:    map[string][]string{},
+		httpStatus:  httpStatus,
+		headers:     map[string][]string{},
+		contentType: "application/json",
 	}
 }
 
@@ -32,6 +34,11 @@ func (r *Response) WithHeader(key, value string) *Response {
 
 func (r *Response) WithBody(body interface{}) *Response {
 	r.body = body
+	return r
+}
+
+func (r *Response) WithContentType(contentType string) *Response {
+	r.contentType = contentType
 	return r
 }
 
@@ -91,7 +98,7 @@ func (response *Response) writeTo(w http.ResponseWriter) error {
 		return nil
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", response.contentType)
 	w.WriteHeader(response.httpStatus)
 
 	encoder := json.NewEncoder(w)

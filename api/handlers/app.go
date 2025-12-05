@@ -23,6 +23,7 @@ import (
 const (
 	AppsPath                          = "/v3/apps"
 	AppPath                           = "/v3/apps/{guid}"
+	AppManifestPath                   = "/v3/apps/{guid}/manifest"
 	AppCurrentDropletRelationshipPath = "/v3/apps/{guid}/relationships/current_droplet"
 	AppDropletsPath                   = "/v3/apps/{guid}/droplets"
 	AppCurrentDropletPath             = "/v3/apps/{guid}/droplets/current"
@@ -120,6 +121,35 @@ func (h *App) get(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "GUID", appGUID)
 	}
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
+}
+
+func (h *App) getManifest(r *http.Request) (*routing.Response, error) {
+	appGUID := routing.URLParam(r, "guid")
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-manifest")
+
+	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "GUID", appGUID)
+	}
+
+	manifestApplication := payloads.ManifestApplication{
+		Name: app.Name,
+	}
+
+	if app.DropletGUID != "" && app.Lifecycle.Type == "docker" {
+		droplet, err := h.dropletRepo.GetDroplet(r.Context(), authInfo, app.DropletGUID)
+		if err != nil {
+			return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch droplet from Kubernetes", "GUID", app.DropletGUID)
+		}
+
+		manifestApplication.Docker = map[string]any{
+			"image": droplet.Image,
+		}
+	}
+
+	manifest := payloads.Manifest{Applications: []payloads.ManifestApplication{manifestApplication}}
+	return routing.NewResponse(http.StatusOK).WithContentType("application/x-yaml").WithBody(manifest), nil
 }
 
 //nolint:dupl
@@ -761,6 +791,7 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: AppCurrentDropletRelationshipPath, Handler: h.setCurrentDroplet},
 		{Method: "GET", Pattern: AppDropletsPath, Handler: h.listDroplets},
 		{Method: "GET", Pattern: AppCurrentDropletPath, Handler: h.getCurrentDroplet},
+		{Method: "GET", Pattern: AppManifestPath, Handler: h.getManifest},
 		{Method: "POST", Pattern: AppStartPath, Handler: h.start},
 		{Method: "POST", Pattern: AppStopPath, Handler: h.stop},
 		{Method: "POST", Pattern: AppRestartPath, Handler: h.restart},
