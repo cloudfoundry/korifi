@@ -8,6 +8,7 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"go.yaml.in/yaml/v2"
 
 	"github.com/go-logr/logr"
 )
@@ -101,12 +102,20 @@ func (response *Response) writeTo(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", response.contentType)
 	w.WriteHeader(response.httpStatus)
 
-	encoder := json.NewEncoder(w)
-	encoder.SetEscapeHTML(false)
+	if response.contentType == "application/x-yaml" {
+		encoder := yaml.NewEncoder(w)
+		err := encoder.Encode(response.body)
+		if err != nil {
+			return fmt.Errorf("failed to encode and write yaml response: %w", err)
+		}
+	} else {
+		encoder := json.NewEncoder(w)
+		encoder.SetEscapeHTML(false)
 
-	err := encoder.Encode(response.body)
-	if err != nil {
-		return fmt.Errorf("failed to encode and write response: %w", err)
+		err := encoder.Encode(response.body)
+		if err != nil {
+			return fmt.Errorf("failed to encode and write json response: %w", err)
+		}
 	}
 
 	return nil
