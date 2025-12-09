@@ -40,6 +40,12 @@ updates:
     interval: "cron"
     cronjob: "* 10-22 * * MON-FRI"
 
+- package-ecosystem: "docker"
+  directory: "/migration"
+  schedule:
+    interval: "cron"
+    cronjob: "* 10-22 * * MON-FRI"
+
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:
