@@ -2,16 +2,16 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - githubRelease:
-      tag: v0.17.0
-      url: https://api.github.com/repos/buildpacks-community/kpack/releases/213128352
+      tag: v0.17.1
+      url: https://api.github.com/repos/buildpacks-community/kpack/releases/268763858
     path: kpack
   - githubRelease:
       tag: v0.8.0
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/229645413
     path: metrics-server-local
   - githubRelease:
-      tag: v1.19.1
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/254726664
+      tag: v1.19.2
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/268739177
     path: cert-manager
   - git:
       commitTitle: Add release notes for v3.31.2
