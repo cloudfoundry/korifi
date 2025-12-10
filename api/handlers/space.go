@@ -19,11 +19,13 @@ import (
 )
 
 const (
-	SpacesPath                   = "/v3/spaces"
-	SpacePath                    = "/v3/spaces/{guid}"
-	RoutesForSpacePath           = "/v3/spaces/{guid}/routes"
-	SpaceFeaturePath             = "/v3/spaces/{guid}/features/{name}"
-	IsolationSegmentForSpacePath = "/v3/spaces/{guid}/relationships/isolation_segment"
+	SpacesPath                        = "/v3/spaces"
+	SpacePath                         = "/v3/spaces/{guid}"
+	RoutesForSpacePath                = "/v3/spaces/{guid}/routes"
+	SpaceFeaturePath                  = "/v3/spaces/{guid}/features/{name}"
+	IsolationSegmentForSpacePath      = "/v3/spaces/{guid}/relationships/isolation_segment"
+	RunningSecurityGroupsForSpacePath = "/v3/spaces/{guid}/running_security_groups"
+	StagingSecurityGroupsForSpacePath = "/v3/spaces/{guid}/staging_security_groups"
 )
 
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
@@ -204,6 +206,14 @@ func (h *Space) getIsolationSegment(r *http.Request) (*routing.Response, error) 
 	return routing.NewResponse(http.StatusOK).WithBody(struct{}{}), nil
 }
 
+func (h *Space) getRunningSecurityGroups(r *http.Request) (*routing.Response, error) {
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.Empty, repositories.ListResult[any]{}, h.apiBaseURL, *r.URL)), nil
+}
+
+func (h *Space) getStagingSecurityGroups(r *http.Request) (*routing.Response, error) {
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.Empty, repositories.ListResult[any]{}, h.apiBaseURL, *r.URL)), nil
+}
+
 func (h *Space) getSpaceFeature(r *http.Request) (*routing.Response, error) {
 	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.get-feature")
 
@@ -232,6 +242,8 @@ func (h *Space) AuthenticatedRoutes() []routing.Route {
 		{Method: "GET", Pattern: SpacePath, Handler: h.get},
 		{Method: "DELETE", Pattern: RoutesForSpacePath, Handler: h.deleteUnmappedRoutes},
 		{Method: "GET", Pattern: IsolationSegmentForSpacePath, Handler: h.getIsolationSegment},
+		{Method: "GET", Pattern: RunningSecurityGroupsForSpacePath, Handler: h.getRunningSecurityGroups},
+		{Method: "GET", Pattern: StagingSecurityGroupsForSpacePath, Handler: h.getStagingSecurityGroups},
 		{Method: "GET", Pattern: SpaceFeaturePath, Handler: h.getSpaceFeature},
 	}
 }
