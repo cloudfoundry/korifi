@@ -42,7 +42,7 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 				Namespace: defaultNamespace,
 			},
 			Spec: korifiv1alpha1.CFSecurityGroupSpec{
-				DisplayName: uuid.NewString(),
+				DisplayName: "RuleName",
 				Rules: []korifiv1alpha1.SecurityGroupRule{
 					{
 						Protocol:    "tcp",

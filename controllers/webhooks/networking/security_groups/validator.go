@@ -25,6 +25,7 @@ const (
 	InvalidSecurityGroupRuleErrorType = "InvalidSecurityGroupRuleError"
 	InvalidPortsErrorMessage          = "ports must be a valid single port, comma separated list of ports, or range or ports, formatted as a string"
 	InvalidDestinationErrorMessage    = "destination must contain valid CIDR(s), IP address(es), or IP address range(s)"
+	InvalidNameErrorMessage           = "display name cannot be empty and must be less than 255 characters"
 )
 
 var cfsecuritygrouplog = logf.Log.WithName("cfsecuritygroup-validation")
@@ -56,6 +57,13 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	securityGroup, ok := obj.(*korifiv1alpha1.CFSecurityGroup)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSecurityGroup but got a %T", obj))
+	}
+
+	if err := validateName(securityGroup.Spec.DisplayName); err != nil {
+		return nil, validationwebhook.ValidationError{
+			Type:    InvalidSecurityGroupRuleErrorType,
+			Message: err.Error(),
+		}.ExportJSONError()
 	}
 
 	if err := v.validateRules(securityGroup.Spec.Rules); err != nil {
@@ -103,6 +111,9 @@ func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (adm
 }
 
 func (v *Validator) validateRules(rules []korifiv1alpha1.SecurityGroupRule) error {
+	if len(rules) == 0 {
+		return nil
+	}
 	for i, rule := range rules {
 		if err := validateRuleDestination(rule.Destination); err != nil {
 			return fmt.Errorf("rules[%d]: %w", i, err)
@@ -193,6 +204,13 @@ func validateRulePorts(ports, protocol string) error {
 				return errors.New(InvalidPortsErrorMessage)
 			}
 		}
+	}
+	return nil
+}
+
+func validateName(name string) error {
+	if len(name) == 0 || len(name) > 255 {
+		return errors.New(InvalidNameErrorMessage)
 	}
 	return nil
 }
