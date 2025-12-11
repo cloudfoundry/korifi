@@ -61,7 +61,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 
 	if err := validateName(securityGroup.Spec.DisplayName); err != nil {
 		return nil, validationwebhook.ValidationError{
-			Type:    InvalidSecurityGroupRuleErrorType,
+			Type:    InvalidNameErrorMessage,
 			Message: err.Error(),
 		}.ExportJSONError()
 	}
@@ -84,6 +84,13 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Obje
 
 	if !securityGroup.GetDeletionTimestamp().IsZero() {
 		return nil, nil
+	}
+
+	if err := validateName(securityGroup.Spec.DisplayName); err != nil {
+		return nil, validationwebhook.ValidationError{
+			Type:    InvalidNameErrorMessage,
+			Message: err.Error(),
+		}.ExportJSONError()
 	}
 
 	if err := v.validateRules(securityGroup.Spec.Rules); err != nil {
