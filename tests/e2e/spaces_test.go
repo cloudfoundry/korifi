@@ -489,7 +489,7 @@ var _ = Describe("Spaces", func() {
 			var err error
 			resp, err = adminClient.R().
 				SetResult(&result).
-				Get("/v3/spaces/" + spaceGUID + "running_security_groups")
+				Get("/v3/spaces/" + spaceGUID + "/running_security_groups")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -512,7 +512,7 @@ var _ = Describe("Spaces", func() {
 			var err error
 			resp, err = adminClient.R().
 				SetResult(&result).
-				Get("/v3/spaces/" + spaceGUID + "staging_security_groups")
+				Get("/v3/spaces/" + spaceGUID + "/staging_security_groups")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
