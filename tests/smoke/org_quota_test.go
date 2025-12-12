@@ -17,7 +17,7 @@ var _ = Describe("OrgQuotas", func() {
 
 	Describe("cf org-quota", func() {
 		It("returns OK", func() {
-			session := helpers.Cf("org-quotas", orgQuotaName)
+			session := helpers.Cf("org-quotas")
 			Expect(session).To(Exit(0))
 		})
 	})
