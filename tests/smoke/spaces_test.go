@@ -35,4 +35,16 @@ var _ = Describe("Spaces", func() {
 			))
 		})
 	})
+
+	Describe("cf space", func() {
+		It("returns successful", func() {
+			session := helpers.Cf("space", spaceName)
+			Expect(session).To(Exit(0))
+
+			lines := it.MustCollect(it.LinesString(session.Out))
+			Expect(lines).To(ContainElement(
+				matchSubstrings(spaceName),
+			))
+		})
+	})
 })
