@@ -474,4 +474,50 @@ var _ = Describe("Spaces", func() {
 			Expect(respUnmarshalled).To(HaveKeyWithValue("enabled", BeFalse()))
 		})
 	})
+
+	Describe("running_security_groups", func() {
+		var (
+			spaceGUID string
+			result    resource
+		)
+
+		BeforeEach(func() {
+			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().
+				SetResult(&result).
+				Get("/v3/spaces/" + spaceGUID + "/running_security_groups")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns StatusOK", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+		})
+	})
+
+	Describe("staging_security_groups", func() {
+		var (
+			spaceGUID string
+			result    resource
+		)
+
+		BeforeEach(func() {
+			spaceGUID = createSpace(generateGUID("space"), commonTestOrgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().
+				SetResult(&result).
+				Get("/v3/spaces/" + spaceGUID + "/staging_security_groups")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns StatusOK", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+		})
+	})
 })
