@@ -129,8 +129,8 @@ github.com/buildpacks/imgutil v0.0.0-20250909162057-9db16db815e3 h1:tm7oOjDEdtwf
 github.com/buildpacks/imgutil v0.0.0-20250909162057-9db16db815e3/go.mod h1:UH4th60x/wM1DdH7+eSgzbp0kgsJMhVgngWzXoF21cs=
 github.com/buildpacks/lifecycle v0.20.19 h1:RyQe2QO524eiJNUpFNTdQKVgasPRP5Dl7zrqrFeJA6k=
 github.com/buildpacks/lifecycle v0.20.19/go.mod h1:Sp2Gc7hPquJ0BivUJjn1FKMzdNNrIAFP0MjNlkwxNGc=
-github.com/buildpacks/pack v0.39.0 h1:F7S1aW4oe8zY4zDJI1cvat4cKnX6A77I9GlU4Jp8iw0=
-github.com/buildpacks/pack v0.39.0/go.mod h1:AKpFe3Nm2ij2XKkxdjbaOUmZBJveQuJkzGS9PFaroQo=
+github.com/buildpacks/pack v0.39.1 h1:yYquCGwvSB8avkmhWyDQPRBiij9TC/Lqrq7EwcmUfrY=
+github.com/buildpacks/pack v0.39.1/go.mod h1:u6v2qMlsonCnyq3djOw/DZALF67Ui6nKepFAqmvjGqo=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=
@@ -221,8 +221,8 @@ github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 h1:+zs/tPmkDkHx3U66D
 github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376/go.mod h1:an3vInlBmSxCcxctByoQdvwPiA7DTK7jaaFDBTtu0ic=
 github.com/go-git/go-billy/v5 v5.6.2 h1:6Q86EsPXMa7c3YZ3aLAQsMA0VlWmy43r6FHqa/UNbRM=
 github.com/go-git/go-billy/v5 v5.6.2/go.mod h1:rcFC2rAsp/erv7CMz9GczHcuD0D32fWzH+MJAU+jaUU=
-github.com/go-git/go-git/v5 v5.16.3 h1:Z8BtvxZ09bYm/yYNgPKCzgWtaRqDTgIKRgIRHBfU6Z8=
-github.com/go-git/go-git/v5 v5.16.3/go.mod h1:4Ge4alE/5gPs30F2H1esi2gPd69R0C39lolkucHBOp8=
+github.com/go-git/go-git/v5 v5.16.4 h1:7ajIEZHZJULcyJebDLo99bGgS0jRrOxzZG4uCk2Yb2Y=
+github.com/go-git/go-git/v5 v5.16.4/go.mod h1:4Ge4alE/5gPs30F2H1esi2gPd69R0C39lolkucHBOp8=
 github.com/go-jose/go-jose/v4 v4.1.3 h1:CVLmWDhDVRa6Mi/IgCgaopNosCaHz7zrMeF9MlZRkrs=
 github.com/go-jose/go-jose/v4 v4.1.3/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
