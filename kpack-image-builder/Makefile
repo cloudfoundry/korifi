@@ -1,5 +1,3 @@
-# Image URL to use all building/pushing image targets
-IMG_KIB ?= cloudfoundry/korifi-kpack-image-builder:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23
 CLUSTER_NAME ?= "e2e"
@@ -42,11 +40,11 @@ manifests: bin/controller-gen
 		output:rbac:artifacts:config=../helm/korifi/kpack-image-builder \
 		output:webhook:artifacts:config=../helm/korifi/kpack-image-builder
 
-	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/{{ .Values.kpackImageBuilder.webhookCertSecret }}")' $(webhooks-file)
+	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/{{ .Values.controllers.webhookCertSecret }}")' $(webhooks-file)
 	yq -i 'with(.metadata; .name="korifi-kpack-image-builder-" + .name)' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.caBundle="{{ include \"korifi.webhookCaBundle\" (set . \"component\" \"kpackImageBuilder\") }}")' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-kpack-image-builder-" + .clientConfig.service.name)' $(webhooks-file)
+	yq -i 'with(.webhooks[]; .clientConfig.caBundle="{{ include \"korifi.webhookCaBundle\" . }}")' $(webhooks-file)
+	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-controllers-" + .clientConfig.service.name)' $(webhooks-file)
 
 
 

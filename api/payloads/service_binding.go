@@ -71,6 +71,7 @@ func (r ServiceBindingRelationships) Validate() error {
 }
 
 type ServiceBindingList struct {
+	Names                string
 	Type                 string
 	AppGUIDs             string
 	ServiceInstanceGUIDs string
@@ -92,6 +93,7 @@ func (l ServiceBindingList) Validate() error {
 
 func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage {
 	return repositories.ListServiceBindingsMessage{
+		Names:                parse.ArrayParam(l.Names),
 		ServiceInstanceGUIDs: parse.ArrayParam(l.ServiceInstanceGUIDs),
 		AppGUIDs:             parse.ArrayParam(l.AppGUIDs),
 		LabelSelector:        l.LabelSelector,
@@ -103,11 +105,12 @@ func (l *ServiceBindingList) ToMessage() repositories.ListServiceBindingsMessage
 }
 
 func (l *ServiceBindingList) SupportedKeys() []string {
-	return []string{"app_guids", "service_instance_guids", "include", "type", "order_by", "per_page", "page", "label_selector", "service_plan_guids"}
+	return []string{"names", "app_guids", "service_instance_guids", "include", "type", "order_by", "per_page", "page", "label_selector", "service_plan_guids"}
 }
 
 func (l *ServiceBindingList) DecodeFromURLValues(values url.Values) error {
 	l.Type = values.Get("type")
+	l.Names = values.Get("names")
 	l.AppGUIDs = values.Get("app_guids")
 	l.ServiceInstanceGUIDs = values.Get("service_instance_guids")
 	l.Include = values.Get("include")

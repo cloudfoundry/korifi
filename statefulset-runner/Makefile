@@ -1,6 +1,3 @@
-
-# Image URL to use all building/pushing image targets
-IMG_SSR ?= cloudfoundry/korifi-statefulset-runner:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.23
 CLUSTER_NAME ?= "e2e"
@@ -42,11 +39,11 @@ manifests: bin/controller-gen bin/yq
 		output:rbac:artifacts:config=../helm/korifi/statefulset-runner \
 		output:webhook:artifacts:config=../helm/korifi/statefulset-runner
 
-	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/{{ .Values.statefulsetRunner.webhookCertSecret }}")' $(webhooks-file)
+	yq -i 'with(.metadata; .annotations["cert-manager.io/inject-ca-from"]="{{ .Release.Namespace }}/{{ .Values.controllers.webhookCertSecret }}")' $(webhooks-file)
 	yq -i 'with(.metadata; .name="korifi-statefulset-runner-" + .name)' $(webhooks-file)
 	yq -i 'with(.webhooks[]; .clientConfig.service.namespace="{{ .Release.Namespace }}")' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.caBundle="{{ include \"korifi.webhookCaBundle\" (set . \"component\" \"statefulsetRunner\") }}")' $(webhooks-file)
-	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-statefulset-runner-" + .clientConfig.service.name)' $(webhooks-file)
+	yq -i 'with(.webhooks[]; .clientConfig.caBundle="{{ include \"korifi.webhookCaBundle\" . }}")' $(webhooks-file)
+	yq -i 'with(.webhooks[]; .clientConfig.service.name="korifi-controllers-" + .clientConfig.service.name)' $(webhooks-file)
 
 .PHONY: generate
 generate: bin/controller-gen

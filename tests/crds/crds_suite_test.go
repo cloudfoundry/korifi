@@ -21,6 +21,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 )
 
 func init() {
@@ -33,6 +34,9 @@ func TestCrds(t *testing.T) {
 		Hook: func(config *rest.Config, failure fail_handler.TestFailure) {
 			fail_handler.PrintKorifiLogs(config, "", failure.StartTime)
 			printBuildLogs(config)
+			fail_handler.PrintKpackLogs(config, failure.StartTime)
+			fail_handler.PrintAllObjects(config, testOrg.Name, &buildv1alpha2.BuildList{})
+			fail_handler.PrintAllObjects(config, testOrg.Name, &buildv1alpha2.ImageList{})
 		},
 	})
 	RegisterFailHandler(failHandler.Fail)

@@ -24,15 +24,14 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/config"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/fake"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
-	controllersconfig "code.cloudfoundry.org/korifi/controllers/config"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -139,13 +138,13 @@ var _ = BeforeEach(func() {
 	Expect(adminClient.Create(ctx, rootNamespace)).To(Succeed())
 
 	clusterBuilderName = uuid.NewString()
-	controllerConfig := &config.Config{
+	controllerConfig := &config.ControllerConfig{
 		CFRootNamespace:           rootNamespace.Name,
 		ClusterBuilderName:        clusterBuilderName,
 		BuilderServiceAccount:     "builder-service-account",
 		BuilderReadinessTimeout:   4 * time.Second,
 		ContainerRepositoryPrefix: "my.repository/my-prefix/",
-		CFStagingResources: controllersconfig.CFStagingResources{
+		CFStagingResources: config.CFStagingResources{
 			BuildCacheMB: 1024,
 			DiskMB:       2048,
 			MemoryMB:     1234,

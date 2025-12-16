@@ -233,8 +233,12 @@ var _ = Describe("Reconcile", func() {
 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 					HasStatus(Equal(metav1.ConditionFalse)),
 					HasReason(Equal("Unknown")),
-					HasMessage(BeEmpty()),
+					HasMessage(ContainSubstring("resource not ready")),
 				)))
+			})
+
+			It("returns a non-empty error", func() {
+				Expect(err.Error()).To(ContainSubstring("resource not ready"))
 			})
 
 			When("reason is specified", func() {
@@ -270,7 +274,7 @@ var _ = Describe("Reconcile", func() {
 					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
-						HasMessage(Equal("TestMessage")),
+						HasMessage(ContainSubstring("TestMessage")),
 					)))
 				})
 			})
@@ -289,7 +293,7 @@ var _ = Describe("Reconcile", func() {
 					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
-						HasMessage(Equal("test-err")),
+						HasMessage(ContainSubstring(("test-err"))),
 					)))
 				})
 			})
@@ -310,7 +314,7 @@ var _ = Describe("Reconcile", func() {
 					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
-						HasMessage(Equal("TestMessage: test-err")),
+						HasMessage(ContainSubstring("TestMessage: test-err")),
 					)))
 				})
 			})

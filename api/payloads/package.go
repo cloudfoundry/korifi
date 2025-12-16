@@ -1,6 +1,7 @@
 package payloads
 
 import (
+	"fmt"
 	"net/url"
 
 	"code.cloudfoundry.org/korifi/api/payloads/parse"
@@ -10,11 +11,25 @@ import (
 	jellidation "github.com/jellydator/validation"
 )
 
+var validPackageData packageDataRule
+
+type packageDataRule struct{}
+
+func (r packageDataRule) Validate(value any) error {
+	data, ok := value.(PackageData)
+	if !ok {
+		return fmt.Errorf("%T is not supported, PackageData is expected", value)
+	}
+	return jellidation.ValidateStruct(&data,
+		jellidation.Field(&data.Image, jellidation.Required),
+	)
+}
+
 type PackageCreate struct {
 	Type          string                `json:"type"`
 	Relationships *PackageRelationships `json:"relationships"`
 	Metadata      Metadata              `json:"metadata"`
-	Data          *PackageData          `json:"data"`
+	Data          PackageData           `json:"data"`
 }
 
 func (c PackageCreate) Validate() error {
@@ -22,7 +37,9 @@ func (c PackageCreate) Validate() error {
 		jellidation.Field(&c.Type, validation.OneOf("bits", "docker"), jellidation.Required),
 		jellidation.Field(&c.Relationships, jellidation.NotNil),
 		jellidation.Field(&c.Metadata),
-		jellidation.Field(&c.Data, jellidation.When(c.Type == "docker", jellidation.Required).Else(jellidation.Nil)),
+		jellidation.Field(&c.Data,
+			jellidation.When(c.Type == "docker", jellidation.Required, validPackageData).
+				Else(jellidation.Empty)),
 	)
 }
 
@@ -52,12 +69,6 @@ type PackageData struct {
 	Image    string  `json:"image"`
 	Username *string `json:"username"`
 	Password *string `json:"password"`
-}
-
-func (d PackageData) Validate() error {
-	return jellidation.ValidateStruct(&d,
-		jellidation.Field(&d.Image, jellidation.Required),
-	)
 }
 
 type PackageRelationships struct {

@@ -288,7 +288,7 @@ var _ = Describe("LogAndReturn", func() {
 			Expect(logEntry["level"]).To(Equal("info"))
 			Expect(logEntry["msg"]).To(Equal("some message"))
 			Expect(logEntry["some-key"]).To(Equal("some-value"))
-			Expect(logEntry["reason"]).To(Equal("cause-err"))
+			Expect(logEntry["reason"]).To(ContainSubstring("cause-err"))
 		})
 	})
 
@@ -301,7 +301,7 @@ var _ = Describe("LogAndReturn", func() {
 			Expect(logEntry["level"]).To(Equal("info"))
 			Expect(logEntry["msg"]).To(Equal("some message"))
 			Expect(logEntry["some-key"]).To(Equal("some-value"))
-			Expect(logEntry["reason"]).To(Equal("wrapping: cause-err"))
+			Expect(logEntry["reason"]).To(MatchRegexp("wrapping:.*cause-err"))
 		})
 	})
 })
@@ -355,14 +355,35 @@ var _ = Describe("invalid lists", func() {
 	})
 })
 
+var _ = Describe("Error", func() {
+	var (
+		err         apierrors.ApiError
+		errorString string
+	)
+
+	BeforeEach(func() {
+		err = apierrors.NewUnknownError(errors.New("oops"))
+	})
+
+	JustBeforeEach(func() {
+		errorString = err.Error()
+	})
+
+	It("returns error details and cause", func() {
+		Expect(errorString).To(Equal("An unknown error occurred.: oops"))
+	})
+
+	When("the error has no cause", func() {
+		BeforeEach(func() {
+			err = apierrors.NewUnknownError(nil)
+		})
+
+		It("returns details only", func() {
+			Expect(errorString).To(Equal("An unknown error occurred."))
+		})
+	})
+})
+
 type testApiError struct {
 	apierrors.ApiError
-}
-
-func (e testApiError) Error() string {
-	return ""
-}
-
-func (e testApiError) Unwrap() error {
-	return nil
 }

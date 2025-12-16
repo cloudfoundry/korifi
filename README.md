@@ -6,12 +6,6 @@
   <a href="https://ci.korifi.cf-app.com/teams/main/pipelines/main">
       <img alt="Build Status" src="https://ci.korifi.cf-app.com/api/v1/teams/main/pipelines/main/badge" />
   </a>
-  <a href="https://codeclimate.com/github/cloudfoundry/korifi/maintainability">
-    <img alt="Maintainability" src="https://api.codeclimate.com/v1/badges/1112ab5cfa6a0654cfd2/maintainability" />
-  </a>
-  <a href="https://codeclimate.com/github/cloudfoundry/korifi/test_coverage">
-    <img alt="Test Coverage" src="https://api.codeclimate.com/v1/badges/1112ab5cfa6a0654cfd2/test_coverage" />
-  </a>
 </p>
 
 This repository contains an implementation of the [Cloud Foundry V3 API](http://v3-apidocs.cloudfoundry.org) that is backed entirely by Kubernetes [custom resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/).

@@ -1,12 +1,12 @@
 adminUserName:
 rootNamespace: cf
-debug: false
 logLevel: info
 defaultAppDomainName:
+containerRepositoryPrefix: ""
 containerRegistrySecrets:
 - image-registry-credentials
 eksContainerRegistryRoleARN: ""
-containerRegistryCACertSecret:
+containerRegistryCACertSecret: ""
 systemImagePullSecrets: []
 generateIngressCertificates: false
 generateInternalCertificates: true
@@ -91,7 +91,7 @@ controllers:
   processDefaults:
     memoryMB: 1024
     diskQuotaMB: 1024
-  taskTTL: 30d
+  taskTTL: 720h
   workloadsTLSSecret: korifi-workloads-ingress-cert
 
   namespaceLabels: {}
@@ -101,54 +101,22 @@ controllers:
 
 kpackImageBuilder:
   include: true
-  image: cloudfoundry/korifi-kpack-image-builder:latest
-  webhookCertSecret: "korifi-kpack-image-builder-webhook-cert"
-
-  replicas: 1
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-    requests:
-      cpu: 50m
-      memory: 100Mi
-
   clusterBuilderName: ""
   builderReadinessTimeout: 30s
   builderRepository: ""
 
 statefulsetRunner:
   include: true
-  image: cloudfoundry/korifi-statefulset-runner:latest
-  webhookCertSecret: "korifi-statefulset-runner-webhook-cert"
-
-  replicas: 1
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-    requests:
-      cpu: 50m
-      memory: 100Mi
 
 jobTaskRunner:
   include: true
-  image: cloudfoundry/korifi-job-task-runner:latest
-  replicas: 1
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-    requests:
-      cpu: 50m
-      memory: 100Mi
-
   jobTTL: 24h
 
 helm:
   hooksImage: alpine/k8s:1.25.2
 
 networking:
+  gatewayNamespace: korifi-gateway
   gatewayPorts:
     http: 80
     https: 443

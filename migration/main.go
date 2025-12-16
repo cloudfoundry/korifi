@@ -17,7 +17,7 @@ import (
 func main() {
 	err := korifiv1alpha1.AddToScheme(scheme.Scheme)
 	if err != nil {
-		panic(fmt.Sprintf("could not add CFApp to scheme: %v", err))
+		panic(fmt.Sprintf("could not add to scheme: %v", err))
 	}
 
 	k8sClientConfig := ctrl.GetConfigOrDie()
@@ -33,7 +33,8 @@ func main() {
 
 	workersCount := tools.Max(1, runtime.NumCPU()/2)
 
-	err = migration.New(k8sClient, korifiVersion, workersCount).Run(context.Background())
+	migrator := migration.New(k8sClient, korifiVersion, workersCount)
+	err = migrator.Run(context.Background())
 	if err != nil {
 		panic(err)
 	}

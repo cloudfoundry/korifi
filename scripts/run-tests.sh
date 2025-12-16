@@ -53,10 +53,6 @@ function run_ginkgo() {
     extra_args+=("--procs=${GINKGO_NODES}")
   fi
 
-  if [[ -z "${NO_COVERAGE:-}" ]]; then
-    extra_args+=("--coverprofile=cover.out" "--coverpkg=code.cloudfoundry.org/korifi/...")
-  fi
-
   if [[ -z "${NON_RECURSIVE_TEST:-}" ]]; then
     extra_args+=("-r")
   fi

@@ -36,6 +36,7 @@ Here are the example values we'll use in this guide:
 ```sh
 export ROOT_NAMESPACE="cf"
 export KORIFI_NAMESPACE="korifi"
+export KORIFI_GATEWAY_NAMESPACE="korifi-gateway"
 export ADMIN_USERNAME="cf-admin"
 export BASE_DOMAIN="korifi.example.org"
 export GATEWAY_CLASS_NAME="contour"
@@ -53,9 +54,9 @@ DockerHub allows only one private repository per free account. In case the Docke
 
 ### Kpack
 
-[Kpack](https://github.com/pivotal/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/pivotal/kpack/blob/main/docs/install.md) to install the [latest version](https://github.com/pivotal/kpack/releases/latest).
+[Kpack](https://github.com/buildpacks-community/kpack) is used to build runnable applications from source code using [Cloud Native Buildpacks](https://buildpacks.io/). Follow the [instructions](https://github.com/buildpacks-community/kpack/blob/main/docs/install.md) to install the [latest version](https://github.com/buildpacks-community/kpack/releases/latest).
 
-The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpackImageBuilder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/pivotal/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
+The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpackImageBuilder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/buildpacks-community/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
 
 ### Contour
 
@@ -93,7 +94,7 @@ Follow the dynamic provisioning [instructions](https://projectcontour.io/docs/1.
       controllerName: projectcontour.io/gateway-controller
     EOF
     ```
-  - You DO NOT need to create a gateway as per the instructions. The Korifi helm chart defines a gateway that will be used for all korifi ingress traffic. The gateway will be created in the `korifi-gateway` namespace.
+  - You DO NOT need to create a gateway as per the instructions. The Korifi helm chart defines a gateway that will be used for all korifi ingress traffic. The gateway will be created in the `$KORIFI_GATEWAY_NAMESPACE` namespace.
 
 ### Metrics Server
 
@@ -104,7 +105,7 @@ Most Kubernetes distributions will come with `metrics-server` already installed.
 
 ### Namespace creation
 
-Create the root and korifi namespaces:
+Create the root, korifi and gateway namespaces:
 
 ```sh
 cat <<EOF | kubectl apply -f -
@@ -125,6 +126,13 @@ metadata:
   labels:
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/enforce: restricted
+EOF
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: $KORIFI_GATEWAY_NAMESPACE
 EOF
 ```
 
@@ -167,8 +175,6 @@ If you want to generate certificates yourself, set `generateIngressCertificates`
 1. `api.apiServer.internalCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing a certificate that is valid for `korifi-api-svc.korifi.svc.cluster.local` (the internal dns of the korifi api); defaults to `korifi-api-internal-cert`.
 1. `controllers.workloadsTLSSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the workload ingress certificate; defaults to `korifi-workloads-ingress-cert`.
 1. `controllers.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the controllers deployment; defaults to `korifi-controllers-webhook-cert`.
-1. `kpackImageBuilder.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the kpackImageBuilder deployment; defaults to `korifi-kpack-image-builder-webhook-cert`.
-1. `statefulsetRunner.webhookCertSecret`: the name of the `Secret` in the `$KORIFI_NAMESPACE` namespace containing the webhook certificate for the statefulsetRunner deployment; defaults to `korifi-statefulset-runner-webhook-cert`.
 
 
 ### Container registry Certificate Authority
@@ -183,9 +189,9 @@ kubectl --namespace "$KORIFI_NAMESPACE" create secret generic <registry-ca-secre
 You can then specify the `<registry-ca-secret-name>` using the `containerRegistryCACertSecret`.
 
 > **Warning**
-> Kpack does not support self-signed/internal CA configuration out of the box (see [pivotal/kpack#207](https://github.com/pivotal/kpack/issues/207)).
+> Kpack does not support self-signed/internal CA configuration out of the box (see [buildpacks-community/kpack#207](https://github.com/buildpacks-community/kpack/issues/207)).
 > In order to make Kpack trust your CA certificate, you will have to inject it in both the Kpack controller and the Kpack build pods.
-> * The [`kpack-controller` `Deployment`](https://github.com/pivotal/kpack/blob/main/config/controller.yaml) can be modified to mount a `Secret` similar to the one created above: see the [Korifi API `Deployment`](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/api/deployment.yaml) for an example of how to do this.
+> * The [`kpack-controller` `Deployment`](https://github.com/buildpacks-community/kpack/blob/main/config/controller.yaml) can be modified to mount a `Secret` similar to the one created above: see the [Korifi API `Deployment`](https://github.com/cloudfoundry/korifi/blob/main/helm/korifi/api/deployment.yaml) for an example of how to do this.
 > * For the build pods you can use the [cert-injection-webhook](https://github.com/vmware-tanzu/cert-injection-webhook), configured on the `kpack.io/build` label.
 
 ## Install Korifi
@@ -205,6 +211,7 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
     --set=containerRepositoryPrefix=europe-docker.pkg.dev/my-project/korifi/ \
     --set=kpackImageBuilder.builderRepository=europe-docker.pkg.dev/my-project/korifi/kpack-builder \
     --set=networking.gatewayClass=$GATEWAY_CLASS_NAME \
+    --set=networking.gatewayNamespace=$KORIFI_GATEWAY_NAMESPACE \
     --wait
 ```
 
@@ -254,7 +261,7 @@ kubectl get service envoy -n projectcontour -ojsonpath='{.status.loadBalancer.in
 If you used dynamic provisioning of a Contour gateway, discover your endpoint with:
 
 ```sh
-kubectl get service envoy-korifi -n korifi-gateway -ojsonpath='{.status.loadBalancer.ingress[0]}'
+kubectl get service envoy-korifi -n $KORIFI_GATEWAY_NAMESPACE -ojsonpath='{.status.loadBalancer.ingress[0]}'
 ```
 
 It may take some time before the address is available. Retry this until you see a result.

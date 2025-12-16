@@ -75,6 +75,11 @@ type ToOneRelationship struct {
 
 type itemPresenter[T, S any] func(T, url.URL, ...include.Resource) S
 
+func Empty(any, url.URL, ...include.Resource) any {
+	var result any
+	return result
+}
+
 func ForList[T, S any](itemPresenter itemPresenter[T, S], listResult repositories.ListResult[T], baseURL, requestURL url.URL, includes ...include.Resource) ListResponse[S] {
 	presenters := []S{}
 	for _, resource := range listResult.Records {

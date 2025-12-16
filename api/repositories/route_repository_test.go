@@ -199,24 +199,25 @@ var _ = Describe("RouteRepository", func() {
 
 	Describe("ListRoutes", func() {
 		var (
-			cfRoute *korifiv1alpha1.CFRoute
-
+			cfRoute    *korifiv1alpha1.CFRoute
+			appGUID    string
+			cfRoute1   *korifiv1alpha1.CFRoute
 			listResult repositories.ListResult[repositories.RouteRecord]
 			message    repositories.ListRoutesMessage
 		)
 
 		BeforeEach(func() {
-			appGUID := uuid.NewString()
+			appGUID = uuid.NewString()
 			cfRoute = &korifiv1alpha1.CFRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      routeGUID,
+					Name:      uuid.NewString(),
 					Namespace: space.Name,
 				},
 				Spec: korifiv1alpha1.CFRouteSpec{
 					Host:     "my-subdomain-1-a",
 					Protocol: "http",
 					DomainRef: corev1.ObjectReference{
-						Name:      domainGUID,
+						Name:      uuid.NewString(),
 						Namespace: rootNamespace,
 					},
 					Destinations: []korifiv1alpha1.Destination{{
@@ -229,6 +230,30 @@ var _ = Describe("RouteRepository", func() {
 			}
 			Expect(
 				k8sClient.Create(ctx, cfRoute),
+			).To(Succeed())
+
+			cfRoute1 = &korifiv1alpha1.CFRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: space.Name,
+				},
+				Spec: korifiv1alpha1.CFRouteSpec{
+					Host:     "my-subdomain-2-a",
+					Protocol: "http",
+					DomainRef: corev1.ObjectReference{
+						Name:      uuid.NewString(),
+						Namespace: rootNamespace,
+					},
+					Destinations: []korifiv1alpha1.Destination{{
+						Protocol: tools.PtrTo("http1"),
+						AppRef: corev1.LocalObjectReference{
+							Name: uuid.NewString(),
+						},
+					}},
+				},
+			}
+			Expect(
+				k8sClient.Create(ctx, cfRoute1),
 			).To(Succeed())
 
 			message = repositories.ListRoutesMessage{}
@@ -244,6 +269,22 @@ var _ = Describe("RouteRepository", func() {
 			Expect(listResult.Records).To(BeEmpty())
 		})
 
+		When("filtering by app guid", func() {
+			BeforeEach(func() {
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+
+				message = repositories.ListRoutesMessage{
+					AppGUIDs: []string{appGUID},
+				}
+			})
+
+			It("returns a list of routeRecords", func() {
+				Expect(listResult.Records).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute.Name)}),
+				))
+			})
+		})
+
 		When("the user has space developer access", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
@@ -252,8 +293,9 @@ var _ = Describe("RouteRepository", func() {
 			It("returns a list of routeRecords for each CFRoute CR", func() {
 				Expect(listResult.Records).To(ConsistOf(
 					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute.Name)}),
+					MatchFields(IgnoreExtras, Fields{"GUID": Equal(cfRoute1.Name)}),
 				))
-				Expect(listResult.PageInfo.TotalResults).To(Equal(1))
+				Expect(listResult.PageInfo.TotalResults).To(Equal(2))
 			})
 		})
 
@@ -265,7 +307,7 @@ var _ = Describe("RouteRepository", func() {
 				routeRepo = repositories.NewRouteRepo(fakeKlient)
 
 				message = repositories.ListRoutesMessage{
-					AppGUIDs:    []string{"g1"},
+					AppGUIDs:    []string{appGUID},
 					SpaceGUIDs:  []string{"sg1", "sg2"},
 					DomainGUIDs: []string{"domainGUID"},
 					Hosts:       []string{"my-subdomain-1-a"},
@@ -288,11 +330,14 @@ var _ = Describe("RouteRepository", func() {
 					repositories.WithLabelIn(korifiv1alpha1.CFRoutePathLabelKey, tools.EncodeValuesToSha224("/some/path")),
 					repositories.WithLabelIn(korifiv1alpha1.SpaceGUIDLabelKey, []string{"sg1", "sg2"}),
 					repositories.WithLabel(korifiv1alpha1.CFRouteIsUnmappedLabelKey, "false"),
-					repositories.WithLabelExists(korifiv1alpha1.DestinationAppGUIDLabelPrefix+"g1"),
 					repositories.WithOrdering("created_at"),
 					repositories.WithPaging(repositories.Pagination{
 						PerPage: 3,
 						Page:    2,
+					}),
+					MatchFields(IgnoreExtras, Fields{
+						"By":         Equal("AppGUIDs"),
+						"FilterFunc": Not(BeNil()),
 					}),
 				))
 			})
@@ -1116,13 +1161,13 @@ var _ = Describe("RouteRepository", func() {
 						HaveKeyWithValue("before-key-one", "value-one"),
 						HaveKeyWithValue("key-one", "value-one-updated"),
 						HaveKeyWithValue("key-two", "value-two"),
+						Not(HaveKey("before-key-two")),
 					))
-					Expect(routeRecord.Annotations).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(routeRecord.Annotations).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
+						Not(HaveKey("before-key-two")),
 					))
 				})
 
@@ -1134,13 +1179,13 @@ var _ = Describe("RouteRepository", func() {
 						HaveKeyWithValue("before-key-one", "value-one"),
 						HaveKeyWithValue("key-one", "value-one-updated"),
 						HaveKeyWithValue("key-two", "value-two"),
+						Not(HaveKey("before-key-two")),
 					))
-					Expect(updatedCFRoute.Annotations).To(Equal(
-						map[string]string{
-							"before-key-one": "value-one",
-							"key-one":        "value-one-updated",
-							"key-two":        "value-two",
-						},
+					Expect(updatedCFRoute.Annotations).To(SatisfyAll(
+						HaveKeyWithValue("before-key-one", "value-one"),
+						HaveKeyWithValue("key-one", "value-one-updated"),
+						HaveKeyWithValue("key-two", "value-two"),
+						Not(HaveKey("before-key-two")),
 					))
 				})
 			})

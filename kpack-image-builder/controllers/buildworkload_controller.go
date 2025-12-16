@@ -28,7 +28,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers/config"
+	"code.cloudfoundry.org/korifi/controllers/config"
 	"code.cloudfoundry.org/korifi/tools/image"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 
@@ -78,7 +78,7 @@ func NewBuildWorkloadReconciler(
 	c client.Client,
 	scheme *runtime.Scheme,
 	log logr.Logger,
-	config *config.Config,
+	config *config.ControllerConfig,
 	imageConfigGetter ImageConfigGetter,
 	imageRepoCreator RepositoryCreator,
 ) *k8s.PatchingReconciler[korifiv1alpha1.BuildWorkload] {
@@ -90,7 +90,7 @@ func NewBuildWorkloadReconciler(
 		imageConfigGetter: imageConfigGetter,
 		imageRepoCreator:  imageRepoCreator,
 	}
-	return k8s.NewPatchingReconciler[korifiv1alpha1.BuildWorkload](log, c, &buildWorkloadReconciler)
+	return k8s.NewPatchingReconciler(log, c, &buildWorkloadReconciler)
 }
 
 // BuildWorkloadReconciler reconciles a BuildWorkload object
@@ -98,7 +98,7 @@ type BuildWorkloadReconciler struct {
 	k8sClient         client.Client
 	scheme            *runtime.Scheme
 	log               logr.Logger
-	controllerConfig  *config.Config
+	controllerConfig  *config.ControllerConfig
 	imageConfigGetter ImageConfigGetter
 	imageRepoCreator  RepositoryCreator
 }
@@ -421,7 +421,7 @@ func (r *BuildWorkloadReconciler) ensureKpackBuilderForBuildpacks(ctx context.Co
 		return "", err
 	}
 
-	if err = r.checkBuildpacks(ctx, buildWorkload, defaultBuilder); err != nil {
+	if err = r.checkBuildpacks(buildWorkload, defaultBuilder); err != nil {
 		meta.SetStatusCondition(&buildWorkload.Status.Conditions, metav1.Condition{
 			Type:               korifiv1alpha1.SucceededConditionType,
 			Status:             metav1.ConditionFalse,
@@ -484,7 +484,7 @@ func ComputeBuilderName(bps []string) string {
 	return uuid.NewSHA1(uuid.Nil, []byte(strings.Join(bps, "\x00"))).String()
 }
 
-func (r *BuildWorkloadReconciler) checkBuildpacks(ctx context.Context, buildWorkload *korifiv1alpha1.BuildWorkload, defaultBuilder *buildv1alpha2.ClusterBuilder) error {
+func (r *BuildWorkloadReconciler) checkBuildpacks(buildWorkload *korifiv1alpha1.BuildWorkload, defaultBuilder *buildv1alpha2.ClusterBuilder) error {
 	validIDs := map[string]bool{}
 	for _, bp := range clusterBuilderToBuildpacks(defaultBuilder, metav1.Now()) {
 		validIDs[bp.Name] = true

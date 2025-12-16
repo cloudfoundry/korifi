@@ -428,7 +428,7 @@ func main() {
 			orgRepo,
 			domainRepo,
 			requestValidator,
-			cfg.GetUserCertificateDuration(),
+			cfg.UserCertificateExpirationWarningDuration,
 			cfg.DefaultDomainName,
 		),
 		handlers.NewSpace(
@@ -500,6 +500,12 @@ func main() {
 			securityGroupRepo,
 			spaceRepo,
 			requestValidator,
+		),
+		handlers.NewOrgQuota(
+			*serverURL,
+		),
+		handlers.NewIsolationSegment(
+			*serverURL,
 		),
 	}
 

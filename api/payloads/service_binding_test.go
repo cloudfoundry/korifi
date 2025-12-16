@@ -23,6 +23,7 @@ var _ = Describe("ServiceBindingList", func() {
 		},
 		Entry("type", "type=key", payloads.ServiceBindingList{Type: korifiv1alpha1.CFServiceBindingTypeKey}),
 		Entry("type", "type=app", payloads.ServiceBindingList{Type: korifiv1alpha1.CFServiceBindingTypeApp}),
+		Entry("names", "names=name1,name2", payloads.ServiceBindingList{Names: "name1,name2"}),
 		Entry("app_guids", "app_guids=app_guid", payloads.ServiceBindingList{AppGUIDs: "app_guid"}),
 		Entry("service_instance_guids", "service_instance_guids=si_guid", payloads.ServiceBindingList{ServiceInstanceGUIDs: "si_guid"}),
 		Entry("include", "include=app", payloads.ServiceBindingList{Include: "app"}),
@@ -58,6 +59,7 @@ var _ = Describe("ServiceBindingList", func() {
 		BeforeEach(func() {
 			payload = payloads.ServiceBindingList{
 				Type:                 korifiv1alpha1.CFServiceBindingTypeApp,
+				Names:                "binding1,binding2",
 				AppGUIDs:             "app1,app2",
 				ServiceInstanceGUIDs: "s1,s2",
 				Include:              "include",
@@ -79,6 +81,7 @@ var _ = Describe("ServiceBindingList", func() {
 			Expect(message).To(Equal(repositories.ListServiceBindingsMessage{
 				Type:                 korifiv1alpha1.CFServiceBindingTypeApp,
 				AppGUIDs:             []string{"app1", "app2"},
+				Names:                []string{"binding1", "binding2"},
 				ServiceInstanceGUIDs: []string{"s1", "s2"},
 				LabelSelector:        "foo=bar",
 				PlanGUIDs:            []string{"p1", "p2"},

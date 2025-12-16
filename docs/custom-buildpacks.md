@@ -251,7 +251,7 @@ position   name                            stack                        enabled 
 
 ### Verify your buildpack is working
 
-To verify that your newly added buildpack is working you can deploy one of the (sample apps for cloud native buildpacks)[https://github.com/paketo-buildpacks/samples].
+To verify that your newly added buildpack is working you can deploy one of the [sample apps for cloud native buildpacks](https://github.com/paketo-buildpacks/samples).
 
 In our case we use the [web-servers/nginx-sample](https://github.com/paketo-buildpacks/samples/tree/main/web-servers/nginx-sample)
 

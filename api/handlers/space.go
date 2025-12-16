@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -18,9 +19,13 @@ import (
 )
 
 const (
-	SpacesPath         = "/v3/spaces"
-	SpacePath          = "/v3/spaces/{guid}"
-	RoutesForSpacePath = "/v3/spaces/{guid}/routes"
+	SpacesPath                        = "/v3/spaces"
+	SpacePath                         = "/v3/spaces/{guid}"
+	RoutesForSpacePath                = "/v3/spaces/{guid}/routes"
+	SpaceFeaturePath                  = "/v3/spaces/{guid}/features/{name}"
+	IsolationSegmentForSpacePath      = "/v3/spaces/{guid}/relationships/isolation_segment"
+	RunningSecurityGroupsForSpacePath = "/v3/spaces/{guid}/running_security_groups"
+	StagingSecurityGroupsForSpacePath = "/v3/spaces/{guid}/staging_security_groups"
 )
 
 //counterfeiter:generate -o fake -fake-name CFSpaceRepository . CFSpaceRepository
@@ -30,7 +35,7 @@ type CFSpaceRepository interface {
 	ListSpaces(context.Context, authorization.Info, repositories.ListSpacesMessage) (repositories.ListResult[repositories.SpaceRecord], error)
 	GetSpace(context.Context, authorization.Info, string) (repositories.SpaceRecord, error)
 	DeleteSpace(context.Context, authorization.Info, repositories.DeleteSpaceMessage) error
-	PatchSpaceMetadata(context.Context, authorization.Info, repositories.PatchSpaceMetadataMessage) (repositories.SpaceRecord, error)
+	PatchSpace(context.Context, authorization.Info, repositories.PatchSpaceMessage) (repositories.SpaceRecord, error)
 	GetDeletedAt(context.Context, authorization.Info, string) (*time.Time, error)
 }
 
@@ -119,7 +124,7 @@ func (h *Space) update(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "failed to decode payload")
 	}
 
-	space, err = h.spaceRepo.PatchSpaceMetadata(r.Context(), authInfo, payload.ToMessage(spaceGUID, space.OrganizationGUID))
+	space, err = h.spaceRepo.PatchSpace(r.Context(), authInfo, payload.ToMessage(spaceGUID, space.OrganizationGUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to patch space metadata", "GUID", spaceGUID)
 	}
@@ -197,6 +202,33 @@ func (h *Space) deleteUnmappedRoutes(r *http.Request) (*routing.Response, error)
 	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(spaceGUID, presenter.SpaceDeleteUnmappedRoutesOperation, h.apiBaseURL)), nil
 }
 
+func (h *Space) getIsolationSegment(r *http.Request) (*routing.Response, error) {
+	return routing.NewResponse(http.StatusOK).WithBody(struct{}{}), nil
+}
+
+func (h *Space) getRunningSecurityGroups(r *http.Request) (*routing.Response, error) {
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.Empty, repositories.ListResult[any]{}, h.apiBaseURL, *r.URL)), nil
+}
+
+func (h *Space) getStagingSecurityGroups(r *http.Request) (*routing.Response, error) {
+	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForList(presenter.Empty, repositories.ListResult[any]{}, h.apiBaseURL, *r.URL)), nil
+}
+
+func (h *Space) getSpaceFeature(r *http.Request) (*routing.Response, error) {
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.space.get-feature")
+
+	featureName := routing.URLParam(r, "name")
+	if featureName != "ssh" {
+		return nil, apierrors.LogAndReturn(logger, apierrors.NewUnprocessableEntityError(nil, fmt.Sprintf("feature %q is not supported", featureName)), "feature not supported")
+	}
+
+	return routing.NewResponse(http.StatusOK).WithBody(map[string]any{
+		"name":        "ssh",
+		"description": "Enable SSHing into apps in the space.",
+		"enabled":     false,
+	}), nil
+}
+
 func (h *Space) UnauthenticatedRoutes() []routing.Route {
 	return nil
 }
@@ -209,5 +241,9 @@ func (h *Space) AuthenticatedRoutes() []routing.Route {
 		{Method: "DELETE", Pattern: SpacePath, Handler: h.delete},
 		{Method: "GET", Pattern: SpacePath, Handler: h.get},
 		{Method: "DELETE", Pattern: RoutesForSpacePath, Handler: h.deleteUnmappedRoutes},
+		{Method: "GET", Pattern: IsolationSegmentForSpacePath, Handler: h.getIsolationSegment},
+		{Method: "GET", Pattern: RunningSecurityGroupsForSpacePath, Handler: h.getRunningSecurityGroups},
+		{Method: "GET", Pattern: StagingSecurityGroupsForSpacePath, Handler: h.getStagingSecurityGroups},
+		{Method: "GET", Pattern: SpaceFeaturePath, Handler: h.getSpaceFeature},
 	}
 }

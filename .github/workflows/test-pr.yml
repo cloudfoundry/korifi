@@ -12,8 +12,8 @@ jobs:
   linter:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
-    - uses: actions/cache@v4
+    - uses: actions/checkout@v6
+    - uses: actions/cache@v5
       with:
         path: |
           ~/.cache/go-build
@@ -21,7 +21,7 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
         go-version: 'stable'
     - name: Run linters
@@ -30,9 +30,9 @@ jobs:
   api-tests:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       with:
         path: |
           ~/.cache/go-build
@@ -41,7 +41,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
         go-version: 'stable'
 
@@ -52,9 +52,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       with:
         path: |
           ~/.cache/go-build
@@ -63,7 +63,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
         go-version: 'stable'
 
@@ -74,9 +74,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
@@ -85,7 +85,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
 
@@ -96,9 +96,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
@@ -107,7 +107,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
 
@@ -118,9 +118,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
@@ -129,7 +129,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
 
@@ -140,9 +140,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
@@ -151,7 +151,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
 
@@ -162,9 +162,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
@@ -173,7 +173,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: 'stable'
 

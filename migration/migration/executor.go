@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,22 +15,7 @@ import (
 
 const MigratedByLabelKey = "korifi.cloudfoundry.org/migrated-by"
 
-var korifiObjectLists = []client.ObjectList{
-	&korifiv1alpha1.CFAppList{},
-	&korifiv1alpha1.CFBuildList{},
-	&korifiv1alpha1.CFDomainList{},
-	&korifiv1alpha1.CFOrgList{},
-	&korifiv1alpha1.CFPackageList{},
-	&korifiv1alpha1.CFProcessList{},
-	&korifiv1alpha1.CFRouteList{},
-	&korifiv1alpha1.CFServiceBindingList{},
-	&korifiv1alpha1.CFServiceBrokerList{},
-	&korifiv1alpha1.CFServiceInstanceList{},
-	&korifiv1alpha1.CFServiceOfferingList{},
-	&korifiv1alpha1.CFServicePlanList{},
-	&korifiv1alpha1.CFSpaceList{},
-	&korifiv1alpha1.CFTaskList{},
-}
+var korifiObjectLists = []client.ObjectList{}
 
 type Migrator struct {
 	k8sClient     client.Client
@@ -52,7 +36,7 @@ func (m *Migrator) Run(ctx context.Context) error {
 
 	objectsToUpdate, err := m.collectObjects(ctx, korifiObjectLists)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to collect objects to migrate: %v", err)
 	}
 
 	fmt.Println("==========================================================")
@@ -73,8 +57,10 @@ func (m *Migrator) Run(ctx context.Context) error {
 			defer wg.Done()
 
 			for obj := range objectChan {
-				if err := m.setMigratedByLabel(ctx, obj); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to set label on object %v %s/%s: %v\n", obj.GetObjectKind(), obj.GetNamespace(), obj.GetName(), err)
+				err := m.setMigratedByLabel(ctx, obj)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "failed to set migrated-by label on %s %s/%s: %v\n", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind, obj.GetNamespace(), obj.GetName(), err)
+					continue
 				}
 				fmt.Fprintf(os.Stdout, "%s %s/%s migrated\n", obj.GetObjectKind().GroupVersionKind().GroupKind().Kind, obj.GetNamespace(), obj.GetName())
 			}

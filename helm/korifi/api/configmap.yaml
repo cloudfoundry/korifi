@@ -30,7 +30,7 @@ data:
       type: {{ .Values.api.lifecycle.type }}
       stack: {{ .Values.api.lifecycle.stack }}
       stagingMemoryMB: {{ .Values.stagingRequirements.memoryMB }}
-    containerRepositoryPrefix: {{ .Values.containerRepositoryPrefix | quote }}
+    containerRepositoryPrefix: {{ required "containerRepositoryPrefix is required" .Values.containerRepositoryPrefix | quote }}
     {{- if not .Values.eksContainerRegistryRoleARN }}
     {{- if .Values.containerRegistrySecrets }}
     packageRegistrySecretNames:

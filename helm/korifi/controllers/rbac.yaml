@@ -79,3 +79,51 @@ subjects:
 - kind: ServiceAccount
   name: korifi-controllers-controller-manager
   namespace: {{ .Release.Namespace }}
+
+{{- if .Values.jobTaskRunner.include }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: korifi-job-task-runner-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-job-task-runner-taskworkload-manager-role
+subjects:
+- kind: ServiceAccount
+  name: korifi-controllers-controller-manager
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+
+{{- if .Values.kpackImageBuilder.include }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: korifi-kpack-build-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-kpack-build-manager-role
+subjects:
+- kind: ServiceAccount
+  name: korifi-controllers-controller-manager
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+
+{{- if .Values.statefulsetRunner.include }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: korifi-statefulset-runner-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: korifi-statefulset-runner-appworkload-manager-role
+subjects:
+- kind: ServiceAccount
+  name: korifi-controllers-controller-manager
+  namespace: {{ .Release.Namespace }}
+{{- end }}

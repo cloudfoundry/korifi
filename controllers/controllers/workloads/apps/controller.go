@@ -146,7 +146,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, cfApp *korifiv1alpha
 	cfApp.Status.VCAPServicesSecretName = secretName
 
 	if cfApp.Spec.CurrentDropletRef.Name == "" {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("DropletNotAssigned")
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("DropletNotAssigned").WithNoRequeue()
 	}
 
 	droplet, err := r.getDroplet(ctx, cfApp)

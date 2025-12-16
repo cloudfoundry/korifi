@@ -1,7 +1,6 @@
 package smoke_test
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -20,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/types"
-	"gopkg.in/yaml.v2"
+	buildv1alpha2 "github.com/pivotal/kpack/pkg/apis/build/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -34,6 +33,7 @@ type SmokeTestSharedData struct {
 	CfAdmin          string `json:"cf_admin"`
 	RootNamespace    string `json:"root_namespace"`
 	OrgName          string `json:"org_name"`
+	OrgGUID          string `json:"org_guid"`
 	BrokerOrgName    string `json:"broker_org_name"`
 	SpaceName        string `json:"space_name"`
 	AppsDomain       string `json:"apps_domain"`
@@ -53,6 +53,9 @@ func TestSmoke(t *testing.T) {
 				printCfApp(config)
 				fail_handler.PrintKorifiLogs(config, "", failure.StartTime)
 				printBuildLogs(config)
+				fail_handler.PrintKpackLogs(config, failure.StartTime)
+				fail_handler.PrintAllObjects(config, sharedData.OrgGUID, &buildv1alpha2.BuildList{})
+				fail_handler.PrintAllObjects(config, sharedData.OrgGUID, &buildv1alpha2.ImageList{})
 			},
 		}).Fail)
 
@@ -68,38 +71,50 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(err).NotTo(HaveOccurred())
 
 	sharedData = SmokeTestSharedData{
-		CfAdmin:          uuid.NewString(),
-		RootNamespace:    helpers.GetDefaultedEnvVar("ROOT_NAMESPACE", "cf"),
-		OrgName:          uuid.NewString(),
-		BrokerOrgName:    uuid.NewString(),
-		SpaceName:        uuid.NewString(),
-		AppsDomain:       helpers.GetRequiredEnvVar("APP_FQDN"),
-		BuildpackAppName: uuid.NewString(),
-		DockerAppName:    uuid.NewString(),
-		FLockPath:        filepath.Join(lockDir, "lock"),
+		RootNamespace: helpers.GetDefaultedEnvVar("ROOT_NAMESPACE", "cf"),
+		AppsDomain:    helpers.GetRequiredEnvVar("APP_FQDN"),
+		FLockPath:     filepath.Join(lockDir, "lock"),
 	}
 	serviceAccountFactory := helpers.NewServiceAccountFactory(sharedData.RootNamespace)
 
-	cfAdminToken := serviceAccountFactory.CreateAdminServiceAccount(sharedData.CfAdmin)
-	helpers.AddUserToKubeConfig(sharedData.CfAdmin, cfAdminToken)
+	cfAdminUser := uuid.NewString()
+	cfAdminToken := serviceAccountFactory.CreateAdminServiceAccount(cfAdminUser)
+	helpers.AddUserToKubeConfig(cfAdminUser, cfAdminToken)
+	sharedData.CfAdmin = cfAdminUser
 
 	Expect(helpers.Cf("api", helpers.GetRequiredEnvVar("API_SERVER_ROOT"), "--skip-ssl-validation")).To(Exit(0))
 	Expect(helpers.Cf("auth", sharedData.CfAdmin)).To(Exit(0))
 
+	brokerOrgName := uuid.NewString()
+	Expect(helpers.Cf("create-org", brokerOrgName)).To(Exit(0))
+	sharedData.BrokerOrgName = brokerOrgName
+
 	brokerSpaceName := uuid.NewString()
-	brokerAppName := uuid.NewString()
-	Expect(helpers.Cf("create-org", sharedData.BrokerOrgName)).To(Exit(0))
 	Expect(helpers.Cf("create-space", "-o", sharedData.BrokerOrgName, brokerSpaceName)).To(Exit(0))
 	Expect(helpers.Cf("target", "-o", sharedData.BrokerOrgName, "-s", brokerSpaceName)).To(Exit(0))
+
+	brokerAppName := uuid.NewString()
 	Expect(helpers.Cf("push", brokerAppName, "-p", "../assets/sample-broker")).To(Exit(0))
 	sharedData.BrokerURL = helpers.GetInClusterURL(getAppGUID(brokerAppName))
 
-	Expect(helpers.Cf("create-org", sharedData.OrgName)).To(Exit(0))
-	Expect(helpers.Cf("create-space", "-o", sharedData.OrgName, sharedData.SpaceName)).To(Exit(0))
-	Expect(helpers.Cf("target", "-o", sharedData.OrgName, "-s", sharedData.SpaceName)).To(Exit(0))
+	orgName := uuid.NewString()
+	Expect(helpers.Cf("create-org", orgName)).To(Exit(0))
+	sharedData.OrgName = orgName
+	sharedData.OrgGUID, err = sessionOutput(helpers.Cf("org", orgName, "--guid"))
+	Expect(err).NotTo(HaveOccurred())
 
-	Expect(helpers.Cf("push", sharedData.BuildpackAppName, "-p", "../assets/dorifi")).To(Exit(0))
-	Expect(helpers.Cf("push", sharedData.DockerAppName, "-o", "eirini/dorini")).To(Exit(0))
+	spaceName := uuid.NewString()
+	Expect(helpers.Cf("create-space", "-o", sharedData.OrgName, spaceName)).To(Exit(0))
+	Expect(helpers.Cf("target", "-o", sharedData.OrgName, "-s", spaceName)).To(Exit(0))
+	sharedData.SpaceName = spaceName
+
+	buildpackAppName := uuid.NewString()
+	Expect(helpers.Cf("push", buildpackAppName, "-p", "../assets/dorifi")).To(Exit(0))
+	sharedData.BuildpackAppName = buildpackAppName
+
+	dockerAppName := uuid.NewString()
+	Expect(helpers.Cf("push", dockerAppName, "-o", "eirini/dorini")).To(Exit(0))
+	sharedData.DockerAppName = dockerAppName
 
 	sharedDataBytes, err := json.Marshal(sharedData)
 	Expect(err).NotTo(HaveOccurred())
@@ -110,6 +125,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	Expect(korifiv1alpha1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(buildv1alpha2.AddToScheme(scheme.Scheme)).To(Succeed())
 })
 
 var _ = SynchronizedAfterSuite(func() {
@@ -180,19 +196,29 @@ func printCfApp(config *rest.Config) {
 		return
 	}
 
+	if sharedData.CfAdmin == "" {
+		return
+	}
 	Expect(helpers.Cf("auth", sharedData.CfAdmin)).To(Exit(0))
+
+	if sharedData.SpaceName == "" {
+		return
+	}
 	cfAppNamespace, err := sessionOutput(helpers.Cf("space", sharedData.SpaceName, "--guid"))
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "failed to run 'cf space %s --guid': %v\n", sharedData.SpaceName, err)
 		return
 	}
+
+	if sharedData.BuildpackAppName == "" {
+		return
+	}
 	cfAppGUID, err := sessionOutput(helpers.Cf("app", sharedData.BuildpackAppName, "--guid"))
 	if err != nil {
-		fmt.Fprintf(GinkgoWriter, "failed to run 'cf app %s --guid': %v\n", sharedData.BuildpackAppName, err)
 		return
 	}
 
-	if err := printObject(k8sClient, &korifiv1alpha1.CFApp{
+	if err := fail_handler.PrintObject(k8sClient, &korifiv1alpha1.CFApp{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfAppGUID,
 			Namespace: cfAppNamespace,
@@ -203,22 +229,10 @@ func printCfApp(config *rest.Config) {
 	}
 }
 
-func printObject(k8sClient client.Client, obj client.Object) error {
-	if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(obj), obj); err != nil {
-		return fmt.Errorf("failed to get object %q: %v\n", client.ObjectKeyFromObject(obj), err)
-	}
-
-	fmt.Fprintf(GinkgoWriter, "\n\n========== %T %s/%s (skipping managed fields) ==========\n", obj, obj.GetNamespace(), obj.GetName())
-	obj.SetManagedFields([]metav1.ManagedFieldsEntry{})
-	objBytes, err := yaml.Marshal(obj)
-	if err != nil {
-		return fmt.Errorf("failed marshalling object %v: %v\n", obj, err)
-	}
-	fmt.Fprintln(GinkgoWriter, string(objBytes))
-	return nil
-}
-
 func printBuildLogs(config *rest.Config) {
+	if sharedData.SpaceName == "" {
+		return
+	}
 	spaceGUID, err := sessionOutput(helpers.Cf("space", sharedData.SpaceName, "--guid").Wait())
 	if err != nil {
 		fmt.Fprintf(GinkgoWriter, "failed to get space guid: %v\n", err)

@@ -28,8 +28,9 @@ const (
 	// Deprecated. Used for removing leftover finalizers
 	CFRouteFinalizerName = "cfRoute.korifi.cloudfoundry.org"
 
-	DestinationAppGUIDLabelPrefix = "korifi.cloudfoundry.org/destination-app-guid-"
-	CFRouteIsUnmappedLabelKey     = "korifi.cloudfoundry.org/unmapped"
+	CFRouteAppGuidsAnnotationKey = "korifi.cloudfoundry.org/app-guids"
+
+	CFRouteIsUnmappedLabelKey = "korifi.cloudfoundry.org/unmapped"
 )
 
 // Destination defines a target for a CFRoute, does not carry meaning outside of a CF context
@@ -94,6 +95,7 @@ type CFRouteStatus struct {
 //+kubebuilder:printcolumn:name="Created At",type="string",JSONPath=`.metadata.labels.korifi\.cloudfoundry\.org/created_at`
 //+kubebuilder:printcolumn:name="Updated At",type="string",JSONPath=`.metadata.labels.korifi\.cloudfoundry\.org/updated_at`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+//+kubebuilder:printcolumn:name="AppGUIDs",type="string",JSONPath=`.metadata.annotations.korifi\.cloudfoundry\.org/app-guids`, priority=1
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CFRoute is the Schema for the cfroutes API

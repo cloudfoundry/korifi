@@ -28,18 +28,14 @@ securityContext:
   capabilities:
     drop:
     - ALL
-{{- if .Values.debug }}
-    add:
-    - SYS_PTRACE
-{{- end }}
-  runAsNonRoot: {{ not .Values.debug }}
+  runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault
 {{- end }}
 
 {{- define "korifi.podSecurityContext" }}
 securityContext:
-  runAsNonRoot: {{ not .Values.debug }}
+  runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault
 {{- end }}
@@ -47,9 +43,7 @@ securityContext:
 {{- define "korifi.webhookCaBundle" -}}
 {{- $caBundle := "" -}}
 {{- if not .Values.generateInternalCertificates -}}
-{{- $compValues := index .Values .component -}}
-{{- $webhookCertSecret := $compValues.webhookCertSecret -}}
-{{- $caBundle = index (lookup "v1" "Secret" .Release.Namespace $webhookCertSecret).data "ca.crt" -}}
+{{- $caBundle = index (lookup "v1" "Secret" .Release.Namespace .Values.controllers.webhookCertSecret).data "ca.crt" -}}
 {{- end -}}
 {{ $caBundle }}
 {{- end -}}

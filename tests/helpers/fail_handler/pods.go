@@ -215,22 +215,21 @@ func PrintKorifiLogs(config *rest.Config, correlationId string, since time.Time)
 			LabelValue: "korifi-controllers",
 			Since:      tools.PtrTo(metav1.NewTime(since)),
 		},
+	})
+}
+
+func PrintKpackLogs(config *rest.Config, since time.Time) {
+	PrintPodsLogs(config, []PodDescriptor{
 		{
-			Namespace:  "korifi",
+			Namespace:  "kpack",
 			LabelKey:   "app",
-			LabelValue: "korifi-kpack-image-builder",
+			LabelValue: "kpack-controller",
 			Since:      tools.PtrTo(metav1.NewTime(since)),
 		},
 		{
-			Namespace:  "korifi",
+			Namespace:  "kpack",
 			LabelKey:   "app",
-			LabelValue: "korifi-statefulset-runner",
-			Since:      tools.PtrTo(metav1.NewTime(since)),
-		},
-		{
-			Namespace:  "korifi",
-			LabelKey:   "app",
-			LabelValue: "korifi-job-task-runner",
+			LabelValue: "kpack-webhook",
 			Since:      tools.PtrTo(metav1.NewTime(since)),
 		},
 	})

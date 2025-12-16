@@ -1,6 +1,8 @@
 package descriptors_test
 
 import (
+	"slices"
+
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -11,6 +13,7 @@ var _ = Describe("TableResultSetDescriptor", func() {
 	var (
 		results  descriptors.TableResultSetDescriptor
 		guids    []string
+		column   string
 		guidsErr error
 	)
 
@@ -47,7 +50,6 @@ var _ = Describe("TableResultSetDescriptor", func() {
 
 	Describe("Sort", func() {
 		var (
-			column  string
 			desc    bool
 			sortErr error
 		)
@@ -168,6 +170,37 @@ var _ = Describe("TableResultSetDescriptor", func() {
 
 			It("returns an error", func() {
 				Expect(sortErr).To(MatchError(ContainSubstring("not found")))
+			})
+		})
+	})
+
+	Describe("Filter", func() {
+		var filterErr error
+		BeforeEach(func() {
+			column = "Hobbies"
+		})
+
+		JustBeforeEach(func() {
+			filterErr = results.Filter(column, func(value any) bool {
+				hobbies := value.([]string)
+				return slices.Contains(hobbies, "hiking") || slices.Contains(hobbies, "gaming")
+			})
+			guids, guidsErr = results.GUIDs()
+			Expect(guidsErr).NotTo(HaveOccurred())
+		})
+
+		It("filters the table by specified column", func() {
+			Expect(filterErr).NotTo(HaveOccurred())
+			Expect(guids).To(Equal([]string{"Alice", "Bob"}))
+		})
+
+		When("filter column is not found", func() {
+			BeforeEach(func() {
+				column = "NonExistentColumn"
+			})
+
+			It("returns an error", func() {
+				Expect(filterErr).To(MatchError(ContainSubstring("not found")))
 			})
 		})
 	})

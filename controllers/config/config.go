@@ -9,12 +9,17 @@ import (
 )
 
 type ControllerConfig struct {
+	// components
+	IncludeKpackImageBuilder bool `yaml:"includeKpackImageBuilder"`
+	IncludeJobTaskRunner     bool `yaml:"includeJobTaskRunner"`
+	IncludeStatefulsetRunner bool `yaml:"includeStatefulsetRunner"`
+
 	// core controllers
 	CFProcessDefaults                CFProcessDefaults  `yaml:"cfProcessDefaults"`
 	CFStagingResources               CFStagingResources `yaml:"cfStagingResources"`
 	CFRootNamespace                  string             `yaml:"cfRootNamespace"`
 	ContainerRegistrySecretNames     []string           `yaml:"containerRegistrySecretNames"`
-	TaskTTL                          string             `yaml:"taskTTL"`
+	TaskTTL                          time.Duration      `yaml:"taskTTL"`
 	BuilderName                      string             `yaml:"builderName"`
 	RunnerName                       string             `yaml:"runnerName"`
 	NamespaceLabels                  map[string]string  `yaml:"namespaceLabels"`
@@ -24,7 +29,16 @@ type ControllerConfig struct {
 	LogLevel                         zapcore.Level      `yaml:"logLevel"`
 	SpaceFinalizerAppDeletionTimeout *int32             `yaml:"spaceFinalizerAppDeletionTimeout"`
 
-	Networking Networking `yaml:"networking"`
+	// job-task-runner
+	JobTTL time.Duration `yaml:"jobTTL"`
+
+	// kpack-image-builder
+	ClusterBuilderName        string        `yaml:"clusterBuilderName"`
+	BuilderServiceAccount     string        `yaml:"builderServiceAccount"`
+	BuilderReadinessTimeout   time.Duration `yaml:"builderReadinessTimeout"`
+	ContainerRepositoryPrefix string        `yaml:"containerRepositoryPrefix"`
+	ContainerRegistryType     string        `yaml:"containerRegistryType"`
+	Networking                Networking    `yaml:"networking"`
 
 	ExperimentalManagedServicesEnabled bool `yaml:"experimentalManagedServicesEnabled"`
 	TrustInsecureServiceBrokers        bool `yaml:"trustInsecureServiceBrokers"`
@@ -49,10 +63,7 @@ type Networking struct {
 }
 
 const (
-	defaultTaskTTL            = 30 * 24 * time.Hour
-	defaultTimeout      int32 = 60
-	defaultJobTTL             = 24 * time.Hour
-	defaultBuildCacheMB       = 2048
+	defaultTimeout int32 = 60
 )
 
 func LoadFromPath(path string) (*ControllerConfig, error) {
@@ -70,10 +81,6 @@ func LoadFromPath(path string) (*ControllerConfig, error) {
 		config.SpaceFinalizerAppDeletionTimeout = tools.PtrTo(defaultTimeout)
 	}
 
-	if config.CFStagingResources.BuildCacheMB == 0 {
-		config.CFStagingResources.BuildCacheMB = defaultBuildCacheMB
-	}
-
 	return &config, nil
 }
 
@@ -84,12 +91,4 @@ func GetLogLevelFromPath(path string) (zapcore.Level, error) {
 	}
 
 	return cfg.LogLevel, nil
-}
-
-func (c ControllerConfig) ParseTaskTTL() (time.Duration, error) {
-	if c.TaskTTL == "" {
-		return defaultTaskTTL, nil
-	}
-
-	return tools.ParseDuration(c.TaskTTL)
 }

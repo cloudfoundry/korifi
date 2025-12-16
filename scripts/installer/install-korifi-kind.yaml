@@ -77,7 +77,7 @@ spec:
 
           scripts/install-dependencies.sh --insecure-tls-metrics-server
 
-          helm repo add twuni https://helm.twun.io
+          helm repo add twuni https://twuni.github.io/docker-registry.helm
           # the htpasswd value below is username: user, password: password encoded using `htpasswd` binary
           # e.g. `docker run --entrypoint htpasswd httpd:2 -Bbn user password`
           #
@@ -100,13 +100,15 @@ spec:
             sleep 1
           done
 
+          kubectl delete --ignore-not-found=true namespace korifi-gateway --wait
+          kubectl create namespace korifi-gateway
+
           helm upgrade --install korifi helm/korifi \
             --namespace korifi \
             --set=adminUserName="kubernetes-admin" \
             --set=defaultAppDomainName="apps-127-0-0-1.nip.io" \
             --set=generateIngressCertificates="true" \
             --set=logLevel="debug" \
-            --set=debug="false" \
             --set=stagingRequirements.buildCacheMB="1024" \
             --set=api.apiServer.url="localhost" \
             --set=controllers.taskTTL="5s" \
@@ -118,6 +120,7 @@ spec:
             --set=networking.gatewayPorts.https="32443" \
             --set=experimental.managedServices.enabled="true" \
             --set=experimental.managedServices.trustInsecureBrokers="true" \
+            --timeout="15m" \
             --wait
 
           kubectl wait --for=condition=ready clusterbuilder --all=true --timeout=15m

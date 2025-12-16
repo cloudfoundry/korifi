@@ -27,25 +27,9 @@ spec:
         - name: CONTROLLERSCONFIG
           value: /etc/korifi-controllers-config
         image: {{ .Values.controllers.image }}
-{{- if .Values.debug }}
-        command:
-        - "/dlv"
-        args:
-        - "--listen=:40000"
-        - "--headless=true"
-        - "--api-version=2"
-        - "exec"
-        - "/manager"
-        - "--continue"
-        - "--accept-multiclient"
-        - "--"
-        - "--health-probe-bind-address=:8081"
-        - "--leader-elect"
-{{- else }}
         args:
         - --health-probe-bind-address=:8081
         - --leader-elect
-{{- end }}
         livenessProbe:
           httpGet:
             path: /healthz
