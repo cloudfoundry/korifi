@@ -236,6 +236,99 @@ var _ = Describe("OSBAPI Client", func() {
 			})
 		})
 
+		Describe("Update", func() {
+			var (
+				updateResp osbapi.UpdateResponse
+				updateErr  error
+			)
+
+			BeforeEach(func() {
+				brokerServer = brokerServer.WithResponse(
+					"/v2/service_instances/{id}",
+					nil,
+					http.StatusOK,
+				)
+			})
+
+			JustBeforeEach(func() {
+				updateResp, updateErr = brokerClient.Update(ctx, osbapi.UpdatePayload{
+					InstanceID: "my-service-instance",
+					UpdateRequest: osbapi.UpdateRequest{
+						ServiceId: "service-guid",
+						PlanID:    "plan-guid",
+					},
+				})
+			})
+			It("updates the service synchronously", func() {
+				Expect(updateErr).NotTo(HaveOccurred())
+				Expect(updateResp).To(Equal(osbapi.UpdateResponse{}))
+			})
+			It("sends async update request to broker", func() {
+				Expect(updateErr).NotTo(HaveOccurred())
+				requests := brokerServer.ServedRequests()
+
+				Expect(requests).To(HaveLen(1))
+
+				Expect(requests[0].Method).To(Equal(http.MethodPatch))
+				Expect(requests[0].URL.Path).To(Equal("/v2/service_instances/my-service-instance"))
+
+				Expect(requests[0].URL.Query()).To(BeEquivalentTo(map[string][]string{
+					"accepts_incomplete": {"true"},
+				}))
+			})
+			When("the broker accepts the update request", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse(
+						"/v2/service_instances/{id}",
+						map[string]any{
+							"operation": "update_op1",
+						},
+						http.StatusAccepted,
+					)
+				})
+
+				It("updatres the service asynchronously", func() {
+					Expect(updateErr).NotTo(HaveOccurred())
+					Expect(updateResp).To(Equal(osbapi.UpdateResponse{
+						IsAsync:   true,
+						Operation: "update_op1",
+					}))
+				})
+			})
+			When("the update request fails with 400 BadRequest error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusBadRequest)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(updateErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusBadRequest}))
+				})
+			})
+
+			When("the provision request fails with 422 Unprocessable entity error", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse("/v2/service_instances/{id}", nil, http.StatusUnprocessableEntity)
+				})
+
+				It("returns an unrecoverable error", func() {
+					Expect(updateErr).To(Equal(osbapi.UnrecoverableError{Status: http.StatusUnprocessableEntity}))
+				})
+			})
+			When("the update request fails", func() {
+				BeforeEach(func() {
+					brokerServer = brokerServer.WithResponse(
+						"/v2/service_instances/{id}",
+						nil,
+						http.StatusTeapot,
+					)
+				})
+
+				It("returns an error", func() {
+					Expect(updateErr).To(MatchError(ContainSubstring("update request failed")))
+				})
+			})
+		})
+
 		Describe("Deprovision", func() {
 			var (
 				deprovisionResp osbapi.ProvisionResponse
