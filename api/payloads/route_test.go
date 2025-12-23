@@ -97,6 +97,7 @@ var _ = Describe("RouteCreate", func() {
 		createPayload = payloads.RouteCreate{
 			Host: "h1",
 			Path: "p1",
+			Port: 8080,
 			Relationships: &payloads.RouteRelationships{
 				Domain: payloads.Relationship{
 					Data: &payloads.RelationshipData{
