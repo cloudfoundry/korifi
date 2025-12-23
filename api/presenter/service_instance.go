@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -23,8 +24,8 @@ type ServiceInstanceResponse struct {
 	RouteServiceURL *string       `json:"route_service_url"`
 	SyslogDrainURL  *string       `json:"syslog_drain_url"`
 
-	CreatedAt        string                       `json:"created_at"`
-	UpdatedAt        string                       `json:"updated_at"`
+	CreatedAt        time.Time                    `json:"created_at"`
+	UpdatedAt        time.Time                    `json:"updated_at"`
 	Relationships    map[string]ToOneRelationship `json:"relationships"`
 	Metadata         Metadata                     `json:"metadata"`
 	Links            ServiceInstanceLinks         `json:"links"`
@@ -34,11 +35,11 @@ type ServiceInstanceResponse struct {
 }
 
 type lastOperation struct {
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-	Description string `json:"description"`
-	State       string `json:"state"`
-	Type        string `json:"type"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Description string    `json:"description"`
+	State       string    `json:"state"`
+	Type        string    `json:"type"`
 }
 
 type ServiceInstanceLinks struct {

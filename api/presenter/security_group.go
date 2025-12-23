@@ -3,6 +3,7 @@ package presenter
 import (
 	"net/url"
 	"slices"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
 	"code.cloudfoundry.org/korifi/api/repositories"
@@ -15,8 +16,8 @@ const securityGroupBase = "/v3/security_groups"
 
 type SecurityGroupResponse struct {
 	GUID            string                              `json:"guid"`
-	CreatedAt       string                              `json:"created_at"`
-	UpdatedAt       string                              `json:"updated_at"`
+	CreatedAt       time.Time                           `json:"created_at"`
+	UpdatedAt       time.Time                           `json:"updated_at"`
 	Name            string                              `json:"name"`
 	GloballyEnabled repositories.SecurityGroupWorkloads `json:"globally_enabled"`
 	Rules           []repositories.SecurityGroupRule    `json:"rules"`

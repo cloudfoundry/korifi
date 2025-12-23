@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -24,8 +25,8 @@ type ProcessResponse struct {
 	HealthCheck   ProcessResponseHealthCheck   `json:"health_check"`
 	Relationships map[string]ToOneRelationship `json:"relationships"`
 	Metadata      Metadata                     `json:"metadata"`
-	CreatedAt     string                       `json:"created_at"`
-	UpdatedAt     string                       `json:"updated_at"`
+	CreatedAt     time.Time                    `json:"created_at"`
+	UpdatedAt     time.Time                    `json:"updated_at"`
 	Links         ProcessLinks                 `json:"links"`
 }
 
