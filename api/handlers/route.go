@@ -68,9 +68,9 @@ func (h *Route) get(r *http.Request) (*routing.Response, error) {
 
 	routeGUID := routing.URLParam(r, "guid")
 
-	route, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
+	route, err := h.routeRepo.GetRoute(r.Context(), authInfo, routeGUID)
 	if err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForRoute(route, h.serverURL)), nil
@@ -85,7 +85,7 @@ func (h *Route) list(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	routes, err := h.lookupRouteAndDomainList(r.Context(), authInfo, payload.ToMessage())
+	routes, err := h.routeRepo.ListRoutes(r.Context(), authInfo, payload.ToMessage())
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch routes from Kubernetes")
 	}
@@ -99,9 +99,9 @@ func (h *Route) listDestinations(r *http.Request) (*routing.Response, error) {
 
 	routeGUID := routing.URLParam(r, "guid")
 
-	route, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
+	route, err := h.routeRepo.GetRoute(r.Context(), authInfo, routeGUID)
 	if err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForRouteDestinations(route, h.serverURL)), nil
@@ -168,9 +168,9 @@ func (h *Route) insertDestinations(r *http.Request) (*routing.Response, error) {
 
 	routeGUID := routing.URLParam(r, "guid")
 
-	routeRecord, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
+	routeRecord, err := h.routeRepo.GetRoute(r.Context(), authInfo, routeGUID)
 	if err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
 	}
 
 	destinationListCreateMessage := destinationCreatePayload.ToMessage(routeRecord)
@@ -190,9 +190,9 @@ func (h *Route) deleteDestination(r *http.Request) (*routing.Response, error) {
 	routeGUID := routing.URLParam(r, "guid")
 	destinationGUID := routing.URLParam(r, "destination_guid")
 
-	routeRecord, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
+	routeRecord, err := h.routeRepo.GetRoute(r.Context(), authInfo, routeGUID)
 	if err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
 	}
 
 	message := repositories.RemoveDestinationMessage{
@@ -215,9 +215,9 @@ func (h *Route) delete(r *http.Request) (*routing.Response, error) {
 
 	routeGUID := routing.URLParam(r, "guid")
 
-	routeRecord, err := h.lookupRouteAndDomain(r.Context(), logger, authInfo, routeGUID)
+	routeRecord, err := h.routeRepo.GetRoute(r.Context(), authInfo, routeGUID)
 	if err != nil {
-		return nil, err
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
 	}
 
 	err = h.routeRepo.DeleteRoute(r.Context(), authInfo, repositories.DeleteRouteMessage{
@@ -229,47 +229,6 @@ func (h *Route) delete(r *http.Request) (*routing.Response, error) {
 	}
 
 	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(routeGUID, presenter.RouteDeleteOperation, h.serverURL)), nil
-}
-
-// Fetch Route and compose related Domain information within
-func (h *Route) lookupRouteAndDomain(ctx context.Context, logger logr.Logger, authInfo authorization.Info, routeGUID string) (repositories.RouteRecord, error) {
-	route, err := h.routeRepo.GetRoute(ctx, authInfo, routeGUID)
-	if err != nil {
-		return repositories.RouteRecord{}, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch route from Kubernetes", "RouteGUID", routeGUID)
-	}
-
-	domain, err := h.domainRepo.GetDomain(ctx, authInfo, route.Domain.GUID)
-	if err != nil {
-		return repositories.RouteRecord{}, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch domain from Kubernetes", "DomainGUID", route.Domain.GUID)
-	}
-
-	route.Domain = domain
-
-	return route, nil
-}
-
-func (h *Route) lookupRouteAndDomainList(ctx context.Context, authInfo authorization.Info, message repositories.ListRoutesMessage) (repositories.ListResult[repositories.RouteRecord], error) {
-	listResult, err := h.routeRepo.ListRoutes(ctx, authInfo, message)
-	if err != nil {
-		return repositories.ListResult[repositories.RouteRecord]{}, err
-	}
-
-	routeRecords := listResult.Records
-	domainRecords := make(map[string]repositories.DomainRecord)
-	for i, routeRecord := range routeRecords {
-		domainRecord, ok := domainRecords[routeRecord.Domain.GUID]
-		if !ok {
-			domainRecord, err = h.domainRepo.GetDomain(ctx, authInfo, routeRecord.Domain.GUID)
-			if err != nil {
-				return repositories.ListResult[repositories.RouteRecord]{}, err
-			}
-			domainRecords[routeRecord.Domain.GUID] = domainRecord
-		}
-		routeRecords[i].Domain = domainRecord
-	}
-
-	listResult.Records = routeRecords
-	return listResult, nil
 }
 
 //nolint:dupl

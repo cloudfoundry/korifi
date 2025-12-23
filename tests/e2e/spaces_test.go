@@ -171,6 +171,7 @@ var _ = Describe("Spaces", func() {
 			manifestBytes            []byte
 			manifest                 manifestResource
 			app1Name, app2Name       string
+			app1GUID                 string
 			serviceName, serviceGUID string
 			serviceBindingName       string
 		)
@@ -185,6 +186,7 @@ var _ = Describe("Spaces", func() {
 			serviceBindingName = uuid.NewString()
 
 			route := fmt.Sprintf("%s.%s", app1Name, appFQDN)
+
 			manifest = manifestResource{
 				Version: 1,
 				Applications: []applicationResource{{
@@ -234,7 +236,7 @@ var _ = Describe("Spaces", func() {
 				))
 				expectJobCompletes(resp)
 
-				app1GUID := getAppGUIDFromName(app1Name)
+				app1GUID = getAppGUIDFromName(app1Name)
 
 				app1 := getApp(app1GUID)
 				Expect(app1.Metadata).NotTo(BeNil())
@@ -305,6 +307,13 @@ var _ = Describe("Spaces", func() {
 							}},
 						}},
 					})
+
+					app1GUID = getAppGUIDFromName(app1Name)
+					pkgGUID := createBitsPackage(app1GUID)
+					uploadTestApp(pkgGUID, defaultAppBitsFile)
+					buildGUID := createBuild(pkgGUID)
+					waitForDroplet(buildGUID)
+					setCurrentDroplet(app1GUID, buildGUID)
 				})
 
 				It("applies the changes correctly", func() {

@@ -9,6 +9,7 @@ import (
 	"code.cloudfoundry.org/korifi/api/routing/fake"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v2"
 )
 
 var _ = Describe("Handler", func() {
@@ -52,6 +53,22 @@ var _ = Describe("Handler", func() {
 
 		It("sets the application/json content type in the response", func() {
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
+		})
+
+		When("content type option is yaml", func() {
+			BeforeEach(func() {
+				response = response.WithContentType("application/x-yaml")
+			})
+
+			It("sets the specified content type header on the response", func() {
+				Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/x-yaml"))
+			})
+
+			It("encodes the body into YAML", func() {
+				expectedYAML, err := yaml.Marshal(map[string]string{"hello": "world"})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rr).To(HaveHTTPBody(string(expectedYAML)))
+			})
 		})
 
 		It("encodes the body into JSON", func() {
