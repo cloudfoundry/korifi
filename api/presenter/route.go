@@ -3,6 +3,7 @@ package presenter
 import (
 	"fmt"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -22,8 +23,8 @@ type RouteResponse struct {
 	URL          string             `json:"url"`
 	Destinations []routeDestination `json:"destinations"`
 
-	CreatedAt     string                       `json:"created_at"`
-	UpdatedAt     string                       `json:"updated_at"`
+	CreatedAt     time.Time                    `json:"created_at"`
+	UpdatedAt     time.Time                    `json:"updated_at"`
 	Relationships map[string]ToOneRelationship `json:"relationships"`
 	Metadata      Metadata                     `json:"metadata"`
 	Links         routeLinks                   `json:"links"`

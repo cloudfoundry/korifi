@@ -3,6 +3,7 @@ package presenter
 import (
 	"net/url"
 	"slices"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -19,8 +20,8 @@ type ServiceBindingResponse struct {
 	GUID          string                              `json:"guid"`
 	Type          string                              `json:"type"`
 	Name          *string                             `json:"name"`
-	CreatedAt     string                              `json:"created_at"`
-	UpdatedAt     string                              `json:"updated_at"`
+	CreatedAt     time.Time                           `json:"created_at"`
+	UpdatedAt     time.Time                           `json:"updated_at"`
 	LastOperation ServiceBindingLastOperationResponse `json:"last_operation"`
 	Relationships map[string]ToOneRelationship        `json:"relationships"`
 	Links         ServiceBindingLinks                 `json:"links"`
@@ -28,11 +29,11 @@ type ServiceBindingResponse struct {
 }
 
 type ServiceBindingLastOperationResponse struct {
-	Type        string  `json:"type"`
-	State       string  `json:"state"`
-	Description *string `json:"description"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	Type        string    `json:"type"`
+	State       string    `json:"state"`
+	Description *string   `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type ServiceBindingLinks struct {

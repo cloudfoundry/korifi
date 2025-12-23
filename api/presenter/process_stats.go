@@ -25,10 +25,10 @@ type ProcessStatsResource struct {
 }
 
 type ProcessUsage struct {
-	Time *string  `json:"time,omitempty"`
-	CPU  *float64 `json:"cpu,omitempty"`
-	Mem  *int64   `json:"mem,omitempty"`
-	Disk *int64   `json:"disk,omitempty"`
+	Time *time.Time `json:"time,omitempty"`
+	CPU  *float64   `json:"cpu,omitempty"`
+	Mem  *int64     `json:"mem,omitempty"`
+	Disk *int64     `json:"disk,omitempty"`
 }
 
 func ForProcessStats(gauges []stats.ProcessGauges, instancesState []stats.ProcessInstanceState, now time.Time) ProcessStatsResponse {

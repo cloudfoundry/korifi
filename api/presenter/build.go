@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -15,8 +16,8 @@ const (
 
 type BuildResponse struct {
 	GUID            string                       `json:"guid"`
-	CreatedAt       string                       `json:"created_at"`
-	UpdatedAt       string                       `json:"updated_at"`
+	CreatedAt       time.Time                    `json:"created_at"`
+	UpdatedAt       time.Time                    `json:"updated_at"`
 	CreatedBy       map[string]interface{}       `json:"created_by"`
 	State           string                       `json:"state"`
 	StagingMemoryMB int                          `json:"staging_memory_in_mb"`
