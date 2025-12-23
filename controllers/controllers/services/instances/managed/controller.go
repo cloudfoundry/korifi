@@ -122,7 +122,6 @@ func (r *Reconciler) isManaged(object client.Object) bool {
 func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
-	serviceInstance.Status.ObservedGeneration = serviceInstance.Generation
 	log.V(1).Info("set observed generation", "generation", serviceInstance.Status.ObservedGeneration)
 
 	if !serviceInstance.GetDeletionTimestamp().IsZero() {
@@ -166,18 +165,33 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		serviceInstance.Spec.ServiceLabel = tools.PtrTo(serviceInstanceAssets.ServiceOffering.Spec.Name)
 	}
 
-	provisionResponse, err := r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
-	if err != nil {
-		log.Error(err, "failed to provision service instance")
-		return ctrl.Result{}, fmt.Errorf("failed to provision service instance: %w", err)
-	}
-
-	if provisionResponse.IsAsync {
-		lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, provisionResponse.Operation)
+	if serviceInstance.Status.ObservedGeneration == 0 {
+		provisionResponse, err := r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 		if err != nil {
-			return ctrl.Result{}, err
+			log.Error(err, "failed to provision service instance")
+			return ctrl.Result{}, fmt.Errorf("failed to provision service instance: %w", err)
 		}
-		return r.processProvisionOperation(serviceInstance, lastOpResponse)
+
+		if provisionResponse.IsAsync {
+			lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, provisionResponse.Operation)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			return r.processProvisionOperation(serviceInstance, lastOpResponse)
+		}
+	} else {
+		updateResponse, err := r.updateServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+		if err != nil {
+			log.Error(err, "failed to update service instance")
+			return ctrl.Result{}, fmt.Errorf("failed to update service instance: %w", err)
+		}
+		if updateResponse.IsAsync {
+			lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, updateResponse.Operation)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			return r.processUpdateOperation(serviceInstance, lastOpResponse)
+		}
 	}
 
 	serviceInstance.Status.MaintenanceInfo = serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo
@@ -249,6 +263,7 @@ func (r *Reconciler) processProvisionOperation(
 	lastOpResponse osbapi.LastOperationResponse,
 ) (ctrl.Result, error) {
 	if lastOpResponse.State == "succeeded" {
+		setObservedGeneration(serviceInstance)
 		return ctrl.Result{}, nil
 	}
 
@@ -261,16 +276,88 @@ func (r *Reconciler) processProvisionOperation(
 			Reason:             "ProvisionFailed",
 			Message:            lastOpResponse.Description,
 		})
+		setObservedGeneration(serviceInstance)
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionFailed")
 	}
 
 	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionInProgress").WithRequeue()
 }
 
+func (r *Reconciler) updateServiceInstance(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	assets osbapi.ServiceInstanceAssets,
+	osbapiClient osbapi.BrokerClient,
+) (osbapi.UpdateResponse, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("update-service-instance")
+
+	serviceInstance.Status.LastOperation = korifiv1alpha1.LastOperation{
+		Type:  "update",
+		State: "in progress",
+	}
+
+	var updateResponse osbapi.UpdateResponse
+	var err error
+	updateResponse, err = osbapiClient.Update(ctx, osbapi.UpdatePayload{
+		InstanceID: serviceInstance.Name,
+		UpdateRequest: osbapi.UpdateRequest{
+			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
+		},
+	})
+	if err != nil {
+		log.Error(err, "failed to update service")
+
+		if osbapi.IsUnrecoveralbeError(err) {
+			serviceInstance.Status.LastOperation.State = "failed"
+			meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+				Type:               korifiv1alpha1.UpdateFailedCondition,
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: serviceInstance.Generation,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Reason:             "UpdateFailed",
+				Message:            err.Error(),
+			})
+			return osbapi.UpdateResponse{},
+				k8s.NewNotReadyError().WithReason("UpdateFailed")
+		}
+
+		return osbapi.UpdateResponse{}, err
+	}
+
+	return updateResponse, nil
+}
+
+func (r *Reconciler) processUpdateOperation(
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	lastOpResponse osbapi.LastOperationResponse,
+) (ctrl.Result, error) {
+	if lastOpResponse.State == "succeeded" {
+		setObservedGeneration(serviceInstance)
+		return ctrl.Result{}, nil
+	}
+
+	if lastOpResponse.State == "failed" {
+		meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.ProvisioningFailedCondition,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: serviceInstance.Generation,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			Reason:             "UpdateFailed",
+			Message:            lastOpResponse.Description,
+		})
+		setObservedGeneration(serviceInstance)
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UpdateFailed")
+	}
+
+	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UpdateInProgress").WithRequeue()
+}
+
 func (r *Reconciler) finalize(
 	ctx context.Context,
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 ) (ctrl.Result, error) {
+	setObservedGeneration(serviceInstance)
 	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
 		return ctrl.Result{}, nil
 	}
@@ -477,4 +564,8 @@ func isFailed(instance *korifiv1alpha1.CFServiceInstance) bool {
 
 func isReady(instance *korifiv1alpha1.CFServiceInstance) bool {
 	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.StatusConditionReady)
+}
+
+func setObservedGeneration(instance *korifiv1alpha1.CFServiceInstance) {
+	instance.Status.ObservedGeneration = instance.Generation
 }

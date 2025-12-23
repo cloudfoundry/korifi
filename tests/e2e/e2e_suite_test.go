@@ -734,7 +734,7 @@ func getProcess(appGUID, processType string) processResource {
 	return process
 }
 
-func createServiceInstance(spaceGUID, name string, credentials map[string]string) string {
+func createUPServiceInstance(spaceGUID, name string, credentials map[string]string) string {
 	GinkgoHelper()
 
 	var serviceInstance typedResource
