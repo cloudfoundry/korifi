@@ -122,6 +122,7 @@ func (r *Reconciler) isManaged(object client.Object) bool {
 func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
+	serviceInstance.Status.ObservedGeneration = serviceInstance.Generation
 	log.V(1).Info("set observed generation", "generation", serviceInstance.Status.ObservedGeneration)
 
 	if !serviceInstance.GetDeletionTimestamp().IsZero() {
@@ -147,7 +148,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	}
 
 	if isFailed(serviceInstance) {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisioningFailed").WithNoRequeue()
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ReconciliationFailed").WithNoRequeue()
 	}
 
 	planVisible, err := r.isServicePlanVisible(ctx, serviceInstance, serviceInstanceAssets.ServicePlan)
@@ -165,7 +166,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		serviceInstance.Spec.ServiceLabel = tools.PtrTo(serviceInstanceAssets.ServiceOffering.Spec.Name)
 	}
 
-	if serviceInstance.Status.ObservedGeneration == 0 {
+	if serviceInstance.Status.PlanGUID == "" {
 		provisionResponse, err := r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 		if err != nil {
 			log.Error(err, "failed to provision service instance")
@@ -194,6 +195,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		}
 	}
 
+	serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
 	serviceInstance.Status.MaintenanceInfo = serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo
 	serviceInstance.Status.LastOperation.State = "succeeded"
 	return ctrl.Result{}, nil
@@ -339,7 +341,7 @@ func (r *Reconciler) processUpdateOperation(
 
 	if lastOpResponse.State == "failed" {
 		meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
-			Type:               korifiv1alpha1.ProvisioningFailedCondition,
+			Type:               korifiv1alpha1.UpdateFailedCondition,
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: serviceInstance.Generation,
 			LastTransitionTime: metav1.NewTime(time.Now()),
