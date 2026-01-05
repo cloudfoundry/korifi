@@ -122,7 +122,7 @@ var _ = BeforeEach(func() {
 })
 
 var _ = AfterEach(func() {
-	Expect(testEnv.Stop()).To(Succeed())
+	Eventually(testEnv.Stop, "1m").Should(Succeed())
 })
 
 func createClusterRole(ctx context.Context, filename string) *rbacv1.ClusterRole {
