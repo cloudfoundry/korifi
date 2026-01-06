@@ -12,6 +12,8 @@ import (
 	"code.cloudfoundry.org/korifi/api/authorization"
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/k8sklient/descriptors"
+
+	apierrors "code.cloudfoundry.org/korifi/api/errors"
 )
 
 var _ = Describe("StateCollector", func() {
@@ -22,6 +24,7 @@ var _ = Describe("StateCollector", func() {
 		routeRepo           *fake.CFRouteRepository
 		serviceInstanceRepo *fake.CFServiceInstanceRepository
 		serviceBindingRepo  *fake.CFServiceBindingRepository
+		dropletRepo         *fake.CFDropletRepository
 		stateCollector      manifest.StateCollector
 		appState            manifest.AppState
 		collectStateErr     error
@@ -34,6 +37,7 @@ var _ = Describe("StateCollector", func() {
 		routeRepo = new(fake.CFRouteRepository)
 		serviceInstanceRepo = new(fake.CFServiceInstanceRepository)
 		serviceBindingRepo = new(fake.CFServiceBindingRepository)
+		dropletRepo = new(fake.CFDropletRepository)
 		stateCollector = manifest.NewStateCollector(
 			appRepo,
 			domainRepo,
@@ -41,6 +45,7 @@ var _ = Describe("StateCollector", func() {
 			routeRepo,
 			serviceInstanceRepo,
 			serviceBindingRepo,
+			dropletRepo,
 		)
 	})
 
@@ -86,6 +91,64 @@ var _ = Describe("StateCollector", func() {
 
 			It("returns the error", func() {
 				Expect(collectStateErr).To(MatchError("get-app-err"))
+			})
+		})
+	})
+
+	Describe("droplet", func() {
+		BeforeEach(func() {
+			appRepo.ListAppsReturns(repositories.ListResult[repositories.AppRecord]{Records: []repositories.AppRecord{{GUID: "app-guid", DropletGUID: "droplet-guid"}}}, nil)
+			dropletRepo.GetDropletReturns(repositories.DropletRecord{
+				Lifecycle: repositories.Lifecycle{
+					Type: "buildpack",
+					Data: repositories.LifecycleData{
+						Buildpacks: []string{"bp1"},
+					},
+				},
+				AppGUID: "app-guid",
+				Image:   "docker-image",
+			}, nil)
+		})
+
+		It("gets the droplet", func() {
+			Expect(collectStateErr).NotTo(HaveOccurred())
+			Expect(dropletRepo.GetDropletCallCount()).To(Equal(1))
+			_, _, dropletGUID := dropletRepo.GetDropletArgsForCall(0)
+			Expect(dropletGUID).To(Equal("droplet-guid"))
+		})
+
+		It("returns the droplet", func() {
+			Expect(collectStateErr).NotTo(HaveOccurred())
+			Expect(appState.Droplet).To(Equal(&repositories.DropletRecord{
+				Lifecycle: repositories.Lifecycle{
+					Type: "buildpack",
+					Data: repositories.LifecycleData{
+						Buildpacks: []string{"bp1"},
+					},
+				},
+				AppGUID: "app-guid",
+				Image:   "docker-image",
+			}))
+		})
+
+		When("droplet is not found", func() {
+			BeforeEach(func() {
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, apierrors.NewNotFoundError(nil, repositories.DropletResourceType, "droplet-guid"))
+			})
+
+			It("returns nil", func() {
+				Expect(collectStateErr).NotTo(HaveOccurred())
+				Expect(appState.Droplet).To(BeNil())
+			})
+		})
+
+		When("getting droplet fails", func() {
+			BeforeEach(func() {
+				dropletRepo.GetDropletReturns(repositories.DropletRecord{}, errors.New("get-droplet-error"))
+			})
+
+			It("returns the error", func() {
+				Expect(collectStateErr).To(MatchError("get-droplet-error"))
 			})
 		})
 	})

@@ -40,6 +40,7 @@ var _ = Describe("Route", func() {
 			SpaceGUID: "test-space-guid",
 			Domain: repositories.DomainRecord{
 				GUID: "test-domain-guid",
+				Name: "example.org",
 			},
 			Host:     "test-route-host",
 			Path:     "/some_path",
@@ -53,10 +54,6 @@ var _ = Describe("Route", func() {
 		routeRepo.GetRouteReturns(routeRecord, nil)
 
 		domainRepo = new(fake.CFDomainRepository)
-		domainRepo.GetDomainReturns(repositories.DomainRecord{
-			GUID: "test-domain-guid",
-			Name: "example.org",
-		}, nil)
 
 		appRepo = new(fake.CFAppRepository)
 
@@ -98,11 +95,6 @@ var _ = Describe("Route", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualRouteGUID).To(Equal("test-route-guid"))
 
-			Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualDomainGUID := domainRepo.GetDomainArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualDomainGUID).To(Equal("test-domain-guid"))
-
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
 			Expect(rr).To(HaveHTTPBody(SatisfyAll(
@@ -122,29 +114,9 @@ var _ = Describe("Route", func() {
 			})
 		})
 
-		When("the route's domain is not accessible", func() {
-			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{}, apierrors.NewForbiddenError(nil, repositories.DomainResourceType))
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Domain")
-			})
-		})
-
 		When("there is some other error fetching the route", func() {
 			BeforeEach(func() {
 				routeRepo.GetRouteReturns(repositories.RouteRecord{}, errors.New("unknown!"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
-
-		When("there is some other error fetching the domain", func() {
-			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
 			})
 
 			It("returns an error", func() {
@@ -186,11 +158,6 @@ var _ = Describe("Route", func() {
 			Expect(actualMessage).To(Equal(repositories.ListRoutesMessage{
 				Pagination: repositories.Pagination{PerPage: 50, Page: 1},
 			}))
-
-			Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualDomainGUID := domainRepo.GetDomainArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualDomainGUID).To(Equal("test-domain-guid"))
 
 			Expect(rr).To(HaveHTTPStatus(http.StatusOK))
 			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/json"))
@@ -246,22 +213,17 @@ var _ = Describe("Route", func() {
 				expectUnknownError()
 			})
 		})
-
-		When("there is a failure finding a Domain", func() {
-			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
 	})
 
 	Describe("the POST /v3/routes endpoint", func() {
 		BeforeEach(func() {
 			requestMethod = http.MethodPost
 			requestPath = "/v3/routes"
+
+			domainRepo.GetDomainReturns(repositories.DomainRecord{
+				GUID: "test-domain-guid",
+				Name: "example.org",
+			}, nil)
 
 			routeRepo.CreateRouteReturns(repositories.RouteRecord{
 				GUID:      "test-route-guid",
@@ -536,26 +498,6 @@ var _ = Describe("Route", func() {
 				expectUnknownError()
 			})
 		})
-
-		When("the domain is not accessible", func() {
-			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{}, apierrors.NewForbiddenError(nil, repositories.RouteResourceType))
-			})
-
-			It("returns an error", func() {
-				expectNotFoundError("Route")
-			})
-		})
-
-		When("there is some other issue fetching the domain", func() {
-			BeforeEach(func() {
-				domainRepo.GetDomainReturns(repositories.DomainRecord{}, errors.New("unknown!"))
-			})
-
-			It("returns an error", func() {
-				expectUnknownError()
-			})
-		})
 	})
 
 	Describe("the POST /v3/routes/:guid/destinations endpoint", func() {
@@ -600,11 +542,6 @@ var _ = Describe("Route", func() {
 			_, actualAuthInfo, actualRouteGUID := routeRepo.GetRouteArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualRouteGUID).To(Equal("test-route-guid"))
-
-			Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
-			_, actualAuthInfo, actualDomainGUID := domainRepo.GetDomainArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(actualDomainGUID).To(Equal("test-domain-guid"))
 
 			Expect(routeRepo.AddDestinationsToRouteCallCount()).To(Equal(1))
 			_, actualAuthInfo, message := routeRepo.AddDestinationsToRouteArgsForCall(0)

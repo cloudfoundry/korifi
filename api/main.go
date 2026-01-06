@@ -191,11 +191,11 @@ func main() {
 		conditions.NewConditionAwaiter[*korifiv1alpha1.CFApp, korifiv1alpha1.CFAppList](conditionTimeout),
 	)
 	dropletRepo := repositories.NewDropletRepo(spaceScopedKlient)
-	routeRepo := repositories.NewRouteRepo(spaceScopedKlient)
 	domainRepo := repositories.NewDomainRepo(
 		rootNSKlient,
 		cfg.RootNamespace,
 	)
+	routeRepo := repositories.NewRouteRepo(spaceScopedKlient, domainRepo)
 	deploymentRepo := repositories.NewDeploymentRepo(
 		spaceScopedKlient,
 	)
@@ -267,11 +267,13 @@ func main() {
 	securityGroupRepo := repositories.NewSecurityGroupRepo(rootNSKlient, cfg.RootNamespace)
 	userRepo := repositories.NewUserRepository()
 
+	appsStateCollector := manifest.NewStateCollector(appRepo, domainRepo, processRepo, routeRepo, serviceInstanceRepo, serviceBindingRepo, dropletRepo)
+
 	processStats := actions.NewProcessStats(processRepo, appRepo, metricsRepo)
 	manifest := actions.NewManifest(
 		domainRepo,
 		cfg.DefaultDomainName,
-		manifest.NewStateCollector(appRepo, domainRepo, processRepo, routeRepo, serviceInstanceRepo, serviceBindingRepo),
+		appsStateCollector,
 		manifest.NewNormalizer(cfg.DefaultDomainName),
 		manifest.NewApplier(appRepo, domainRepo, processRepo, routeRepo, serviceInstanceRepo, serviceBindingRepo),
 	)
@@ -343,6 +345,7 @@ func main() {
 			podRepo,
 			gaugesCollector,
 			instancesStateCollector,
+			appsStateCollector,
 		),
 		handlers.NewRoute(
 			*serverURL,

@@ -8,20 +8,23 @@ import (
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/presenter"
+	"gopkg.in/yaml.v2"
 
 	"github.com/go-logr/logr"
 )
 
 type Response struct {
-	httpStatus int
-	body       interface{}
-	headers    map[string][]string
+	httpStatus  int
+	body        interface{}
+	headers     map[string][]string
+	contentType string
 }
 
 func NewResponse(httpStatus int) *Response {
 	return &Response{
-		httpStatus: httpStatus,
-		headers:    map[string][]string{},
+		httpStatus:  httpStatus,
+		headers:     map[string][]string{},
+		contentType: "application/json",
 	}
 }
 
@@ -32,6 +35,11 @@ func (r *Response) WithHeader(key, value string) *Response {
 
 func (r *Response) WithBody(body interface{}) *Response {
 	r.body = body
+	return r
+}
+
+func (r *Response) WithContentType(contentType string) *Response {
+	r.contentType = contentType
 	return r
 }
 
@@ -91,11 +99,29 @@ func (response *Response) writeTo(w http.ResponseWriter) error {
 		return nil
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", response.contentType)
 	w.WriteHeader(response.httpStatus)
 
+	if response.contentType == "application/x-yaml" {
+		return response.encodeToYaml(w)
+	}
+	return response.encodeAsJSON(w)
+}
+
+func (response *Response) encodeAsJSON(w http.ResponseWriter) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
+
+	err := encoder.Encode(response.body)
+	if err != nil {
+		return fmt.Errorf("failed to encode and write response: %w", err)
+	}
+
+	return nil
+}
+
+func (response *Response) encodeToYaml(w http.ResponseWriter) error {
+	encoder := yaml.NewEncoder(w)
 
 	err := encoder.Encode(response.body)
 	if err != nil {

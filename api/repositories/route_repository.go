@@ -25,12 +25,14 @@ const (
 )
 
 type RouteRepo struct {
-	klient Klient
+	klient     Klient
+	domainRepo *DomainRepo
 }
 
-func NewRouteRepo(klient Klient) *RouteRepo {
+func NewRouteRepo(klient Klient, domainRepo *DomainRepo) *RouteRepo {
 	return &RouteRepo{
-		klient: klient,
+		klient:     klient,
+		domainRepo: domainRepo,
 	}
 }
 
@@ -175,7 +177,7 @@ func (r *RouteRepo) GetRoute(ctx context.Context, authInfo authorization.Info, r
 		return RouteRecord{}, fmt.Errorf("failed to get route %q: %w", routeGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	return cfRouteToRouteRecord(*route), nil
+	return r.cfRouteToRouteRecord(ctx, authInfo, *route)
 }
 
 func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info, message ListRoutesMessage) (ListResult[RouteRecord], error) {
@@ -185,19 +187,29 @@ func (r *RouteRepo) ListRoutes(ctx context.Context, authInfo authorization.Info,
 		return ListResult[RouteRecord]{}, fmt.Errorf("failed to list routes: %w", apierrors.FromK8sError(err, RouteResourceType))
 	}
 
+	records, err := it.TryCollect(it.MapError(slices.Values(cfRouteList.Items), func(cfRoute korifiv1alpha1.CFRoute) (RouteRecord, error) {
+		return r.cfRouteToRouteRecord(ctx, authInfo, cfRoute)
+	}))
+	if err != nil {
+		return ListResult[RouteRecord]{}, err
+	}
+
 	return ListResult[RouteRecord]{
 		PageInfo: pageInfo,
-		Records:  slices.Collect(it.Map(slices.Values(cfRouteList.Items), cfRouteToRouteRecord)),
+		Records:  records,
 	}, nil
 }
 
-func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
+func (r *RouteRepo) cfRouteToRouteRecord(ctx context.Context, authInfo authorization.Info, cfRoute korifiv1alpha1.CFRoute) (RouteRecord, error) {
+	domainRecord, err := r.domainRepo.GetDomain(ctx, authInfo, cfRoute.Spec.DomainRef.Name)
+	if err != nil {
+		return RouteRecord{}, fmt.Errorf("failed to get domain %q for route: %w", cfRoute.Spec.DomainRef.Name, err)
+	}
+
 	return RouteRecord{
-		GUID:      cfRoute.Name,
-		SpaceGUID: cfRoute.Namespace,
-		Domain: DomainRecord{
-			GUID: cfRoute.Spec.DomainRef.Name,
-		},
+		GUID:         cfRoute.Name,
+		SpaceGUID:    cfRoute.Namespace,
+		Domain:       domainRecord,
 		Host:         cfRoute.Spec.Host,
 		Path:         cfRoute.Spec.Path,
 		Protocol:     "http", // TODO: Create a mutating webhook to set this default on the CFRoute
@@ -207,7 +219,7 @@ func cfRouteToRouteRecord(cfRoute korifiv1alpha1.CFRoute) RouteRecord {
 		DeletedAt:    golangTime(cfRoute.DeletionTimestamp),
 		Labels:       cfRoute.Labels,
 		Annotations:  cfRoute.Annotations,
-	}
+	}, nil
 }
 
 func cfRouteDestinationsToDestinationRecords(cfRoute korifiv1alpha1.CFRoute) []DestinationRecord {
@@ -250,7 +262,7 @@ func (r *RouteRepo) CreateRoute(ctx context.Context, authInfo authorization.Info
 		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
 
-	return cfRouteToRouteRecord(cfRoute), nil
+	return r.cfRouteToRouteRecord(ctx, authInfo, cfRoute)
 }
 
 func (r *RouteRepo) DeleteRoute(ctx context.Context, authInfo authorization.Info, message DeleteRouteMessage) error {
@@ -315,7 +327,7 @@ func (r *RouteRepo) AddDestinationsToRoute(ctx context.Context, authInfo authori
 		return RouteRecord{}, fmt.Errorf("failed to add destination to route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	return cfRouteToRouteRecord(*cfRoute), err
+	return r.cfRouteToRouteRecord(ctx, authInfo, *cfRoute)
 }
 
 func (r *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo authorization.Info, message RemoveDestinationMessage) (RouteRecord, error) {
@@ -343,7 +355,7 @@ func (r *RouteRepo) RemoveDestinationFromRoute(ctx context.Context, authInfo aut
 		return RouteRecord{}, fmt.Errorf("failed to remove destination from route %q: %w", message.RouteGUID, apierrors.FromK8sError(err, RouteResourceType))
 	}
 
-	return cfRouteToRouteRecord(*cfRoute), err
+	return r.cfRouteToRouteRecord(ctx, authInfo, *cfRoute)
 }
 
 func mergeDestinations(existingDestinations []DestinationRecord, desiredDestinations []DesiredDestination) []korifiv1alpha1.Destination {
@@ -444,7 +456,7 @@ func (r *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorizati
 		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)
 	}
 
-	return cfRouteToRouteRecord(*route), nil
+	return r.cfRouteToRouteRecord(ctx, authInfo, *route)
 }
 
 func (r *RouteRepo) GetDeletedAt(ctx context.Context, authInfo authorization.Info, routeGUID string) (*time.Time, error) {
