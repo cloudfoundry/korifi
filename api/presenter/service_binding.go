@@ -3,6 +3,7 @@ package presenter
 import (
 	"net/url"
 	"slices"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -19,8 +20,8 @@ type ServiceBindingResponse struct {
 	GUID          string                              `json:"guid"`
 	Type          string                              `json:"type"`
 	Name          *string                             `json:"name"`
-	CreatedAt     string                              `json:"created_at"`
-	UpdatedAt     string                              `json:"updated_at"`
+	CreatedAt     time.Time                           `json:"created_at"`
+	UpdatedAt     time.Time                           `json:"updated_at"`
 	LastOperation ServiceBindingLastOperationResponse `json:"last_operation"`
 	Relationships map[string]ToOneRelationship        `json:"relationships"`
 	Links         ServiceBindingLinks                 `json:"links"`
@@ -28,11 +29,11 @@ type ServiceBindingResponse struct {
 }
 
 type ServiceBindingLastOperationResponse struct {
-	Type        string  `json:"type"`
-	State       string  `json:"state"`
-	Description *string `json:"description"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	Type        string    `json:"type"`
+	State       string    `json:"state"`
+	Description *string   `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type ServiceBindingLinks struct {
@@ -51,14 +52,14 @@ func ForServiceBinding(record repositories.ServiceBindingRecord, baseURL url.URL
 		GUID:      record.GUID,
 		Type:      record.Type,
 		Name:      record.Name,
-		CreatedAt: tools.ZeroIfNil(formatTimestamp(&record.CreatedAt)),
-		UpdatedAt: tools.ZeroIfNil(formatTimestamp(record.UpdatedAt)),
+		CreatedAt: tools.ZeroIfNil(toUTC(&record.CreatedAt)),
+		UpdatedAt: tools.ZeroIfNil(toUTC(record.UpdatedAt)),
 		LastOperation: ServiceBindingLastOperationResponse{
 			Type:        record.LastOperation.Type,
 			State:       record.LastOperation.State,
 			Description: record.LastOperation.Description,
-			CreatedAt:   tools.ZeroIfNil(formatTimestamp(&record.LastOperation.CreatedAt)),
-			UpdatedAt:   tools.ZeroIfNil(formatTimestamp(record.LastOperation.UpdatedAt)),
+			CreatedAt:   tools.ZeroIfNil(toUTC(&record.LastOperation.CreatedAt)),
+			UpdatedAt:   tools.ZeroIfNil(toUTC(record.LastOperation.UpdatedAt)),
 		},
 		Relationships: ForRelationships(record.Relationships()),
 		Links: ServiceBindingLinks{

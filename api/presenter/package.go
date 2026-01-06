@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -20,8 +21,8 @@ type PackageResponse struct {
 	Relationships map[string]ToOneRelationship `json:"relationships"`
 	Links         PackageLinks                 `json:"links"`
 	Metadata      Metadata                     `json:"metadata"`
-	CreatedAt     string                       `json:"created_at"`
-	UpdatedAt     string                       `json:"updated_at"`
+	CreatedAt     time.Time                    `json:"created_at"`
+	UpdatedAt     time.Time                    `json:"updated_at"`
 }
 
 type PackageData struct {
@@ -40,8 +41,8 @@ func ForPackage(record repositories.PackageRecord, baseURL url.URL, includes ...
 		GUID:          record.GUID,
 		Type:          record.Type,
 		State:         record.State,
-		CreatedAt:     tools.ZeroIfNil(formatTimestamp(&record.CreatedAt)),
-		UpdatedAt:     tools.ZeroIfNil(formatTimestamp(record.UpdatedAt)),
+		CreatedAt:     tools.ZeroIfNil(toUTC(&record.CreatedAt)),
+		UpdatedAt:     tools.ZeroIfNil(toUTC(record.UpdatedAt)),
 		Relationships: ForRelationships(record.Relationships()),
 		Links: PackageLinks{
 			Self: Link{

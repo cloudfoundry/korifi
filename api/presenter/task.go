@@ -3,6 +3,7 @@ package presenter
 import (
 	"net/http"
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -22,8 +23,8 @@ type TaskResponse struct {
 	Relationships map[string]ToOneRelationship `json:"relationships"`
 	Links         TaskLinks                    `json:"links"`
 	SequenceID    int64                        `json:"sequence_id"`
-	CreatedAt     string                       `json:"created_at"`
-	UpdatedAt     string                       `json:"updated_at"`
+	CreatedAt     time.Time                    `json:"created_at"`
+	UpdatedAt     time.Time                    `json:"updated_at"`
 	MemoryMB      int64                        `json:"memory_in_mb"`
 	DiskMB        int64                        `json:"disk_in_mb"`
 	State         string                       `json:"state"`
@@ -54,8 +55,8 @@ func ForTask(responseTask repositories.TaskRecord, baseURL url.URL, includes ...
 		Command:     responseTask.Command,
 		SequenceID:  responseTask.SequenceID,
 		DropletGUID: responseTask.DropletGUID,
-		CreatedAt:   tools.ZeroIfNil(formatTimestamp(&responseTask.CreatedAt)),
-		UpdatedAt:   tools.ZeroIfNil(formatTimestamp(responseTask.UpdatedAt)),
+		CreatedAt:   tools.ZeroIfNil(toUTC(&responseTask.CreatedAt)),
+		UpdatedAt:   tools.ZeroIfNil(toUTC(responseTask.UpdatedAt)),
 		MemoryMB:    responseTask.MemoryMB,
 		DiskMB:      responseTask.DiskMB,
 		State:       responseTask.State,

@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -19,8 +20,8 @@ type DomainResponse struct {
 	RouterGroup        *string  `json:"router_group"`
 	SupportedProtocols []string `json:"supported_protocols"`
 
-	CreatedAt     string              `json:"created_at"`
-	UpdatedAt     string              `json:"updated_at"`
+	CreatedAt     time.Time           `json:"created_at"`
+	UpdatedAt     time.Time           `json:"updated_at"`
 	Metadata      Metadata            `json:"metadata"`
 	Relationships DomainRelationships `json:"relationships"`
 	Links         DomainLinks         `json:"links"`
@@ -52,8 +53,8 @@ func ForDomain(responseDomain repositories.DomainRecord, baseURL url.URL, includ
 		Internal:           false,
 		RouterGroup:        nil,
 		SupportedProtocols: []string{"http"},
-		CreatedAt:          tools.ZeroIfNil(formatTimestamp(&responseDomain.CreatedAt)),
-		UpdatedAt:          tools.ZeroIfNil(formatTimestamp(responseDomain.UpdatedAt)),
+		CreatedAt:          tools.ZeroIfNil(toUTC(&responseDomain.CreatedAt)),
+		UpdatedAt:          tools.ZeroIfNil(toUTC(responseDomain.UpdatedAt)),
 
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(responseDomain.Labels),
