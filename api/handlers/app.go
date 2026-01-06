@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/actions"
+	"code.cloudfoundry.org/korifi/api/actions/manifest"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	"code.cloudfoundry.org/korifi/api/payloads"
@@ -23,6 +25,7 @@ import (
 const (
 	AppsPath                          = "/v3/apps"
 	AppPath                           = "/v3/apps/{guid}"
+	AppManifestPath                   = "/v3/apps/{guid}/manifest"
 	AppCurrentDropletRelationshipPath = "/v3/apps/{guid}/relationships/current_droplet"
 	AppDropletsPath                   = "/v3/apps/{guid}/droplets"
 	AppCurrentDropletPath             = "/v3/apps/{guid}/droplets/current"
@@ -60,6 +63,11 @@ type CFAppRepository interface {
 	PatchApp(context.Context, authorization.Info, repositories.PatchAppMessage) (repositories.AppRecord, error)
 }
 
+//counterfeiter:generate -o fake -fake-name AppsStateCollector . AppsStateCollector
+type AppsStateCollector interface {
+	CollectState(ctx context.Context, authInfo authorization.Info, appName, spaceGUID string) (manifest.AppState, error)
+}
+
 //counterfeiter:generate -o fake -fake-name PodRepository . PodRepository
 type PodRepository interface {
 	DeletePod(context.Context, authorization.Info, string, repositories.ProcessRecord, string) error
@@ -78,6 +86,7 @@ type App struct {
 	podRepo                 PodRepository
 	gaugesCollector         GaugesCollector
 	instancesStateCollector InstancesStateCollector
+	appsStateCollector      actions.StateCollector
 }
 
 func NewApp(
@@ -93,6 +102,7 @@ func NewApp(
 	podRepo PodRepository,
 	gaugesCollector GaugesCollector,
 	instancesStateCollector InstancesStateCollector,
+	appsStateCollector actions.StateCollector,
 ) *App {
 	return &App{
 		serverURL:               serverURL,
@@ -107,6 +117,7 @@ func NewApp(
 		podRepo:                 podRepo,
 		gaugesCollector:         gaugesCollector,
 		instancesStateCollector: instancesStateCollector,
+		appsStateCollector:      appsStateCollector,
 	}
 }
 
@@ -120,6 +131,25 @@ func (h *App) get(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "GUID", appGUID)
 	}
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForApp(app, h.serverURL)), nil
+}
+
+func (h *App) getManifest(r *http.Request) (*routing.Response, error) {
+	appGUID := routing.URLParam(r, "guid")
+	authInfo, _ := authorization.InfoFromContext(r.Context())
+	logger := logr.FromContextOrDiscard(r.Context()).WithName("handlers.app.get-manifest")
+
+	app, err := h.appRepo.GetApp(r.Context(), authInfo, appGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "Failed to fetch app from Kubernetes", "GUID", appGUID)
+	}
+
+	appState, err := h.appsStateCollector.CollectState(r.Context(), authInfo, app.Name, app.SpaceGUID)
+	if err != nil {
+		return nil, apierrors.LogAndReturn(logger, err, "Failed to collect app state", "AppGUID", app.GUID)
+	}
+
+	manifest := payloads.Manifest{Applications: []payloads.ManifestApplication{presenter.ForAppManifest(appState)}}
+	return routing.NewResponse(http.StatusOK).WithContentType("application/x-yaml").WithBody(manifest), nil
 }
 
 //nolint:dupl
@@ -368,7 +398,7 @@ func (h *App) listRoutes(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, err, "Unable to decode request query parameters")
 	}
 
-	routes, err := h.lookupAppRouteAndDomainList(r.Context(), authInfo, payload.ToMessage(app.GUID))
+	routes, err := h.routeRepo.ListRoutes(r.Context(), authInfo, payload.ToMessage(app.GUID))
 	if err != nil {
 		return nil, apierrors.LogAndReturn(logger, err, "Failed to fetch route or domains from Kubernetes")
 	}
@@ -474,40 +504,6 @@ func (h *App) delete(r *http.Request) (*routing.Response, error) {
 	}
 
 	return routing.NewResponse(http.StatusAccepted).WithHeader("Location", presenter.JobURLForRedirects(appGUID, presenter.AppDeleteOperation, h.serverURL)), nil
-}
-
-func (h *App) lookupAppRouteAndDomainList(ctx context.Context, authInfo authorization.Info, listMsg repositories.ListRoutesMessage) (repositories.ListResult[repositories.RouteRecord], error) {
-	routes, err := h.routeRepo.ListRoutes(ctx, authInfo, listMsg)
-	if err != nil {
-		return repositories.ListResult[repositories.RouteRecord]{}, err
-	}
-
-	return populateDomainsForRoutes(ctx, h.domainRepo, authInfo, &routes)
-}
-
-func populateDomainsForRoutes(
-	ctx context.Context,
-	domainRepo CFDomainRepository,
-	authInfo authorization.Info,
-	routeRecords *repositories.ListResult[repositories.RouteRecord],
-) (repositories.ListResult[repositories.RouteRecord], error) {
-	domainGUIDToDomainRecord := make(map[string]repositories.DomainRecord)
-	for i, routeRecord := range routeRecords.Records {
-		currentDomainGUID := routeRecord.Domain.GUID
-		domainRecord, has := domainGUIDToDomainRecord[currentDomainGUID]
-		if !has {
-			var err error
-			domainRecord, err = domainRepo.GetDomain(ctx, authInfo, currentDomainGUID)
-			if err != nil {
-				// err = errors.New("resource not found for route's specified domain ref")
-				return repositories.ListResult[repositories.RouteRecord]{}, err
-			}
-			domainGUIDToDomainRecord[currentDomainGUID] = domainRecord
-		}
-		routeRecords.Records[i].Domain = domainRecord
-	}
-
-	return *routeRecords, nil
 }
 
 func (h *App) getEnvVars(r *http.Request) (*routing.Response, error) {
@@ -761,6 +757,7 @@ func (h *App) AuthenticatedRoutes() []routing.Route {
 		{Method: "PATCH", Pattern: AppCurrentDropletRelationshipPath, Handler: h.setCurrentDroplet},
 		{Method: "GET", Pattern: AppDropletsPath, Handler: h.listDroplets},
 		{Method: "GET", Pattern: AppCurrentDropletPath, Handler: h.getCurrentDroplet},
+		{Method: "GET", Pattern: AppManifestPath, Handler: h.getManifest},
 		{Method: "POST", Pattern: AppStartPath, Handler: h.start},
 		{Method: "POST", Pattern: AppStopPath, Handler: h.stop},
 		{Method: "POST", Pattern: AppRestartPath, Handler: h.restart},

@@ -21,30 +21,30 @@ type Manifest struct {
 
 type ManifestApplication struct {
 	Name         string            `json:"name" yaml:"name"`
-	Env          map[string]string `yaml:"env"`
-	DefaultRoute bool              `json:"default-route" yaml:"default-route"`
-	RandomRoute  bool              `yaml:"random-route"`
-	NoRoute      bool              `yaml:"no-route"`
-	Command      *string           `yaml:"command"`
-	Instances    *int32            `json:"instances" yaml:"instances"`
-	Memory       *string           `json:"memory" yaml:"memory"`
-	DiskQuota    *string           `json:"disk_quota" yaml:"disk_quota"`
+	Env          map[string]string `yaml:"env,omitempty"`
+	DefaultRoute bool              `json:"default-route,omitempty" yaml:"default-route,omitempty"`
+	RandomRoute  bool              `yaml:"random-route,omitempty"`
+	NoRoute      bool              `yaml:"no-route,omitempty"`
+	Command      *string           `yaml:"command,omitempty"`
+	Instances    *int32            `json:"instances,omitempty" yaml:"instances,omitempty"`
+	Memory       *string           `json:"memory,omitempty" yaml:"memory,omitempty"`
+	DiskQuota    *string           `json:"disk_quota,omitempty" yaml:"disk_quota,omitempty"`
 	// AltDiskQuota supports `disk-quota` with a hyphen for backwards compatibility.
 	// Do not set both DiskQuota and AltDiskQuota.
 	//
 	// Deprecated: Use DiskQuota instead
-	AltDiskQuota                 *string                      `json:"disk-quota" yaml:"disk-quota"`
-	HealthCheckHTTPEndpoint      *string                      `yaml:"health-check-http-endpoint"`
-	HealthCheckInvocationTimeout *int32                       `json:"health-check-invocation-timeout" yaml:"health-check-invocation-timeout"`
-	HealthCheckType              *string                      `json:"health-check-type" yaml:"health-check-type"`
-	Timeout                      *int32                       `json:"timeout" yaml:"timeout"`
-	Processes                    []ManifestApplicationProcess `json:"processes" yaml:"processes"`
-	Routes                       []ManifestRoute              `json:"routes" yaml:"routes"`
-	Buildpacks                   []string                     `yaml:"buildpacks"`
+	AltDiskQuota                 *string                      `json:"disk-quota,omitempty" yaml:"disk-quota,omitempty"`
+	HealthCheckHTTPEndpoint      *string                      `yaml:"health-check-http-endpoint,omitempty"`
+	HealthCheckInvocationTimeout *int32                       `json:"health-check-invocation-timeout,omitempty" yaml:"health-check-invocation-timeout,omitempty"`
+	HealthCheckType              *string                      `json:"health-check-type,omitempty" yaml:"health-check-type,omitempty"`
+	Timeout                      *int32                       `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	Processes                    []ManifestApplicationProcess `json:"processes,omitempty" yaml:"processes,omitempty"`
+	Routes                       []ManifestRoute              `json:"routes,omitempty" yaml:"routes,omitempty"`
+	Buildpacks                   []string                     `json:"buildpacks,omitempty" yaml:"buildpacks,omitempty"`
 	// Deprecated: Use Buildpacks instead
-	Buildpack *string                      `json:"buildpack" yaml:"buildpack"`
+	Buildpack *string                      `json:"buildpack,omitempty" yaml:"buildpack,omitempty"`
 	Metadata  MetadataPatch                `json:"metadata" yaml:"metadata"`
-	Services  []ManifestApplicationService `json:"services" yaml:"services"`
+	Services  []ManifestApplicationService `json:"services,omitempty" yaml:"services,omitempty"`
 	Docker    any                          `json:"docker,omitempty" yaml:"docker,omitempty"`
 }
 
@@ -52,25 +52,25 @@ type ManifestApplication struct {
 // it for backwards compatibility?
 type ManifestApplicationProcess struct {
 	Type      string  `json:"type" yaml:"type"`
-	Command   *string `yaml:"command"`
-	DiskQuota *string `json:"disk_quota" yaml:"disk_quota"`
+	Command   *string `yaml:"command,omitempty"`
+	DiskQuota *string `json:"disk_quota,omitempty" yaml:"disk_quota,omitempty"`
 	// AltDiskQuota supports `disk-quota` with a hyphen for backwards compatibility.
 	// Do not set both DiskQuota and AltDiskQuota.
 	//
 	// Deprecated: Use DiskQuota instead
-	AltDiskQuota                 *string `json:"disk-quota" yaml:"disk-quota"`
-	HealthCheckHTTPEndpoint      *string `yaml:"health-check-http-endpoint"`
-	HealthCheckInvocationTimeout *int32  `json:"health-check-invocation-timeout" yaml:"health-check-invocation-timeout"`
-	HealthCheckType              *string `json:"health-check-type" yaml:"health-check-type"`
-	Instances                    *int32  `json:"instances" yaml:"instances"`
-	Memory                       *string `json:"memory" yaml:"memory"`
-	Timeout                      *int32  `json:"timeout" yaml:"timeout"`
+	AltDiskQuota                 *string `json:"disk-quota,omitempty" yaml:"disk-quota,omitempty"`
+	HealthCheckHTTPEndpoint      *string `yaml:"health-check-http-endpoint,omitempty"`
+	HealthCheckInvocationTimeout *int32  `json:"health-check-invocation-timeout,omitempty" yaml:"health-check-invocation-timeout,omitempty"`
+	HealthCheckType              *string `json:"health-check-type,omitempty" yaml:"health-check-type,omitempty"`
+	Instances                    *int32  `json:"instances,omitempty" yaml:"instances,omitempty"`
+	Memory                       *string `json:"memory,omitempty" yaml:"memory,omitempty"`
+	Timeout                      *int32  `json:"timeout,omitempty" yaml:"timeout,omitempty"`
 }
 
 type ManifestApplicationService struct {
 	Name        string         `json:"name" yaml:"name"`
 	BindingName *string        `json:"binding_name" yaml:"binding_name"`
-	Parameters  map[string]any `json:"parameters" yaml:"parameters"`
+	Parameters  map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
 }
 
 func (s *ManifestApplicationService) UnmarshalYAML(value *yaml.Node) error {
