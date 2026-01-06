@@ -184,9 +184,9 @@ func emptySliceIfNil(m []string) []string {
 	return m
 }
 
-func formatTimestamp(t *time.Time) *string {
+func toUTC(t *time.Time) *time.Time {
 	if t == nil {
 		return nil
 	}
-	return tools.PtrTo(t.UTC().Format(time.RFC3339))
+	return tools.PtrTo(t.UTC())
 }

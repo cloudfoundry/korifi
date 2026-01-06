@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -10,8 +11,8 @@ import (
 
 type BuildpackResponse struct {
 	GUID      string          `json:"guid"`
-	CreatedAt string          `json:"created_at"`
-	UpdatedAt string          `json:"updated_at"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at"`
 	Name      string          `json:"name"`
 	Filename  string          `json:"filename"`
 	Stack     string          `json:"stack"`
@@ -25,8 +26,8 @@ type BuildpackResponse struct {
 func ForBuildpack(buildpackRecord repositories.BuildpackRecord, _ url.URL, includes ...include.Resource) BuildpackResponse {
 	toReturn := BuildpackResponse{
 		GUID:      "",
-		CreatedAt: tools.ZeroIfNil(formatTimestamp(&buildpackRecord.CreatedAt)),
-		UpdatedAt: tools.ZeroIfNil(formatTimestamp(buildpackRecord.UpdatedAt)),
+		CreatedAt: tools.ZeroIfNil(toUTC(&buildpackRecord.CreatedAt)),
+		UpdatedAt: tools.ZeroIfNil(toUTC(buildpackRecord.UpdatedAt)),
 		Name:      buildpackRecord.Name,
 		Filename:  buildpackRecord.Name + "@" + buildpackRecord.Version,
 		Stack:     buildpackRecord.Stack,

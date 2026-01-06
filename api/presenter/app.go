@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -17,8 +18,8 @@ type AppResponse struct {
 	GUID  string `json:"guid"`
 	State string `json:"state"`
 
-	CreatedAt     string                       `json:"created_at"`
-	UpdatedAt     string                       `json:"updated_at"`
+	CreatedAt     time.Time                    `json:"created_at"`
+	UpdatedAt     time.Time                    `json:"updated_at"`
 	Relationships map[string]ToOneRelationship `json:"relationships"`
 	Lifecycle     Lifecycle                    `json:"lifecycle"`
 	Metadata      Metadata                     `json:"metadata"`
@@ -46,8 +47,8 @@ func ForApp(responseApp repositories.AppRecord, baseURL url.URL, includes ...inc
 		Name:          responseApp.Name,
 		GUID:          responseApp.GUID,
 		State:         string(responseApp.State),
-		CreatedAt:     tools.ZeroIfNil(formatTimestamp(&responseApp.CreatedAt)),
-		UpdatedAt:     tools.ZeroIfNil(formatTimestamp(responseApp.UpdatedAt)),
+		CreatedAt:     tools.ZeroIfNil(toUTC(&responseApp.CreatedAt)),
+		UpdatedAt:     tools.ZeroIfNil(toUTC(responseApp.UpdatedAt)),
 		Relationships: ForRelationships(responseApp.Relationships()),
 		Lifecycle: Lifecycle{
 			Type: responseApp.Lifecycle.Type,
