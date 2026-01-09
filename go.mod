@@ -30,8 +30,8 @@ require (
 	github.com/jellydator/validation v1.2.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.1
 	github.com/mileusna/useragent v1.3.5
-	github.com/onsi/ginkgo/v2 v2.27.3
-	github.com/onsi/gomega v1.38.3
+	github.com/onsi/ginkgo/v2 v2.27.4
+	github.com/onsi/gomega v1.39.0
 	github.com/pivotal/kpack v0.17.1
 	github.com/satori/go.uuid v1.2.0
 	go.yaml.in/yaml/v2 v2.4.3
