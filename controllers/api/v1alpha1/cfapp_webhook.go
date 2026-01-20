@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"code.cloudfoundry.org/korifi/tools"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -41,15 +40,13 @@ func NewCFAppDefaulter() *CFAppDefaulter {
 }
 
 func (d *CFAppDefaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&CFApp{}).
+	return ctrl.NewWebhookManagedBy(mgr, &CFApp{}).
 		WithDefaulter(d).
 		Complete()
 }
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *CFAppDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	cfApp := obj.(*CFApp)
+func (r *CFAppDefaulter) Default(ctx context.Context, cfApp *CFApp) error {
 	cfapplog.V(1).Info("mutating CFApp webhook handler", "name", cfApp.Name)
 
 	r.defaultAnnotations(cfApp)

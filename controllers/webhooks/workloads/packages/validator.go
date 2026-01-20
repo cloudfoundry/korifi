@@ -20,15 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	validationwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/validation"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -43,7 +40,7 @@ type Validator struct {
 	client client.Client
 }
 
-var _ webhook.CustomValidator = &Validator{}
+var _ admission.Validator[*korifiv1alpha1.CFPackage] = &Validator{}
 
 func NewValidator() *Validator {
 	return &Validator{}
@@ -52,45 +49,32 @@ func NewValidator() *Validator {
 func (v *Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	v.client = mgr.GetClient()
 
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.CFPackage{}).
+	return ctrl.NewWebhookManagedBy(mgr, &korifiv1alpha1.CFPackage{}).
 		WithValidator(v).
 		Complete()
 }
 
-var _ webhook.CustomValidator = &Validator{}
-
-func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateCreate(_ context.Context, _ *korifiv1alpha1.CFPackage) (admission.Warnings, error) {
 	return nil, nil
 }
 
-func (v *Validator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) (admission.Warnings, error) {
-	newCFPackage, ok := obj.(*v1alpha1.CFPackage)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFPackage but got a %T", obj))
-	}
-
-	if !newCFPackage.GetDeletionTimestamp().IsZero() {
+func (v *Validator) ValidateUpdate(ctx context.Context, oldPackage, newPackage *korifiv1alpha1.CFPackage) (admission.Warnings, error) {
+	if !newPackage.GetDeletionTimestamp().IsZero() {
 		return nil, nil
 	}
 
-	cfpackagelog.V(1).Info("validate task update", "namespace", newCFPackage.Namespace, "name", newCFPackage.Name)
+	cfpackagelog.V(1).Info("validate task update", "namespace", newPackage.Namespace, "name", newPackage.Name)
 
-	oldCFPackage, ok := oldObj.(*v1alpha1.CFPackage)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFPackage but got a %T", oldObj))
-	}
-
-	if newCFPackage.Spec.Type != oldCFPackage.Spec.Type {
+	if newPackage.Spec.Type != oldPackage.Spec.Type {
 		return nil, validationwebhook.ValidationError{
 			Type:    webhooks.ImmutableFieldModificationErrorType,
-			Message: fmt.Sprintf("package %s:%s Spec.Type is immutable", newCFPackage.Namespace, newCFPackage.Name),
+			Message: fmt.Sprintf("package %s:%s Spec.Type is immutable", newPackage.Namespace, newPackage.Name),
 		}.ExportJSONError()
 	}
 
 	return nil, nil
 }
 
-func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateDelete(_ context.Context, _ *korifiv1alpha1.CFPackage) (admission.Warnings, error) {
 	return nil, nil
 }

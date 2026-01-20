@@ -13,13 +13,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -53,7 +51,7 @@ type Validator struct {
 	client             client.Client
 }
 
-var _ webhook.CustomValidator = &Validator{}
+var _ admission.Validator[*korifiv1alpha1.CFRoute] = &Validator{}
 
 func NewValidator(
 	nameValidator webhooks.NameValidator,
@@ -68,18 +66,12 @@ func NewValidator(
 }
 
 func (v *Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&korifiv1alpha1.CFRoute{}).
+	return ctrl.NewWebhookManagedBy(mgr, &korifiv1alpha1.CFRoute{}).
 		WithValidator(v).
 		Complete()
 }
 
-func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	route, ok := obj.(*korifiv1alpha1.CFRoute)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected nil, a CFRoute but got a %T", obj))
-	}
-
+func (v *Validator) ValidateCreate(ctx context.Context, route *korifiv1alpha1.CFRoute) (admission.Warnings, error) {
 	cfDomain, err := v.validateRoute(ctx, route)
 	if err != nil {
 		return nil, err
@@ -90,19 +82,9 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	return nil, v.duplicateValidator.ValidateCreate(ctx, logger, v.rootNamespace, route)
 }
 
-func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
-	route, ok := obj.(*korifiv1alpha1.CFRoute)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
-	}
-
+func (v *Validator) ValidateUpdate(ctx context.Context, oldRoute, route *korifiv1alpha1.CFRoute) (admission.Warnings, error) {
 	if !route.GetDeletionTimestamp().IsZero() {
 		return nil, nil
-	}
-
-	oldRoute, ok := oldObj.(*korifiv1alpha1.CFRoute)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
 	}
 
 	immutableError := validationwebhook.ValidationError{
@@ -137,12 +119,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Obje
 	return nil, v.duplicateValidator.ValidateUpdate(ctx, logger, v.rootNamespace, oldRoute, route)
 }
 
-func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	route, ok := obj.(*korifiv1alpha1.CFRoute)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFRoute but got a %T", obj))
-	}
-
+func (v *Validator) ValidateDelete(ctx context.Context, route *korifiv1alpha1.CFRoute) (admission.Warnings, error) {
 	return nil, v.duplicateValidator.ValidateDelete(ctx, logger, v.rootNamespace, route)
 }
 
