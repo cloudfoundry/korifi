@@ -18,14 +18,12 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/config"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -45,19 +43,13 @@ func NewDefaulter(cfProcessDefaults config.CFProcessDefaults) *Defaulter {
 }
 
 func (d *Defaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&korifiv1alpha1.CFTask{}).
+	return ctrl.NewWebhookManagedBy(mgr, &korifiv1alpha1.CFTask{}).
 		WithDefaulter(d).
 		Complete()
 }
 
-func (d *Defaulter) Default(ctx context.Context, obj runtime.Object) error {
+func (d *Defaulter) Default(ctx context.Context, cfTask *korifiv1alpha1.CFTask) error {
 	cfTaskLog.V(1).Info("mutating CFTask webhook handler")
-
-	cfTask, ok := obj.(*korifiv1alpha1.CFTask)
-	if !ok {
-		return fmt.Errorf("object %v is not a CFTask", obj)
-	}
 
 	if cfTask.Status.SequenceID != 0 {
 		return nil

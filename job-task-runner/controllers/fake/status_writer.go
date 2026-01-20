@@ -5,10 +5,24 @@ import (
 	"context"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type StatusWriter struct {
+	ApplyStub        func(context.Context, runtime.ApplyConfiguration, ...client.SubResourceApplyOption) error
+	applyMutex       sync.RWMutex
+	applyArgsForCall []struct {
+		arg1 context.Context
+		arg2 runtime.ApplyConfiguration
+		arg3 []client.SubResourceApplyOption
+	}
+	applyReturns struct {
+		result1 error
+	}
+	applyReturnsOnCall map[int]struct {
+		result1 error
+	}
 	CreateStub        func(context.Context, client.Object, client.Object, ...client.SubResourceCreateOption) error
 	createMutex       sync.RWMutex
 	createArgsForCall []struct {
@@ -52,6 +66,69 @@ type StatusWriter struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *StatusWriter) Apply(arg1 context.Context, arg2 runtime.ApplyConfiguration, arg3 ...client.SubResourceApplyOption) error {
+	fake.applyMutex.Lock()
+	ret, specificReturn := fake.applyReturnsOnCall[len(fake.applyArgsForCall)]
+	fake.applyArgsForCall = append(fake.applyArgsForCall, struct {
+		arg1 context.Context
+		arg2 runtime.ApplyConfiguration
+		arg3 []client.SubResourceApplyOption
+	}{arg1, arg2, arg3})
+	stub := fake.ApplyStub
+	fakeReturns := fake.applyReturns
+	fake.recordInvocation("Apply", []interface{}{arg1, arg2, arg3})
+	fake.applyMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3...)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *StatusWriter) ApplyCallCount() int {
+	fake.applyMutex.RLock()
+	defer fake.applyMutex.RUnlock()
+	return len(fake.applyArgsForCall)
+}
+
+func (fake *StatusWriter) ApplyCalls(stub func(context.Context, runtime.ApplyConfiguration, ...client.SubResourceApplyOption) error) {
+	fake.applyMutex.Lock()
+	defer fake.applyMutex.Unlock()
+	fake.ApplyStub = stub
+}
+
+func (fake *StatusWriter) ApplyArgsForCall(i int) (context.Context, runtime.ApplyConfiguration, []client.SubResourceApplyOption) {
+	fake.applyMutex.RLock()
+	defer fake.applyMutex.RUnlock()
+	argsForCall := fake.applyArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *StatusWriter) ApplyReturns(result1 error) {
+	fake.applyMutex.Lock()
+	defer fake.applyMutex.Unlock()
+	fake.ApplyStub = nil
+	fake.applyReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *StatusWriter) ApplyReturnsOnCall(i int, result1 error) {
+	fake.applyMutex.Lock()
+	defer fake.applyMutex.Unlock()
+	fake.ApplyStub = nil
+	if fake.applyReturnsOnCall == nil {
+		fake.applyReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.applyReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *StatusWriter) Create(arg1 context.Context, arg2 client.Object, arg3 client.Object, arg4 ...client.SubResourceCreateOption) error {

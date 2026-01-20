@@ -8,11 +8,8 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -29,7 +26,7 @@ type Validator struct {
 	duplicateValidator webhooks.NameValidator
 }
 
-var _ webhook.CustomValidator = &Validator{}
+var _ admission.Validator[*korifiv1alpha1.CFApp] = &Validator{}
 
 func NewValidator(duplicateValidator webhooks.NameValidator) *Validator {
 	return &Validator{
@@ -38,34 +35,18 @@ func NewValidator(duplicateValidator webhooks.NameValidator) *Validator {
 }
 
 func (v *Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&korifiv1alpha1.CFApp{}).
+	return ctrl.NewWebhookManagedBy(mgr, &korifiv1alpha1.CFApp{}).
 		WithValidator(v).
 		Complete()
 }
 
-func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	app, ok := obj.(*korifiv1alpha1.CFApp)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
-	}
-
+func (v *Validator) ValidateCreate(ctx context.Context, app *korifiv1alpha1.CFApp) (admission.Warnings, error) {
 	return nil, v.duplicateValidator.ValidateCreate(ctx, cfapplog, app.Namespace, app)
 }
 
-func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
-	app, ok := obj.(*korifiv1alpha1.CFApp)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
-	}
-
+func (v *Validator) ValidateUpdate(ctx context.Context, oldApp, app *korifiv1alpha1.CFApp) (admission.Warnings, error) {
 	if !app.GetDeletionTimestamp().IsZero() {
 		return nil, nil
-	}
-
-	oldApp, ok := oldObj.(*korifiv1alpha1.CFApp)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", oldObj))
 	}
 
 	if app.Spec.Lifecycle.Type != oldApp.Spec.Lifecycle.Type {
@@ -78,11 +59,6 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Obje
 	return nil, v.duplicateValidator.ValidateUpdate(ctx, cfapplog, app.Namespace, oldApp, app)
 }
 
-func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	app, ok := obj.(*korifiv1alpha1.CFApp)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFApp but got a %T", obj))
-	}
-
+func (v *Validator) ValidateDelete(ctx context.Context, app *korifiv1alpha1.CFApp) (admission.Warnings, error) {
 	return nil, v.duplicateValidator.ValidateDelete(ctx, cfapplog, app.Namespace, app)
 }
