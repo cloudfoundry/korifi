@@ -11,11 +11,8 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	validationwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/validation"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -36,7 +33,7 @@ type Validator struct {
 	rootNamespace      string
 }
 
-var _ webhook.CustomValidator = &Validator{}
+var _ admission.Validator[*korifiv1alpha1.CFSecurityGroup] = &Validator{}
 
 func NewValidator(duplicateValidator webhooks.NameValidator, rootNamespace string) *Validator {
 	return &Validator{
@@ -46,8 +43,7 @@ func NewValidator(duplicateValidator webhooks.NameValidator, rootNamespace strin
 }
 
 func (v *Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&korifiv1alpha1.CFSecurityGroup{}).
+	return ctrl.NewWebhookManagedBy(mgr, &korifiv1alpha1.CFSecurityGroup{}).
 		WithValidator(v).
 		Complete()
 }
@@ -65,12 +61,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	return nil, v.duplicateValidator.ValidateCreate(ctx, cfsecuritygrouplog, v.rootNamespace, securityGroup)
 }
 
-func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
-	securityGroup, ok := obj.(*korifiv1alpha1.CFSecurityGroup)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSecurityGroup but got a %T", obj))
-	}
-
+func (v *Validator) ValidateUpdate(ctx context.Context, oldSecurityGroup, securityGroup *korifiv1alpha1.CFSecurityGroup) (admission.Warnings, error) {
 	if !securityGroup.GetDeletionTimestamp().IsZero() {
 		return nil, nil
 	}
@@ -79,20 +70,10 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Obje
 		return nil, err
 	}
 
-	oldSecurityGroup, ok := oldObj.(*korifiv1alpha1.CFSecurityGroup)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSecurityGroup but got a %T", oldObj))
-	}
-
 	return nil, v.duplicateValidator.ValidateUpdate(ctx, cfsecuritygrouplog, v.rootNamespace, oldSecurityGroup, securityGroup)
 }
 
-func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	securityGroup, ok := obj.(*korifiv1alpha1.CFSecurityGroup)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSecurityGroup but got a %T", obj))
-	}
-
+func (v *Validator) ValidateDelete(ctx context.Context, securityGroup *korifiv1alpha1.CFSecurityGroup) (admission.Warnings, error) {
 	return nil, v.duplicateValidator.ValidateDelete(ctx, cfsecuritygrouplog, v.rootNamespace, securityGroup)
 }
 

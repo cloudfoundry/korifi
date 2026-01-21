@@ -57,7 +57,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	Expect(testEnv.Stop()).To(Succeed())
+	Eventually(testEnv.Stop, "1m").Should(Succeed())
 })
 
 func BeNotFound() gtypes.GomegaMatcher {

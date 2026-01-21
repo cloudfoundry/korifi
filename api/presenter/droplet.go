@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -10,8 +11,8 @@ import (
 
 type DropletResponse struct {
 	GUID              string                       `json:"guid"`
-	CreatedAt         string                       `json:"created_at"`
-	UpdatedAt         string                       `json:"updated_at"`
+	CreatedAt         time.Time                    `json:"created_at"`
+	UpdatedAt         time.Time                    `json:"updated_at"`
 	State             string                       `json:"state"`
 	Error             *string                      `json:"error"`
 	Lifecycle         Lifecycle                    `json:"lifecycle"`
@@ -41,8 +42,8 @@ type BuildpackData struct {
 func ForDroplet(dropletRecord repositories.DropletRecord, baseURL url.URL, includes ...include.Resource) DropletResponse {
 	toReturn := DropletResponse{
 		GUID:      dropletRecord.GUID,
-		CreatedAt: tools.ZeroIfNil(formatTimestamp(&dropletRecord.CreatedAt)),
-		UpdatedAt: tools.ZeroIfNil(formatTimestamp(dropletRecord.UpdatedAt)),
+		CreatedAt: tools.ZeroIfNil(toUTC(&dropletRecord.CreatedAt)),
+		UpdatedAt: tools.ZeroIfNil(toUTC(dropletRecord.UpdatedAt)),
 		State:     dropletRecord.State,
 		Lifecycle: Lifecycle{
 			Type: dropletRecord.Lifecycle.Type,

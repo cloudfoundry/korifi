@@ -32,6 +32,8 @@ var _ = Describe("RouteRepository", func() {
 		routeGUID  string
 		domainGUID string
 		routeRepo  *repositories.RouteRepo
+		domainRepo *repositories.DomainRepo
+		cfDomain   *korifiv1alpha1.CFDomain
 	)
 
 	BeforeEach(func() {
@@ -40,9 +42,12 @@ var _ = Describe("RouteRepository", func() {
 
 		routeGUID = prefixedGUID("route1")
 		domainGUID = prefixedGUID("domain")
-		routeRepo = repositories.NewRouteRepo(spaceScopedKlient)
 
-		cfDomain := &korifiv1alpha1.CFDomain{
+		domainRepo = repositories.NewDomainRepo(spaceScopedKlient, rootNamespace)
+
+		routeRepo = repositories.NewRouteRepo(spaceScopedKlient, domainRepo)
+
+		cfDomain = &korifiv1alpha1.CFDomain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      domainGUID,
 				Namespace: rootNamespace,
@@ -134,7 +139,14 @@ var _ = Describe("RouteRepository", func() {
 					Expect(route.DeletedAt).To(BeNil())
 				})
 
-				Expect(route.Domain).To(Equal(repositories.DomainRecord{GUID: domainGUID}))
+				By("including the domain record", func() {
+					Expect(route.Domain.GUID).To(Equal(domainGUID))
+					Expect(route.Domain.Name).To(Equal(domainName))
+					Expect(route.Domain.Namespace).To(Equal(rootNamespace))
+					Expect(route.Domain.Labels).To(Equal(cfDomain.GetLabels()))
+					Expect(route.Domain.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
+					Expect(route.Domain.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				})
 			})
 
 			When("the route destination does not have a port", func() {
@@ -217,7 +229,7 @@ var _ = Describe("RouteRepository", func() {
 					Host:     "my-subdomain-1-a",
 					Protocol: "http",
 					DomainRef: corev1.ObjectReference{
-						Name:      uuid.NewString(),
+						Name:      cfDomain.Name,
 						Namespace: rootNamespace,
 					},
 					Destinations: []korifiv1alpha1.Destination{{
@@ -241,7 +253,7 @@ var _ = Describe("RouteRepository", func() {
 					Host:     "my-subdomain-2-a",
 					Protocol: "http",
 					DomainRef: corev1.ObjectReference{
-						Name:      uuid.NewString(),
+						Name:      cfDomain.Name,
 						Namespace: rootNamespace,
 					},
 					Destinations: []korifiv1alpha1.Destination{{
@@ -304,7 +316,7 @@ var _ = Describe("RouteRepository", func() {
 
 			BeforeEach(func() {
 				fakeKlient = new(fake.Klient)
-				routeRepo = repositories.NewRouteRepo(fakeKlient)
+				routeRepo = repositories.NewRouteRepo(fakeKlient, domainRepo)
 
 				message = repositories.ListRoutesMessage{
 					AppGUIDs:    []string{appGUID},
@@ -403,10 +415,8 @@ var _ = Describe("RouteRepository", func() {
 				Expect(createdRouteRecord.Host).To(Equal(routeHost), "Route Host in record did not match input")
 				Expect(createdRouteRecord.Path).To(Equal(routePath), "Route Path in record did not match input")
 				Expect(createdRouteRecord.SpaceGUID).To(Equal(space.Name), "Route Space GUID in record did not match input")
-				Expect(createdRouteRecord.Domain).To(Equal(repositories.DomainRecord{GUID: domainGUID}), "Route Domain in record did not match created domain")
 
-				Expect(createdRouteRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-				Expect(createdRouteRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				Expect(createdRouteRecord.Domain.GUID).To(Equal(domainGUID))
 			})
 
 			When("target namespace isn't set", func() {
@@ -616,11 +626,8 @@ var _ = Describe("RouteRepository", func() {
 				Expect(routeRecord.GUID).To(matchers.BeValidUUID())
 				Expect(routeRecord.Host).To(Equal(routeHost), "Route Host in record did not match input")
 				Expect(routeRecord.Path).To(Equal(routePath), "Route Path in record did not match input")
-				Expect(routeRecord.SpaceGUID).To(Equal(space.Name), "Route Space GUID in record did not match input")
-				Expect(routeRecord.Domain).To(Equal(repositories.DomainRecord{GUID: domainGUID}), "Route Domain in record did not match created domain")
 
-				Expect(routeRecord.CreatedAt).To(BeTemporally("~", time.Now(), timeCheckThreshold))
-				Expect(routeRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
+				Expect(routeRecord.Domain.GUID).To(Equal(domainGUID))
 			})
 
 			When("the route already exists", func() {

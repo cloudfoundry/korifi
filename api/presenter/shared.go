@@ -75,6 +75,11 @@ type ToOneRelationship struct {
 
 type itemPresenter[T, S any] func(T, url.URL, ...include.Resource) S
 
+func Empty(any, url.URL, ...include.Resource) any {
+	var result any
+	return result
+}
+
 func ForList[T, S any](itemPresenter itemPresenter[T, S], listResult repositories.ListResult[T], baseURL, requestURL url.URL, includes ...include.Resource) ListResponse[S] {
 	presenters := []S{}
 	for _, resource := range listResult.Records {
@@ -179,9 +184,9 @@ func emptySliceIfNil(m []string) []string {
 	return m
 }
 
-func formatTimestamp(t *time.Time) *string {
+func toUTC(t *time.Time) *time.Time {
 	if t == nil {
 		return nil
 	}
-	return tools.PtrTo(t.UTC().Format(time.RFC3339))
+	return tools.PtrTo(t.UTC())
 }

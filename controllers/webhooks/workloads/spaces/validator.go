@@ -3,16 +3,12 @@ package spaces
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -29,7 +25,7 @@ type Validator struct {
 	placementValidator webhooks.NamespaceValidator
 }
 
-var _ webhook.CustomValidator = &Validator{}
+var _ admission.Validator[*korifiv1alpha1.CFSpace] = &Validator{}
 
 func NewValidator(duplicateSpaceValidator webhooks.NameValidator, placementValidator webhooks.NamespaceValidator) *Validator {
 	return &Validator{
@@ -39,18 +35,12 @@ func NewValidator(duplicateSpaceValidator webhooks.NameValidator, placementValid
 }
 
 func (v *Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&korifiv1alpha1.CFSpace{}).
+	return ctrl.NewWebhookManagedBy(mgr, &korifiv1alpha1.CFSpace{}).
 		WithValidator(v).
 		Complete()
 }
 
-func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	space, ok := obj.(*korifiv1alpha1.CFSpace)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
-	}
-
+func (v *Validator) ValidateCreate(ctx context.Context, space *korifiv1alpha1.CFSpace) (admission.Warnings, error) {
 	if len(space.Name) > webhooks.MaxLabelLength {
 		return nil, errors.New("space name cannot be longer than 63 chars")
 	}
@@ -63,29 +53,14 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	return nil, v.placementValidator.ValidateSpaceCreate(*space)
 }
 
-func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
-	space, ok := obj.(*korifiv1alpha1.CFSpace)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
-	}
-
+func (v *Validator) ValidateUpdate(ctx context.Context, oldSpace, space *korifiv1alpha1.CFSpace) (admission.Warnings, error) {
 	if !space.GetDeletionTimestamp().IsZero() {
 		return nil, nil
-	}
-
-	oldSpace, ok := oldObj.(*korifiv1alpha1.CFSpace)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
 	}
 
 	return nil, v.duplicateValidator.ValidateUpdate(ctx, spaceLogger, oldSpace.Namespace, oldSpace, space)
 }
 
-func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	space, ok := obj.(*korifiv1alpha1.CFSpace)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSpace but got a %T", obj))
-	}
-
+func (v *Validator) ValidateDelete(ctx context.Context, space *korifiv1alpha1.CFSpace) (admission.Warnings, error) {
 	return nil, v.duplicateValidator.ValidateDelete(ctx, spaceLogger, space.Namespace, space)
 }

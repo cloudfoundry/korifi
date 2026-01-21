@@ -94,7 +94,7 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	stopManager()
 	stopClient()
-	Expect(testEnv.Stop()).To(Succeed())
+	Eventually(testEnv.Stop, "1m").Should(Succeed())
 })
 
 var _ = BeforeEach(func() {

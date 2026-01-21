@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -15,8 +16,8 @@ const (
 
 type BuildResponse struct {
 	GUID            string                       `json:"guid"`
-	CreatedAt       string                       `json:"created_at"`
-	UpdatedAt       string                       `json:"updated_at"`
+	CreatedAt       time.Time                    `json:"created_at"`
+	UpdatedAt       time.Time                    `json:"updated_at"`
 	CreatedBy       map[string]interface{}       `json:"created_by"`
 	State           string                       `json:"state"`
 	StagingMemoryMB int                          `json:"staging_memory_in_mb"`
@@ -33,8 +34,8 @@ type BuildResponse struct {
 func ForBuild(buildRecord repositories.BuildRecord, baseURL url.URL, includes ...include.Resource) BuildResponse {
 	toReturn := BuildResponse{
 		GUID:            buildRecord.GUID,
-		CreatedAt:       tools.ZeroIfNil(formatTimestamp(&buildRecord.CreatedAt)),
-		UpdatedAt:       tools.ZeroIfNil(formatTimestamp(buildRecord.UpdatedAt)),
+		CreatedAt:       tools.ZeroIfNil(toUTC(&buildRecord.CreatedAt)),
+		UpdatedAt:       tools.ZeroIfNil(toUTC(buildRecord.UpdatedAt)),
 		CreatedBy:       make(map[string]interface{}),
 		State:           buildRecord.State,
 		StagingMemoryMB: buildRecord.StagingMemoryMB,

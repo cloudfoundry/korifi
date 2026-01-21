@@ -34,8 +34,8 @@ func (m Metadata) Validate() error {
 }
 
 type MetadataPatch struct {
-	Annotations map[string]*string `json:"annotations"`
-	Labels      map[string]*string `json:"labels"`
+	Annotations map[string]*string `json:"annotations,omitempty"`
+	Labels      map[string]*string `json:"labels,omitempty"`
 }
 
 func (p MetadataPatch) Validate() error {

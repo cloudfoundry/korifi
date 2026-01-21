@@ -2,32 +2,32 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - githubRelease:
-      tag: v0.17.0
-      url: https://api.github.com/repos/buildpacks-community/kpack/releases/213128352
+      tag: v0.17.1
+      url: https://api.github.com/repos/buildpacks-community/kpack/releases/268763858
     path: kpack
   - githubRelease:
       tag: v0.8.0
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/229645413
     path: metrics-server-local
   - githubRelease:
-      tag: v1.19.1
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/254726664
+      tag: v1.19.2
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/268739177
     path: cert-manager
   - git:
-      commitTitle: Add release notes for v3.31.2
-      sha: dd5575465ed825f86a3bc10f17bb5f7dc106d0f0
+      commitTitle: 'style: formatting issues'
+      sha: 2e3c880bcabff580ddd7a08340878ede207f37be
       tags:
-      - v3.31.2
+      - v3.31.3
     path: calico
   - git:
-      commitTitle: Update Contour Docker image to v1.33.0....
-      sha: 3635b068e25d74b7089c272eefd6ccb6a08f2861
+      commitTitle: Update Contour Docker image to v1.33.1....
+      sha: 38be74f39591e2170c8685b62b27c9ad9ed99b48
       tags:
-      - v1.33.0
+      - v1.33.1
     path: contour
   - githubRelease:
-      tag: v1.4.0
-      url: https://api.github.com/repos/kubernetes-sigs/gateway-api/releases/252387623
+      tag: v1.4.1
+      url: https://api.github.com/repos/kubernetes-sigs/gateway-api/releases/267312881
     path: gateway-api
   path: vendor
 kind: LockConfig

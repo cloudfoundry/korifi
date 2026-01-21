@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -17,8 +18,8 @@ type OrgResponse struct {
 	Name string `json:"name"`
 	GUID string `json:"guid"`
 
-	CreatedAt     string                       `json:"created_at"`
-	UpdatedAt     string                       `json:"updated_at"`
+	CreatedAt     time.Time                    `json:"created_at"`
+	UpdatedAt     time.Time                    `json:"updated_at"`
 	Suspended     bool                         `json:"suspended"`
 	Relationships map[string]ToOneRelationship `json:"relationships,omitempty"`
 	Metadata      Metadata                     `json:"metadata"`
@@ -36,8 +37,8 @@ func ForOrg(org repositories.OrgRecord, apiBaseURL url.URL, includes ...include.
 	return OrgResponse{
 		Name:      org.Name,
 		GUID:      org.GUID,
-		CreatedAt: tools.ZeroIfNil(formatTimestamp(&org.CreatedAt)),
-		UpdatedAt: tools.ZeroIfNil(formatTimestamp(org.UpdatedAt)),
+		CreatedAt: tools.ZeroIfNil(toUTC(&org.CreatedAt)),
+		UpdatedAt: tools.ZeroIfNil(toUTC(org.UpdatedAt)),
 		Suspended: org.Suspended,
 		Metadata: Metadata{
 			Labels:      emptyMapIfNil(org.Labels),

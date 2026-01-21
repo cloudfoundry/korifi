@@ -24,14 +24,11 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	validationwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/validation"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -50,7 +47,7 @@ type Validator struct {
 	client client.Client
 }
 
-var _ webhook.CustomValidator = &Validator{}
+var _ admission.Validator[*korifiv1alpha1.CFDomain] = &Validator{}
 
 func NewValidator(client client.Client) *Validator {
 	return &Validator{
@@ -59,18 +56,12 @@ func NewValidator(client client.Client) *Validator {
 }
 
 func (v *Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&korifiv1alpha1.CFDomain{}).
+	return ctrl.NewWebhookManagedBy(mgr, &korifiv1alpha1.CFDomain{}).
 		WithValidator(v).
 		Complete()
 }
 
-func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	domain, ok := obj.(*korifiv1alpha1.CFDomain)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
-	}
-
+func (v *Validator) ValidateCreate(ctx context.Context, domain *korifiv1alpha1.CFDomain) (admission.Warnings, error) {
 	err := validateDomainName(domain.Spec.Name)
 	if err != nil {
 		return nil, validationwebhook.ValidationError{
@@ -102,19 +93,9 @@ func validateDomainName(domainName string) error {
 	return validation.IsFullyQualifiedDomainName(field.NewPath("CFDomain", "Spec", "Name"), domainName).ToAggregate()
 }
 
-func (v *Validator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) (admission.Warnings, error) {
-	domain, ok := obj.(*korifiv1alpha1.CFDomain)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
-	}
-
+func (v *Validator) ValidateUpdate(ctx context.Context, oldDomain *korifiv1alpha1.CFDomain, domain *korifiv1alpha1.CFDomain) (admission.Warnings, error) {
 	if !domain.GetDeletionTimestamp().IsZero() {
 		return nil, nil
-	}
-
-	oldDomain, ok := oldObj.(*korifiv1alpha1.CFDomain)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFDomain but got a %T", obj))
 	}
 
 	if oldDomain.Spec.Name != domain.Spec.Name {
@@ -127,7 +108,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, o
 	return nil, nil
 }
 
-func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateDelete(_ context.Context, _ *korifiv1alpha1.CFDomain) (admission.Warnings, error) {
 	return nil, nil
 }
 

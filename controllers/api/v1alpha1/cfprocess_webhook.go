@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"code.cloudfoundry.org/korifi/tools"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -43,16 +42,14 @@ func NewCFProcessDefaulter(defaultMemoryMB, defaultDiskQuotaMB int64, defaultTim
 }
 
 func (d *CFProcessDefaulter) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&CFProcess{}).
+	return ctrl.NewWebhookManagedBy(mgr, &CFProcess{}).
 		WithDefaulter(d).
 		Complete()
 }
 
 //+kubebuilder:webhook:path=/mutate-korifi-cloudfoundry-org-v1alpha1-cfprocess,mutating=true,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cfprocesses,verbs=create;update,versions=v1alpha1,name=mcfprocess.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
-func (d *CFProcessDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	process := obj.(*CFProcess)
+func (d *CFProcessDefaulter) Default(ctx context.Context, process *CFProcess) error {
 	cfprocesslog.V(1).Info("mutating CFProcess webhook handler", "name", process.Name)
 
 	d.defaultResources(process)
@@ -81,7 +78,7 @@ func (d *CFProcessDefaulter) defaultInstances(process *CFProcess) {
 	if process.Spec.ProcessType == ProcessTypeWeb {
 		defaultInstances = 1
 	}
-	process.Spec.DesiredInstances = tools.PtrTo[int32](defaultInstances)
+	process.Spec.DesiredInstances = tools.PtrTo(defaultInstances)
 }
 
 func (d *CFProcessDefaulter) defaultHealthCheck(process *CFProcess) {
