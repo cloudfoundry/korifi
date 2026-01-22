@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"code.cloudfoundry.org/korifi/api/payloads"
+	"code.cloudfoundry.org/korifi/tests/helpers/security_group"
 	"github.com/go-resty/resty/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,13 +14,13 @@ var _ = Describe("Security Group", func() {
 	var (
 		resp              *resty.Response
 		securityGroupName string
-		securityGroupGUID string
 	)
 
 	Describe("Create", func() {
 		var (
-			respResource securityGroupResource
-			resultErr    cfErrs
+			securityGroupGUID string
+			respResource      securityGroupResource
+			resultErr         cfErrs
 		)
 
 		BeforeEach(func() {
@@ -46,9 +47,12 @@ var _ = Describe("Security Group", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			securityGroupGUID = respResource.GUID
+			DeferCleanup(func() {
+				security_group.Delete(rootNamespace, securityGroupGUID)
+			})
 		})
 
-		It("creates the domain", func() {
+		It("creates the security group", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusCreated))
 			Expect(respResource.GUID).To(Equal(securityGroupGUID))
 			Expect(respResource.Name).To(Equal(securityGroupName))
