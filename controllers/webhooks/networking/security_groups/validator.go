@@ -49,6 +49,9 @@ func (v *Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, securityGroup *korifiv1alpha1.CFSecurityGroup) (admission.Warnings, error) {
+	if err := v.validateSecurityGroup(ctx, securityGroup); err != nil {
+		return nil, err
+	}
 	return nil, v.duplicateValidator.ValidateCreate(ctx, cfsecuritygrouplog, v.rootNamespace, securityGroup)
 }
 
