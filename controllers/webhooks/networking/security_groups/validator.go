@@ -48,16 +48,7 @@ func (v *Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	securityGroup, ok := obj.(*korifiv1alpha1.CFSecurityGroup)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFSecurityGroup but got a %T", obj))
-	}
-
-	if err := v.validateSecurityGroup(ctx, securityGroup); err != nil {
-		return nil, err
-	}
-
+func (v *Validator) ValidateCreate(ctx context.Context, securityGroup *korifiv1alpha1.CFSecurityGroup) (admission.Warnings, error) {
 	return nil, v.duplicateValidator.ValidateCreate(ctx, cfsecuritygrouplog, v.rootNamespace, securityGroup)
 }
 
