@@ -65,15 +65,15 @@ type SecurityGroupRecord struct {
 	StagingSpaces   []string
 }
 
-func (r *SecurityGroupRepo) CreateSecurityGroup(ctx context.Context, authInfo authorization.Info, message CreateSecurityGroupMessage) (SecurityGroupRecord, error) {
+func (r *SecurityGroupRepo) CreateSecurityGroup(ctx context.Context, authInfo authorization.Info, sgCreateMessage CreateSecurityGroupMessage) (SecurityGroupRecord, error) {
 	cfSecurityGroup := &korifiv1alpha1.CFSecurityGroup{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: r.rootNamespace,
 			Name:      uuid.NewString(),
 		},
 		Spec: korifiv1alpha1.CFSecurityGroupSpec{
-			DisplayName: message.DisplayName,
-			Rules: slices.Collect(it.Map(slices.Values(message.Rules), func(r SecurityGroupRule) korifiv1alpha1.SecurityGroupRule {
+			DisplayName: sgCreateMessage.DisplayName,
+			Rules: slices.Collect(it.Map(slices.Values(sgCreateMessage.Rules), func(r SecurityGroupRule) korifiv1alpha1.SecurityGroupRule {
 				return korifiv1alpha1.SecurityGroupRule{
 					Protocol:    r.Protocol,
 					Destination: r.Destination,
@@ -85,8 +85,8 @@ func (r *SecurityGroupRepo) CreateSecurityGroup(ctx context.Context, authInfo au
 				}
 			})),
 			Spaces: func() map[string]korifiv1alpha1.SecurityGroupWorkloads {
-				spaces := make(map[string]korifiv1alpha1.SecurityGroupWorkloads, len(message.Spaces))
-				for guid, workloads := range message.Spaces {
+				spaces := make(map[string]korifiv1alpha1.SecurityGroupWorkloads, len(sgCreateMessage.Spaces))
+				for guid, workloads := range sgCreateMessage.Spaces {
 					spaces[guid] = korifiv1alpha1.SecurityGroupWorkloads{
 						Running: workloads.Running,
 						Staging: workloads.Staging,
@@ -95,13 +95,14 @@ func (r *SecurityGroupRepo) CreateSecurityGroup(ctx context.Context, authInfo au
 				return spaces
 			}(),
 			GloballyEnabled: korifiv1alpha1.SecurityGroupWorkloads{
-				Running: message.GloballyEnabled.Running,
-				Staging: message.GloballyEnabled.Staging,
+				Running: sgCreateMessage.GloballyEnabled.Running,
+				Staging: sgCreateMessage.GloballyEnabled.Staging,
 			},
 		},
 	}
 
-	if err := r.klient.Create(ctx, cfSecurityGroup); err != nil {
+	err := r.klient.Create(ctx, cfSecurityGroup)
+	if err != nil {
 		if validationError, ok := validation.WebhookErrorToValidationError(err); ok {
 			if validationError.Type == validation.DuplicateNameErrorType {
 				return SecurityGroupRecord{}, apierrors.NewUniquenessError(err, validationError.GetMessage())
