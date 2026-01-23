@@ -124,7 +124,7 @@ func (c *Client) Update(ctx context.Context, payload UpdatePayload) (UpdateRespo
 	if err != nil {
 		return UpdateResponse{}, fmt.Errorf("update request failed: %w", err)
 	}
-	if statusCode == http.StatusBadRequest || statusCode == http.StatusConflict || statusCode == http.StatusUnprocessableEntity {
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusUnprocessableEntity {
 		return UpdateResponse{}, UnrecoverableError{Status: statusCode}
 	}
 
