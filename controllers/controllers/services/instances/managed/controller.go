@@ -561,7 +561,8 @@ func (r *Reconciler) getNamespace(ctx context.Context, namespaceName string) (*c
 }
 
 func isFailed(instance *korifiv1alpha1.CFServiceInstance) bool {
-	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.ProvisioningFailedCondition)
+	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.ProvisioningFailedCondition) ||
+		meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.UpdateFailedCondition)
 }
 
 func isReady(instance *korifiv1alpha1.CFServiceInstance) bool {
