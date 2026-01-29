@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"code.cloudfoundry.org/korifi/api/actions/manifest"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
 	. "code.cloudfoundry.org/korifi/api/handlers"
 	"code.cloudfoundry.org/korifi/api/handlers/fake"
@@ -17,6 +18,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	. "code.cloudfoundry.org/korifi/tests/matchers"
 	"code.cloudfoundry.org/korifi/tools"
+	"go.yaml.in/yaml/v3"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,6 +45,7 @@ var _ = Describe("App", func() {
 		requestValidator        *fake.RequestValidator
 		gaugesCollector         *fake.GaugesCollector
 		instancesStateCollector *fake.InstancesStateCollector
+		appsStateCollector      *fake.AppsStateCollector
 		req                     *http.Request
 
 		appRecord repositories.AppRecord
@@ -60,6 +63,7 @@ var _ = Describe("App", func() {
 		podRepo = new(fake.PodRepository)
 		gaugesCollector = new(fake.GaugesCollector)
 		instancesStateCollector = new(fake.InstancesStateCollector)
+		appsStateCollector = new(fake.AppsStateCollector)
 
 		apiHandler := NewApp(
 			*serverURL,
@@ -74,6 +78,7 @@ var _ = Describe("App", func() {
 			podRepo,
 			gaugesCollector,
 			instancesStateCollector,
+			appsStateCollector,
 		)
 
 		appRecord = repositories.AppRecord{
@@ -82,7 +87,7 @@ var _ = Describe("App", func() {
 			SpaceGUID:   spaceGUID,
 			State:       "STOPPED",
 			Revision:    "0",
-			DropletGUID: "test-droplet-guid",
+			DropletGUID: dropletGUID,
 			Lifecycle: repositories.Lifecycle{
 				Type: "buildpack",
 				Data: repositories.LifecycleData{
@@ -521,6 +526,123 @@ var _ = Describe("App", func() {
 
 			It("returns an unprocessable entity error", func() {
 				expectUnprocessableEntityError("validation error")
+			})
+		})
+	})
+
+	Describe("GET /v3/apps/{guid}/manifest", func() {
+		BeforeEach(func() {
+			processRecord := repositories.ProcessRecord{
+				Command:          "/start-command",
+				Type:             "web",
+				DesiredInstances: 1,
+				MemoryMB:         512,
+				DiskQuotaMB:      1024,
+				HealthCheck: repositories.HealthCheck{
+					Type: "http",
+					Data: repositories.HealthCheckData{
+						HTTPEndpoint:             "health-endpoint",
+						InvocationTimeoutSeconds: 5,
+						TimeoutSeconds:           10,
+					},
+				},
+			}
+			appsStateCollector.CollectStateReturns(manifest.AppState{
+				App:       appRecord,
+				Processes: map[string]repositories.ProcessRecord{"web": processRecord},
+				Routes: map[string]repositories.RouteRecord{
+					"host." + appName + "domain": {},
+				},
+				ServiceBindings: map[string]repositories.ServiceBindingRecord{
+					"binding1": {
+						Name:                tools.PtrTo("binding1"),
+						ServiceInstanceGUID: "instance-guid",
+					},
+				},
+				Droplet: &repositories.DropletRecord{
+					Lifecycle: repositories.Lifecycle{
+						Type: "docker",
+					},
+					Image: "docker-image",
+				},
+			}, nil)
+
+			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/manifest", nil)
+		})
+
+		It("gets the app", func() {
+			Expect(appRepo.GetAppCallCount()).To(Equal(1))
+			_, actualAuthInfo, actualAppGUID := appRepo.GetAppArgsForCall(0)
+			Expect(actualAuthInfo).To(Equal(authInfo))
+			Expect(actualAppGUID).To(Equal(appGUID))
+		})
+
+		It("collects the app state", func() {
+			Expect(appsStateCollector.CollectStateCallCount()).To(Equal(1))
+			_, actualCollectStateAuthInfo, actualCollectStateAppGUID, _ := appsStateCollector.CollectStateArgsForCall(0)
+			Expect(actualCollectStateAuthInfo).To(Equal(authInfo))
+			Expect(actualCollectStateAppGUID).To(Equal(appName))
+
+			Expect(rr).Should(HaveHTTPStatus(http.StatusOK))
+			Expect(rr).To(HaveHTTPHeaderWithValue("Content-Type", "application/x-yaml"))
+		})
+
+		It("returns manifest as yaml", func() {
+			var manifest payloads.Manifest
+			err := yaml.Unmarshal(rr.Body.Bytes(), &manifest)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(manifest.Applications).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name":   Equal(appName),
+				"Docker": HaveKeyWithValue("image", "docker-image"),
+				"Processes": ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Type":                         Equal("web"),
+					"Command":                      PointTo(Equal("/start-command")),
+					"DiskQuota":                    PointTo(Equal("1024")),
+					"HealthCheckInvocationTimeout": PointTo(BeEquivalentTo(5)),
+					"HealthCheckType":              PointTo(Equal("http")),
+					"HealthCheckHTTPEndpoint":      PointTo(Equal("health-endpoint")),
+					"Instances":                    PointTo(Equal(int32(1))),
+					"Memory":                       PointTo(Equal("512")),
+					"Timeout":                      PointTo(Equal(int32(10))),
+				})),
+				"Routes": ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Route": PointTo(Equal("host.test-appdomain")),
+				})),
+				"Services": ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Name":        Equal("instance-guid"),
+					"BindingName": PointTo(Equal("binding1")),
+				})),
+			})))
+		})
+
+		When("getting the app fails", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, errors.New("get-app-failed"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
+			})
+		})
+
+		When("the App cannot be accessed", func() {
+			BeforeEach(func() {
+				appRepo.GetAppReturns(repositories.AppRecord{}, apierrors.NewForbiddenError(nil, repositories.AppResourceType))
+			})
+
+			It("returns an error", func() {
+				expectNotFoundError("App")
+			})
+		})
+
+		When("state collector returns error", func() {
+			BeforeEach(func() {
+				appsStateCollector.CollectStateReturns(manifest.AppState{}, errors.New("collect-state-failed"))
+			})
+
+			It("returns an error", func() {
+				expectUnknownError()
 			})
 		})
 	})
@@ -1211,15 +1333,14 @@ var _ = Describe("App", func() {
 					Host:     "test-route-host",
 					Path:     "/some_path",
 					Protocol: "http",
+					Domain: repositories.DomainRecord{
+						GUID: "test-domain-guid",
+						Name: "example.org",
+					},
 				}},
 				PageInfo: descriptors.PageInfo{
 					TotalResults: 1,
 				},
-			}, nil)
-
-			domainRepo.GetDomainReturns(repositories.DomainRecord{
-				GUID: "test-domain-guid",
-				Name: "example.org",
 			}, nil)
 
 			req = createHttpRequest("GET", "/v3/apps/"+appGUID+"/routes", nil)
@@ -1232,10 +1353,6 @@ var _ = Describe("App", func() {
 
 			Expect(routeRepo.ListRoutesCallCount()).To(Equal(1))
 			_, actualAuthInfo, _ = routeRepo.ListRoutesArgsForCall(0)
-			Expect(actualAuthInfo).To(Equal(authInfo))
-
-			Expect(domainRepo.GetDomainCallCount()).To(Equal(1))
-			_, actualAuthInfo, _ = domainRepo.GetDomainArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
 		})
 

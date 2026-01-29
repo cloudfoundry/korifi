@@ -3,16 +3,12 @@ package orgs
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -30,7 +26,7 @@ type Validator struct {
 	placementValidator webhooks.NamespaceValidator
 }
 
-var _ webhook.CustomValidator = &Validator{}
+var _ admission.Validator[*korifiv1alpha1.CFOrg] = &Validator{}
 
 func NewValidator(duplicateValidator webhooks.NameValidator, placementValidator webhooks.NamespaceValidator) *Validator {
 	return &Validator{
@@ -40,18 +36,12 @@ func NewValidator(duplicateValidator webhooks.NameValidator, placementValidator 
 }
 
 func (v *Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&korifiv1alpha1.CFOrg{}).
+	return ctrl.NewWebhookManagedBy(mgr, &korifiv1alpha1.CFOrg{}).
 		WithValidator(v).
 		Complete()
 }
 
-func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	org, ok := obj.(*korifiv1alpha1.CFOrg)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
-	}
-
+func (v *Validator) ValidateCreate(ctx context.Context, org *korifiv1alpha1.CFOrg) (admission.Warnings, error) {
 	if len(org.Name) > webhooks.MaxLabelLength {
 		return nil, errors.New("org name cannot be longer than 63 chars")
 	}
@@ -65,29 +55,14 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	return nil, v.duplicateValidator.ValidateCreate(ctx, cfOrgLog, org.Namespace, org)
 }
 
-func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, obj runtime.Object) (admission.Warnings, error) {
-	org, ok := obj.(*korifiv1alpha1.CFOrg)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
-	}
-
+func (v *Validator) ValidateUpdate(ctx context.Context, oldOrg, org *korifiv1alpha1.CFOrg) (admission.Warnings, error) {
 	if !org.GetDeletionTimestamp().IsZero() {
 		return nil, nil
-	}
-
-	oldOrg, ok := oldObj.(*korifiv1alpha1.CFOrg)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
 	}
 
 	return nil, v.duplicateValidator.ValidateUpdate(ctx, cfOrgLog, org.Namespace, oldOrg, org)
 }
 
-func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	org, ok := obj.(*korifiv1alpha1.CFOrg)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFOrg but got a %T", obj))
-	}
-
+func (v *Validator) ValidateDelete(ctx context.Context, org *korifiv1alpha1.CFOrg) (admission.Warnings, error) {
 	return nil, v.duplicateValidator.ValidateDelete(ctx, cfOrgLog, org.Namespace, org)
 }

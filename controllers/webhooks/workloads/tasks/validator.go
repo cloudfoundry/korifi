@@ -23,12 +23,9 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/validation"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -41,29 +38,21 @@ var cftasklog = logf.Log.WithName("cftask-resource")
 
 //+kubebuilder:webhook:path=/validate-korifi-cloudfoundry-org-v1alpha1-cftask,mutating=false,failurePolicy=fail,sideEffects=None,groups=korifi.cloudfoundry.org,resources=cftasks;cftasks/status,verbs=create;update,versions=v1alpha1,name=vcftask.korifi.cloudfoundry.org,admissionReviewVersions={v1,v1beta1}
 
-type Validator struct{}
+var _ admission.Validator[*v1alpha1.CFTask] = &Validator{}
 
-var _ webhook.CustomValidator = &Validator{}
+type Validator struct{}
 
 func NewValidator() *Validator {
 	return &Validator{}
 }
 
 func (v *Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.CFTask{}).
+	return ctrl.NewWebhookManagedBy(mgr, &v1alpha1.CFTask{}).
 		WithValidator(v).
 		Complete()
 }
 
-var _ webhook.CustomValidator = &Validator{}
-
-func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	task, ok := obj.(*v1alpha1.CFTask)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", obj))
-	}
-
+func (v *Validator) ValidateCreate(ctx context.Context, task *v1alpha1.CFTask) (admission.Warnings, error) {
 	cftasklog.V(1).Info("validate task creation", "namespace", task.Namespace, "name", task.Name)
 
 	if len(task.Spec.Command) == 0 {
@@ -83,23 +72,12 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	return nil, nil
 }
 
-func (v *Validator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, obj runtime.Object) (admission.Warnings, error) {
-	newTask, ok := obj.(*v1alpha1.CFTask)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", obj))
-	}
-
+func (v *Validator) ValidateUpdate(ctx context.Context, oldTask *v1alpha1.CFTask, newTask *v1alpha1.CFTask) (admission.Warnings, error) {
 	if !newTask.GetDeletionTimestamp().IsZero() {
 		return nil, nil
 	}
 
 	cftasklog.V(1).Info("validate task update", "namespace", newTask.Namespace, "name", newTask.Name)
-
-	oldTask, ok := oldObj.(*v1alpha1.CFTask)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a CFTask but got a %T", oldObj))
-	}
-
 	if newTask.Status.SequenceID < 0 {
 		return nil, validation.ValidationError{
 			Type:    webhooks.InvalidFieldValueErrorType,
@@ -135,6 +113,6 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, o
 	return nil, nil
 }
 
-func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateDelete(_ context.Context, _ *v1alpha1.CFTask) (admission.Warnings, error) {
 	return nil, nil
 }

@@ -53,3 +53,8 @@ type CFServiceBindingRepository interface {
 type CFServiceInstanceRepository interface {
 	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) (repositories.ListResult[repositories.ServiceInstanceRecord], error)
 }
+
+//counterfeiter:generate -o fake -fake-name CFDropletRepository . CFDropletRepository
+type CFDropletRepository interface {
+	GetDroplet(context.Context, authorization.Info, string) (repositories.DropletRecord, error)
+}

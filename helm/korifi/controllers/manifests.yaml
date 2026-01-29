@@ -35,20 +35,19 @@ webhooks:
       service:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
-        path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfprocess
+        path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp-apprev
       caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
-    name: mcfprocess.korifi.cloudfoundry.org
+    name: mcfapprev.korifi.cloudfoundry.org
     rules:
       - apiGroups:
           - korifi.cloudfoundry.org
         apiVersions:
           - v1alpha1
         operations:
-          - CREATE
           - UPDATE
         resources:
-          - cfprocesses
+          - cfapps
     sideEffects: None
   - admissionReviewVersions:
       - v1
@@ -156,6 +155,28 @@ webhooks:
       service:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
+        path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfprocess
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
+    failurePolicy: Fail
+    name: mcfprocess.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - cfprocesses
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
         path: /mutate-korifi-cloudfoundry-org-v1alpha1-route-appdestinations
       caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail
@@ -170,6 +191,28 @@ webhooks:
           - UPDATE
         resources:
           - cfroutes
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
+        path: /mutate-korifi-cloudfoundry-org-v1alpha1-cftask
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
+    failurePolicy: Fail
+    name: mcftask.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - cftasks/status
     sideEffects: None
   - admissionReviewVersions:
       - v1
@@ -207,49 +250,6 @@ webhooks:
           - appworkloads
           - buildworkloads
     sideEffects: None
-  - admissionReviewVersions:
-      - v1
-      - v1beta1
-    clientConfig:
-      service:
-        name: korifi-controllers-webhook-service
-        namespace: '{{ .Release.Namespace }}'
-        path: /mutate-korifi-cloudfoundry-org-v1alpha1-cfapp-apprev
-      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
-    failurePolicy: Fail
-    name: mcfapprev.korifi.cloudfoundry.org
-    rules:
-      - apiGroups:
-          - korifi.cloudfoundry.org
-        apiVersions:
-          - v1alpha1
-        operations:
-          - UPDATE
-        resources:
-          - cfapps
-    sideEffects: None
-  - admissionReviewVersions:
-      - v1
-      - v1beta1
-    clientConfig:
-      service:
-        name: korifi-controllers-webhook-service
-        namespace: '{{ .Release.Namespace }}'
-        path: /mutate-korifi-cloudfoundry-org-v1alpha1-cftask
-      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
-    failurePolicy: Fail
-    name: mcftask.korifi.cloudfoundry.org
-    rules:
-      - apiGroups:
-          - korifi.cloudfoundry.org
-        apiVersions:
-          - v1alpha1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - cftasks/status
-    sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -258,6 +258,29 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/{{ .Values.controllers.webhookCertSecret }}'
 webhooks:
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
+        path: /validate-korifi-cloudfoundry-org-v1alpha1-cfapp
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
+    failurePolicy: Fail
+    name: vcfapp.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - cfapps
+    sideEffects: NoneOnDryRun
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -278,6 +301,50 @@ webhooks:
           - UPDATE
         resources:
           - cfdomains
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
+        path: /validate-korifi-cloudfoundry-org-v1alpha1-cforg
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
+    failurePolicy: Fail
+    name: vcforg.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - cforgs
+    sideEffects: NoneOnDryRun
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
+        path: /validate-korifi-cloudfoundry-org-v1alpha1-cfpackage
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
+    failurePolicy: Fail
+    name: vcfpackage.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - UPDATE
+        resources:
+          - cfpackages
     sideEffects: None
   - admissionReviewVersions:
       - v1
@@ -394,73 +461,6 @@ webhooks:
         resources:
           - cfserviceinstances
     sideEffects: NoneOnDryRun
-  - admissionReviewVersions:
-      - v1
-      - v1beta1
-    clientConfig:
-      service:
-        name: korifi-controllers-webhook-service
-        namespace: '{{ .Release.Namespace }}'
-        path: /validate-korifi-cloudfoundry-org-v1alpha1-cfapp
-      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
-    failurePolicy: Fail
-    name: vcfapp.korifi.cloudfoundry.org
-    rules:
-      - apiGroups:
-          - korifi.cloudfoundry.org
-        apiVersions:
-          - v1alpha1
-        operations:
-          - CREATE
-          - UPDATE
-          - DELETE
-        resources:
-          - cfapps
-    sideEffects: NoneOnDryRun
-  - admissionReviewVersions:
-      - v1
-      - v1beta1
-    clientConfig:
-      service:
-        name: korifi-controllers-webhook-service
-        namespace: '{{ .Release.Namespace }}'
-        path: /validate-korifi-cloudfoundry-org-v1alpha1-cforg
-      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
-    failurePolicy: Fail
-    name: vcforg.korifi.cloudfoundry.org
-    rules:
-      - apiGroups:
-          - korifi.cloudfoundry.org
-        apiVersions:
-          - v1alpha1
-        operations:
-          - CREATE
-          - UPDATE
-          - DELETE
-        resources:
-          - cforgs
-    sideEffects: NoneOnDryRun
-  - admissionReviewVersions:
-      - v1
-      - v1beta1
-    clientConfig:
-      service:
-        name: korifi-controllers-webhook-service
-        namespace: '{{ .Release.Namespace }}'
-        path: /validate-korifi-cloudfoundry-org-v1alpha1-cfpackage
-      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
-    failurePolicy: Fail
-    name: vcfpackage.korifi.cloudfoundry.org
-    rules:
-      - apiGroups:
-          - korifi.cloudfoundry.org
-        apiVersions:
-          - v1alpha1
-        operations:
-          - UPDATE
-        resources:
-          - cfpackages
-    sideEffects: None
   - admissionReviewVersions:
       - v1
       - v1beta1

@@ -8,16 +8,23 @@ import (
 )
 
 const (
-	ProtocolTCP = "tcp"
-	ProtocolUDP = "udp"
-	ProtocolALL = "all"
+	ProtocolTCP    = "tcp"
+	ProtocolUDP    = "udp"
+	ProtocolALL    = "all"
+	ProtocolICMP   = "icmp"
+	ProtocolICMPv6 = "icmpv6"
 )
 
 type SecurityGroupRule struct {
+	// +kubebuilder:validation:Enum=tcp;udp;icmp;icmpv6;all
 	Protocol    string `json:"protocol"`
 	Destination string `json:"destination"`
 	Ports       string `json:"ports,omitempty"`
-	Type        int    `json:"type,omitempty"`
+	// +kubebuilder:validation:Maximum=255
+	// +kubebuilder:validation:Minimum=-1
+	Type int `json:"type,omitempty"`
+	// +kubebuilder:validation:Maximum=255
+	// +kubebuilder:validation:Minimum=-1
 	Code        int    `json:"code,omitempty"`
 	Description string `json:"description,omitempty"`
 	Log         bool   `json:"log,omitempty"`

@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"net/url"
+	"time"
 
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/repositories/include"
@@ -14,8 +15,8 @@ const (
 
 type RoleResponse struct {
 	GUID          string                       `json:"guid"`
-	CreatedAt     string                       `json:"created_at"`
-	UpdatedAt     string                       `json:"updated_at"`
+	CreatedAt     time.Time                    `json:"created_at"`
+	UpdatedAt     time.Time                    `json:"updated_at"`
 	Type          string                       `json:"type"`
 	Relationships map[string]ToOneRelationship `json:"relationships"`
 	Links         RoleLinks                    `json:"links"`
@@ -31,8 +32,8 @@ type RoleLinks struct {
 func ForRole(role repositories.RoleRecord, apiBaseURL url.URL, includes ...include.Resource) RoleResponse {
 	resp := RoleResponse{
 		GUID:          role.GUID,
-		CreatedAt:     tools.ZeroIfNil(formatTimestamp(&role.CreatedAt)),
-		UpdatedAt:     tools.ZeroIfNil(formatTimestamp(role.UpdatedAt)),
+		CreatedAt:     tools.ZeroIfNil(toUTC(&role.CreatedAt)),
+		UpdatedAt:     tools.ZeroIfNil(toUTC(role.UpdatedAt)),
 		Type:          role.Type,
 		Relationships: ForRelationships(role.Relationships()),
 		Links: RoleLinks{

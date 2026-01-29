@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"path"
 	"slices"
 
 	"code.cloudfoundry.org/korifi/api/actions/shared"
 	"code.cloudfoundry.org/korifi/api/authorization"
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
+
 	"code.cloudfoundry.org/korifi/api/repositories"
 	"code.cloudfoundry.org/korifi/api/tools/singleton"
 	"github.com/BooleanCat/go-functional/v2/it"
@@ -23,6 +23,7 @@ type StateCollector struct {
 	routeRepo           shared.CFRouteRepository
 	serviceInstanceRepo shared.CFServiceInstanceRepository
 	serviceBindingRepo  shared.CFServiceBindingRepository
+	dropletRepo         shared.CFDropletRepository
 }
 
 type AppState struct {
@@ -30,6 +31,7 @@ type AppState struct {
 	Processes       map[string]repositories.ProcessRecord
 	Routes          map[string]repositories.RouteRecord
 	ServiceBindings map[string]repositories.ServiceBindingRecord
+	Droplet         *repositories.DropletRecord
 }
 
 func NewStateCollector(
@@ -39,6 +41,7 @@ func NewStateCollector(
 	routeRepo shared.CFRouteRepository,
 	serviceInstanceRepo shared.CFServiceInstanceRepository,
 	serviceBindingRepo shared.CFServiceBindingRepository,
+	dropletRepo shared.CFDropletRepository,
 ) StateCollector {
 	return StateCollector{
 		appRepo:             appRepo,
@@ -47,6 +50,7 @@ func NewStateCollector(
 		routeRepo:           routeRepo,
 		serviceInstanceRepo: serviceInstanceRepo,
 		serviceBindingRepo:  serviceBindingRepo,
+		dropletRepo:         dropletRepo,
 	}
 }
 
@@ -82,11 +86,17 @@ func (s StateCollector) CollectState(ctx context.Context, authInfo authorization
 		return AppState{}, err
 	}
 
+	dropletRecord, err := s.getDroplet(ctx, authInfo, appRecord.DropletGUID)
+	if err != nil {
+		return AppState{}, err
+	}
+
 	return AppState{
 		App:             appRecord,
 		Processes:       processesByType,
 		Routes:          routesByURL,
 		ServiceBindings: bindingsByServiceName,
+		Droplet:         dropletRecord,
 	}, nil
 }
 
@@ -104,6 +114,18 @@ func (s StateCollector) indexProcessesByType(ctx context.Context, authInfo autho
 	}), nil
 }
 
+func (s StateCollector) getDroplet(ctx context.Context, authInfo authorization.Info, dropletGUID string) (*repositories.DropletRecord, error) {
+	droplet, err := s.dropletRepo.GetDroplet(ctx, authInfo, dropletGUID)
+	if err != nil {
+		if errors.As(err, new(apierrors.NotFoundError)) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &droplet, nil
+}
+
 func (s StateCollector) indexRoutesByURL(ctx context.Context, authInfo authorization.Info, appGUID, spaceGUID string) (map[string]repositories.RouteRecord, error) {
 	routes, err := s.routeRepo.ListRoutes(ctx, authInfo, repositories.ListRoutesMessage{
 		AppGUIDs:   []string{appGUID},
@@ -113,9 +135,7 @@ func (s StateCollector) indexRoutesByURL(ctx context.Context, authInfo authoriza
 		return nil, err
 	}
 
-	return index(routes.Records, func(r repositories.RouteRecord) string {
-		return path.Join(fmt.Sprintf("%s.%s", r.Host, r.Domain.Name), r.Path)
-	}), nil
+	return index(routes.Records, routeURL), nil
 }
 
 func (s StateCollector) indexBindingsByServiceName(ctx context.Context, authInfo authorization.Info, appGUID string) (map[string]repositories.ServiceBindingRecord, error) {
@@ -168,4 +188,12 @@ func tryIndex[T any](records []T, keyFunc func(T) (string, error)) (map[string]T
 		slices.Values(recordKeys),
 		recordsIter,
 	)), nil
+}
+
+func routeURL(route repositories.RouteRecord) string {
+	if route.Host == "" {
+		return fmt.Sprintf("%s%s", route.Domain.Name, route.Path)
+	}
+
+	return fmt.Sprintf("%s.%s%s", route.Host, route.Domain.Name, route.Path)
 }

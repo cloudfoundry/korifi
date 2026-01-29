@@ -5,127 +5,41 @@ import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 )
 
 type EventRecorder struct {
-	AnnotatedEventfStub        func(runtime.Object, map[string]string, string, string, string, ...interface{})
-	annotatedEventfMutex       sync.RWMutex
-	annotatedEventfArgsForCall []struct {
-		arg1 runtime.Object
-		arg2 map[string]string
-		arg3 string
-		arg4 string
-		arg5 string
-		arg6 []interface{}
-	}
-	EventStub        func(runtime.Object, string, string, string)
-	eventMutex       sync.RWMutex
-	eventArgsForCall []struct {
-		arg1 runtime.Object
-		arg2 string
-		arg3 string
-		arg4 string
-	}
-	EventfStub        func(runtime.Object, string, string, string, ...interface{})
+	EventfStub        func(runtime.Object, runtime.Object, string, string, string, string, ...interface{})
 	eventfMutex       sync.RWMutex
 	eventfArgsForCall []struct {
 		arg1 runtime.Object
-		arg2 string
+		arg2 runtime.Object
 		arg3 string
 		arg4 string
-		arg5 []interface{}
+		arg5 string
+		arg6 string
+		arg7 []interface{}
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *EventRecorder) AnnotatedEventf(arg1 runtime.Object, arg2 map[string]string, arg3 string, arg4 string, arg5 string, arg6 ...interface{}) {
-	fake.annotatedEventfMutex.Lock()
-	fake.annotatedEventfArgsForCall = append(fake.annotatedEventfArgsForCall, struct {
-		arg1 runtime.Object
-		arg2 map[string]string
-		arg3 string
-		arg4 string
-		arg5 string
-		arg6 []interface{}
-	}{arg1, arg2, arg3, arg4, arg5, arg6})
-	stub := fake.AnnotatedEventfStub
-	fake.recordInvocation("AnnotatedEventf", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
-	fake.annotatedEventfMutex.Unlock()
-	if stub != nil {
-		fake.AnnotatedEventfStub(arg1, arg2, arg3, arg4, arg5, arg6...)
-	}
-}
-
-func (fake *EventRecorder) AnnotatedEventfCallCount() int {
-	fake.annotatedEventfMutex.RLock()
-	defer fake.annotatedEventfMutex.RUnlock()
-	return len(fake.annotatedEventfArgsForCall)
-}
-
-func (fake *EventRecorder) AnnotatedEventfCalls(stub func(runtime.Object, map[string]string, string, string, string, ...interface{})) {
-	fake.annotatedEventfMutex.Lock()
-	defer fake.annotatedEventfMutex.Unlock()
-	fake.AnnotatedEventfStub = stub
-}
-
-func (fake *EventRecorder) AnnotatedEventfArgsForCall(i int) (runtime.Object, map[string]string, string, string, string, []interface{}) {
-	fake.annotatedEventfMutex.RLock()
-	defer fake.annotatedEventfMutex.RUnlock()
-	argsForCall := fake.annotatedEventfArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
-}
-
-func (fake *EventRecorder) Event(arg1 runtime.Object, arg2 string, arg3 string, arg4 string) {
-	fake.eventMutex.Lock()
-	fake.eventArgsForCall = append(fake.eventArgsForCall, struct {
-		arg1 runtime.Object
-		arg2 string
-		arg3 string
-		arg4 string
-	}{arg1, arg2, arg3, arg4})
-	stub := fake.EventStub
-	fake.recordInvocation("Event", []interface{}{arg1, arg2, arg3, arg4})
-	fake.eventMutex.Unlock()
-	if stub != nil {
-		fake.EventStub(arg1, arg2, arg3, arg4)
-	}
-}
-
-func (fake *EventRecorder) EventCallCount() int {
-	fake.eventMutex.RLock()
-	defer fake.eventMutex.RUnlock()
-	return len(fake.eventArgsForCall)
-}
-
-func (fake *EventRecorder) EventCalls(stub func(runtime.Object, string, string, string)) {
-	fake.eventMutex.Lock()
-	defer fake.eventMutex.Unlock()
-	fake.EventStub = stub
-}
-
-func (fake *EventRecorder) EventArgsForCall(i int) (runtime.Object, string, string, string) {
-	fake.eventMutex.RLock()
-	defer fake.eventMutex.RUnlock()
-	argsForCall := fake.eventArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
-}
-
-func (fake *EventRecorder) Eventf(arg1 runtime.Object, arg2 string, arg3 string, arg4 string, arg5 ...interface{}) {
+func (fake *EventRecorder) Eventf(arg1 runtime.Object, arg2 runtime.Object, arg3 string, arg4 string, arg5 string, arg6 string, arg7 ...interface{}) {
 	fake.eventfMutex.Lock()
 	fake.eventfArgsForCall = append(fake.eventfArgsForCall, struct {
 		arg1 runtime.Object
-		arg2 string
+		arg2 runtime.Object
 		arg3 string
 		arg4 string
-		arg5 []interface{}
-	}{arg1, arg2, arg3, arg4, arg5})
+		arg5 string
+		arg6 string
+		arg7 []interface{}
+	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7})
 	stub := fake.EventfStub
-	fake.recordInvocation("Eventf", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.recordInvocation("Eventf", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7})
 	fake.eventfMutex.Unlock()
 	if stub != nil {
-		fake.EventfStub(arg1, arg2, arg3, arg4, arg5...)
+		fake.EventfStub(arg1, arg2, arg3, arg4, arg5, arg6, arg7...)
 	}
 }
 
@@ -135,17 +49,17 @@ func (fake *EventRecorder) EventfCallCount() int {
 	return len(fake.eventfArgsForCall)
 }
 
-func (fake *EventRecorder) EventfCalls(stub func(runtime.Object, string, string, string, ...interface{})) {
+func (fake *EventRecorder) EventfCalls(stub func(runtime.Object, runtime.Object, string, string, string, string, ...interface{})) {
 	fake.eventfMutex.Lock()
 	defer fake.eventfMutex.Unlock()
 	fake.EventfStub = stub
 }
 
-func (fake *EventRecorder) EventfArgsForCall(i int) (runtime.Object, string, string, string, []interface{}) {
+func (fake *EventRecorder) EventfArgsForCall(i int) (runtime.Object, runtime.Object, string, string, string, string, []interface{}) {
 	fake.eventfMutex.RLock()
 	defer fake.eventfMutex.RUnlock()
 	argsForCall := fake.eventfArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7
 }
 
 func (fake *EventRecorder) Invocations() map[string][][]interface{} {
@@ -170,4 +84,4 @@ func (fake *EventRecorder) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ record.EventRecorder = new(EventRecorder)
+var _ events.EventRecorder = new(EventRecorder)

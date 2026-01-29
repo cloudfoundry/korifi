@@ -280,13 +280,13 @@ var _ = Describe("CFTaskReconciler Integration Tests", func() {
 
 		It("records a TaskWorkloadCreated event", func() {
 			Expect(eventRecorder.EventfCallCount()).To(Equal(eventCallCount+1), "eventRecorder.Eventf call count mismatch")
-			eventTaskObj, eventType, eventReason, eventMessage, eventMessageArgs := eventRecorder.EventfArgsForCall(eventCallCount)
+			eventTaskObj, _, eventType, eventReason, _, eventMessage, eventMessageArgs := eventRecorder.EventfArgsForCall(eventCallCount)
 			eventTask := eventTaskObj.(*korifiv1alpha1.CFTask)
 			Expect(client.ObjectKeyFromObject(eventTask)).To(Equal(client.ObjectKeyFromObject(cfTask)))
 			Expect(eventType).To(Equal("Normal"), "Unexpected event type in event record")
 			Expect(eventReason).To(Equal("TaskWorkloadCreated"), "Unexpected event reason in event record")
 			Expect(eventMessage).To(Equal("Created task workload %s"), "Unexpected event message in event record")
-			Expect(eventMessageArgs).To(Equal([]interface{}{cfTask.Name}), "Unexpected event message args in event record")
+			Expect(eventMessageArgs).To(Equal([]any{cfTask.Name}), "Unexpected event message args in event record")
 		})
 
 		When("the task is being deleted gracefully", func() {

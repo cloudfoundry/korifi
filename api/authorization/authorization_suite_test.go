@@ -48,7 +48,7 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	authProvider.Stop()
-	Expect(testEnv.Stop()).To(Succeed())
+	Eventually(testEnv.Stop, "1m").Should(Succeed())
 })
 
 func startEnvTest(apiServerExtraArgs map[string]string) {
@@ -88,7 +88,7 @@ func startEnvTest(apiServerExtraArgs map[string]string) {
 }
 
 func restartEnvTest(apiServerEtraArgs map[string]string) {
-	Expect(testEnv.Stop()).To(Succeed())
+	Eventually(testEnv.Stop, "1m").Should(Succeed())
 	startEnvTest(apiServerEtraArgs)
 }
 

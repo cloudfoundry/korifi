@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"gopkg.in/yaml.v2"
 )
 
 var _ = Describe("Apps", func() {
@@ -234,6 +235,37 @@ var _ = Describe("Apps", func() {
 		It("successfully returns the process", func() {
 			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
 			Expect(result.GUID).To(Equal(processGUID))
+		})
+	})
+
+	Describe("Get manifest yaml", func() {
+		var appName string
+		BeforeEach(func() {
+			appGUID, appName = pushTestApp(space1GUID, defaultAppBitsFile)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().Get("/v3/apps/" + appGUID + "/manifest")
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("succeeds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			var manifestRes manifestResource
+			err := yaml.Unmarshal(resp.Body(), &manifestRes)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(manifestRes.Applications).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal(appName),
+				"Processes": ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Type":    Equal("web"),
+					"Command": PointTo(Equal("./dorifi")),
+				})),
+
+				"Routes": ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Route": PointTo(HavePrefix(appName)),
+				})),
+			})))
 		})
 	})
 
