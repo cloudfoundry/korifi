@@ -23,15 +23,15 @@ require (
 	github.com/go-logr/stdr v1.2.2
 	github.com/go-resty/resty/v2 v2.17.1
 	github.com/gofrs/flock v0.13.0
-	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jellydator/validation v1.2.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.1
 	github.com/mileusna/useragent v1.3.5
-	github.com/onsi/ginkgo/v2 v2.27.5
-	github.com/onsi/gomega v1.39.0
+	github.com/onsi/ginkgo/v2 v2.28.1
+	github.com/onsi/gomega v1.39.1
 	github.com/pivotal/kpack v0.17.1
 	github.com/satori/go.uuid v1.2.0
 	go.yaml.in/yaml/v2 v2.4.3
