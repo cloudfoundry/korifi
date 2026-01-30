@@ -60,7 +60,7 @@ var _ = Describe("Service Bindings", func() {
 
 			BeforeEach(func() {
 				brokerGUID = createBroker(serviceBrokerURL)
-				instanceGUID = createManagedServiceInstance(brokerGUID, spaceGUID)
+				instanceGUID = createManagedServiceInstance(brokerGUID, spaceGUID, generateGUID("managed-service-instance"))
 			})
 
 			AfterEach(func() {
@@ -121,7 +121,7 @@ var _ = Describe("Service Bindings", func() {
 			BeforeEach(func() {
 				brokerGUID = createBroker(serviceBrokerURL)
 
-				instanceGUID := createManagedServiceInstance(brokerGUID, spaceGUID)
+				instanceGUID := createManagedServiceInstance(brokerGUID, spaceGUID, generateGUID("managed-service-instance"))
 				bindingGUID = createManagedServiceBinding(appGUID, instanceGUID, "")
 			})
 

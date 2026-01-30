@@ -438,7 +438,6 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 				))
 			})
 		})
-
 	})
 
 	Describe("ValidateDelete", func() {
@@ -468,5 +467,4 @@ var _ = Describe("CFSecurityGroupValidatingWebhook", func() {
 			})
 		})
 	})
-
 })

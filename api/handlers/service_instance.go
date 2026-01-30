@@ -186,7 +186,7 @@ func (h *ServiceInstance) patch(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance")
 	}
 
-	if payload.Type == korifiv1alpha1.ManagedType {
+	if serviceInstance.Type == korifiv1alpha1.ManagedType {
 		patchMessage := payload.ToManagedSIPatchMessage(serviceInstance.SpaceGUID, serviceInstance.GUID)
 		serviceInstance, err = h.serviceInstanceRepo.PatchManagedServiceInstance(r.Context(), authInfo, patchMessage)
 		if err != nil {
@@ -194,7 +194,7 @@ func (h *ServiceInstance) patch(r *http.Request) (*routing.Response, error) {
 		}
 
 		return routing.NewResponse(http.StatusAccepted).
-			WithHeader("Location", presenter.JobURLForRedirects(serviceInstance.GUID, presenter.ManagedServiceInstancePatchOperation, h.serverURL)), nil
+			WithHeader("Location", presenter.JobURLForRedirects(serviceInstance.GUID, presenter.ManagedServiceInstanceUpdateOperation, h.serverURL)), nil
 	}
 
 	patchMessage := payload.ToUPSIPatchMessage(serviceInstance.SpaceGUID, serviceInstance.GUID)

@@ -757,6 +757,46 @@ func createUPServiceInstance(spaceGUID, name string, credentials map[string]stri
 	return serviceInstance.GUID
 }
 
+func createManagedServiceInstance(brokerGUID, spaceGUID string, name string) string {
+	GinkgoHelper()
+
+	var serviceInstance typedResource
+	var plansResp resourceList[resource]
+	catalogResp, err := adminClient.R().SetResult(&plansResp).Get("/v3/service_plans?service_broker_guids=" + brokerGUID)
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(catalogResp).To(HaveRestyStatusCode(http.StatusOK))
+	Expect(plansResp.Resources).NotTo(BeEmpty())
+
+	resp, err := adminClient.R().
+		SetBody(typedResource{
+			Type: "managed",
+			resource: resource{
+				Name: name,
+				Relationships: relationships{
+					"space": {
+						Data: resource{GUID: spaceGUID},
+					},
+					"service_plan": {
+						Data: resource{GUID: plansResp.Resources[0].GUID},
+					},
+				},
+			},
+		}).
+		SetResult(&serviceInstance).
+		Post("/v3/service_instances")
+
+	Expect(err).NotTo(HaveOccurred())
+	Expect(resp).To(SatisfyAll(
+		HaveRestyStatusCode(http.StatusAccepted),
+		HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_instance.create~")),
+	))
+	jobURL := resp.Header().Get("Location")
+	expectJobCompletes(resp)
+
+	return strings.Split(jobURL, "~")[1]
+}
+
 func listServiceInstances(names ...string) resourceList[serviceInstanceResource] {
 	GinkgoHelper()
 

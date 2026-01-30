@@ -31,7 +31,7 @@ const (
 	ManagedServiceInstanceResourceType    = "managed_service_instance"
 	ManagedServiceBindingResourceType     = "managed_service_binding"
 	ManagedServiceInstanceCreateOperation = ManagedServiceInstanceResourceType + ".create"
-	ManagedServiceInstancePatchOperation  = ManagedServiceInstanceResourceType + ".patch"
+	ManagedServiceInstanceUpdateOperation = ManagedServiceInstanceResourceType + ".update"
 	ManagedServiceInstanceDeleteOperation = ManagedServiceInstanceResourceType + ".delete"
 	ManagedServiceBindingCreateOperation  = ManagedServiceBindingResourceType + ".create"
 	ManagedServiceBindingDeleteOperation  = ManagedServiceBindingResourceType + ".delete"
