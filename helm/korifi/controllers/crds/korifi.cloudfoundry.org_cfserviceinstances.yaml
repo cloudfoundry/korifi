@@ -217,6 +217,9 @@ spec:
                   the CFServiceInstance that has been reconciled
                 format: int64
                 type: integer
+              planGuid:
+                description: The service instance actual plan
+                type: string
               upgradeAvailable:
                 description: True if there is an upgrade available for for the service
                   instance (i.e. the plan has a new version). Only makes seense for
