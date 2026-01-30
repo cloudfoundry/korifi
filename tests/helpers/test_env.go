@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"code.cloudfoundry.org/korifi/tools"
 	"github.com/google/uuid"
@@ -89,7 +90,7 @@ func StartK8sManager(k8sManager manager.Manager) context.CancelFunc {
 
 	Eventually(func(g Gomega) {
 		g.Expect(k8sManager.GetWebhookServer().StartedChecker()(nil)).To(Succeed())
-	}).Should(Succeed())
+	}).WithTimeout(time.Minute).Should(Succeed())
 
 	return cancel
 }
