@@ -10,8 +10,8 @@ directories:
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/281050386
     path: metrics-server-local
   - githubRelease:
-      tag: v1.19.2
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/268739177
+      tag: v1.19.3
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/282192898
     path: cert-manager
   - git:
       commitTitle: 'style: formatting issues'
