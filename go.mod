@@ -38,11 +38,11 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/exp v0.0.0-20250911091902-df9299821621
 	golang.org/x/text v0.34.0
-	k8s.io/api v0.35.0
-	k8s.io/apimachinery v0.35.0
-	k8s.io/client-go v0.35.0
-	k8s.io/metrics v0.35.0
-	k8s.io/pod-security-admission v0.35.0
+	k8s.io/api v0.35.1
+	k8s.io/apimachinery v0.35.1
+	k8s.io/client-go v0.35.1
+	k8s.io/metrics v0.35.1
+	k8s.io/pod-security-admission v0.35.1
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
 	sigs.k8s.io/controller-runtime v0.23.1
 	sigs.k8s.io/controller-tools v0.20.0
@@ -99,7 +99,7 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
-	k8s.io/code-generator v0.35.0 // indirect
+	k8s.io/code-generator v0.35.1 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
@@ -202,8 +202,8 @@ require (
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/apiextensions-apiserver v0.35.0
-	k8s.io/component-base v0.35.0 // indirect
+	k8s.io/apiextensions-apiserver v0.35.1
+	k8s.io/component-base v0.35.1 // indirect
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	knative.dev/pkg v0.0.0-20250211185550-c8bea7c326ff // indirect
