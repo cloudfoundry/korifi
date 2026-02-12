@@ -64,11 +64,11 @@ type PatchOrgMessage struct {
 	Name *string
 }
 
-func (p *PatchOrgMessage) Apply(org *korifiv1alpha1.CFOrg) {
+func (p *PatchOrgMessage) Apply(org *korifiv1alpha1.CFOrg) error {
 	if p.Name != nil {
 		org.Spec.DisplayName = *p.Name
 	}
-	p.MetadataPatch.Apply(org)
+	return p.MetadataPatch.Apply(org)
 }
 
 type OrgRecord struct {
@@ -188,8 +188,7 @@ func (r *OrgRepo) PatchOrg(ctx context.Context, authInfo authorization.Info, mes
 	}
 
 	err = r.klient.Patch(ctx, cfOrg, func() error {
-		message.Apply(cfOrg)
-		return nil
+		return message.Apply(cfOrg)
 	})
 	if err != nil {
 		return OrgRecord{}, apierrors.FromK8sError(err, OrgResourceType)
