@@ -362,12 +362,12 @@ func (r *brokerRequester) async() *brokerRequester {
 }
 
 func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, method string, queryParams map[string]string, payload any) (int, []byte, error) {
-	requestUrl, err := url.JoinPath(r.broker.URL, requestPath)
+	requestURL, err := url.JoinPath(r.broker.URL, requestPath)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to build broker requestUrl for path %q: %w", requestPath, err)
 	}
 
-	parsedURL, err := url.Parse(requestUrl)
+	parsedURL, err := url.Parse(requestURL)
 	if err != nil {
 		panic(err)
 	}
@@ -403,7 +403,7 @@ func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, m
 	}
 	req.Header.Add("Authorization", authHeader)
 
-	resp, err := r.httpClient.Do(req)
+	resp, err := r.httpClient.Do(req) // #nosec G704 - the request path is provided via argument of the function. The function itself is being called with hardcoded values, therefore SSRF is not possible
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to execute HTTP request: %w", err)
 	}

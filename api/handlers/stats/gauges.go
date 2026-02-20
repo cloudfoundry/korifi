@@ -50,7 +50,7 @@ func (c *impersonatingHttpClient) Do(req *http.Request) (*http.Response, error) 
 	authInfo, _ := authorization.InfoFromContext(req.Context())
 	req.Header.Set("Authorization", authInfo.RawAuthHeader)
 
-	return c.httpClient.Do(req)
+	return c.httpClient.Do(req) // #nosec G704 - this is a HTTPClient wrapper, so SSRF protection should have been implemented by the caller
 }
 
 func (c *LogCacheGaugesCollector) CollectProcessGauges(ctx context.Context, appGUID, processGUID string) ([]ProcessGauges, error) {
