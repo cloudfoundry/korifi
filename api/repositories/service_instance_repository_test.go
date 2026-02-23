@@ -503,15 +503,16 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		var (
 			cfServiceInstance     *korifiv1alpha1.CFServiceInstance
 			secret                *corev1.Secret
+			serviceInstanceGUID   string
 			serviceInstanceRecord repositories.ServiceInstanceRecord
 			patchMessage          repositories.PatchUPSIMessage
 			err                   error
 		)
 
 		BeforeEach(func() {
-			serviceInstanceGUID := uuid.NewString()
+			serviceInstanceGUID = uuid.NewString()
 			secretName := uuid.NewString()
-			cfServiceInstance = createServiceInstanceCR(ctx, k8sClient, serviceInstanceGUID, space.Name, serviceInstanceName, secretName)
+			cfServiceInstance = createUserProvidedServiceInstanceCR(ctx, k8sClient, serviceInstanceGUID, space.Name, serviceInstanceName, secretName)
 			conditionAwaiter.AwaitConditionReturns(cfServiceInstance, nil)
 			Expect(k8s.Patch(ctx, k8sClient, cfServiceInstance, func() {
 				cfServiceInstance.Status.Credentials.Name = secretName
@@ -686,6 +687,120 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				})
 			})
 		})
+
+		When("Patching a managed service instance", func() {
+			var (
+				patchMessage repositories.PatchManagedSIMessage
+			)
+
+			BeforeEach(func() {
+				serviceInstancePlanGUID := uuid.NewString()
+				cfServiceInstance = createManagedServiceInstanceCR(ctx, k8sClient, serviceInstanceGUID, space.Name, serviceInstanceName, serviceInstancePlanGUID)
+				conditionAwaiter.AwaitConditionReturns(cfServiceInstance, nil)
+
+				Expect(k8sClient.Create(ctx, cfServiceInstance)).To(Succeed())
+
+				patchMessage = repositories.PatchManagedSIMessage{
+					GUID:      cfServiceInstance.Name,
+					SpaceGUID: space.Name,
+					Name:      tools.PtrTo("new-name"),
+					PlanGUID:  tools.PtrTo("new-plan-guid"),
+					Tags:      &[]string{"new"},
+					MetadataPatch: repositories.MetadataPatch{
+						Labels:      map[string]*string{"new-label": tools.PtrTo("new-label-value")},
+						Annotations: map[string]*string{"new-annotation": tools.PtrTo("new-annotation-value")},
+					},
+				}
+			})
+
+			JustBeforeEach(func() {
+				serviceInstanceRecord, err = serviceInstanceRepo.PatchManagedServiceInstance(ctx, authInfo, patchMessage)
+			})
+
+			When("authorized in the space", func() {
+				BeforeEach(func() {
+					createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
+					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+				})
+
+				It("returns the updated record", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(serviceInstanceRecord.Name).To(Equal("new-name"))
+					Expect(serviceInstanceRecord.Tags).To(ConsistOf("new"))
+					Expect(serviceInstanceRecord.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
+					Expect(serviceInstanceRecord.Labels).To(HaveKeyWithValue("new-label", "new-label-value"))
+					Expect(serviceInstanceRecord.Annotations).To(HaveLen(2))
+					Expect(serviceInstanceRecord.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
+					Expect(serviceInstanceRecord.Annotations).To(HaveKeyWithValue("new-annotation", "new-annotation-value"))
+					Expect(serviceInstanceRecord.Relationships()).To(HaveKeyWithValue("service_plan", "new-plan-guid"))
+				})
+
+				It("updates the service instance", func() {
+					Expect(err).NotTo(HaveOccurred())
+					serviceInstance := new(korifiv1alpha1.CFServiceInstance)
+
+					Eventually(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
+						g.Expect(serviceInstance.Spec.DisplayName).To(Equal("new-name"))
+						g.Expect(serviceInstance.Spec.Tags).To(ConsistOf("new"))
+						g.Expect(serviceInstance.Spec.PlanGUID).To(Equal("new-plan-guid"))
+						g.Expect(serviceInstance.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
+						g.Expect(serviceInstance.Labels).To(HaveKeyWithValue("new-label", "new-label-value"))
+						g.Expect(serviceInstance.Annotations).To(HaveLen(2))
+						g.Expect(serviceInstance.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
+						g.Expect(serviceInstance.Annotations).To(HaveKeyWithValue("new-annotation", "new-annotation-value"))
+					}).Should(Succeed())
+				})
+
+				When("tags is an empty list", func() {
+					BeforeEach(func() {
+						patchMessage.Tags = &[]string{}
+					})
+
+					It("clears the tags", func() {
+						Expect(err).NotTo(HaveOccurred())
+						serviceInstance := new(korifiv1alpha1.CFServiceInstance)
+
+						Eventually(func(g Gomega) {
+							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
+							g.Expect(serviceInstance.Spec.Tags).To(BeEmpty())
+						}).Should(Succeed())
+					})
+				})
+
+				When("tags is nil", func() {
+					BeforeEach(func() {
+						patchMessage.Tags = nil
+					})
+
+					It("preserves the tags", func() {
+						Expect(err).NotTo(HaveOccurred())
+						serviceInstance := new(korifiv1alpha1.CFServiceInstance)
+
+						Consistently(func(g Gomega) {
+							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
+							g.Expect(serviceInstance.Spec.Tags).To(ConsistOf("database", "mysql"))
+						}).Should(Succeed())
+					})
+				})
+
+				When("the plan GUID is nil", func() {
+					BeforeEach(func() {
+						patchMessage.PlanGUID = nil
+					})
+
+					It("preserves the plan GUID", func() {
+						Expect(err).NotTo(HaveOccurred())
+						serviceInstance := new(korifiv1alpha1.CFServiceInstance)
+
+						Consistently(func(g Gomega) {
+							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
+							g.Expect(serviceInstance.Spec.PlanGUID).To(Equal("plan-guid"))
+						}).Should(Succeed())
+					})
+				})
+			})
+		})
 	})
 
 	Describe("ListServiceInstances", func() {
@@ -815,8 +930,8 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		BeforeEach(func() {
 			space2 = createSpaceWithCleanup(ctx, org.Name, prefixedGUID("space2"))
 
-			serviceInstance = createServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
-			createServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space2.Name, "some-other-service-instance", prefixedGUID("secret"))
+			serviceInstance = createUserProvidedServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
+			createUserProvidedServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space2.Name, "some-other-service-instance", prefixedGUID("secret"))
 			getGUID = serviceInstance.Name
 		})
 
@@ -902,7 +1017,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space2.Name)
-				createServiceInstanceCR(ctx, k8sClient, getGUID, space2.Name, "the-service-instance", prefixedGUID("secret"))
+				createUserProvidedServiceInstanceCR(ctx, k8sClient, getGUID, space2.Name, "the-service-instance", prefixedGUID("secret"))
 			})
 
 			It("returns a error", func() {
@@ -1013,7 +1128,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		)
 
 		BeforeEach(func() {
-			serviceInstance = createServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
+			serviceInstance = createUserProvidedServiceInstanceCR(ctx, k8sClient, prefixedGUID("service-instance"), space.Name, "the-service-instance", prefixedGUID("secret"))
 
 			deleteMessage = repositories.DeleteServiceInstanceMessage{
 				GUID: serviceInstance.Name,
