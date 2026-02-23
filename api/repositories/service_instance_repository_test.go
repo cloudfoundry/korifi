@@ -689,9 +689,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 
 		When("Patching a managed service instance", func() {
-			var (
-				patchMessage repositories.PatchManagedSIMessage
-			)
+			var patchMessage repositories.PatchManagedSIMessage
 
 			BeforeEach(func() {
 				serviceInstancePlanGUID := uuid.NewString()

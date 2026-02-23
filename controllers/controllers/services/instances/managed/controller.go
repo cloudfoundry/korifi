@@ -148,7 +148,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	}
 
 	if isFailed(serviceInstance) {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ReconciliationFailed").WithNoRequeue()
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceInstanceFailed").WithNoRequeue()
 	}
 
 	planVisible, err := r.isServicePlanVisible(ctx, serviceInstance, serviceInstanceAssets.ServicePlan)
