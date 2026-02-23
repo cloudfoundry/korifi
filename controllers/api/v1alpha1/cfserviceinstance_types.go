@@ -91,7 +91,7 @@ type CFServiceInstanceStatus struct {
 	//+kubebuilder:validation:Optional
 	MaintenanceInfo MaintenanceInfo `json:"maintenanceInfo"`
 
-	// The service instance actual plan
+	// The service instance actual plan. Only makes sense for managed service instances
 	//+kubebuilder:validation:Optional
 	PlanGUID string `json:"planGuid"`
 
