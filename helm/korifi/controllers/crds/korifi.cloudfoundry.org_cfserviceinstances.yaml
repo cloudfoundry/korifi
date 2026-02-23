@@ -218,7 +218,8 @@ spec:
                 format: int64
                 type: integer
               planGuid:
-                description: The service instance actual plan
+                description: The service instance actual plan. Only makes sense for
+                  managed service instances
                 type: string
               upgradeAvailable:
                 description: True if there is an upgrade available for for the service
