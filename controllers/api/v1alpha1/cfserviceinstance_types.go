@@ -91,9 +91,9 @@ type CFServiceInstanceStatus struct {
 	//+kubebuilder:validation:Optional
 	MaintenanceInfo MaintenanceInfo `json:"maintenanceInfo"`
 
-	// The service instance actual plan. Only makes sense for managed service instances
+	// True if the service instance has been successfully provisioned. Only makes seense for managed service instances
 	//+kubebuilder:validation:Optional
-	PlanGUID string `json:"planGuid"`
+	Provisioned bool `json:"provisioned"`
 
 	// True if there is an upgrade available for for the service instance (i.e. the plan has a new version). Only makes seense for managed service instances
 	//+kubebuilder:validation:Optional

@@ -166,7 +166,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		serviceInstance.Spec.ServiceLabel = tools.PtrTo(serviceInstanceAssets.ServiceOffering.Spec.Name)
 	}
 
-	if serviceInstance.Status.PlanGUID == "" {
+	if !serviceInstance.Status.Provisioned {
 		provisionResponse, err := r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 		if err != nil {
 			log.Error(err, "failed to provision service instance")
@@ -195,7 +195,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		}
 	}
 
-	serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
+	serviceInstance.Status.Provisioned = true
 	serviceInstance.Status.MaintenanceInfo = serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo
 	serviceInstance.Status.LastOperation.State = "succeeded"
 	return ctrl.Result{}, nil

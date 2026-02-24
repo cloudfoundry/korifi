@@ -150,10 +150,10 @@ var _ = Describe("CFServiceInstance", func() {
 		}).Should(Succeed())
 	})
 
-	It("sets the PlanGUID status field", func() {
+	It("sets the Provisioned status field", func() {
 		Eventually(func(g Gomega) {
 			g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-			g.Expect(instance.Status.PlanGUID).To(Equal(instance.Spec.PlanGUID))
+			g.Expect(instance.Status.Provisioned).To(BeTrue())
 		}).Should(Succeed())
 	})
 
@@ -794,7 +794,7 @@ var _ = Describe("CFServiceInstance", func() {
 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 					HasStatus(Equal(metav1.ConditionTrue)),
 				)))
-				g.Expect(instance.Status.PlanGUID).To(Equal(servicePlan.Name))
+				g.Expect(instance.Status.Provisioned).To(BeTrue())
 			}).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -826,8 +826,8 @@ var _ = Describe("CFServiceInstance", func() {
 					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 					HasStatus(Equal(metav1.ConditionTrue)),
 				)))
-				g.Expect(instance.Status.PlanGUID).To(Equal(instance.Spec.PlanGUID))
-				g.Expect(instance.Status.PlanGUID).To(Equal(servicePlan2.Name))
+				g.Expect(instance.Status.Provisioned).To(BeTrue())
+				g.Expect(instance.Spec.PlanGUID).To(Equal(servicePlan2.Name))
 			}).Should(Succeed())
 		})
 
