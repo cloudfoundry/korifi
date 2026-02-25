@@ -265,7 +265,6 @@ func (r *Reconciler) processProvisionOperation(
 	lastOpResponse osbapi.LastOperationResponse,
 ) (ctrl.Result, error) {
 	if lastOpResponse.State == "succeeded" {
-		setObservedGeneration(serviceInstance)
 		return ctrl.Result{}, nil
 	}
 
@@ -278,7 +277,6 @@ func (r *Reconciler) processProvisionOperation(
 			Reason:             "ProvisionFailed",
 			Message:            lastOpResponse.Description,
 		})
-		setObservedGeneration(serviceInstance)
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionFailed")
 	}
 
@@ -335,7 +333,6 @@ func (r *Reconciler) processUpdateOperation(
 	lastOpResponse osbapi.LastOperationResponse,
 ) (ctrl.Result, error) {
 	if lastOpResponse.State == "succeeded" {
-		setObservedGeneration(serviceInstance)
 		return ctrl.Result{}, nil
 	}
 
@@ -348,7 +345,6 @@ func (r *Reconciler) processUpdateOperation(
 			Reason:             "UpdateFailed",
 			Message:            lastOpResponse.Description,
 		})
-		setObservedGeneration(serviceInstance)
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UpdateFailed")
 	}
 
@@ -359,7 +355,6 @@ func (r *Reconciler) finalize(
 	ctx context.Context,
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 ) (ctrl.Result, error) {
-	setObservedGeneration(serviceInstance)
 	if !controllerutil.ContainsFinalizer(serviceInstance, korifiv1alpha1.CFServiceInstanceFinalizerName) {
 		return ctrl.Result{}, nil
 	}
@@ -567,8 +562,4 @@ func isFailed(instance *korifiv1alpha1.CFServiceInstance) bool {
 
 func isReady(instance *korifiv1alpha1.CFServiceInstance) bool {
 	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.StatusConditionReady)
-}
-
-func setObservedGeneration(instance *korifiv1alpha1.CFServiceInstance) {
-	instance.Status.ObservedGeneration = instance.Generation
 }
