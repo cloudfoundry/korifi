@@ -840,7 +840,7 @@ var _ = Describe("CFServiceInstance", func() {
 				}).Should(Succeed())
 			})
 
-			It("sets initial state in instance last operation", func() {
+			It("sets in progress state in instance last operation", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 					g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
