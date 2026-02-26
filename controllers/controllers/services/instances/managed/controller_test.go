@@ -64,7 +64,7 @@ var _ = Describe("CFServiceInstance", func() {
 		}
 		Expect(adminClient.Create(ctx, namespace)).To(Succeed())
 
-		serviceOffering := &korifiv1alpha1.CFServiceOffering{
+		serviceOffering = &korifiv1alpha1.CFServiceOffering{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
 				Namespace: rootNamespace,
@@ -796,10 +796,6 @@ var _ = Describe("CFServiceInstance", func() {
 					HasStatus(Equal(metav1.ConditionTrue)),
 				)))
 				g.Expect(instance.Status.Provisioned).To(BeTrue())
-			}).Should(Succeed())
-
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(servicePlan2), servicePlan2)).To(Succeed())
 			}).Should(Succeed())
 
 			Expect(k8s.Patch(ctx, adminClient, instance, func() {
