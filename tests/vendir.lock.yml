@@ -10,20 +10,20 @@ directories:
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/281050386
     path: metrics-server-local
   - githubRelease:
-      tag: v1.19.3
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/282192898
+      tag: v1.19.4
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/289893419
     path: cert-manager
   - git:
-      commitTitle: 'style: formatting issues'
-      sha: 2e3c880bcabff580ddd7a08340878ede207f37be
+      commitTitle: Set locale explicitly for consistent sorting
+      sha: 6d8c39b0ef01cdf92960e08f704c7198ffe42eac
       tags:
-      - v3.31.3
+      - v3.31.4
     path: calico
   - git:
-      commitTitle: Update Contour Docker image to v1.33.1....
-      sha: 38be74f39591e2170c8685b62b27c9ad9ed99b48
+      commitTitle: Update Contour Docker image to v1.33.2....
+      sha: 34c4ebc9bf67cb16b7d55c1c038ecdee552e5a9f
       tags:
-      - v1.33.1
+      - v1.33.2
     path: contour
   - githubRelease:
       tag: v1.4.1
