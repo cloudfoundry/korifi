@@ -761,7 +761,7 @@ var _ = Describe("CFServiceInstance", func() {
 		})
 	})
 
-	When("updates instance", func() {
+	When("the service instance is being updated", func() {
 		BeforeEach(func() {
 			brokerClient.UpdateReturns(osbapi.UpdateResponse{}, nil)
 
