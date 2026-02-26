@@ -25,11 +25,12 @@ import (
 
 var _ = Describe("CFServiceInstance", func() {
 	var (
-		brokerClient  *fake.BrokerClient
-		instance      *korifiv1alpha1.CFServiceInstance
-		serviceBroker *korifiv1alpha1.CFServiceBroker
-		servicePlan   *korifiv1alpha1.CFServicePlan
-		servicePlan2  *korifiv1alpha1.CFServicePlan
+		brokerClient    *fake.BrokerClient
+		instance        *korifiv1alpha1.CFServiceInstance
+		serviceBroker   *korifiv1alpha1.CFServiceBroker
+		serviceOffering *korifiv1alpha1.CFServiceOffering
+		servicePlan     *korifiv1alpha1.CFServicePlan
+		servicePlan2    *korifiv1alpha1.CFServicePlan
 	)
 
 	BeforeEach(func() {
@@ -102,29 +103,6 @@ var _ = Describe("CFServiceInstance", func() {
 			},
 		}
 		Expect(adminClient.Create(ctx, servicePlan)).To(Succeed())
-
-		servicePlan2 = &korifiv1alpha1.CFServicePlan{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      uuid.NewString(),
-				Namespace: rootNamespace,
-				Labels: map[string]string{
-					korifiv1alpha1.RelServiceBrokerGUIDLabel:   serviceBroker.Name,
-					korifiv1alpha1.RelServiceOfferingGUIDLabel: serviceOffering.Name,
-				},
-			},
-			Spec: korifiv1alpha1.CFServicePlanSpec{
-				Visibility: korifiv1alpha1.ServicePlanVisibility{
-					Type: "public",
-				},
-				BrokerCatalog: korifiv1alpha1.ServicePlanBrokerCatalog{
-					ID: "service-plan-id-2",
-				},
-				MaintenanceInfo: korifiv1alpha1.MaintenanceInfo{
-					Version: "1.2.3",
-				},
-			},
-		}
-		Expect(adminClient.Create(ctx, servicePlan2)).To(Succeed())
 
 		instance = &korifiv1alpha1.CFServiceInstance{
 			ObjectMeta: metav1.ObjectMeta{
@@ -786,6 +764,29 @@ var _ = Describe("CFServiceInstance", func() {
 	When("updates instance", func() {
 		BeforeEach(func() {
 			brokerClient.UpdateReturns(osbapi.UpdateResponse{}, nil)
+
+			servicePlan2 = &korifiv1alpha1.CFServicePlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      uuid.NewString(),
+					Namespace: rootNamespace,
+					Labels: map[string]string{
+						korifiv1alpha1.RelServiceBrokerGUIDLabel:   serviceBroker.Name,
+						korifiv1alpha1.RelServiceOfferingGUIDLabel: serviceOffering.Name,
+					},
+				},
+				Spec: korifiv1alpha1.CFServicePlanSpec{
+					Visibility: korifiv1alpha1.ServicePlanVisibility{
+						Type: "public",
+					},
+					BrokerCatalog: korifiv1alpha1.ServicePlanBrokerCatalog{
+						ID: "service-plan-id-2",
+					},
+					MaintenanceInfo: korifiv1alpha1.MaintenanceInfo{
+						Version: "1.2.3",
+					},
+				},
+			}
+			Expect(adminClient.Create(ctx, servicePlan2)).To(Succeed())
 		})
 		JustBeforeEach(func() {
 			Eventually(func(g Gomega) {
