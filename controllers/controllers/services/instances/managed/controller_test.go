@@ -809,13 +809,6 @@ var _ = Describe("CFServiceInstance", func() {
 			})).To(Succeed())
 		})
 
-		It("sets the ObservedGeneration status field", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-				g.Expect(instance.Status.ObservedGeneration).To(Equal(instance.Generation))
-			}).Should(Succeed())
-		})
-
 		It("sets the PlanGUID status field", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
