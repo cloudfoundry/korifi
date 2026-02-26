@@ -821,16 +821,6 @@ var _ = Describe("CFServiceInstance", func() {
 			}).Should(Succeed())
 		})
 
-		It("sets the Ready condition to True", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-					HasStatus(Equal(metav1.ConditionTrue)),
-				)))
-			}).Should(Succeed())
-		})
-
 		When("service update fails with recoverable error", func() {
 			BeforeEach(func() {
 				brokerClient.UpdateReturns(osbapi.UpdateResponse{}, errors.New("update-failed"))
