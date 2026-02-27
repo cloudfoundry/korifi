@@ -13,18 +13,16 @@ In order to install korifi on kind effortlessly we have prepared an installation
 In order to access the Korifi API, we'll need to [expose the cluster ingress locally](https://kind.sigs.k8s.io/docs/user/ingress/). To do it, create your kind cluster using a command like this:
 
 ```sh
-cat <<EOF | kind create cluster --name korifi --config=-
+REGISTRY_HOST="localregistry-docker-registry.default.svc.cluster.local:30050"
+REGISTRY_DIR="/etc/containerd/certs.d/$REGISTRY_HOST"
+
+cat <<EOF | kind create cluster --name "korifi" --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry]
-    [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localregistry-docker-registry.default.svc.cluster.local:30050"]
-        endpoint = ["http://127.0.0.1:30050"]
-    [plugins."io.containerd.grpc.v1.cri".registry.configs]
-      [plugins."io.containerd.grpc.v1.cri".registry.configs."127.0.0.1:30050".tls]
-        insecure_skip_verify = true
+    config_path = "/etc/containerd/certs.d"
 nodes:
 - role: control-plane
   extraPortMappings:
@@ -37,6 +35,10 @@ nodes:
   - containerPort: 30050
     hostPort: 30050
     protocol: TCP
+EOF
+
+cat <<EOF | docker exec -i korifi-control-plane sh -c "mkdir -p '${REGISTRY_DIR}' && cat >'${REGISTRY_DIR}/hosts.toml'"
+[host."http://127.0.0.1:30050"]
 EOF
 ```
 
