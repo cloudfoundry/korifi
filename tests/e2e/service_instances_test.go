@@ -269,9 +269,6 @@ var _ = Describe("Service Instances", func() {
 				Expect(serviceInstance.Metadata.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
 				Expect(serviceInstance.Metadata.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
 				Expect(serviceInstance.Tags).To(ConsistOf("some", "tags"))
-			})
-			It("changes a plan", func() {
-				expectJobCompletes(httpResp)
 
 				httpRespService, httpErrorService := adminClient.R().SetResult(&result).Get("/v3/service_instances/" + serviceInstanceGUID)
 				Expect(httpErrorService).NotTo(HaveOccurred())
