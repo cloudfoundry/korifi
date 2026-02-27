@@ -2,11 +2,9 @@ package e2e_test
 
 import (
 	"net/http"
-	"strings"
 
 	"code.cloudfoundry.org/korifi/tests/helpers/broker"
 	"github.com/go-resty/resty/v2"
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -24,9 +22,9 @@ var _ = Describe("Service Instances", func() {
 
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
-		upsiName = generateGUID("service-instance")
-		upsiWithCredsGUID = generateGUID("service-instance-creds")
-		upsiGUID = createServiceInstance(spaceGUID, upsiName, nil)
+		upsiName = generateGUID("upsi-service-instance")
+		upsiWithCredsGUID = generateGUID("upsi-service-instance-creds")
+		upsiGUID = createUPServiceInstance(spaceGUID, upsiName, nil)
 	})
 
 	AfterEach(func() {
@@ -53,7 +51,7 @@ var _ = Describe("Service Instances", func() {
 		var result map[string]any
 
 		BeforeEach(func() {
-			upsiWithCredsGUID = createServiceInstance(spaceGUID, generateGUID("service-instance2"), map[string]string{"a": "b"})
+			upsiWithCredsGUID = createUPServiceInstance(spaceGUID, generateGUID("service-instance2"), map[string]string{"a": "b"})
 		})
 
 		JustBeforeEach(func() {
@@ -165,9 +163,27 @@ var _ = Describe("Service Instances", func() {
 	})
 
 	Describe("Update", func() {
+		var (
+			updateRequestBody   serviceInstanceResource
+			serviceInstanceGUID string
+			brokerGUID          string
+			plansResp           resourceList[resource]
+			result              serviceInstanceResource
+		)
+
+		BeforeEach(func() {
+			serviceInstanceGUID = upsiGUID
+		})
+
 		JustBeforeEach(func() {
 			httpResp, httpError = adminClient.R().
-				SetBody(serviceInstanceResource{
+				SetBody(updateRequestBody).
+				Patch("/v3/service_instances/" + serviceInstanceGUID)
+		})
+
+		When("updating a user-provided service instance", func() {
+			BeforeEach(func() {
+				updateRequestBody = serviceInstanceResource{
 					resource: resource{
 						Name: "new-instance-name",
 						Metadata: &metadata{
@@ -179,21 +195,88 @@ var _ = Describe("Service Instances", func() {
 						"object-new": map[string]any{"new-a": "new-b"},
 					},
 					Tags: []string{"some", "tags"},
-				}).Patch("/v3/service_instances/" + upsiGUID)
+				}
+			})
+
+			It("succeeds", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+
+				serviceInstances := listServiceInstances("new-instance-name")
+				Expect(serviceInstances.Resources).To(HaveLen(1))
+
+				serviceInstance := serviceInstances.Resources[0]
+				Expect(serviceInstance.Name).To(Equal("new-instance-name"))
+				Expect(serviceInstance.Metadata.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
+				Expect(serviceInstance.Metadata.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
+				Expect(serviceInstance.Tags).To(ConsistOf("some", "tags"))
+			})
 		})
 
-		It("succeeds", func() {
-			Expect(httpError).NotTo(HaveOccurred())
-			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+		When("updating a managed service instance", func() {
+			BeforeEach(func() {
+				brokerGUID = createBroker(serviceBrokerURL)
 
-			serviceInstances := listServiceInstances("new-instance-name")
-			Expect(serviceInstances.Resources).To(HaveLen(1))
+				catalogResp, err := adminClient.R().SetResult(&plansResp).Get("/v3/service_plans?service_broker_guids=" + brokerGUID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(catalogResp).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(plansResp.Resources).To(HaveLen(2))
 
-			serviceInstance := serviceInstances.Resources[0]
-			Expect(serviceInstance.Name).To(Equal("new-instance-name"))
-			Expect(serviceInstance.Metadata.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
-			Expect(serviceInstance.Metadata.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
-			Expect(serviceInstance.Tags).To(ConsistOf("some", "tags"))
+				serviceInstanceGUID = createManagedServiceInstance(brokerGUID, spaceGUID, generateGUID("managed-service-instance"))
+
+				updateRequestBody = serviceInstanceResource{
+					resource: resource{
+						Name: "new-managed-instance-name",
+						Metadata: &metadata{
+							Labels:      map[string]string{"a-label": "a-label-value"},
+							Annotations: map[string]string{"an-annotation": "an-annotation-value"},
+						},
+						Relationships: relationships{
+							"service_plan": {
+								Data: resource{GUID: plansResp.Resources[1].GUID},
+							},
+						},
+					},
+					Tags: []string{"some", "tags"},
+				}
+			})
+
+			AfterEach(func() {
+				broker.NewDeleter(rootNamespace).ForBrokerGUID(brokerGUID).Delete()
+			})
+
+			It("succeeds with a job redirect", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusAccepted))
+
+				Expect(httpResp).To(SatisfyAll(
+					HaveRestyStatusCode(http.StatusAccepted),
+					HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_instance.update~")),
+				))
+				expectJobCompletes(httpResp)
+			})
+			It("updates a managed service", func() {
+				Expect(httpError).NotTo(HaveOccurred())
+				Expect(httpResp).To(HaveRestyStatusCode(http.StatusAccepted))
+
+				expectJobCompletes(httpResp)
+
+				serviceInstances := listServiceInstances("new-managed-instance-name")
+				Expect(serviceInstances.Resources).To(HaveLen(1))
+
+				serviceInstance := serviceInstances.Resources[0]
+				Expect(serviceInstance.Name).To(Equal("new-managed-instance-name"))
+				Expect(serviceInstance.Metadata.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
+				Expect(serviceInstance.Metadata.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
+				Expect(serviceInstance.Tags).To(ConsistOf("some", "tags"))
+
+				httpRespService, httpErrorService := adminClient.R().SetResult(&result).Get("/v3/service_instances/" + serviceInstanceGUID)
+				Expect(httpErrorService).NotTo(HaveOccurred())
+				Expect(httpRespService).To(HaveRestyStatusCode(http.StatusOK))
+				Expect(
+					result.resource.Relationships["service_plan"].Data.GUID,
+				).To(Equal(plansResp.Resources[1].GUID))
+			})
 		})
 	})
 
@@ -226,8 +309,7 @@ var _ = Describe("Service Instances", func() {
 
 			BeforeEach(func() {
 				brokerGUID = createBroker(serviceBrokerURL)
-
-				serviceInstanceGUID = createManagedServiceInstance(brokerGUID, spaceGUID)
+				serviceInstanceGUID = createManagedServiceInstance(brokerGUID, spaceGUID, generateGUID("managed-service-instance"))
 			})
 
 			AfterEach(func() {
@@ -256,7 +338,7 @@ var _ = Describe("Service Instances", func() {
 
 		BeforeEach(func() {
 			anotherSpaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
-			anotherInstanceGUID = createServiceInstance(anotherSpaceGUID, generateGUID("service-instance"), nil)
+			anotherInstanceGUID = createUPServiceInstance(anotherSpaceGUID, generateGUID("service-instance"), nil)
 		})
 
 		JustBeforeEach(func() {
@@ -278,47 +360,3 @@ var _ = Describe("Service Instances", func() {
 		})
 	})
 })
-
-func createManagedServiceInstance(brokerGUID, spaceGUID string) string {
-	GinkgoHelper()
-
-	var plansResp resourceList[resource]
-	catalogResp, err := adminClient.R().SetResult(&plansResp).Get("/v3/service_plans?service_broker_guids=" + brokerGUID)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(catalogResp).To(HaveRestyStatusCode(http.StatusOK))
-	Expect(plansResp.Resources).NotTo(BeEmpty())
-
-	createPayload := serviceInstanceResource{
-		resource: resource{
-			Name: uuid.NewString(),
-			Relationships: relationships{
-				"space": {
-					Data: resource{
-						GUID: spaceGUID,
-					},
-				},
-				"service_plan": {
-					Data: resource{
-						GUID: plansResp.Resources[0].GUID,
-					},
-				},
-			},
-		},
-		InstanceType: "managed",
-	}
-
-	var result serviceInstanceResource
-	httpResp, httpError := adminClient.R().
-		SetBody(createPayload).
-		SetResult(&result).
-		Post("/v3/service_instances")
-	Expect(httpError).NotTo(HaveOccurred())
-	Expect(httpResp).To(SatisfyAll(
-		HaveRestyStatusCode(http.StatusAccepted),
-		HaveRestyHeaderWithValue("Location", ContainSubstring("/v3/jobs/managed_service_instance.create~")),
-	))
-	jobURL := httpResp.Header().Get("Location")
-	expectJobCompletes(httpResp)
-
-	return strings.Split(jobURL, "~")[1]
-}

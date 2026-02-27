@@ -670,14 +670,14 @@ var _ = Describe("Apps", func() {
 				"foo": "bar",
 				"baz": "qux",
 			}
-			serviceInstanceGUID = createServiceInstance(space1GUID, generateGUID("service-instance"), credentials)
+			serviceInstanceGUID = createUPServiceInstance(space1GUID, generateGUID("service-instance"), credentials)
 			bindingGUID = createUPSIServiceBinding(appGUID, serviceInstanceGUID, "")
 
 			moreCredentials := map[string]string{
 				"hello":  "there",
 				"secret": "stuff",
 			}
-			secondServiceInstanceGUID = createServiceInstance(space1GUID, generateGUID("service-instance"), moreCredentials)
+			secondServiceInstanceGUID = createUPServiceInstance(space1GUID, generateGUID("service-instance"), moreCredentials)
 			bindingName = "custom-named-binding"
 			namedBindingGUID = createUPSIServiceBinding(appGUID, secondServiceInstanceGUID, bindingName)
 
@@ -761,10 +761,10 @@ var _ = Describe("Apps", func() {
 				"foo": "var",
 			})
 			instanceName = generateGUID("service-instance")
-			instanceGUID = createServiceInstance(space1GUID, instanceName, nil)
+			instanceGUID = createUPServiceInstance(space1GUID, instanceName, nil)
 			bindingGUID = createUPSIServiceBinding(appGUID, instanceGUID, "")
 			instanceName2 = generateGUID("service-instance")
-			instanceGUID2 = createServiceInstance(space1GUID, instanceName2, nil)
+			instanceGUID2 = createUPServiceInstance(space1GUID, instanceName2, nil)
 			bindingGUID2 = createUPSIServiceBinding(appGUID, instanceGUID2, "")
 		})
 

@@ -30,7 +30,8 @@ const (
 type CFServiceInstanceRepository interface {
 	CreateUserProvidedServiceInstance(context.Context, authorization.Info, repositories.CreateUPSIMessage) (repositories.ServiceInstanceRecord, error)
 	CreateManagedServiceInstance(context.Context, authorization.Info, repositories.CreateManagedSIMessage) (repositories.ServiceInstanceRecord, error)
-	PatchServiceInstance(context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
+	PatchUserProvidedServiceInstance(context.Context, authorization.Info, repositories.PatchUPSIMessage) (repositories.ServiceInstanceRecord, error)
+	PatchManagedServiceInstance(context.Context, authorization.Info, repositories.PatchManagedSIMessage) (repositories.ServiceInstanceRecord, error)
 	ListServiceInstances(context.Context, authorization.Info, repositories.ListServiceInstanceMessage) (repositories.ListResult[repositories.ServiceInstanceRecord], error)
 	GetServiceInstance(context.Context, authorization.Info, string) (repositories.ServiceInstanceRecord, error)
 	GetServiceInstanceCredentials(context.Context, authorization.Info, string) (map[string]any, error)
@@ -185,10 +186,21 @@ func (h *ServiceInstance) patch(r *http.Request) (*routing.Response, error) {
 		return nil, apierrors.LogAndReturn(logger, apierrors.ForbiddenAsNotFound(err), "failed to get service instance")
 	}
 
-	patchMessage := payload.ToServiceInstancePatchMessage(serviceInstance.SpaceGUID, serviceInstance.GUID)
-	serviceInstance, err = h.serviceInstanceRepo.PatchServiceInstance(r.Context(), authInfo, patchMessage)
+	if serviceInstance.Type == korifiv1alpha1.ManagedType {
+		patchMessage := payload.ToManagedSIPatchMessage(serviceInstance.SpaceGUID, serviceInstance.GUID)
+		serviceInstance, err = h.serviceInstanceRepo.PatchManagedServiceInstance(r.Context(), authInfo, patchMessage)
+		if err != nil {
+			return nil, apierrors.LogAndReturn(logger, err, "failed to patch managed service instance")
+		}
+
+		return routing.NewResponse(http.StatusAccepted).
+			WithHeader("Location", presenter.JobURLForRedirects(serviceInstance.GUID, presenter.ManagedServiceInstanceUpdateOperation, h.serverURL)), nil
+	}
+
+	patchMessage := payload.ToUPSIPatchMessage(serviceInstance.SpaceGUID, serviceInstance.GUID)
+	serviceInstance, err = h.serviceInstanceRepo.PatchUserProvidedServiceInstance(r.Context(), authInfo, patchMessage)
 	if err != nil {
-		return nil, apierrors.LogAndReturn(logger, err, "failed to patch service instance")
+		return nil, apierrors.LogAndReturn(logger, err, "failed to patch user provided service instance")
 	}
 
 	return routing.NewResponse(http.StatusOK).WithBody(presenter.ForServiceInstance(serviceInstance, h.serverURL)), nil

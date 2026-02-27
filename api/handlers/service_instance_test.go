@@ -846,7 +846,7 @@ var _ = Describe("ServiceInstance", func() {
 				},
 			})
 
-			serviceInstanceRepo.PatchServiceInstanceReturns(repositories.ServiceInstanceRecord{
+			serviceInstanceRepo.PatchUserProvidedServiceInstanceReturns(repositories.ServiceInstanceRecord{
 				Name: "new-name",
 				GUID: "service-instance-guid",
 			}, nil)
@@ -865,10 +865,10 @@ var _ = Describe("ServiceInstance", func() {
 			Expect(actualAuthInfo).To(Equal(authInfo))
 			Expect(actualGUID).To(Equal("service-instance-guid"))
 
-			Expect(serviceInstanceRepo.PatchServiceInstanceCallCount()).To(Equal(1))
-			_, actualAuthInfo, patchMessage := serviceInstanceRepo.PatchServiceInstanceArgsForCall(0)
+			Expect(serviceInstanceRepo.PatchUserProvidedServiceInstanceCallCount()).To(Equal(1))
+			_, actualAuthInfo, patchMessage := serviceInstanceRepo.PatchUserProvidedServiceInstanceArgsForCall(0)
 			Expect(actualAuthInfo).To(Equal(authInfo))
-			Expect(patchMessage).To(Equal(repositories.PatchServiceInstanceMessage{
+			Expect(patchMessage).To(Equal(repositories.PatchUPSIMessage{
 				GUID:        "service-instance-guid",
 				SpaceGUID:   "space-guid",
 				Name:        tools.PtrTo("new-name"),
@@ -927,11 +927,77 @@ var _ = Describe("ServiceInstance", func() {
 
 		When("patching the service instances fails", func() {
 			BeforeEach(func() {
-				serviceInstanceRepo.PatchServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("oops"))
+				serviceInstanceRepo.PatchUserProvidedServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("oops"))
 			})
 
 			It("returns the error", func() {
 				expectUnknownError()
+			})
+		})
+		When("updating a managed service instance", func() {
+			BeforeEach(func() {
+				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstancePatch{
+					Name:        tools.PtrTo("new-name"),
+					Type:        "managed",
+					Tags:        &[]string{"alice", "bob"},
+					Credentials: &map[string]any{"foo": "bar"},
+					Relationships: &payloads.ServiceInstanceRelationships{
+						ServicePlan: &payloads.Relationship{
+							Data: &payloads.RelationshipData{
+								GUID: "plan-guid",
+							},
+						},
+					},
+					Metadata: payloads.MetadataPatch{
+						Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
+						Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
+					},
+				})
+
+				serviceInstanceRepo.GetServiceInstanceReturns(repositories.ServiceInstanceRecord{
+					GUID:      "service-instance-guid",
+					SpaceGUID: "space-guid",
+					Type:      korifiv1alpha1.ManagedType,
+				}, nil)
+				serviceInstanceRepo.PatchManagedServiceInstanceReturns(repositories.ServiceInstanceRecord{
+					Name: "new-name",
+					GUID: "service-instance-guid",
+				}, nil)
+			})
+
+			It("patches the managed service instance", func() {
+				Expect(requestValidator.DecodeAndValidateJSONPayloadCallCount()).To(Equal(1))
+				actualReq, _ := requestValidator.DecodeAndValidateJSONPayloadArgsForCall(0)
+				Expect(bodyString(actualReq)).To(Equal("the-json-body"))
+
+				Expect(serviceInstanceRepo.PatchManagedServiceInstanceCallCount()).To(Equal(1))
+				_, actualAuthInfo, patchMessage := serviceInstanceRepo.PatchManagedServiceInstanceArgsForCall(0)
+				Expect(actualAuthInfo).To(Equal(authInfo))
+				Expect(patchMessage).To(Equal(repositories.PatchManagedSIMessage{
+					GUID:      "service-instance-guid",
+					SpaceGUID: "space-guid",
+					PlanGUID:  tools.PtrTo("plan-guid"),
+					Name:      tools.PtrTo("new-name"),
+					Tags:      &[]string{"alice", "bob"},
+					MetadataPatch: repositories.MetadataPatch{
+						Annotations: map[string]*string{"ann2": tools.PtrTo("ann_val2")},
+						Labels:      map[string]*string{"lab2": tools.PtrTo("lab_val2")},
+					},
+				}))
+			})
+			It("returns HTTP 202 Accepted response", func() {
+				Expect(rr).To(HaveHTTPStatus(http.StatusAccepted))
+				Expect(rr).To(HaveHTTPHeaderWithValue("Location",
+					ContainSubstring("/v3/jobs/managed_service_instance.update~service-instance-guid")))
+			})
+			When("patching the managed service instances fails", func() {
+				BeforeEach(func() {
+					serviceInstanceRepo.PatchManagedServiceInstanceReturns(repositories.ServiceInstanceRecord{}, errors.New("oops"))
+				})
+
+				It("returns the error", func() {
+					expectUnknownError()
+				})
 			})
 		})
 	})

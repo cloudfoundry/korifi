@@ -101,18 +101,33 @@ type CFServiceInstanceRepository struct {
 		result1 repositories.ListResult[repositories.ServiceInstanceRecord]
 		result2 error
 	}
-	PatchServiceInstanceStub        func(context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)
-	patchServiceInstanceMutex       sync.RWMutex
-	patchServiceInstanceArgsForCall []struct {
+	PatchManagedServiceInstanceStub        func(context.Context, authorization.Info, repositories.PatchManagedSIMessage) (repositories.ServiceInstanceRecord, error)
+	patchManagedServiceInstanceMutex       sync.RWMutex
+	patchManagedServiceInstanceArgsForCall []struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.PatchServiceInstanceMessage
+		arg3 repositories.PatchManagedSIMessage
 	}
-	patchServiceInstanceReturns struct {
+	patchManagedServiceInstanceReturns struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}
-	patchServiceInstanceReturnsOnCall map[int]struct {
+	patchManagedServiceInstanceReturnsOnCall map[int]struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}
+	PatchUserProvidedServiceInstanceStub        func(context.Context, authorization.Info, repositories.PatchUPSIMessage) (repositories.ServiceInstanceRecord, error)
+	patchUserProvidedServiceInstanceMutex       sync.RWMutex
+	patchUserProvidedServiceInstanceArgsForCall []struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchUPSIMessage
+	}
+	patchUserProvidedServiceInstanceReturns struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}
+	patchUserProvidedServiceInstanceReturnsOnCall map[int]struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}
@@ -516,18 +531,18 @@ func (fake *CFServiceInstanceRepository) ListServiceInstancesReturnsOnCall(i int
 	}{result1, result2}
 }
 
-func (fake *CFServiceInstanceRepository) PatchServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error) {
-	fake.patchServiceInstanceMutex.Lock()
-	ret, specificReturn := fake.patchServiceInstanceReturnsOnCall[len(fake.patchServiceInstanceArgsForCall)]
-	fake.patchServiceInstanceArgsForCall = append(fake.patchServiceInstanceArgsForCall, struct {
+func (fake *CFServiceInstanceRepository) PatchManagedServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchManagedSIMessage) (repositories.ServiceInstanceRecord, error) {
+	fake.patchManagedServiceInstanceMutex.Lock()
+	ret, specificReturn := fake.patchManagedServiceInstanceReturnsOnCall[len(fake.patchManagedServiceInstanceArgsForCall)]
+	fake.patchManagedServiceInstanceArgsForCall = append(fake.patchManagedServiceInstanceArgsForCall, struct {
 		arg1 context.Context
 		arg2 authorization.Info
-		arg3 repositories.PatchServiceInstanceMessage
+		arg3 repositories.PatchManagedSIMessage
 	}{arg1, arg2, arg3})
-	stub := fake.PatchServiceInstanceStub
-	fakeReturns := fake.patchServiceInstanceReturns
-	fake.recordInvocation("PatchServiceInstance", []interface{}{arg1, arg2, arg3})
-	fake.patchServiceInstanceMutex.Unlock()
+	stub := fake.PatchManagedServiceInstanceStub
+	fakeReturns := fake.patchManagedServiceInstanceReturns
+	fake.recordInvocation("PatchManagedServiceInstance", []interface{}{arg1, arg2, arg3})
+	fake.patchManagedServiceInstanceMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
 	}
@@ -537,46 +552,112 @@ func (fake *CFServiceInstanceRepository) PatchServiceInstance(arg1 context.Conte
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *CFServiceInstanceRepository) PatchServiceInstanceCallCount() int {
-	fake.patchServiceInstanceMutex.RLock()
-	defer fake.patchServiceInstanceMutex.RUnlock()
-	return len(fake.patchServiceInstanceArgsForCall)
+func (fake *CFServiceInstanceRepository) PatchManagedServiceInstanceCallCount() int {
+	fake.patchManagedServiceInstanceMutex.RLock()
+	defer fake.patchManagedServiceInstanceMutex.RUnlock()
+	return len(fake.patchManagedServiceInstanceArgsForCall)
 }
 
-func (fake *CFServiceInstanceRepository) PatchServiceInstanceCalls(stub func(context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) (repositories.ServiceInstanceRecord, error)) {
-	fake.patchServiceInstanceMutex.Lock()
-	defer fake.patchServiceInstanceMutex.Unlock()
-	fake.PatchServiceInstanceStub = stub
+func (fake *CFServiceInstanceRepository) PatchManagedServiceInstanceCalls(stub func(context.Context, authorization.Info, repositories.PatchManagedSIMessage) (repositories.ServiceInstanceRecord, error)) {
+	fake.patchManagedServiceInstanceMutex.Lock()
+	defer fake.patchManagedServiceInstanceMutex.Unlock()
+	fake.PatchManagedServiceInstanceStub = stub
 }
 
-func (fake *CFServiceInstanceRepository) PatchServiceInstanceArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchServiceInstanceMessage) {
-	fake.patchServiceInstanceMutex.RLock()
-	defer fake.patchServiceInstanceMutex.RUnlock()
-	argsForCall := fake.patchServiceInstanceArgsForCall[i]
+func (fake *CFServiceInstanceRepository) PatchManagedServiceInstanceArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchManagedSIMessage) {
+	fake.patchManagedServiceInstanceMutex.RLock()
+	defer fake.patchManagedServiceInstanceMutex.RUnlock()
+	argsForCall := fake.patchManagedServiceInstanceArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *CFServiceInstanceRepository) PatchServiceInstanceReturns(result1 repositories.ServiceInstanceRecord, result2 error) {
-	fake.patchServiceInstanceMutex.Lock()
-	defer fake.patchServiceInstanceMutex.Unlock()
-	fake.PatchServiceInstanceStub = nil
-	fake.patchServiceInstanceReturns = struct {
+func (fake *CFServiceInstanceRepository) PatchManagedServiceInstanceReturns(result1 repositories.ServiceInstanceRecord, result2 error) {
+	fake.patchManagedServiceInstanceMutex.Lock()
+	defer fake.patchManagedServiceInstanceMutex.Unlock()
+	fake.PatchManagedServiceInstanceStub = nil
+	fake.patchManagedServiceInstanceReturns = struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *CFServiceInstanceRepository) PatchServiceInstanceReturnsOnCall(i int, result1 repositories.ServiceInstanceRecord, result2 error) {
-	fake.patchServiceInstanceMutex.Lock()
-	defer fake.patchServiceInstanceMutex.Unlock()
-	fake.PatchServiceInstanceStub = nil
-	if fake.patchServiceInstanceReturnsOnCall == nil {
-		fake.patchServiceInstanceReturnsOnCall = make(map[int]struct {
+func (fake *CFServiceInstanceRepository) PatchManagedServiceInstanceReturnsOnCall(i int, result1 repositories.ServiceInstanceRecord, result2 error) {
+	fake.patchManagedServiceInstanceMutex.Lock()
+	defer fake.patchManagedServiceInstanceMutex.Unlock()
+	fake.PatchManagedServiceInstanceStub = nil
+	if fake.patchManagedServiceInstanceReturnsOnCall == nil {
+		fake.patchManagedServiceInstanceReturnsOnCall = make(map[int]struct {
 			result1 repositories.ServiceInstanceRecord
 			result2 error
 		})
 	}
-	fake.patchServiceInstanceReturnsOnCall[i] = struct {
+	fake.patchManagedServiceInstanceReturnsOnCall[i] = struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServiceInstanceRepository) PatchUserProvidedServiceInstance(arg1 context.Context, arg2 authorization.Info, arg3 repositories.PatchUPSIMessage) (repositories.ServiceInstanceRecord, error) {
+	fake.patchUserProvidedServiceInstanceMutex.Lock()
+	ret, specificReturn := fake.patchUserProvidedServiceInstanceReturnsOnCall[len(fake.patchUserProvidedServiceInstanceArgsForCall)]
+	fake.patchUserProvidedServiceInstanceArgsForCall = append(fake.patchUserProvidedServiceInstanceArgsForCall, struct {
+		arg1 context.Context
+		arg2 authorization.Info
+		arg3 repositories.PatchUPSIMessage
+	}{arg1, arg2, arg3})
+	stub := fake.PatchUserProvidedServiceInstanceStub
+	fakeReturns := fake.patchUserProvidedServiceInstanceReturns
+	fake.recordInvocation("PatchUserProvidedServiceInstance", []interface{}{arg1, arg2, arg3})
+	fake.patchUserProvidedServiceInstanceMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *CFServiceInstanceRepository) PatchUserProvidedServiceInstanceCallCount() int {
+	fake.patchUserProvidedServiceInstanceMutex.RLock()
+	defer fake.patchUserProvidedServiceInstanceMutex.RUnlock()
+	return len(fake.patchUserProvidedServiceInstanceArgsForCall)
+}
+
+func (fake *CFServiceInstanceRepository) PatchUserProvidedServiceInstanceCalls(stub func(context.Context, authorization.Info, repositories.PatchUPSIMessage) (repositories.ServiceInstanceRecord, error)) {
+	fake.patchUserProvidedServiceInstanceMutex.Lock()
+	defer fake.patchUserProvidedServiceInstanceMutex.Unlock()
+	fake.PatchUserProvidedServiceInstanceStub = stub
+}
+
+func (fake *CFServiceInstanceRepository) PatchUserProvidedServiceInstanceArgsForCall(i int) (context.Context, authorization.Info, repositories.PatchUPSIMessage) {
+	fake.patchUserProvidedServiceInstanceMutex.RLock()
+	defer fake.patchUserProvidedServiceInstanceMutex.RUnlock()
+	argsForCall := fake.patchUserProvidedServiceInstanceArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *CFServiceInstanceRepository) PatchUserProvidedServiceInstanceReturns(result1 repositories.ServiceInstanceRecord, result2 error) {
+	fake.patchUserProvidedServiceInstanceMutex.Lock()
+	defer fake.patchUserProvidedServiceInstanceMutex.Unlock()
+	fake.PatchUserProvidedServiceInstanceStub = nil
+	fake.patchUserProvidedServiceInstanceReturns = struct {
+		result1 repositories.ServiceInstanceRecord
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *CFServiceInstanceRepository) PatchUserProvidedServiceInstanceReturnsOnCall(i int, result1 repositories.ServiceInstanceRecord, result2 error) {
+	fake.patchUserProvidedServiceInstanceMutex.Lock()
+	defer fake.patchUserProvidedServiceInstanceMutex.Unlock()
+	fake.PatchUserProvidedServiceInstanceStub = nil
+	if fake.patchUserProvidedServiceInstanceReturnsOnCall == nil {
+		fake.patchUserProvidedServiceInstanceReturnsOnCall = make(map[int]struct {
+			result1 repositories.ServiceInstanceRecord
+			result2 error
+		})
+	}
+	fake.patchUserProvidedServiceInstanceReturnsOnCall[i] = struct {
 		result1 repositories.ServiceInstanceRecord
 		result2 error
 	}{result1, result2}

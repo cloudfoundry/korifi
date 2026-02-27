@@ -171,10 +171,12 @@ func (g *ServiceInstanceGet) DecodeFromURLValues(values url.Values) error {
 }
 
 type ServiceInstancePatch struct {
-	Name        *string         `json:"name,omitempty"`
-	Tags        *[]string       `json:"tags,omitempty"`
-	Credentials *map[string]any `json:"credentials,omitempty"`
-	Metadata    MetadataPatch   `json:"metadata"`
+	Name          *string                       `json:"name,omitempty"`
+	Type          string                        `json:"type"`
+	Tags          *[]string                     `json:"tags,omitempty"`
+	Credentials   *map[string]any               `json:"credentials,omitempty"`
+	Relationships *ServiceInstanceRelationships `json:"relationships,omitempty"`
+	Metadata      MetadataPatch                 `json:"metadata"`
 }
 
 func (p ServiceInstancePatch) Validate() error {
@@ -183,13 +185,34 @@ func (p ServiceInstancePatch) Validate() error {
 	)
 }
 
-func (p ServiceInstancePatch) ToServiceInstancePatchMessage(spaceGUID, appGUID string) repositories.PatchServiceInstanceMessage {
-	return repositories.PatchServiceInstanceMessage{
+func (p ServiceInstancePatch) ToUPSIPatchMessage(spaceGUID, appGUID string) repositories.PatchUPSIMessage {
+	return repositories.PatchUPSIMessage{
 		SpaceGUID:   spaceGUID,
 		GUID:        appGUID,
 		Name:        p.Name,
 		Credentials: p.Credentials,
 		Tags:        p.Tags,
+		MetadataPatch: repositories.MetadataPatch{
+			Labels:      p.Metadata.Labels,
+			Annotations: p.Metadata.Annotations,
+		},
+	}
+}
+
+func (p ServiceInstancePatch) ToManagedSIPatchMessage(spaceGUID, appGUID string) repositories.PatchManagedSIMessage {
+	var planGUID *string
+	if p.Relationships.ServicePlan != nil {
+		if p.Relationships.ServicePlan.Data.GUID != "" {
+			planGUID = &p.Relationships.ServicePlan.Data.GUID
+		}
+		planGUID = &p.Relationships.ServicePlan.Data.GUID
+	}
+	return repositories.PatchManagedSIMessage{
+		SpaceGUID: spaceGUID,
+		PlanGUID:  planGUID,
+		GUID:      appGUID,
+		Name:      p.Name,
+		Tags:      p.Tags,
 		MetadataPatch: repositories.MetadataPatch{
 			Labels:      p.Metadata.Labels,
 			Annotations: p.Metadata.Annotations,
