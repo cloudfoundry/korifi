@@ -625,7 +625,7 @@ func wireGaugeCollector(cfg *config.APIConfig) (*url.URL, handlers.GaugesCollect
 
 func loadCA(caPathEnv string) *x509.CertPool {
 	caPath := os.Getenv(caPathEnv)
-	caPEM, err := os.ReadFile(filepath.Join(caPath, "ca.crt"))
+	caPEM, err := os.ReadFile(filepath.Join(caPath, "ca.crt")) //#nosec G703 - the env var is controlled by the helm chart (i.e. the k8s operator), path traversal is not possbile
 	if err != nil {
 		ctrl.Log.Error(err, "could not read CA bundle from file", "path", caPath)
 		os.Exit(1)

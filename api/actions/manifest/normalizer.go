@@ -135,7 +135,7 @@ func (n Normalizer) configureRandomRoute(appName string) payloads.ManifestRoute 
 }
 
 func generateRandomRoute() string {
-	suffix := string('a'+rune(rand.Intn(26))) + string('a'+rune(rand.Intn(26)))
+	suffix := string('a'+rune(rand.Int31n(26))) + string('a'+rune(rand.Int31n(26)))
 	return adjectives[rand.Intn(len(adjectives))] + "-" + nouns[rand.Intn(len(nouns))] + "-" + suffix
 }
 
