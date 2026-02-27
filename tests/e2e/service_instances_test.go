@@ -220,7 +220,7 @@ var _ = Describe("Service Instances", func() {
 				catalogResp, err := adminClient.R().SetResult(&plansResp).Get("/v3/service_plans?service_broker_guids=" + brokerGUID)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(catalogResp).To(HaveRestyStatusCode(http.StatusOK))
-				Expect(plansResp.Resources).NotTo(BeEmpty())
+				Expect(plansResp.Resources).To(HaveLen(2))
 
 				serviceInstanceGUID = createManagedServiceInstance(brokerGUID, spaceGUID, generateGUID("managed-service-instance"))
 
