@@ -403,7 +403,7 @@ func (r *brokerRequester) sendRequest(ctx context.Context, requestPath string, m
 	}
 	req.Header.Add("Authorization", authHeader)
 
-	resp, err := r.httpClient.Do(req)
+	resp, err := r.httpClient.Do(req) //#nosec G704 - all the parameters of the request are controlled by our osbapi client implementation so SSRF is not possible
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to execute HTTP request: %w", err)
 	}
