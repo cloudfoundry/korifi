@@ -171,6 +171,10 @@ var _ = Describe("Service Instances", func() {
 			result              serviceInstanceResource
 		)
 
+		BeforeEach(func() {
+			serviceInstanceGUID = upsiGUID
+		})
+
 		JustBeforeEach(func() {
 			httpResp, httpError = adminClient.R().
 				SetBody(updateRequestBody).
@@ -179,7 +183,6 @@ var _ = Describe("Service Instances", func() {
 
 		When("updating a user-provided service instance", func() {
 			BeforeEach(func() {
-				serviceInstanceGUID = upsiGUID
 				updateRequestBody = serviceInstanceResource{
 					resource: resource{
 						Name: "new-instance-name",
