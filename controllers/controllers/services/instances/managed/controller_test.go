@@ -31,7 +31,6 @@ var _ = Describe("CFServiceInstance", func() {
 		serviceBroker   *korifiv1alpha1.CFServiceBroker
 		serviceOffering *korifiv1alpha1.CFServiceOffering
 		servicePlan     *korifiv1alpha1.CFServicePlan
-		servicePlan2    *korifiv1alpha1.CFServicePlan
 	)
 
 	BeforeEach(func() {
@@ -763,6 +762,8 @@ var _ = Describe("CFServiceInstance", func() {
 	})
 
 	When("the service instance is being updated", func() {
+		var servicePlan2 *korifiv1alpha1.CFServicePlan
+
 		BeforeEach(func() {
 			brokerClient.UpdateReturns(osbapi.UpdateResponse{}, nil)
 
