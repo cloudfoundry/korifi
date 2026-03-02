@@ -938,7 +938,6 @@ var _ = Describe("ServiceInstance", func() {
 			BeforeEach(func() {
 				requestValidator.DecodeAndValidateJSONPayloadStub = decodeAndValidatePayloadStub(&payloads.ServiceInstancePatch{
 					Name:        tools.PtrTo("new-name"),
-					Type:        "managed",
 					Tags:        &[]string{"alice", "bob"},
 					Credentials: &map[string]any{"foo": "bar"},
 					Relationships: &payloads.ServiceInstanceRelationships{
