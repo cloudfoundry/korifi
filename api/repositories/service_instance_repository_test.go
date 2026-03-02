@@ -732,6 +732,10 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			serviceInstanceRecord, err = serviceInstanceRepo.PatchManagedServiceInstance(ctx, authInfo, patchMessage)
 		})
 
+		It("returns a Forbidden error", func() {
+			Expect(err).To(BeAssignableToTypeOf(apierrors.ForbiddenError{}))
+		})
+
 		When("authorized in the space", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
