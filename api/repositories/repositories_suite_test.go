@@ -386,26 +386,6 @@ func createUserProvidedServiceInstanceCR(ctx context.Context, k8sClient client.C
 	return serviceInstance
 }
 
-func createManagedServiceInstanceCR(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, plan string) *korifiv1alpha1.CFServiceInstance {
-	serviceInstance := &korifiv1alpha1.CFServiceInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        serviceInstanceGUID,
-			Namespace:   spaceGUID,
-			Labels:      map[string]string{"a-label": "a-label-value"},
-			Annotations: map[string]string{"an-annotation": "an-annotation-value"},
-		},
-		Spec: korifiv1alpha1.CFServiceInstanceSpec{
-			DisplayName: name,
-			Type:        "managed",
-			Tags:        []string{"database", "mysql"},
-			PlanGUID:    plan,
-		},
-	}
-	Expect(k8sClient.Create(ctx, serviceInstance)).To(Succeed())
-
-	return serviceInstance
-}
-
 func createApp(space string) *korifiv1alpha1.CFApp {
 	return createAppWithGUID(space, uuid.NewString())
 }

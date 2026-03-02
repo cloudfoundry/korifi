@@ -692,11 +692,23 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			var patchMessage repositories.PatchManagedSIMessage
 
 			BeforeEach(func() {
-				serviceInstancePlanGUID := uuid.NewString()
-				cfServiceInstance = createManagedServiceInstanceCR(ctx, k8sClient, serviceInstanceGUID, space.Name, serviceInstanceName, serviceInstancePlanGUID)
-				conditionAwaiter.AwaitConditionReturns(cfServiceInstance, nil)
+				cfserviceInstance := &korifiv1alpha1.CFServiceInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        serviceInstanceGUID,
+						Namespace:   space.Name,
+						Labels:      map[string]string{"a-label": "a-label-value"},
+						Annotations: map[string]string{"an-annotation": "an-annotation-value"},
+					},
+					Spec: korifiv1alpha1.CFServiceInstanceSpec{
+						DisplayName: serviceInstanceName,
+						Type:        "managed",
+						Tags:        []string{"database", "mysql"},
+						PlanGUID:    uuid.NewString(),
+					},
+				}
 
-				Expect(k8sClient.Create(ctx, cfServiceInstance)).To(Succeed())
+				Expect(k8sClient.Create(ctx, cfserviceInstance)).To(Succeed())
+				conditionAwaiter.AwaitConditionReturns(cfServiceInstance, nil)
 
 				patchMessage = repositories.PatchManagedSIMessage{
 					GUID:      cfServiceInstance.Name,
