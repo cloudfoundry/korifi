@@ -172,7 +172,6 @@ func (g *ServiceInstanceGet) DecodeFromURLValues(values url.Values) error {
 
 type ServiceInstancePatch struct {
 	Name          *string                       `json:"name,omitempty"`
-	Type          string                        `json:"type"`
 	Tags          *[]string                     `json:"tags,omitempty"`
 	Credentials   *map[string]any               `json:"credentials,omitempty"`
 	Relationships *ServiceInstanceRelationships `json:"relationships,omitempty"`
