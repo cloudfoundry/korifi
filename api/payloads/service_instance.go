@@ -201,9 +201,6 @@ func (p ServiceInstancePatch) ToUPSIPatchMessage(spaceGUID, appGUID string) repo
 func (p ServiceInstancePatch) ToManagedSIPatchMessage(spaceGUID, appGUID string) repositories.PatchManagedSIMessage {
 	var planGUID *string
 	if p.Relationships.ServicePlan != nil {
-		if p.Relationships.ServicePlan.Data.GUID != "" {
-			planGUID = &p.Relationships.ServicePlan.Data.GUID
-		}
 		planGUID = &p.Relationships.ServicePlan.Data.GUID
 	}
 	return repositories.PatchManagedSIMessage{
