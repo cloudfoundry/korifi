@@ -173,6 +173,19 @@ var _ = Describe("Service Instances", func() {
 
 		BeforeEach(func() {
 			serviceInstanceGUID = upsiGUID
+			updateRequestBody = serviceInstanceResource{
+				resource: resource{
+					Name: "new-instance-name",
+					Metadata: &metadata{
+						Labels:      map[string]string{"a-label": "a-label-value"},
+						Annotations: map[string]string{"an-annotation": "an-annotation-value"},
+					},
+				},
+				Credentials: map[string]any{
+					"object-new": map[string]any{"new-a": "new-b"},
+				},
+				Tags: []string{"some", "tags"},
+			}
 		})
 
 		JustBeforeEach(func() {
@@ -181,36 +194,18 @@ var _ = Describe("Service Instances", func() {
 				Patch("/v3/service_instances/" + serviceInstanceGUID)
 		})
 
-		When("updating a user-provided service instance", func() {
-			BeforeEach(func() {
-				updateRequestBody = serviceInstanceResource{
-					resource: resource{
-						Name: "new-instance-name",
-						Metadata: &metadata{
-							Labels:      map[string]string{"a-label": "a-label-value"},
-							Annotations: map[string]string{"an-annotation": "an-annotation-value"},
-						},
-					},
-					Credentials: map[string]any{
-						"object-new": map[string]any{"new-a": "new-b"},
-					},
-					Tags: []string{"some", "tags"},
-				}
-			})
+		It("succeeds", func() {
+			Expect(httpError).NotTo(HaveOccurred())
+			Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
 
-			It("succeeds", func() {
-				Expect(httpError).NotTo(HaveOccurred())
-				Expect(httpResp).To(HaveRestyStatusCode(http.StatusOK))
+			serviceInstances := listServiceInstances("new-instance-name")
+			Expect(serviceInstances.Resources).To(HaveLen(1))
 
-				serviceInstances := listServiceInstances("new-instance-name")
-				Expect(serviceInstances.Resources).To(HaveLen(1))
-
-				serviceInstance := serviceInstances.Resources[0]
-				Expect(serviceInstance.Name).To(Equal("new-instance-name"))
-				Expect(serviceInstance.Metadata.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
-				Expect(serviceInstance.Metadata.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
-				Expect(serviceInstance.Tags).To(ConsistOf("some", "tags"))
-			})
+			serviceInstance := serviceInstances.Resources[0]
+			Expect(serviceInstance.Name).To(Equal("new-instance-name"))
+			Expect(serviceInstance.Metadata.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
+			Expect(serviceInstance.Metadata.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
+			Expect(serviceInstance.Tags).To(ConsistOf("some", "tags"))
 		})
 
 		When("updating a managed service instance", func() {
