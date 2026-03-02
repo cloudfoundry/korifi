@@ -167,32 +167,57 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	}
 
 	if !serviceInstance.Status.Provisioned {
-		provisionResponse, err := r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
-		if err != nil {
-			log.Error(err, "failed to provision service instance")
-			return ctrl.Result{}, fmt.Errorf("failed to provision service instance: %w", err)
-		}
+		return r.reconcileProvisionedServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+	}
 
-		if provisionResponse.IsAsync {
-			lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, provisionResponse.Operation)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			return r.processProvisionOperation(serviceInstance, lastOpResponse)
-		}
-	} else {
-		updateResponse, err := r.updateServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+	return r.reconcileUpdatedServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+}
+
+func (r *Reconciler) reconcileProvisionedServiceInstance(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	serviceInstanceAssets osbapi.ServiceInstanceAssets,
+	osbapiClient osbapi.BrokerClient,
+) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx)
+	provisionResponse, err := r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+	if err != nil {
+		log.Error(err, "failed to provision service instance")
+		return ctrl.Result{}, fmt.Errorf("failed to provision service instance: %w", err)
+	}
+
+	if provisionResponse.IsAsync {
+		lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, provisionResponse.Operation)
 		if err != nil {
-			log.Error(err, "failed to update service instance")
-			return ctrl.Result{}, fmt.Errorf("failed to update service instance: %w", err)
+			return ctrl.Result{}, err
 		}
-		if updateResponse.IsAsync {
-			lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, updateResponse.Operation)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			return r.processUpdateOperation(serviceInstance, lastOpResponse)
+		return r.processProvisionOperation(serviceInstance, lastOpResponse)
+	}
+
+	serviceInstance.Status.Provisioned = true
+	serviceInstance.Status.MaintenanceInfo = serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo
+	serviceInstance.Status.LastOperation.State = "succeeded"
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) reconcileUpdatedServiceInstance(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	serviceInstanceAssets osbapi.ServiceInstanceAssets,
+	osbapiClient osbapi.BrokerClient,
+) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx)
+	updateResponse, err := r.updateServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+	if err != nil {
+		log.Error(err, "failed to update service instance")
+		return ctrl.Result{}, fmt.Errorf("failed to update service instance: %w", err)
+	}
+	if updateResponse.IsAsync {
+		lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, updateResponse.Operation)
+		if err != nil {
+			return ctrl.Result{}, err
 		}
+		return r.processUpdateOperation(serviceInstance, lastOpResponse)
 	}
 
 	serviceInstance.Status.Provisioned = true
