@@ -499,18 +499,17 @@ var _ = Describe("ServiceInstanceRepository", func() {
 		})
 	})
 
-	Describe("PatchServiceInstance", func() {
+	Describe("PatchUserProvidedServiceInstance", func() {
 		var (
 			cfServiceInstance     *korifiv1alpha1.CFServiceInstance
 			secret                *corev1.Secret
-			serviceInstanceGUID   string
 			serviceInstanceRecord repositories.ServiceInstanceRecord
 			patchMessage          repositories.PatchUPSIMessage
 			err                   error
 		)
 
 		BeforeEach(func() {
-			serviceInstanceGUID = uuid.NewString()
+			serviceInstanceGUID := uuid.NewString()
 			secretName := uuid.NewString()
 			cfServiceInstance = createUserProvidedServiceInstanceCR(ctx, k8sClient, serviceInstanceGUID, space.Name, serviceInstanceName, secretName)
 			conditionAwaiter.AwaitConditionReturns(cfServiceInstance, nil)
@@ -687,127 +686,132 @@ var _ = Describe("ServiceInstanceRepository", func() {
 				})
 			})
 		})
+	})
 
-		When("Patching a managed service instance", func() {
-			var patchMessage repositories.PatchManagedSIMessage
+	Describe("PatchManagedServiceInstance", func() {
+		var (
+			cfServiceInstance     *korifiv1alpha1.CFServiceInstance
+			serviceInstanceGUID   string
+			serviceInstanceRecord repositories.ServiceInstanceRecord
+			patchMessage          repositories.PatchManagedSIMessage
+			err                   error
+		)
+		BeforeEach(func() {
+			cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceInstanceGUID,
+					Namespace:   space.Name,
+					Labels:      map[string]string{"a-label": "a-label-value"},
+					Annotations: map[string]string{"an-annotation": "an-annotation-value"},
+				},
+				Spec: korifiv1alpha1.CFServiceInstanceSpec{
+					DisplayName: serviceInstanceName,
+					Type:        "managed",
+					Tags:        []string{"database", "mysql"},
+					PlanGUID:    uuid.NewString(),
+				},
+			}
 
+			Expect(k8sClient.Create(ctx, cfServiceInstance)).To(Succeed())
+			conditionAwaiter.AwaitConditionReturns(cfServiceInstance, nil)
+
+			patchMessage = repositories.PatchManagedSIMessage{
+				GUID:      cfServiceInstance.Name,
+				SpaceGUID: space.Name,
+				Name:      tools.PtrTo("new-name"),
+				PlanGUID:  tools.PtrTo("new-plan-guid"),
+				Tags:      &[]string{"new"},
+				MetadataPatch: repositories.MetadataPatch{
+					Labels:      map[string]*string{"new-label": tools.PtrTo("new-label-value")},
+					Annotations: map[string]*string{"new-annotation": tools.PtrTo("new-annotation-value")},
+				},
+			}
+		})
+
+		JustBeforeEach(func() {
+			serviceInstanceRecord, err = serviceInstanceRepo.PatchManagedServiceInstance(ctx, authInfo, patchMessage)
+		})
+
+		When("authorized in the space", func() {
 			BeforeEach(func() {
-				cfserviceInstance := &korifiv1alpha1.CFServiceInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        serviceInstanceGUID,
-						Namespace:   space.Name,
-						Labels:      map[string]string{"a-label": "a-label-value"},
-						Annotations: map[string]string{"an-annotation": "an-annotation-value"},
-					},
-					Spec: korifiv1alpha1.CFServiceInstanceSpec{
-						DisplayName: serviceInstanceName,
-						Type:        "managed",
-						Tags:        []string{"database", "mysql"},
-						PlanGUID:    uuid.NewString(),
-					},
-				}
-
-				Expect(k8sClient.Create(ctx, cfserviceInstance)).To(Succeed())
-				conditionAwaiter.AwaitConditionReturns(cfServiceInstance, nil)
-
-				patchMessage = repositories.PatchManagedSIMessage{
-					GUID:      cfServiceInstance.Name,
-					SpaceGUID: space.Name,
-					Name:      tools.PtrTo("new-name"),
-					PlanGUID:  tools.PtrTo("new-plan-guid"),
-					Tags:      &[]string{"new"},
-					MetadataPatch: repositories.MetadataPatch{
-						Labels:      map[string]*string{"new-label": tools.PtrTo("new-label-value")},
-						Annotations: map[string]*string{"new-annotation": tools.PtrTo("new-annotation-value")},
-					},
-				}
+				createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
+				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
-			JustBeforeEach(func() {
-				serviceInstanceRecord, err = serviceInstanceRepo.PatchManagedServiceInstance(ctx, authInfo, patchMessage)
+			It("returns the updated record", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(serviceInstanceRecord.Name).To(Equal("new-name"))
+				Expect(serviceInstanceRecord.Tags).To(ConsistOf("new"))
+				Expect(serviceInstanceRecord.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
+				Expect(serviceInstanceRecord.Labels).To(HaveKeyWithValue("new-label", "new-label-value"))
+				Expect(serviceInstanceRecord.Annotations).To(HaveLen(2))
+				Expect(serviceInstanceRecord.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
+				Expect(serviceInstanceRecord.Annotations).To(HaveKeyWithValue("new-annotation", "new-annotation-value"))
+				Expect(serviceInstanceRecord.Relationships()).To(HaveKeyWithValue("service_plan", "new-plan-guid"))
 			})
 
-			When("authorized in the space", func() {
+			It("updates the service instance", func() {
+				Expect(err).NotTo(HaveOccurred())
+				serviceInstance := new(korifiv1alpha1.CFServiceInstance)
+
+				Eventually(func(g Gomega) {
+					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
+					g.Expect(serviceInstance.Spec.DisplayName).To(Equal("new-name"))
+					g.Expect(serviceInstance.Spec.Tags).To(ConsistOf("new"))
+					g.Expect(serviceInstance.Spec.PlanGUID).To(Equal("new-plan-guid"))
+					g.Expect(serviceInstance.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
+					g.Expect(serviceInstance.Labels).To(HaveKeyWithValue("new-label", "new-label-value"))
+					g.Expect(serviceInstance.Annotations).To(HaveLen(2))
+					g.Expect(serviceInstance.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
+					g.Expect(serviceInstance.Annotations).To(HaveKeyWithValue("new-annotation", "new-annotation-value"))
+				}).Should(Succeed())
+			})
+
+			When("tags is an empty list", func() {
 				BeforeEach(func() {
-					createRoleBinding(ctx, userName, orgUserRole.Name, org.Name)
-					createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+					patchMessage.Tags = &[]string{}
 				})
 
-				It("returns the updated record", func() {
-					Expect(err).NotTo(HaveOccurred())
-					Expect(serviceInstanceRecord.Name).To(Equal("new-name"))
-					Expect(serviceInstanceRecord.Tags).To(ConsistOf("new"))
-					Expect(serviceInstanceRecord.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
-					Expect(serviceInstanceRecord.Labels).To(HaveKeyWithValue("new-label", "new-label-value"))
-					Expect(serviceInstanceRecord.Annotations).To(HaveLen(2))
-					Expect(serviceInstanceRecord.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
-					Expect(serviceInstanceRecord.Annotations).To(HaveKeyWithValue("new-annotation", "new-annotation-value"))
-					Expect(serviceInstanceRecord.Relationships()).To(HaveKeyWithValue("service_plan", "new-plan-guid"))
-				})
-
-				It("updates the service instance", func() {
+				It("clears the tags", func() {
 					Expect(err).NotTo(HaveOccurred())
 					serviceInstance := new(korifiv1alpha1.CFServiceInstance)
 
 					Eventually(func(g Gomega) {
 						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
-						g.Expect(serviceInstance.Spec.DisplayName).To(Equal("new-name"))
-						g.Expect(serviceInstance.Spec.Tags).To(ConsistOf("new"))
-						g.Expect(serviceInstance.Spec.PlanGUID).To(Equal("new-plan-guid"))
-						g.Expect(serviceInstance.Labels).To(HaveKeyWithValue("a-label", "a-label-value"))
-						g.Expect(serviceInstance.Labels).To(HaveKeyWithValue("new-label", "new-label-value"))
-						g.Expect(serviceInstance.Annotations).To(HaveLen(2))
-						g.Expect(serviceInstance.Annotations).To(HaveKeyWithValue("an-annotation", "an-annotation-value"))
-						g.Expect(serviceInstance.Annotations).To(HaveKeyWithValue("new-annotation", "new-annotation-value"))
+						g.Expect(serviceInstance.Spec.Tags).To(BeEmpty())
 					}).Should(Succeed())
 				})
+			})
 
-				When("tags is an empty list", func() {
-					BeforeEach(func() {
-						patchMessage.Tags = &[]string{}
-					})
-
-					It("clears the tags", func() {
-						Expect(err).NotTo(HaveOccurred())
-						serviceInstance := new(korifiv1alpha1.CFServiceInstance)
-
-						Eventually(func(g Gomega) {
-							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
-							g.Expect(serviceInstance.Spec.Tags).To(BeEmpty())
-						}).Should(Succeed())
-					})
+			When("tags is nil", func() {
+				BeforeEach(func() {
+					patchMessage.Tags = nil
 				})
 
-				When("tags is nil", func() {
-					BeforeEach(func() {
-						patchMessage.Tags = nil
-					})
+				It("preserves the tags", func() {
+					Expect(err).NotTo(HaveOccurred())
+					serviceInstance := new(korifiv1alpha1.CFServiceInstance)
 
-					It("preserves the tags", func() {
-						Expect(err).NotTo(HaveOccurred())
-						serviceInstance := new(korifiv1alpha1.CFServiceInstance)
+					Consistently(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
+						g.Expect(serviceInstance.Spec.Tags).To(ConsistOf("database", "mysql"))
+					}).Should(Succeed())
+				})
+			})
 
-						Consistently(func(g Gomega) {
-							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
-							g.Expect(serviceInstance.Spec.Tags).To(ConsistOf("database", "mysql"))
-						}).Should(Succeed())
-					})
+			When("the plan GUID is nil", func() {
+				BeforeEach(func() {
+					patchMessage.PlanGUID = nil
 				})
 
-				When("the plan GUID is nil", func() {
-					BeforeEach(func() {
-						patchMessage.PlanGUID = nil
-					})
+				It("preserves the plan GUID", func() {
+					Expect(err).NotTo(HaveOccurred())
+					serviceInstance := new(korifiv1alpha1.CFServiceInstance)
 
-					It("preserves the plan GUID", func() {
-						Expect(err).NotTo(HaveOccurred())
-						serviceInstance := new(korifiv1alpha1.CFServiceInstance)
-
-						Consistently(func(g Gomega) {
-							g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
-							g.Expect(serviceInstance.Spec.PlanGUID).To(Equal("plan-guid"))
-						}).Should(Succeed())
-					})
+					Consistently(func(g Gomega) {
+						g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfServiceInstance), serviceInstance)).To(Succeed())
+						g.Expect(serviceInstance.Spec.PlanGUID).To(Equal("plan-guid"))
+					}).Should(Succeed())
 				})
 			})
 		})
