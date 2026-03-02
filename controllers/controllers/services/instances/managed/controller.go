@@ -147,7 +147,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return ctrl.Result{}, nil
 	}
 
-	if isFailed(serviceInstance) {
+	if isProvisioningFailed(serviceInstance) {
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceInstanceFailed").WithNoRequeue()
 	}
 
@@ -555,7 +555,7 @@ func (r *Reconciler) getNamespace(ctx context.Context, namespaceName string) (*c
 	return namespace, nil
 }
 
-func isFailed(instance *korifiv1alpha1.CFServiceInstance) bool {
+func isProvisioningFailed(instance *korifiv1alpha1.CFServiceInstance) bool {
 	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.ProvisioningFailedCondition)
 }
 
