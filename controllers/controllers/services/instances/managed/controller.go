@@ -344,7 +344,8 @@ func (r *Reconciler) updateServiceInstance(
 				Message:            err.Error(),
 			})
 			return osbapi.UpdateResponse{},
-				k8s.NewNotReadyError().WithReason("UpdateFailed")
+				k8s.NewNotReadyError().WithReason("UpdateFailed").WithNoRequeue()
+
 		}
 
 		return osbapi.UpdateResponse{}, err

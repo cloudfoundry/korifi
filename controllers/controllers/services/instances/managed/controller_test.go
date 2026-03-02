@@ -3,6 +3,7 @@ package managed_test
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -885,6 +886,11 @@ var _ = Describe("CFServiceInstance", func() {
 						State: "failed",
 					}))
 				}).Should(Succeed())
+
+				currentCallCount := brokerClient.UpdateCallCount()
+				Consistently(func(g Gomega) {
+					g.Expect(brokerClient.UpdateCallCount()).To(Equal(currentCallCount))
+				}).WithTimeout(time.Second).Should(Succeed())
 			})
 		})
 
