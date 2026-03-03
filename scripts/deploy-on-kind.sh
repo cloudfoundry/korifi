@@ -106,6 +106,10 @@ function ensure_local_registry() {
     --set persistence.deleteEnabled=true \
     --set secrets.htpasswd='user:$2y$05$Ue5dboOfmqk6Say31Sin9uVbHWTl8J1Sgq9QyAEmFQRnq1TPfP1n2'
 
+  local registry_dir="/etc/containerd/certs.d/$LOCAL_DOCKER_REGISTRY_ADDRESS"
+  cat <<EOF | docker exec -i "$CLUSTER_NAME-control-plane" sh -c "mkdir -p '$registry_dir' && cat >'$registry_dir/hosts.toml'"
+[host."http://127.0.0.1:30050"]
+EOF
 }
 
 function install_dependencies() {
