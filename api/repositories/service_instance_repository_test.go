@@ -714,7 +714,6 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, cfServiceInstance)).To(Succeed())
-			conditionAwaiter.AwaitConditionReturns(cfServiceInstance, nil)
 
 			patchMessage = repositories.PatchManagedSIMessage{
 				GUID:      cfServiceInstance.Name,
