@@ -173,7 +173,7 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 	return r.reconcileUpdatedServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 }
 
-func (r *Reconciler) reconcileProvisionedServiceInstance(
+func (r *Reconciler) reconcileProvisionedServiceInstance( //nolint:dupl
 	ctx context.Context,
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	serviceInstanceAssets osbapi.ServiceInstanceAssets,
@@ -200,7 +200,7 @@ func (r *Reconciler) reconcileProvisionedServiceInstance(
 	return ctrl.Result{}, nil
 }
 
-func (r *Reconciler) reconcileUpdatedServiceInstance(
+func (r *Reconciler) reconcileUpdatedServiceInstance( //nolint:dupl
 	ctx context.Context,
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	serviceInstanceAssets osbapi.ServiceInstanceAssets,
