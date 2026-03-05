@@ -697,6 +697,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 			err                   error
 		)
 		BeforeEach(func() {
+			serviceInstanceGUID = uuid.NewString()
 			cfServiceInstance = &korifiv1alpha1.CFServiceInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        serviceInstanceGUID,
@@ -708,7 +709,7 @@ var _ = Describe("ServiceInstanceRepository", func() {
 					DisplayName: serviceInstanceName,
 					Type:        "managed",
 					Tags:        []string{"database", "mysql"},
-					PlanGUID:    uuid.NewString(),
+					PlanGUID:    "plan-guid",
 				},
 			}
 
