@@ -217,6 +217,10 @@ spec:
                   the CFServiceInstance that has been reconciled
                 format: int64
                 type: integer
+              provisioned:
+                description: True if the service instance has been successfully provisioned.
+                  Only makes seense for managed service instances
+                type: boolean
               upgradeAvailable:
                 description: True if there is an upgrade available for for the service
                   instance (i.e. the plan has a new version). Only makes seense for

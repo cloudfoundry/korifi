@@ -421,6 +421,7 @@ func main() {
 				handlers.ServiceBrokerCreateJobType:          serviceBrokerRepo,
 				handlers.ServiceBrokerUpdateJobType:          serviceBrokerRepo,
 				handlers.ManagedServiceInstanceCreateJobType: serviceInstanceRepo,
+				handlers.ManagedServiceInstanceUpdateJobType: serviceInstanceRepo,
 				handlers.ManagedServiceBindingCreateJobType:  serviceBindingRepo,
 			},
 			routeRepo,
