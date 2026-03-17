@@ -33,6 +33,7 @@ const (
 	DeprovisionWithoutBrokerAnnotation = "korifi.cloudfoundry.org/deprovision-without-broker"
 
 	ProvisioningFailedCondition   = "ProvisioningFailed"
+	UpdateFailedCondition         = "UpdateFailed"
 	DeprovisioningFailedCondition = "DeprovisioningFailed"
 )
 
@@ -89,6 +90,10 @@ type CFServiceInstanceStatus struct {
 	// The service instance maintenance info. Only makes seense for managed service instances
 	//+kubebuilder:validation:Optional
 	MaintenanceInfo MaintenanceInfo `json:"maintenanceInfo"`
+
+	// True if the service instance has been successfully provisioned. Only makes seense for managed service instances
+	//+kubebuilder:validation:Optional
+	Provisioned bool `json:"provisioned"`
 
 	// True if there is an upgrade available for for the service instance (i.e. the plan has a new version). Only makes seense for managed service instances
 	//+kubebuilder:validation:Optional
