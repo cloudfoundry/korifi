@@ -20,14 +20,14 @@ directories:
       - v3.31.4
     path: calico
   - git:
-      commitTitle: Update Contour Docker image to v1.33.2....
-      sha: 34c4ebc9bf67cb16b7d55c1c038ecdee552e5a9f
+      commitTitle: Update Contour Docker image to v1.33.3....
+      sha: 33278ce35c125f8f2338910c983587ac667f95e8
       tags:
-      - v1.33.2
+      - v1.33.3
     path: contour
   - githubRelease:
-      tag: v1.5.0
-      url: https://api.github.com/repos/kubernetes-sigs/gateway-api/releases/291186353
+      tag: v1.5.1
+      url: https://api.github.com/repos/kubernetes-sigs/gateway-api/releases/296866668
     path: gateway-api
   path: vendor
 kind: LockConfig
