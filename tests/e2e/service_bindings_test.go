@@ -24,7 +24,7 @@ var _ = Describe("Service Bindings", func() {
 	BeforeEach(func() {
 		spaceGUID = createSpace(generateGUID("space1"), commonTestOrgGUID)
 		appGUID = createBuildpackApp(spaceGUID, generateGUID("app"))
-		upsiGUID = createServiceInstance(spaceGUID, generateGUID("service-instance"), nil)
+		upsiGUID = createUPServiceInstance(spaceGUID, generateGUID("service-instance"), nil)
 	})
 
 	Describe("POST /v3/service_credential_bindings/{guid}", func() {
@@ -60,7 +60,7 @@ var _ = Describe("Service Bindings", func() {
 
 			BeforeEach(func() {
 				brokerGUID = createBroker(serviceBrokerURL)
-				instanceGUID = createManagedServiceInstance(brokerGUID, spaceGUID)
+				instanceGUID = createManagedServiceInstance(brokerGUID, spaceGUID, generateGUID("managed-service-instance"))
 			})
 
 			AfterEach(func() {
@@ -121,7 +121,7 @@ var _ = Describe("Service Bindings", func() {
 			BeforeEach(func() {
 				brokerGUID = createBroker(serviceBrokerURL)
 
-				instanceGUID := createManagedServiceInstance(brokerGUID, spaceGUID)
+				instanceGUID := createManagedServiceInstance(brokerGUID, spaceGUID, generateGUID("managed-service-instance"))
 				bindingGUID = createManagedServiceBinding(appGUID, instanceGUID, "")
 			})
 
@@ -150,7 +150,7 @@ var _ = Describe("Service Bindings", func() {
 		BeforeEach(func() {
 			bindingGUID = createUPSIServiceBinding(appGUID, upsiGUID, "")
 
-			anotherInstanceGUID = createServiceInstance(spaceGUID, generateGUID("another-service-instance"), nil)
+			anotherInstanceGUID = createUPServiceInstance(spaceGUID, generateGUID("another-service-instance"), nil)
 			anotherBindingGUID = createUPSIServiceBinding(appGUID, anotherInstanceGUID, "")
 
 			result = resourceListWithInclusion{}
@@ -178,7 +178,7 @@ var _ = Describe("Service Bindings", func() {
 				"foo": "val1",
 				"bar": "val2",
 			}
-			upsiGUID = createServiceInstance(spaceGUID, uuid.NewString(), credentials)
+			upsiGUID = createUPServiceInstance(spaceGUID, uuid.NewString(), credentials)
 			bindingGUID = createUPSIServiceBinding(appGUID, upsiGUID, "")
 			result = credentialsResponse{}
 		})
