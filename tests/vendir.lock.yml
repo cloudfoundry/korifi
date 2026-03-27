@@ -10,8 +10,8 @@ directories:
       url: https://api.github.com/repos/kubernetes-sigs/metrics-server/releases/281050386
     path: metrics-server-local
   - githubRelease:
-      tag: v1.20.0
-      url: https://api.github.com/repos/cert-manager/cert-manager/releases/295230861
+      tag: v1.20.1
+      url: https://api.github.com/repos/cert-manager/cert-manager/releases/302505052
     path: cert-manager
   - git:
       commitTitle: Set locale explicitly for consistent sorting
