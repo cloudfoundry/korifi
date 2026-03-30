@@ -543,6 +543,8 @@ var _ = Describe("CFServiceInstance", func() {
 	When("the instance has become ready", func() {
 		BeforeEach(func() {
 			Expect(k8s.Patch(ctx, adminClient, instance, func() {
+				instance.Status.Provisioned = true
+				instance.Status.PlanGUID = instance.Spec.PlanGUID
 				instance.Status.MaintenanceInfo.Version = "1.2.3"
 				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
 					Type:   korifiv1alpha1.StatusConditionReady,
@@ -793,21 +795,11 @@ var _ = Describe("CFServiceInstance", func() {
 		JustBeforeEach(func() {
 			Eventually(func(g Gomega) {
 				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-					HasStatus(Equal(metav1.ConditionTrue)),
-				)))
 				g.Expect(instance.Status.Provisioned).To(BeTrue())
 			}).Should(Succeed())
 
 			Expect(k8s.Patch(ctx, adminClient, instance, func() {
 				instance.Spec.PlanGUID = servicePlan2.Name
-				meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
-					Type:    korifiv1alpha1.StatusConditionReady,
-					Status:  metav1.ConditionFalse,
-					Reason:  "UpdateRequested",
-					Message: "managed service instance update is requested",
-				})
 			})).To(Succeed())
 		})
 
@@ -823,6 +815,20 @@ var _ = Describe("CFServiceInstance", func() {
 			}).Should(Succeed())
 		})
 
+		It("sends an update request to the broker", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
+				_, actualUpdatePayload := brokerClient.UpdateArgsForCall(brokerClient.UpdateCallCount() - 1)
+				g.Expect(actualUpdatePayload).To(Equal(osbapi.UpdatePayload{
+					InstanceID: instance.Name,
+					UpdateRequest: osbapi.UpdateRequest{
+						ServiceId: "service-offering-id",
+						PlanID:    "service-plan-id-2",
+					},
+				}))
+			}).Should(Succeed())
+		})
+
 		When("service update fails with recoverable error", func() {
 			BeforeEach(func() {
 				brokerClient.UpdateReturns(osbapi.UpdateResponse{}, errors.New("update-failed"))
@@ -830,8 +836,8 @@ var _ = Describe("CFServiceInstance", func() {
 
 			It("keeps trying to update the instance", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
-					_, updatePayload := brokerClient.UpdateArgsForCall(1)
+					g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">", 1))
+					_, updatePayload := brokerClient.UpdateArgsForCall(brokerClient.UpdateCallCount() - 1)
 					g.Expect(updatePayload).To(Equal(osbapi.UpdatePayload{
 						InstanceID: instance.Name,
 						UpdateRequest: osbapi.UpdateRequest{
