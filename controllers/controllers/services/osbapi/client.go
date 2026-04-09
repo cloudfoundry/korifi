@@ -110,6 +110,40 @@ func (c *Client) Provision(ctx context.Context, payload ProvisionPayload) (Provi
 	return response, nil
 }
 
+func (c *Client) Update(ctx context.Context, payload UpdatePayload) (UpdateResponse, error) {
+	statusCode, respBytes, err := c.newBrokerRequester().
+		forBroker(c.broker).
+		async().
+		sendRequest(
+			ctx,
+			"/v2/service_instances/"+payload.InstanceID,
+			http.MethodPatch,
+			nil,
+			payload.UpdateRequest,
+		)
+	if err != nil {
+		return UpdateResponse{}, fmt.Errorf("update request failed: %w", err)
+	}
+	if statusCode == http.StatusBadRequest || statusCode == http.StatusUnprocessableEntity {
+		return UpdateResponse{}, UnrecoverableError{Status: statusCode}
+	}
+
+	if statusCode >= 300 {
+		return UpdateResponse{}, fmt.Errorf("update request failed with status code: %d", statusCode)
+	}
+
+	response := UpdateResponse{
+		IsAsync: statusCode == http.StatusAccepted,
+	}
+
+	err = json.Unmarshal(respBytes, &response)
+	if err != nil {
+		return UpdateResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return response, nil
+}
+
 func (c *Client) Deprovision(ctx context.Context, payload DeprovisionPayload) (ProvisionResponse, error) {
 	statusCode, respBytes, err := c.newBrokerRequester().
 		forBroker(c.broker).
