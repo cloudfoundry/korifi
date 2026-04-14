@@ -3,7 +3,7 @@ module code.cloudfoundry.org/korifi
 go 1.25.8
 
 require (
-	code.cloudfoundry.org/bytefmt v0.68.0
+	code.cloudfoundry.org/bytefmt v0.69.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.1.1
 	code.cloudfoundry.org/go-loggregator/v10 v10.3.1
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
