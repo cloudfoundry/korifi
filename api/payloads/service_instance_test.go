@@ -521,16 +521,6 @@ var _ = Describe("ServiceInstancePatch", func() {
 		})
 	})
 
-	When("metadata is invalid", func() {
-		BeforeEach(func() {
-			patchPayload.Metadata.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
-		})
-	})
-
 	Context("ToServiceInstancePatchMessage", func() {
 		It("converts to repo message correctly", func() {
 			msg := serviceInstancePatch.ToServiceInstancePatchMessage("space-guid", "app-guid")

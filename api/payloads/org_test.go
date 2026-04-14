@@ -86,18 +86,6 @@ var _ = Describe("Org", func() {
 			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
 		})
 
-		When("the metadata is invalid", func() {
-			BeforeEach(func() {
-				payload.Metadata.Labels["cloudfoundry.org/test"] = tools.PtrTo("production")
-			})
-
-			It("returns an unprocessable entity error", func() {
-				expectUnprocessableEntityError(
-					validatorErr,
-					"label/annotation key cannot use the cloudfoundry.org domain",
-				)
-			})
-		})
 		When("the name is invalid", func() {
 			BeforeEach(func() {
 				payload.Name = tools.PtrTo("")

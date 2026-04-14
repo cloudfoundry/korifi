@@ -137,7 +137,10 @@ var _ = Describe("TaskRepository", func() {
 				Expect(taskRecord.DropletGUID).To(Equal(cfApp.Spec.CurrentDropletRef.Name))
 				Expect(taskRecord.State).To(Equal(repositories.TaskStatePending))
 				Expect(taskRecord.Labels).To(HaveKeyWithValue("color", "blue"))
-				Expect(taskRecord.Annotations).To(Equal(map[string]string{"extra-bugs": "true"}))
+				Expect(taskRecord.Annotations).To(Equal(map[string]string{
+					"extra-bugs": "true",
+					korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(taskRecord.Labels),
+				}))
 			})
 
 			When("the task never becomes initialized", func() {
@@ -629,6 +632,7 @@ var _ = Describe("TaskRepository", func() {
 						map[string]string{
 							"key-one": "value-one",
 							"key-two": "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(taskRecord.Labels),
 						},
 					))
 				})
@@ -645,6 +649,7 @@ var _ = Describe("TaskRepository", func() {
 						map[string]string{
 							"key-one": "value-one",
 							"key-two": "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(updatedCFTask.Labels),
 						},
 					))
 				})
@@ -690,6 +695,7 @@ var _ = Describe("TaskRepository", func() {
 							"before-key-one": "value-one",
 							"key-one":        "value-one-updated",
 							"key-two":        "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(taskRecord.Labels),
 						},
 					))
 				})
@@ -708,6 +714,7 @@ var _ = Describe("TaskRepository", func() {
 							"before-key-one": "value-one",
 							"key-one":        "value-one-updated",
 							"key-two":        "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(updatedCFTask.Labels),
 						},
 					))
 				})

@@ -13,7 +13,7 @@ var _ = Describe("Executor", func() {
 	)
 
 	BeforeEach(func() {
-		migrator = migration.New(k8sClient, "test-version", 1)
+		migrator = migration.New(k8sClient, "test-version", []byte{}, 1)
 	})
 
 	JustBeforeEach(func() {

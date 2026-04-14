@@ -94,33 +94,5 @@ var _ = Describe("DropletUpdate", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
 			Expect(decodedDropletPayload).To(gstruct.PointTo(Equal(updatePayload)))
 		})
-
-		When("metadata.labels contains an invalid key", func() {
-			BeforeEach(func() {
-				updatePayload.Metadata = payloads.MetadataPatch{
-					Labels: map[string]*string{
-						"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
-					},
-				}
-			})
-
-			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "cannot use the cloudfoundry.org domain")
-			})
-		})
-
-		When("metadata.annotations contains an invalid key", func() {
-			BeforeEach(func() {
-				updatePayload.Metadata = payloads.MetadataPatch{
-					Annotations: map[string]*string{
-						"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
-					},
-				}
-			})
-
-			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "cannot use the cloudfoundry.org domain")
-			})
-		})
 	})
 })

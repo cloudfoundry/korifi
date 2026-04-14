@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer/signer"
 	"code.cloudfoundry.org/korifi/tools"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,21 +20,44 @@ const MigratedByLabelKey = "korifi.cloudfoundry.org/migrated-by"
 var korifiObjectLists = []client.ObjectList{}
 
 type Migrator struct {
-	k8sClient     client.Client
-	korifiVersion string
-	workersCount  int
+	k8sClient          client.Client
+	korifiVersion      string
+	labelSigningSecret []byte
+	workersCount       int
 }
 
-func New(k8sClient client.Client, korifiVersion string, workersCount int) *Migrator {
+func New(k8sClient client.Client, korifiVersion string, labelSigningSecret []byte, workersCount int) *Migrator {
 	return &Migrator{
-		k8sClient:     k8sClient,
-		korifiVersion: korifiVersion,
-		workersCount:  workersCount,
+		k8sClient:          k8sClient,
+		korifiVersion:      korifiVersion,
+		labelSigningSecret: labelSigningSecret,
+		workersCount:       workersCount,
 	}
+}
+
+var backfillObjectLists = []client.ObjectList{
+	&korifiv1alpha1.CFOrgList{},
+	&korifiv1alpha1.CFSpaceList{},
+	&korifiv1alpha1.CFAppList{},
+	&korifiv1alpha1.CFBuildList{},
+	&korifiv1alpha1.CFPackageList{},
+	&korifiv1alpha1.CFProcessList{},
+	&korifiv1alpha1.CFRouteList{},
+	&korifiv1alpha1.CFDomainList{},
+	&korifiv1alpha1.CFServiceInstanceList{},
+	&korifiv1alpha1.CFServiceBindingList{},
+	&korifiv1alpha1.CFTaskList{},
+	&korifiv1alpha1.CFServiceBrokerList{},
+	&korifiv1alpha1.CFServiceOfferingList{},
+	&korifiv1alpha1.CFServicePlanList{},
 }
 
 func (m *Migrator) Run(ctx context.Context) error {
 	startTime := time.Now()
+
+	if err := m.backfillLabelSignatures(ctx); err != nil {
+		return fmt.Errorf("failed to backfill label signatures: %v", err)
+	}
 
 	objectsToUpdate, err := m.collectObjects(ctx, korifiObjectLists)
 	if err != nil {
@@ -80,6 +105,28 @@ func (m *Migrator) setMigratedByLabel(ctx context.Context, obj client.Object) er
 	return k8s.PatchResource(ctx, m.k8sClient, obj, func() {
 		obj.SetLabels(tools.SetMapValue(obj.GetLabels(), MigratedByLabelKey, m.korifiVersion))
 	})
+}
+
+func (m *Migrator) backfillLabelSignatures(ctx context.Context) error {
+	objects, err := m.collectObjects(ctx, backfillObjectLists)
+	if err != nil {
+		return fmt.Errorf("failed to collect objects for label signature backfill: %v", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "Backfilling label signatures on %d objects\n", len(objects))
+	for _, obj := range objects {
+		if obj.GetAnnotations()[korifiv1alpha1.LabelSignatureAnnotationKey] != "" {
+			continue
+		}
+		sig := signer.Sign(m.labelSigningSecret, obj.GetLabels())
+		if err := k8s.PatchResource(ctx, m.k8sClient, obj, func() {
+			obj.SetAnnotations(tools.SetMapValue(obj.GetAnnotations(), korifiv1alpha1.LabelSignatureAnnotationKey, sig))
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to backfill label signature on %s %s/%s: %v\n",
+				obj.GetObjectKind().GroupVersionKind().Kind, obj.GetNamespace(), obj.GetName(), err)
+		}
+	}
+	return nil
 }
 
 func (m *Migrator) collectObjects(ctx context.Context, objectLists []client.ObjectList) ([]client.Object, error) {

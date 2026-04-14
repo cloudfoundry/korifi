@@ -31,7 +31,13 @@ spec:
         env:
         - name: KORIFI_VERSION
           value: "{{ .Chart.Version }}"
+        - name: LABEL_SIGNING_SECRET_PATH
+          value: /etc/korifi-label-signing-secret/key
         image: {{ .Values.migration.image }}
+        volumeMounts:
+        - mountPath: /etc/korifi-label-signing-secret
+          name: label-signing-secret
+          readOnly: true
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
@@ -41,3 +47,8 @@ spec:
             - ALL
           seccompProfile:
             type: RuntimeDefault
+      volumes:
+      - name: label-signing-secret
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.controllers.labelSigningSecret }}

@@ -8,7 +8,8 @@ import (
 	"net/http"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
-	. "code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer/rules"  //lint:ignore ST1001 for readability
+	. "code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer/rules" //lint:ignore ST1001 for readability
+	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer/signer"
 	. "code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer/values" //lint:ignore ST1001 for readability
 	"code.cloudfoundry.org/korifi/tools"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,10 +24,12 @@ type IndexingRule interface {
 type LabelIndexerWebhook struct {
 	decoder       admission.Decoder
 	indexingRules map[string][]IndexingRule
+	signingSecret []byte
 }
 
-func NewWebhook() *LabelIndexerWebhook {
+func NewWebhook(signingSecret []byte) *LabelIndexerWebhook {
 	return &LabelIndexerWebhook{
+		signingSecret: signingSecret,
 		indexingRules: map[string][]IndexingRule{
 			"CFRoute": {
 				LabelRule{Label: korifiv1alpha1.CFDomainGUIDLabelKey, IndexingFunc: Unquote(JSONValue("$.spec.domainRef.name"))},
@@ -156,6 +159,9 @@ func (r *LabelIndexerWebhook) Handle(ctx context.Context, req admission.Request)
 			obj.SetLabels(tools.SetMapValue(obj.GetLabels(), k, v))
 		}
 	}
+
+	sig := signer.Sign(r.signingSecret, obj.GetLabels())
+	obj.SetAnnotations(tools.SetMapValue(obj.GetAnnotations(), korifiv1alpha1.LabelSignatureAnnotationKey, sig))
 
 	marshalled, err := json.Marshal(obj)
 	if err != nil {

@@ -256,7 +256,9 @@ func (r *ProcessRepo) PatchProcess(ctx context.Context, authInfo authorization.I
 			updatedProcess.Spec.HealthCheck.Data.TimeoutSeconds = *message.HealthCheckTimeoutSeconds
 		}
 		if message.MetadataPatch != nil {
-			message.MetadataPatch.Apply(updatedProcess)
+			if err := message.MetadataPatch.Apply(updatedProcess); err != nil {
+				return err
+			}
 		}
 
 		return nil

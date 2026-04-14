@@ -1,6 +1,7 @@
 package repositories_test
 
 import (
+	"errors"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -87,6 +88,7 @@ var _ = Describe("ServiceBrokerRepo", func() {
 						"Labels": HaveKeyWithValue("label", "label-value"),
 						"Annotations": Equal(map[string]string{
 							"annotation": "annotation-value",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(brokerRecord.Metadata.Labels),
 						}),
 					}),
 				}))
@@ -426,6 +428,21 @@ var _ = Describe("ServiceBrokerRepo", func() {
 		When("the user has permissions to update brokers", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+			})
+
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					updateMessage.MetadataPatch.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(updateErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("invalid labels patch"),
+						ContainSubstring(`"foo.cloudfoundry.org/bar"`),
+					))
+				})
 			})
 
 			It("returns an updated ServiceBrokerRecord", func() {

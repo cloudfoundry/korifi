@@ -257,7 +257,6 @@ var _ = Describe("ServiceBindingUpdate", func() {
 		patchPayload        payloads.ServiceBindingUpdate
 		serviceBindingPatch *payloads.ServiceBindingUpdate
 		validatorErr        error
-		apiError            errors.ApiError
 	)
 
 	BeforeEach(func() {
@@ -272,22 +271,10 @@ var _ = Describe("ServiceBindingUpdate", func() {
 
 	JustBeforeEach(func() {
 		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(patchPayload), serviceBindingPatch)
-		apiError, _ = validatorErr.(errors.ApiError)
 	})
 
 	It("succeeds", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
 		Expect(serviceBindingPatch).To(PointTo(Equal(patchPayload)))
-	})
-
-	When("metadata uses the cloudfoundry domain", func() {
-		BeforeEach(func() {
-			patchPayload.Metadata.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
-		})
-
-		It("fails", func() {
-			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(ContainSubstring("cannot use the cloudfoundry.org domain"))
-		})
 	})
 })

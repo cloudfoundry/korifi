@@ -168,9 +168,7 @@ func (r *DropletRepo) UpdateDroplet(ctx context.Context, authInfo authorization.
 	}
 
 	err = r.klient.Patch(ctx, build, func() error {
-		message.MetadataPatch.Apply(build)
-
-		return nil
+		return message.MetadataPatch.Apply(build)
 	})
 	if err != nil {
 		return DropletRecord{}, fmt.Errorf("failed to patch droplet metadata: %w", apierrors.FromK8sError(err, DropletResourceType))

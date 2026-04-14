@@ -124,8 +124,7 @@ func (r *DomainRepo) UpdateDomain(ctx context.Context, authInfo authorization.In
 	}
 
 	err = r.klient.Patch(ctx, domain, func() error {
-		message.MetadataPatch.Apply(domain)
-		return nil
+		return message.MetadataPatch.Apply(domain)
 	})
 	if err != nil {
 		return DomainRecord{}, fmt.Errorf("failed to patch domain metadata: %w", apierrors.FromK8sError(err, DomainResourceType))

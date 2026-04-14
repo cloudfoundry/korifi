@@ -250,6 +250,99 @@ var _ = Describe("Orgs", func() {
 		})
 	})
 
+	Describe("rename", func() {
+		var (
+			orgGUID string
+			result  resource
+			errResp cfErrs
+		)
+
+		BeforeEach(func() {
+			orgGUID = createOrg(generateGUID("org"))
+			result = resource{}
+			errResp = cfErrs{}
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		JustBeforeEach(func() {
+			var err error
+			resp, err = adminClient.R().
+				SetBody(resource{Name: generateGUID("renamed-org")}).
+				SetResult(&result).
+				SetError(&errResp).
+				Patch("/v3/organizations/" + orgGUID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("succeeds", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Name).To(HavePrefix("renamed-org"))
+		})
+
+		It("can be renamed again", func() {
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+
+			var secondResult resource
+			secondResp, err := adminClient.R().
+				SetBody(resource{Name: generateGUID("renamed-again-org")}).
+				SetResult(&secondResult).
+				Patch("/v3/organizations/" + orgGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secondResp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(secondResult.Name).To(HavePrefix("renamed-again-org"))
+		})
+	})
+
+	Describe("update metadata", func() {
+		var (
+			orgGUID string
+			result  resource
+			errResp cfErrs
+		)
+
+		BeforeEach(func() {
+			orgGUID = createOrg(generateGUID("org"))
+			result = resource{}
+			errResp = cfErrs{}
+		})
+
+		AfterEach(func() {
+			deleteOrg(orgGUID)
+		})
+
+		It("allows user-defined labels", func() {
+			var err error
+			resp, err = adminClient.R().
+				SetBody(metadataResource{Metadata: &metadataPatch{
+					Labels: &map[string]string{"user-label": "value"},
+				}}).
+				SetResult(&result).
+				SetError(&errResp).
+				Patch("/v3/organizations/" + orgGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusOK))
+			Expect(result.Metadata.Labels).To(HaveKeyWithValue("user-label", "value"))
+		})
+
+		It("rejects cloudfoundry.org domain labels", func() {
+			var err error
+			resp, err = adminClient.R().
+				SetBody(metadataResource{Metadata: &metadataPatch{
+					Labels: &map[string]string{"foo.cloudfoundry.org/bar": "baz"},
+				}}).
+				SetError(&errResp).
+				Patch("/v3/organizations/" + orgGUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).To(HaveRestyStatusCode(http.StatusUnprocessableEntity))
+			Expect(errResp.Errors).To(ContainElement(
+				MatchFields(IgnoreExtras, Fields{"Detail": ContainSubstring("invalid labels patch")}),
+			))
+		})
+	})
+
 	Describe("get", func() {
 		var result resource
 
