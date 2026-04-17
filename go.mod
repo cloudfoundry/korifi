@@ -3,14 +3,14 @@ module code.cloudfoundry.org/korifi
 go 1.25.8
 
 require (
-	code.cloudfoundry.org/bytefmt v0.68.0
+	code.cloudfoundry.org/bytefmt v0.69.0
 	code.cloudfoundry.org/go-log-cache/v3 v3.1.1
 	code.cloudfoundry.org/go-loggregator/v10 v10.3.1
 	code.cloudfoundry.org/go-loggregator/v8 v8.0.5
 	github.com/BooleanCat/go-functional/v2 v2.5.1
 	github.com/Masterminds/semver v1.5.0
 	github.com/PaesslerAG/jsonpath v0.1.1
-	github.com/aws/aws-sdk-go-v2/config v1.32.14
+	github.com/aws/aws-sdk-go-v2/config v1.32.15
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.57.0
 	github.com/blendle/zapdriver v1.3.1
 	github.com/buildpacks/pack v0.40.2
@@ -38,11 +38,11 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/exp v0.0.0-20250911091902-df9299821621
 	golang.org/x/text v0.36.0
-	k8s.io/api v0.35.3
-	k8s.io/apimachinery v0.35.3
-	k8s.io/client-go v0.35.3
-	k8s.io/metrics v0.35.3
-	k8s.io/pod-security-admission v0.35.3
+	k8s.io/api v0.35.4
+	k8s.io/apimachinery v0.35.4
+	k8s.io/client-go v0.35.4
+	k8s.io/metrics v0.35.4
+	k8s.io/pod-security-admission v0.35.4
 	k8s.io/utils v0.0.0-20260108192941-914a6e750570
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/controller-tools v0.20.1
@@ -99,7 +99,7 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
-	k8s.io/code-generator v0.35.3 // indirect
+	k8s.io/code-generator v0.35.4 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
@@ -124,7 +124,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.21 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.21 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.21 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.38.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.21 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.15 // indirect
@@ -201,8 +200,8 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/apiextensions-apiserver v0.35.3
-	k8s.io/component-base v0.35.3 // indirect
+	k8s.io/apiextensions-apiserver v0.35.4
+	k8s.io/component-base v0.35.4 // indirect
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	knative.dev/pkg v0.0.0-20250211185550-c8bea7c326ff // indirect
