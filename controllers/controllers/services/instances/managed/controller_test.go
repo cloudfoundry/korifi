@@ -811,7 +811,7 @@ var _ = Describe("CFServiceInstance", func() {
 					HasStatus(Equal(metav1.ConditionTrue)),
 				)))
 				g.Expect(instance.Status.Provisioned).To(BeTrue())
-				g.Expect(instance.Spec.PlanGUID).To(Equal(servicePlan2.Name))
+				g.Expect(instance.Status.PlanGUID).To(Equal(servicePlan2.Name))
 			}).Should(Succeed())
 		})
 
@@ -827,6 +827,58 @@ var _ = Describe("CFServiceInstance", func() {
 					},
 				}))
 			}).Should(Succeed())
+		})
+
+		It("does not call the broker when only metadata changes", func() {
+			initialUpdateCallCount := brokerClient.UpdateCallCount()
+
+			Expect(k8s.Patch(ctx, adminClient, instance, func() {
+				if instance.ObjectMeta.Labels == nil {
+					instance.ObjectMeta.Labels = map[string]string{}
+				}
+				instance.ObjectMeta.Labels["test-label"] = "test-value"
+			})).To(Succeed())
+
+			Consistently(func(g Gomega) {
+				g.Expect(brokerClient.UpdateCallCount()).To(Equal(initialUpdateCallCount))
+			}).WithTimeout(2 * time.Second).Should(Succeed())
+		})
+
+		When("the new plan is not visible", func() {
+			BeforeEach(func() {
+				Expect(k8s.PatchResource(ctx, adminClient, servicePlan2, func() {
+					servicePlan2.Spec.Visibility = korifiv1alpha1.ServicePlanVisibility{
+						Type: korifiv1alpha1.AdminServicePlanVisibilityType,
+					}
+				})).To(Succeed())
+			})
+
+			It("fails the instance with InvalidServicePlan", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("InvalidServicePlan")),
+						HasMessage(Equal("The service plan is disabled")),
+					)))
+				}).Should(Succeed())
+			})
+
+			It("does not send an update request to the broker", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+						HasStatus(Equal(metav1.ConditionFalse)),
+						HasReason(Equal("InvalidServicePlan")),
+					)))
+				}).Should(Succeed())
+
+				Consistently(func(g Gomega) {
+					g.Expect(brokerClient.UpdateCallCount()).To(BeZero())
+				}).WithTimeout(time.Second).Should(Succeed())
+			})
 		})
 
 		When("service update fails with recoverable error", func() {

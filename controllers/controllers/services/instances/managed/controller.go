@@ -115,6 +115,26 @@ func (r *Reconciler) isManaged(object client.Object) bool {
 	return serviceInstance.Spec.Type == korifiv1alpha1.ManagedType
 }
 
+func needsUpdate(instance *korifiv1alpha1.CFServiceInstance) bool {
+	return instance.Spec.PlanGUID != instance.Status.PlanGUID
+}
+
+func (r *Reconciler) ensurePlanVisible(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance, servicePlan *korifiv1alpha1.CFServicePlan) error {
+	log := logr.FromContextOrDiscard(ctx)
+
+	planVisible, err := r.isServicePlanVisible(ctx, serviceInstance, servicePlan)
+	if err != nil {
+		log.Error(err, "failed to check service plan visibility")
+		return err
+	}
+
+	if !planVisible {
+		return k8s.NewNotReadyError().WithMessage("The service plan is disabled").WithReason("InvalidServicePlan").WithNoRequeue()
+	}
+
+	return nil
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
@@ -147,17 +167,6 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceInstanceFailed").WithNoRequeue()
 	}
 
-	planVisible, err := r.isServicePlanVisible(ctx, serviceInstance, serviceInstanceAssets.ServicePlan)
-	if err != nil {
-		log.Error(err, "failed to check service plan visibility")
-		return ctrl.Result{}, err
-	}
-
-	if !planVisible && !serviceInstance.Status.Provisioned {
-		return ctrl.Result{},
-			k8s.NewNotReadyError().WithMessage("The service plan is disabled").WithReason("InvalidServicePlan").WithNoRequeue()
-	}
-
 	if serviceInstance.Spec.ServiceLabel == nil {
 		serviceInstance.Spec.ServiceLabel = tools.PtrTo(serviceInstanceAssets.ServiceOffering.Spec.Name)
 		return ctrl.Result{}, nil
@@ -167,7 +176,13 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return r.reconcileProvisionedServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 	}
 
-	if serviceInstance.Generation == serviceInstance.Status.BrokerReconciledGeneration {
+	// Backfill status.PlanGUID for legacy provisioned instances without it (one-time migration)
+	if serviceInstance.Status.PlanGUID == "" {
+		serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
+		return ctrl.Result{}, nil
+	}
+
+	if !needsUpdate(serviceInstance) {
 		return ctrl.Result{}, nil
 	}
 
@@ -181,6 +196,11 @@ func (r *Reconciler) reconcileProvisionedServiceInstance( //nolint:dupl
 	osbapiClient osbapi.BrokerClient,
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
+
+	if err := r.ensurePlanVisible(ctx, serviceInstance, serviceInstanceAssets.ServicePlan); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	provisionResponse, err := r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 	if err != nil {
 		log.Error(err, "failed to provision service instance")
@@ -196,7 +216,7 @@ func (r *Reconciler) reconcileProvisionedServiceInstance( //nolint:dupl
 	}
 
 	serviceInstance.Status.Provisioned = true
-	serviceInstance.Status.BrokerReconciledGeneration = serviceInstance.Generation
+
 	serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
 	serviceInstance.Status.MaintenanceInfo = serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo
 	serviceInstance.Status.LastOperation.State = "succeeded"
@@ -210,6 +230,11 @@ func (r *Reconciler) reconcileUpdatedServiceInstance( //nolint:dupl
 	osbapiClient osbapi.BrokerClient,
 ) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
+
+	if err := r.ensurePlanVisible(ctx, serviceInstance, serviceInstanceAssets.ServicePlan); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	updateResponse, err := r.updateServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 	if err != nil {
 		log.Error(err, "failed to update service instance")
@@ -223,7 +248,6 @@ func (r *Reconciler) reconcileUpdatedServiceInstance( //nolint:dupl
 		return r.processUpdateOperation(serviceInstance, lastOpResponse, serviceInstanceAssets)
 	}
 
-	serviceInstance.Status.BrokerReconciledGeneration = serviceInstance.Generation
 	serviceInstance.Status.LastOperation.State = "succeeded"
 	if serviceInstance.Spec.PlanGUID != serviceInstance.Status.PlanGUID {
 		serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
@@ -298,7 +322,6 @@ func (r *Reconciler) processProvisionOperation(
 ) (ctrl.Result, error) {
 	if lastOpResponse.State == "succeeded" {
 		serviceInstance.Status.Provisioned = true
-		serviceInstance.Status.BrokerReconciledGeneration = serviceInstance.Generation
 		serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
 		serviceInstance.Status.MaintenanceInfo = assets.ServicePlan.Spec.MaintenanceInfo
 		return ctrl.Result{}, nil
@@ -371,7 +394,6 @@ func (r *Reconciler) processUpdateOperation(
 	assets osbapi.ServiceInstanceAssets,
 ) (ctrl.Result, error) {
 	if lastOpResponse.State == "succeeded" {
-		serviceInstance.Status.BrokerReconciledGeneration = serviceInstance.Generation
 		if serviceInstance.Spec.PlanGUID != serviceInstance.Status.PlanGUID {
 			serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
 			serviceInstance.Status.MaintenanceInfo = assets.ServicePlan.Spec.MaintenanceInfo

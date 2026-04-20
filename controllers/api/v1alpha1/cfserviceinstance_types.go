@@ -99,10 +99,6 @@ type CFServiceInstanceStatus struct {
 	//+kubebuilder:validation:Optional
 	Provisioned bool `json:"provisioned"`
 
-	// The generation at which the instance was last successfully reconciled with the broker.
-	//+kubebuilder:validation:Optional
-	BrokerReconciledGeneration int64 `json:"brokerReconciledGeneration,omitempty"`
-
 	// True if there is an upgrade available for for the service instance (i.e. the plan has a new version). Only makes seense for managed service instances
 	//+kubebuilder:validation:Optional
 	UpgradeAvailable bool `json:"upgradeAvailable"`
