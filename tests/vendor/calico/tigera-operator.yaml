@@ -469,6 +469,7 @@ rules:
       - udproutes.gateway.networking.k8s.io
       - xbackendtrafficpolicies.gateway.networking.x-k8s.io
       - xlistenersets.gateway.networking.x-k8s.io
+      - xmeshes.gateway.networking.x-k8s.io
       - backends.gateway.envoyproxy.io
       - backendtrafficpolicies.gateway.envoyproxy.io
       - clienttrafficpolicies.gateway.envoyproxy.io
@@ -587,7 +588,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: tigera-operator
-          image: quay.io/tigera/operator:v1.40.7
+          image: quay.io/tigera/operator:v1.40.8
           imagePullPolicy: IfNotPresent
           command:
             - operator
@@ -608,7 +609,7 @@ spec:
             - name: OPERATOR_NAME
               value: "tigera-operator"
             - name: TIGERA_OPERATOR_INIT_IMAGE_VERSION
-              value: v1.40.7
+              value: v1.40.8
           envFrom:
             - configMapRef:
                 name: kubernetes-services-endpoint

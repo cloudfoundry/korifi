@@ -14,16 +14,16 @@ directories:
       url: https://api.github.com/repos/cert-manager/cert-manager/releases/307870408
     path: cert-manager
   - git:
-      commitTitle: Set locale explicitly for consistent sorting
-      sha: 6d8c39b0ef01cdf92960e08f704c7198ffe42eac
+      commitTitle: Add release notes for v3.31.5
+      sha: 2e4da40144aac869e1ed2cc220b6c4b62f32efdd
       tags:
-      - v3.31.4
+      - v3.31.5
     path: calico
   - git:
-      commitTitle: Update Contour Docker image to v1.33.3....
-      sha: 33278ce35c125f8f2338910c983587ac667f95e8
+      commitTitle: Update Contour Docker image to v1.33.4....
+      sha: 6eb0dafc582ae5742301af846968c3a8e0cd4b52
       tags:
-      - v1.33.3
+      - v1.33.4
     path: contour
   - githubRelease:
       tag: v1.5.1
