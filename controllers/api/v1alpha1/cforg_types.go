@@ -22,6 +22,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -76,7 +77,10 @@ type CFOrgList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&CFOrg{}, &CFOrgList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(SchemeGroupVersion, &CFOrg{}, &CFOrgList{})
+		return nil
+	})
 }
 
 func (o CFOrg) UniqueName() string {

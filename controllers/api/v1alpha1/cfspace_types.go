@@ -22,6 +22,7 @@ import (
 
 	"code.cloudfoundry.org/korifi/controllers/api/v1alpha1/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -105,5 +106,8 @@ func (s *CFSpaceStatus) SetObservedGeneration(generation int64) {
 }
 
 func init() {
-	SchemeBuilder.Register(&CFSpace{}, &CFSpaceList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(SchemeGroupVersion, &CFSpace{}, &CFSpaceList{})
+		return nil
+	})
 }

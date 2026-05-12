@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // BuilderInfoSpec defines the desired state of BuilderInfo
@@ -80,5 +81,8 @@ type BuilderInfoList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&BuilderInfo{}, &BuilderInfoList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(SchemeGroupVersion, &BuilderInfo{}, &BuilderInfoList{})
+		return nil
+	})
 }

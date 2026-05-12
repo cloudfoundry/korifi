@@ -100,5 +100,8 @@ type CFServicePlanList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&CFServicePlan{}, &CFServicePlanList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(SchemeGroupVersion, &CFServicePlan{}, &CFServicePlanList{})
+		return nil
+	})
 }

@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -85,7 +86,10 @@ type CFTaskList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&CFTask{}, &CFTaskList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(SchemeGroupVersion, &CFTask{}, &CFTaskList{})
+		return nil
+	})
 }
 
 func (t *CFTask) StatusConditions() *[]metav1.Condition {

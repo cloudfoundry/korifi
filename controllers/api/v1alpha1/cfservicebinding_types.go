@@ -22,6 +22,7 @@ import (
 	"code.cloudfoundry.org/korifi/tools"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -127,5 +128,8 @@ func (b CFServiceBinding) UniqueValidationErrorMessage() string {
 }
 
 func init() {
-	SchemeBuilder.Register(&CFServiceBinding{}, &CFServiceBindingList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(SchemeGroupVersion, &CFServiceBinding{}, &CFServiceBindingList{})
+		return nil
+	})
 }

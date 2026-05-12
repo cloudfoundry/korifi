@@ -63,5 +63,8 @@ type CFServiceOfferingList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&CFServiceOffering{}, &CFServiceOfferingList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(SchemeGroupVersion, &CFServiceOffering{}, &CFServiceOfferingList{})
+		return nil
+	})
 }
