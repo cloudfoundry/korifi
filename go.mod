@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.57.2
 	github.com/blendle/zapdriver v1.3.1
-	github.com/buildpacks/pack v0.40.4
+	github.com/buildpacks/pack v0.40.6
 	github.com/cloudfoundry/cf-test-helpers v1.0.1-0.20220603211108-d498b915ef74
 	github.com/distribution/distribution/v3 v3.1.1
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
@@ -30,13 +30,13 @@ require (
 	github.com/jellydator/validation v1.2.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.2
 	github.com/mileusna/useragent v1.3.5
-	github.com/onsi/ginkgo/v2 v2.28.3
-	github.com/onsi/gomega v1.40.0
+	github.com/onsi/ginkgo/v2 v2.29.0
+	github.com/onsi/gomega v1.41.0
 	github.com/pivotal/kpack v0.17.1
 	github.com/satori/go.uuid v1.2.0
 	go.yaml.in/yaml/v2 v2.4.4
 	go.yaml.in/yaml/v3 v3.0.4
-	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93
+	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
 	golang.org/x/text v0.37.0
 	k8s.io/api v0.36.1
 	k8s.io/apimachinery v0.36.1
@@ -148,7 +148,7 @@ require (
 	github.com/containerd/stargz-snapshotter/estargz v0.18.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
-	github.com/docker/cli v29.4.1+incompatible // indirect
+	github.com/docker/cli v29.4.3+incompatible // indirect
 	github.com/docker/docker v28.5.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.5 // indirect
 	github.com/docker/go-events v0.0.0-20250808211157-605354379745 // indirect
@@ -204,7 +204,7 @@ require (
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.45.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260427160629-7cedc36a6bc4 // indirect
 	google.golang.org/grpc v1.80.0 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
