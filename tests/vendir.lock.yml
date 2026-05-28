@@ -20,10 +20,10 @@ directories:
       - v3.32.0
     path: calico
   - git:
-      commitTitle: Update Contour Docker image to v1.33.4....
-      sha: 6eb0dafc582ae5742301af846968c3a8e0cd4b52
+      commitTitle: Update Contour Docker image to v1.33.5....
+      sha: 2713ad0e0ebd5d192a53803cef4c1c3a69692b1c
       tags:
-      - v1.33.4
+      - v1.33.5
     path: contour
   - githubRelease:
       tag: v1.5.1
