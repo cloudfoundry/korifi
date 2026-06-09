@@ -763,7 +763,7 @@ var _ = Describe("CFServiceInstance", func() {
 		})
 	})
 
-	When("the service instance is being updated", func() {
+	Describe("service instance update", func() {
 		var servicePlan2 *korifiv1alpha1.CFServicePlan
 
 		BeforeEach(func() {
@@ -799,98 +799,43 @@ var _ = Describe("CFServiceInstance", func() {
 			}).Should(Succeed())
 
 			Expect(k8s.Patch(ctx, adminClient, instance, func() {
-				instance.Spec.PlanGUID = servicePlan2.Name
-			})).To(Succeed())
-		})
-
-		It("updates the PlanGUID status field", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-				g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-					HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-					HasStatus(Equal(metav1.ConditionTrue)),
-				)))
-				g.Expect(instance.Status.Provisioned).To(BeTrue())
-				g.Expect(instance.Status.PlanGUID).To(Equal(servicePlan2.Name))
-			}).Should(Succeed())
-		})
-
-		It("sends an update request to the broker", func() {
-			Eventually(func(g Gomega) {
-				g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
-				_, actualUpdatePayload := brokerClient.UpdateArgsForCall(brokerClient.UpdateCallCount() - 1)
-				g.Expect(actualUpdatePayload).To(Equal(osbapi.UpdatePayload{
-					InstanceID: instance.Name,
-					UpdateRequest: osbapi.UpdateRequest{
-						ServiceId: "service-offering-id",
-						PlanID:    "service-plan-id-2",
-					},
-				}))
-			}).Should(Succeed())
-		})
-
-		It("does not call the broker when only metadata changes", func() {
-			initialUpdateCallCount := brokerClient.UpdateCallCount()
-
-			Expect(k8s.Patch(ctx, adminClient, instance, func() {
 				if instance.ObjectMeta.Labels == nil {
 					instance.ObjectMeta.Labels = map[string]string{}
 				}
 				instance.ObjectMeta.Labels["test-label"] = "test-value"
 			})).To(Succeed())
+		})
 
+		It("does not perform broker update", func() {
 			Consistently(func(g Gomega) {
-				g.Expect(brokerClient.UpdateCallCount()).To(Equal(initialUpdateCallCount))
+				g.Expect(brokerClient.UpdateCallCount()).To(BeZero())
 			}).WithTimeout(2 * time.Second).Should(Succeed())
 		})
 
-		When("the new plan is not visible", func() {
-			BeforeEach(func() {
-				Expect(k8s.PatchResource(ctx, adminClient, servicePlan2, func() {
-					servicePlan2.Spec.Visibility = korifiv1alpha1.ServicePlanVisibility{
-						Type: korifiv1alpha1.AdminServicePlanVisibilityType,
-					}
+		When("the plan is updated", func() {
+			JustBeforeEach(func() {
+				Expect(k8s.Patch(ctx, adminClient, instance, func() {
+					instance.Spec.PlanGUID = servicePlan2.Name
 				})).To(Succeed())
 			})
 
-			It("fails the instance with InvalidServicePlan", func() {
+			It("updates the PlanGUID status field", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-						HasStatus(Equal(metav1.ConditionFalse)),
-						HasReason(Equal("InvalidServicePlan")),
-						HasMessage(Equal("The service plan is disabled")),
+						HasStatus(Equal(metav1.ConditionTrue)),
 					)))
+					g.Expect(instance.Status.Provisioned).To(BeTrue())
+					g.Expect(instance.Status.PlanGUID).To(Equal(servicePlan2.Name))
 				}).Should(Succeed())
 			})
 
-			It("does not send an update request to the broker", func() {
+			It("sends an update request to the broker", func() {
 				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-						HasStatus(Equal(metav1.ConditionFalse)),
-						HasReason(Equal("InvalidServicePlan")),
-					)))
-				}).Should(Succeed())
-
-				Consistently(func(g Gomega) {
-					g.Expect(brokerClient.UpdateCallCount()).To(BeZero())
-				}).WithTimeout(time.Second).Should(Succeed())
-			})
-		})
-
-		When("service update fails with recoverable error", func() {
-			BeforeEach(func() {
-				brokerClient.UpdateReturns(osbapi.UpdateResponse{}, errors.New("update-failed"))
-			})
-
-			It("keeps trying to update the instance", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">", 1))
-					_, updatePayload := brokerClient.UpdateArgsForCall(brokerClient.UpdateCallCount() - 1)
-					g.Expect(updatePayload).To(Equal(osbapi.UpdatePayload{
+					g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
+					_, actualUpdatePayload := brokerClient.UpdateArgsForCall(brokerClient.UpdateCallCount() - 1)
+					g.Expect(actualUpdatePayload).To(Equal(osbapi.UpdatePayload{
 						InstanceID: instance.Name,
 						UpdateRequest: osbapi.UpdateRequest{
 							ServiceId: "service-offering-id",
@@ -900,174 +845,95 @@ var _ = Describe("CFServiceInstance", func() {
 				}).Should(Succeed())
 			})
 
-			It("sets in progress state in instance last operation", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-					g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
-					g.Expect(instance.Status.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
-						Type:  "update",
-						State: "in progress",
-					}))
-				}).Should(Succeed())
-			})
-		})
-
-		When("service update fails with unrecoverable error", func() {
-			BeforeEach(func() {
-				brokerClient.UpdateReturns(osbapi.UpdateResponse{}, osbapi.UnrecoverableError{Status: http.StatusBadRequest})
-			})
-
-			It("fails the instance", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-
-					g.Expect(instance.Status.Conditions).To(ContainElements(
-						SatisfyAll(
-							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-							HasStatus(Equal(metav1.ConditionFalse)),
-						),
-						SatisfyAll(
-							HasType(Equal(korifiv1alpha1.UpdateFailedCondition)),
-							HasStatus(Equal(metav1.ConditionTrue)),
-							HasReason(Equal("UpdateFailed")),
-							HasMessage(ContainSubstring("The server responded with status: 400")),
-						),
-					))
-				}).Should(Succeed())
-			})
-
-			It("sets failed state in instance last operation", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-					g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
-					g.Expect(instance.Status.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
-						Type:  "update",
-						State: "failed",
-					}))
-				}).Should(Succeed())
-
-				currentCallCount := brokerClient.UpdateCallCount()
-				Consistently(func(g Gomega) {
-					g.Expect(brokerClient.UpdateCallCount()).To(Equal(currentCallCount))
-				}).WithTimeout(time.Second).Should(Succeed())
-			})
-		})
-
-		When("the update is asynchronous", func() {
-			BeforeEach(func() {
-				brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{
-					State: "in-progress-or-whatever",
-				}, nil)
-
-				brokerClient.UpdateReturns(osbapi.UpdateResponse{
-					IsAsync:   true,
-					Operation: "operation-1",
-				}, nil)
-			})
-
-			It("set sets ready condition to false", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-
-					g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-						HasStatus(Equal(metav1.ConditionFalse)),
-						HasReason(Equal("UpdateInProgress")),
-					)))
-				}).Should(Succeed())
-			})
-
-			It("sets in progress state in instance last operation", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-					g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
-					g.Expect(instance.Status.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
-						Type:  "update",
-						State: "in progress",
-					}))
-				}).Should(Succeed())
-			})
-
-			It("continuously checks the last operation", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 1))
-					_, lastOp := brokerClient.GetServiceInstanceLastOperationArgsForCall(brokerClient.GetServiceInstanceLastOperationCallCount() - 1)
-					g.Expect(lastOp).To(Equal(osbapi.GetInstanceLastOperationRequest{
-						InstanceID: instance.Name,
-						GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
-							ServiceId: "service-offering-id",
-							PlanID:    "service-plan-id-2",
-							Operation: "operation-1",
-						},
-					}))
-				}).Should(Succeed())
-			})
-
-			When("getting service last operation fails", func() {
+			When("the new plan is not visible", func() {
 				BeforeEach(func() {
-					brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{}, errors.New("get-last-op-failed"))
+					Expect(k8s.PatchResource(ctx, adminClient, servicePlan2, func() {
+						servicePlan2.Spec.Visibility = korifiv1alpha1.ServicePlanVisibility{
+							Type: korifiv1alpha1.AdminServicePlanVisibilityType,
+						}
+					})).To(Succeed())
 				})
 
-				It("sets the ready condition to false", func() {
+				It("fails the instance with InvalidServicePlan", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-
 						g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
 							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 							HasStatus(Equal(metav1.ConditionFalse)),
-						)))
-					}).Should(Succeed())
-				})
-			})
-
-			When("the last operation is succeeded", func() {
-				BeforeEach(func() {
-					brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{
-						State: "succeeded",
-					}, nil)
-				})
-
-				It("sets the ready condition to true", func() {
-					Eventually(func(g Gomega) {
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-
-						g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-							HasStatus(Equal(metav1.ConditionTrue)),
-						)))
-					}).Should(Succeed())
-				})
-			})
-
-			When("the last operation is failed", func() {
-				BeforeEach(func() {
-					brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{
-						State:       "failed",
-						Description: "update-failed",
-					}, nil)
-				})
-
-				It("sets the ready condition to false", func() {
-					Eventually(func(g Gomega) {
-						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
-
-						g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
-							HasStatus(Equal(metav1.ConditionFalse)),
+							HasReason(Equal("InvalidServicePlan")),
+							HasMessage(Equal("The service plan is disabled")),
 						)))
 					}).Should(Succeed())
 				})
 
-				It("sets the failed condition", func() {
+				It("does not send an update request to the broker", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+						g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+							HasStatus(Equal(metav1.ConditionFalse)),
+							HasReason(Equal("InvalidServicePlan")),
+						)))
+					}).Should(Succeed())
+
+					Consistently(func(g Gomega) {
+						g.Expect(brokerClient.UpdateCallCount()).To(BeZero())
+					}).WithTimeout(time.Second).Should(Succeed())
+				})
+			})
+
+			When("service update fails with recoverable error", func() {
+				BeforeEach(func() {
+					brokerClient.UpdateReturns(osbapi.UpdateResponse{}, errors.New("update-failed"))
+				})
+
+				It("keeps trying to update the instance", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">", 1))
+						_, updatePayload := brokerClient.UpdateArgsForCall(brokerClient.UpdateCallCount() - 1)
+						g.Expect(updatePayload).To(Equal(osbapi.UpdatePayload{
+							InstanceID: instance.Name,
+							UpdateRequest: osbapi.UpdateRequest{
+								ServiceId: "service-offering-id",
+								PlanID:    "service-plan-id-2",
+							},
+						}))
+					}).Should(Succeed())
+				})
+
+				It("sets in progress state in instance last operation", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+						g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
+						g.Expect(instance.Status.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
+							Type:  "update",
+							State: "in progress",
+						}))
+					}).Should(Succeed())
+				})
+			})
+
+			When("service update fails with unrecoverable error", func() {
+				BeforeEach(func() {
+					brokerClient.UpdateReturns(osbapi.UpdateResponse{}, osbapi.UnrecoverableError{Status: http.StatusBadRequest})
+				})
+
+				It("fails the instance", func() {
 					Eventually(func(g Gomega) {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 
-						g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
-							HasType(Equal(korifiv1alpha1.UpdateFailedCondition)),
-							HasStatus(Equal(metav1.ConditionTrue)),
-							HasReason(Equal("UpdateFailed")),
-							HasMessage(Equal("update-failed")),
-						)))
+						g.Expect(instance.Status.Conditions).To(ContainElements(
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+							),
+							SatisfyAll(
+								HasType(Equal(korifiv1alpha1.UpdateFailedCondition)),
+								HasStatus(Equal(metav1.ConditionTrue)),
+								HasReason(Equal("UpdateFailed")),
+								HasMessage(ContainSubstring("The server responded with status: 400")),
+							),
+						))
 					}).Should(Succeed())
 				})
 
@@ -1076,11 +942,146 @@ var _ = Describe("CFServiceInstance", func() {
 						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
 						g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
 						g.Expect(instance.Status.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
-							Type:        "update",
-							State:       "failed",
-							Description: "update-failed",
+							Type:  "update",
+							State: "failed",
 						}))
 					}).Should(Succeed())
+
+					Consistently(func(g Gomega) {
+						g.Expect(brokerClient.UpdateCallCount()).To(Equal(1))
+					}).WithTimeout(time.Second).Should(Succeed())
+				})
+			})
+
+			When("the update is asynchronous", func() {
+				BeforeEach(func() {
+					brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{
+						State: "in-progress-or-whatever",
+					}, nil)
+
+					brokerClient.UpdateReturns(osbapi.UpdateResponse{
+						IsAsync:   true,
+						Operation: "operation-1",
+					}, nil)
+				})
+
+				It("set sets ready condition to false", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+						g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+							HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+							HasStatus(Equal(metav1.ConditionFalse)),
+							HasReason(Equal("UpdateInProgress")),
+						)))
+					}).Should(Succeed())
+				})
+
+				It("sets in progress state in instance last operation", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+						g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
+						g.Expect(instance.Status.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
+							Type:  "update",
+							State: "in progress",
+						}))
+					}).Should(Succeed())
+				})
+
+				It("continuously checks the last operation", func() {
+					Eventually(func(g Gomega) {
+						g.Expect(brokerClient.GetServiceInstanceLastOperationCallCount()).To(BeNumerically(">", 1))
+						_, lastOp := brokerClient.GetServiceInstanceLastOperationArgsForCall(brokerClient.GetServiceInstanceLastOperationCallCount() - 1)
+						g.Expect(lastOp).To(Equal(osbapi.GetInstanceLastOperationRequest{
+							InstanceID: instance.Name,
+							GetLastOperationRequestParameters: osbapi.GetLastOperationRequestParameters{
+								ServiceId: "service-offering-id",
+								PlanID:    "service-plan-id-2",
+								Operation: "operation-1",
+							},
+						}))
+					}).Should(Succeed())
+				})
+
+				When("getting service last operation fails", func() {
+					BeforeEach(func() {
+						brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{}, errors.New("get-last-op-failed"))
+					})
+
+					It("sets the ready condition to false", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+							g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+							)))
+						}).Should(Succeed())
+					})
+				})
+
+				When("the last operation is succeeded", func() {
+					BeforeEach(func() {
+						brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{
+							State: "succeeded",
+						}, nil)
+					})
+
+					It("sets the ready condition to true", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+							g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionTrue)),
+							)))
+						}).Should(Succeed())
+					})
+				})
+
+				When("the last operation is failed", func() {
+					BeforeEach(func() {
+						brokerClient.GetServiceInstanceLastOperationReturns(osbapi.LastOperationResponse{
+							State:       "failed",
+							Description: "update-failed",
+						}, nil)
+					})
+
+					It("sets the ready condition to false", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+							g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+								HasType(Equal(korifiv1alpha1.StatusConditionReady)),
+								HasStatus(Equal(metav1.ConditionFalse)),
+							)))
+						}).Should(Succeed())
+					})
+
+					It("sets the failed condition", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+
+							g.Expect(instance.Status.Conditions).To(ContainElement(SatisfyAll(
+								HasType(Equal(korifiv1alpha1.UpdateFailedCondition)),
+								HasStatus(Equal(metav1.ConditionTrue)),
+								HasReason(Equal("UpdateFailed")),
+								HasMessage(Equal("update-failed")),
+							)))
+						}).Should(Succeed())
+					})
+
+					It("sets failed state in instance last operation", func() {
+						Eventually(func(g Gomega) {
+							g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(instance), instance)).To(Succeed())
+							g.Expect(brokerClient.UpdateCallCount()).To(BeNumerically(">=", 1))
+							g.Expect(instance.Status.LastOperation).To(Equal(korifiv1alpha1.LastOperation{
+								Type:        "update",
+								State:       "failed",
+								Description: "update-failed",
+							}))
+						}).Should(Succeed())
+					})
 				})
 			})
 		})

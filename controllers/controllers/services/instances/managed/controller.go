@@ -186,6 +186,10 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		return ctrl.Result{}, nil
 	}
 
+	if isUpdateFailed(serviceInstance) {
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UpdateFailed").WithNoRequeue()
+	}
+
 	return r.reconcileUpdatedServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
 }
 
@@ -618,6 +622,14 @@ func (r *Reconciler) getNamespace(ctx context.Context, namespaceName string) (*c
 		return nil, fmt.Errorf("failed to get namespace %q: %w", namespaceName, err)
 	}
 	return namespace, nil
+}
+
+func isUpdateFailed(instance *korifiv1alpha1.CFServiceInstance) bool {
+	cond := meta.FindStatusCondition(instance.Status.Conditions, korifiv1alpha1.UpdateFailedCondition)
+	if cond == nil {
+		return false
+	}
+	return cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == instance.Generation
 }
 
 func isProvisioningFailed(instance *korifiv1alpha1.CFServiceInstance) bool {
