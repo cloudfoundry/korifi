@@ -162,7 +162,7 @@ function deploy_korifi() {
 
       make generate manifests
 
-      export VERSION=$(git describe --tags --long | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}' | awk '{print substr($1,2)}')
+      export VERSION=$(git describe --tags --long 2>/dev/null || git rev-parse --short HEAD)
 
       cp -a helm/korifi/* "$chart_dir"
       values_file="$chart_dir/values.yaml"
