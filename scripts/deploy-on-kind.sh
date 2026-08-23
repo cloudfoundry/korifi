@@ -153,7 +153,7 @@ function deploy_korifi() {
   pushd "${ROOT_DIR}" >/dev/null
   {
 
-    local chart_dir values_file
+    # not local: the RETURN trap fires after locals are gone
     chart_dir="$(mktemp -d)"
     trap 'rm -rf "$chart_dir"' RETURN
 
