@@ -8,6 +8,11 @@ SCRIPT_DIR="${ROOT_DIR}/scripts"
 LOCAL_DOCKER_REGISTRY_ADDRESS="localregistry-docker-registry.default.svc.cluster.local:30050"
 CLUSTER_NAME=""
 
+# FQDN the CF API is reachable under. Feeds the Gateway https-api listener
+# hostname, the API's externalFQDN and the generated ingress certificate SAN.
+# Override to match your /etc/hosts entry, e.g. API_SERVER_FQDN=api.korifi.local
+API_SERVER_FQDN="${API_SERVER_FQDN:-localhost}"
+
 # workaround for https://github.com/carvel-dev/kbld/issues/213
 # kbld fails with git error messages in languages than other english
 export LC_ALL=en_US.UTF-8
@@ -218,7 +223,7 @@ function deploy_korifi() {
       --set=generateIngressCertificates="true" \
       --set=logLevel="debug" \
       --set=stagingRequirements.buildCacheMB="1024" \
-      --set=api.apiServer.url="localhost" \
+      --set=api.apiServer.url="${API_SERVER_FQDN}" \
       --set=controllers.taskTTL="5s" \
       --set=jobTaskRunner.jobTTL="5s" \
       --set=containerRepositoryPrefix="$REPOSITORY_PREFIX" \
