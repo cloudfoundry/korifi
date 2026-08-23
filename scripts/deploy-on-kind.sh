@@ -155,14 +155,16 @@ function deploy_korifi() {
 
     local chart_dir values_file
     chart_dir="$(mktemp -d)"
-    trap "rm -rf $chart_dir" RETURN
+    trap 'rm -rf "$chart_dir"' RETURN
 
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
       echo "Building korifi values file..."
 
       make generate manifests
 
-      export VERSION=$(git describe --tags --long 2>/dev/null || git rev-parse --short HEAD)
+      local version_raw
+      version_raw="$(git describe --tags --long 2>/dev/null || git rev-parse --short HEAD)"
+      export VERSION="$version_raw"
 
       cp -a helm/korifi/* "$chart_dir"
       values_file="$chart_dir/values.yaml"
