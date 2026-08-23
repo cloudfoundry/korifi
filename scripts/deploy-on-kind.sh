@@ -106,10 +106,32 @@ function ensure_local_registry() {
     --set persistence.deleteEnabled=true \
     --set secrets.htpasswd='user:$2y$05$Ue5dboOfmqk6Say31Sin9uVbHWTl8J1Sgq9QyAEmFQRnq1TPfP1n2'
 
+  verify_local_registry
+
   local registry_dir="/etc/containerd/certs.d/$LOCAL_DOCKER_REGISTRY_ADDRESS"
   cat <<EOF | docker exec -i "$CLUSTER_NAME-control-plane" sh -c "mkdir -p '$registry_dir' && cat >'$registry_dir/hosts.toml'"
 [host."http://127.0.0.1:30050"]
 EOF
+}
+
+# Fails fast if the local registry is not reachable or credentials do not match,
+# instead of surfacing much later as cryptic build/push failures (e.g. EOF, 401).
+function verify_local_registry() {
+  echo "Verifying local registry on ${LOCAL_DOCKER_REGISTRY_ADDRESS}..."
+
+  local attempts=30
+  until docker exec "$CLUSTER_NAME-control-plane" \
+    curl -fsS -o /dev/null -u user:password \
+    "http://127.0.0.1:30050/v2/"; do
+    attempts=$((attempts - 1))
+    if [[ $attempts -le 0 ]]; then
+      echo "Error: local registry ${LOCAL_DOCKER_REGISTRY_ADDRESS} not reachable or credentials invalid." >&2
+      exit 1
+    fi
+    sleep 2
+  done
+
+  echo "Local registry is up and accepting credentials."
 }
 
 function install_dependencies() {
