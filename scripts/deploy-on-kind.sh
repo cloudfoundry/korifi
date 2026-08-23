@@ -153,15 +153,16 @@ function deploy_korifi() {
   pushd "${ROOT_DIR}" >/dev/null
   {
 
+    local chart_dir values_file
+    chart_dir="$(mktemp -d)"
+    trap "rm -rf $chart_dir" RETURN
+
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
       echo "Building korifi values file..."
 
       make generate manifests
 
       export VERSION=$(git describe --tags --long | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}' | awk '{print substr($1,2)}')
-
-      chart_dir=$(mktemp -d)
-      trap "rm -rf $chart_dir" RETURN
 
       cp -a helm/korifi/* "$chart_dir"
       values_file="$chart_dir/values.yaml"
@@ -176,10 +177,14 @@ function deploy_korifi() {
       awk '/image:/ {print $2}' "$values_file" | while read -r img; do
         kind load docker-image --name "$CLUSTER_NAME" "$img"
       done
+    else
+      echo "Skipping docker build. Using helm/korifi chart as-is."
+      cp -a helm/korifi/* "$chart_dir"
+      values_file="$chart_dir/values.yaml"
     fi
 
     echo "Deploying korifi..."
-    helm dependency update helm/korifi
+    helm dependency update "$chart_dir"
 
     helm upgrade --install korifi "$chart_dir" \
       --namespace korifi \
