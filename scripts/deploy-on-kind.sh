@@ -311,6 +311,34 @@ EOF
   echo "'$API_SERVER_FQDN' resolves."
 }
 
+# End-to-end sanity check: is the CF API actually reachable through the
+# kind hostPort mapping (443 -> 32443) under the configured FQDN?
+function smoke_test_api() {
+  local api_fqdn="${API_SERVER_FQDN:-localhost}"
+  local api_port="${API_SERVER_PORT:-443}"
+
+  echo "Running API smoke test against https://${api_fqdn}:${api_port}/v3/info ..."
+  local attempts=30
+  until curl -fsS -k "https://${api_fqdn}:${api_port}/v3/info" >/dev/null; do
+    attempts=$((attempts - 1))
+    if [[ $attempts -le 0 ]]; then
+      cat >&2 <<EOF
+Error: CF API not reachable at https://${api_fqdn}:${api_port}
+Check:
+  - Gateway https-api listener hostname matches '${api_fqdn}'
+  - TLSRoute korifi-api exists and references the korifi Gateway
+  - kind extraPortMappings map host port ${api_port} to container port networking.gatewayPorts.https
+EOF
+      exit 1
+    fi
+    sleep 2
+  done
+
+  echo "Smoke test passed. Connect with:"
+  echo "  cf api https://${api_fqdn}:${api_port} --skip-ssl-validation"
+  echo "  cf auth cf-admin admin"
+}
+
 function main() {
   make -C "$ROOT_DIR" bin/yq
 
@@ -326,6 +354,7 @@ function main() {
   create_cluster_builder
   configure_contour
   verify_api_fqdn_resolution
+  smoke_test_api
 }
 
 main "$@"
