@@ -289,6 +289,28 @@ function allow_apps_egress() {
   kubectl apply -f "$SCRIPT_DIR/assets/calico-allow-apps-egress-policy.yaml"
 }
 
+# The CF API must resolve on the host, otherwise cf/curl fail with confusing
+# connection EOFs. Any NSS mechanism (/etc/hosts, dnsmasq, systemd-resolved)
+# counts; we only fail when nothing resolves the FQDN.
+function verify_api_fqdn_resolution() {
+  if [[ "$API_SERVER_FQDN" == "localhost" ]]; then
+    return
+  fi
+
+  if ! getent hosts "$API_SERVER_FQDN" >/dev/null; then
+    cat >&2 <<EOF
+Error: '$API_SERVER_FQDN' does not resolve on this machine.
+Add a hosts entry (or configure your local DNS resolver), e.g.:
+
+  echo "127.0.0.1 $API_SERVER_FQDN" | sudo tee -a /etc/hosts
+
+Then re-run this script.
+EOF
+    exit 1
+  fi
+  echo "'$API_SERVER_FQDN' resolves."
+}
+
 function main() {
   make -C "$ROOT_DIR" bin/yq
 
@@ -303,6 +325,7 @@ function main() {
   deploy_korifi
   create_cluster_builder
   configure_contour
+  verify_api_fqdn_resolution
 }
 
 main "$@"
