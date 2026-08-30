@@ -90,7 +90,14 @@ function validate_registry_params() {
 
 function ensure_kind_cluster() {
   if ! kind get clusters | grep -q "$CLUSTER_NAME"; then
-    kind create cluster --name "$CLUSTER_NAME" --wait 5m --config="$SCRIPT_DIR/assets/kind-config.yaml"
+    kind create cluster --name "$CLUSTER_NAME" --wait 0m --config="$SCRIPT_DIR/assets/kind-config.yaml"
+    # Wait for node to be ready manually
+    for i in {1..30}; do
+      if kubectl get nodes | grep -v NAME | grep -v NotReady >/dev/null; then
+        break
+      fi
+      sleep 10
+    done
   fi
 
   kind export kubeconfig --name "$CLUSTER_NAME"
