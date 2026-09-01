@@ -1,3 +1,6 @@
+**This repo has been archived - see [RFC-0060](https://github.com/cloudfoundry/community/blob/main/toc/rfc/rfc-0060-archive-cf-on-k8s-wg.md)**
+
+
 <h1 align="center" style="border: none">
   <img alt="Korifi" src="/logo/color/Korifi-logo-color.svg" width="50%" />
 </h1>
