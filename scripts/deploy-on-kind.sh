@@ -8,6 +8,11 @@ SCRIPT_DIR="${ROOT_DIR}/scripts"
 LOCAL_DOCKER_REGISTRY_ADDRESS="localregistry-docker-registry.default.svc.cluster.local:30050"
 CLUSTER_NAME=""
 
+# FQDN the CF API is reachable under. Feeds the Gateway https-api listener
+# hostname, the API's externalFQDN and the generated ingress certificate SAN.
+# Override to match your /etc/hosts entry, e.g. API_SERVER_FQDN=api.korifi.local
+API_SERVER_FQDN="${API_SERVER_FQDN:-localhost}"
+
 # workaround for https://github.com/carvel-dev/kbld/issues/213
 # kbld fails with git error messages in languages than other english
 export LC_ALL=en_US.UTF-8
@@ -85,7 +90,14 @@ function validate_registry_params() {
 
 function ensure_kind_cluster() {
   if ! kind get clusters | grep -q "$CLUSTER_NAME"; then
-    kind create cluster --name "$CLUSTER_NAME" --wait 5m --config="$SCRIPT_DIR/assets/kind-config.yaml"
+    kind create cluster --name "$CLUSTER_NAME" --wait 0m --config="$SCRIPT_DIR/assets/kind-config.yaml"
+    # Wait for node to be ready manually
+    for i in {1..30}; do
+      if kubectl get nodes | grep -v NAME | grep -v NotReady >/dev/null; then
+        break
+      fi
+      sleep 10
+    done
   fi
 
   kind export kubeconfig --name "$CLUSTER_NAME"
@@ -106,10 +118,32 @@ function ensure_local_registry() {
     --set persistence.deleteEnabled=true \
     --set secrets.htpasswd='user:$2y$05$Ue5dboOfmqk6Say31Sin9uVbHWTl8J1Sgq9QyAEmFQRnq1TPfP1n2'
 
+  verify_local_registry
+
   local registry_dir="/etc/containerd/certs.d/$LOCAL_DOCKER_REGISTRY_ADDRESS"
   cat <<EOF | docker exec -i "$CLUSTER_NAME-control-plane" sh -c "mkdir -p '$registry_dir' && cat >'$registry_dir/hosts.toml'"
 [host."http://127.0.0.1:30050"]
 EOF
+}
+
+# Fails fast if the local registry is not reachable or credentials do not match,
+# instead of surfacing much later as cryptic build/push failures (e.g. EOF, 401).
+function verify_local_registry() {
+  echo "Verifying local registry on ${LOCAL_DOCKER_REGISTRY_ADDRESS}..."
+
+  local attempts=30
+  until docker exec "$CLUSTER_NAME-control-plane" \
+    curl -fsS -o /dev/null -u user:password \
+    "http://127.0.0.1:30050/v2/"; do
+    attempts=$((attempts - 1))
+    if [[ $attempts -le 0 ]]; then
+      echo "Error: local registry ${LOCAL_DOCKER_REGISTRY_ADDRESS} not reachable or credentials invalid." >&2
+      exit 1
+    fi
+    sleep 2
+  done
+
+  echo "Local registry is up and accepting credentials."
 }
 
 function install_dependencies() {
@@ -153,15 +187,18 @@ function deploy_korifi() {
   pushd "${ROOT_DIR}" >/dev/null
   {
 
+    # not local: the RETURN trap fires after locals are gone
+    chart_dir="$(mktemp -d)"
+    trap 'rm -rf "$chart_dir"' RETURN
+
     if [[ -z "${SKIP_DOCKER_BUILD:-}" ]]; then
       echo "Building korifi values file..."
 
       make generate manifests
 
-      export VERSION=$(git describe --tags --long | awk -F'[.-]' '{$3++; print $1 "." $2 "." $3 "-" $4 "-" $5}' | awk '{print substr($1,2)}')
-
-      chart_dir=$(mktemp -d)
-      trap "rm -rf $chart_dir" RETURN
+      local version_raw
+      version_raw="$(git describe --tags --long 2>/dev/null || git rev-parse --short HEAD)"
+      export VERSION="$version_raw"
 
       cp -a helm/korifi/* "$chart_dir"
       values_file="$chart_dir/values.yaml"
@@ -176,10 +213,14 @@ function deploy_korifi() {
       awk '/image:/ {print $2}' "$values_file" | while read -r img; do
         kind load docker-image --name "$CLUSTER_NAME" "$img"
       done
+    else
+      echo "Skipping docker build. Using helm/korifi chart as-is."
+      cp -a helm/korifi/* "$chart_dir"
+      values_file="$chart_dir/values.yaml"
     fi
 
     echo "Deploying korifi..."
-    helm dependency update helm/korifi
+    helm dependency update "$chart_dir"
 
     helm upgrade --install korifi "$chart_dir" \
       --namespace korifi \
@@ -189,7 +230,7 @@ function deploy_korifi() {
       --set=generateIngressCertificates="true" \
       --set=logLevel="debug" \
       --set=stagingRequirements.buildCacheMB="1024" \
-      --set=api.apiServer.url="localhost" \
+      --set=api.apiServer.url="${API_SERVER_FQDN}" \
       --set=controllers.taskTTL="5s" \
       --set=jobTaskRunner.jobTTL="5s" \
       --set=containerRepositoryPrefix="$REPOSITORY_PREFIX" \
@@ -255,6 +296,56 @@ function allow_apps_egress() {
   kubectl apply -f "$SCRIPT_DIR/assets/calico-allow-apps-egress-policy.yaml"
 }
 
+# The CF API must resolve on the host, otherwise cf/curl fail with confusing
+# connection EOFs. Any NSS mechanism (/etc/hosts, dnsmasq, systemd-resolved)
+# counts; we only fail when nothing resolves the FQDN.
+function verify_api_fqdn_resolution() {
+  if [[ "$API_SERVER_FQDN" == "localhost" ]]; then
+    return
+  fi
+
+  if ! getent hosts "$API_SERVER_FQDN" >/dev/null; then
+    cat >&2 <<EOF
+Error: '$API_SERVER_FQDN' does not resolve on this machine.
+Add a hosts entry (or configure your local DNS resolver), e.g.:
+
+  echo "127.0.0.1 $API_SERVER_FQDN" | sudo tee -a /etc/hosts
+
+Then re-run this script.
+EOF
+    exit 1
+  fi
+  echo "'$API_SERVER_FQDN' resolves."
+}
+
+# End-to-end sanity check: is the CF API actually reachable through the
+# kind hostPort mapping (443 -> 32443) under the configured FQDN?
+function smoke_test_api() {
+  local api_fqdn="${API_SERVER_FQDN:-localhost}"
+  local api_port="${API_SERVER_PORT:-443}"
+
+  echo "Running API smoke test against https://${api_fqdn}:${api_port}/v3/info ..."
+  local attempts=30
+  until curl -fsS -k "https://${api_fqdn}:${api_port}/v3/info" >/dev/null; do
+    attempts=$((attempts - 1))
+    if [[ $attempts -le 0 ]]; then
+      cat >&2 <<EOF
+Error: CF API not reachable at https://${api_fqdn}:${api_port}
+Check:
+  - Gateway https-api listener hostname matches '${api_fqdn}'
+  - TLSRoute korifi-api exists and references the korifi Gateway
+  - kind extraPortMappings map host port ${api_port} to container port networking.gatewayPorts.https
+EOF
+      exit 1
+    fi
+    sleep 2
+  done
+
+  echo "Smoke test passed. Connect with:"
+  echo "  cf api https://${api_fqdn}:${api_port} --skip-ssl-validation"
+  echo "  cf auth cf-admin admin"
+}
+
 function main() {
   make -C "$ROOT_DIR" bin/yq
 
@@ -269,6 +360,8 @@ function main() {
   deploy_korifi
   create_cluster_builder
   configure_contour
+  verify_api_fqdn_resolution
+  smoke_test_api
 }
 
 main "$@"
