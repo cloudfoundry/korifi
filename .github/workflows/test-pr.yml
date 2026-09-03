@@ -2,8 +2,10 @@ name: Run Tests on PR
 
 on:
   pull_request:
+    # Stacked feature PRs target feat/* bases, not only main.
     branches:
     - main
+    - 'feat/**'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -136,6 +138,41 @@ jobs:
       - name: Run statefulset-runner tests
         run: make -C statefulset-runner test
 
+  knative-runner-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Detect knative-runner
+        id: knative
+        run: |
+          if [ -f knative-runner/Makefile ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No knative-runner on this branch; skipping."
+          fi
+
+      - uses: actions/cache@v5
+        if: steps.knative.outputs.run == 'true'
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - uses: actions/setup-go@v6
+        if: steps.knative.outputs.run == 'true'
+        with:
+          go-version: 'stable'
+
+      - name: Run knative-runner tests
+        if: steps.knative.outputs.run == 'true'
+        run: make -C knative-runner test
+
   tools-tests:
     runs-on: ubuntu-latest
 
@@ -179,3 +216,37 @@ jobs:
 
       - name: Run migration tests
         run: make -C migration test
+
+  deploy-tests:
+    runs-on: ubuntu-latest
+    # Present from the Pulumi deploy PR upward; skips cleanly on earlier stack PRs.
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Detect deploy packages
+        id: deploy
+        run: |
+          if [ -f deploy/lib/package.json ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No deploy/ packages on this branch; skipping."
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.deploy.outputs.run == 'true'
+        with:
+          bun-version: latest
+
+      - name: Install and test deploy packages
+        if: steps.deploy.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          for pkg in lib kind eks gke; do
+            if [ -f "deploy/${pkg}/package.json" ]; then
+              echo "::group::deploy/${pkg}"
+              (cd "deploy/${pkg}" && bun install --frozen-lockfile && bun test && bun run typecheck)
+              echo "::endgroup::"
+            fi
+          done
