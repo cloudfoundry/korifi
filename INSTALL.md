@@ -21,6 +21,8 @@ This document was tested on:
 -   [GKE](https://cloud.google.com/kubernetes-engine), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
 -   [kind](https://kind.sigs.k8s.io/): see [_Install Korifi on kind_](./INSTALL.kind.md).
 
+Pulumi/TypeScript installers that automate these guides live under [`deploy/`](./deploy) (`kind`, `eks`, `gke`), built from reusable components in [`deploy/lib`](./deploy/lib).
+
 On EKS, GKE, and kind, Korifi expects [Knative Serving](#knative-serving) as a dependency and installs with `knativeRunner.include=true` / `reconcilers.run=knative-runner` so CF apps land on Knative Services.
 ## Initial setup
 

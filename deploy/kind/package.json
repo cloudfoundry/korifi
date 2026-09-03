@@ -1,0 +1,21 @@
+{
+	"name": "@korifi/deploy-kind",
+	"private": true,
+	"main": "index.ts",
+	"scripts": {
+		"test": "bun test",
+		"typecheck": "bunx tsc --noEmit"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.4.0",
+		"@types/node": "^18",
+		"typescript": "^5.0.0"
+	},
+	"dependencies": {
+		"@korifi/deploy-lib": "file:../lib",
+		"@pulumi/command": "^1.2.1",
+		"@pulumi/kubernetes": "^4.34.0",
+		"@pulumi/pulumi": "^3.113.0",
+		"@pulumi/random": "^4.21.1"
+	}
+}

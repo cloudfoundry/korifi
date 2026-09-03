@@ -1,0 +1,18 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 32080
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 32443
+    hostPort: 443
+    protocol: TCP
+  - containerPort: 30050
+    hostPort: 30050
+    protocol: TCP

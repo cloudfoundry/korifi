@@ -5,6 +5,8 @@
 
 This document integrates our [install instructions](./INSTALL.md) with specific tips to install Korifi on [Amazon EKS](https://aws.amazon.com/eks/) using [ECR](https://aws.amazon.com/ecr/).
 
+For a Pulumi/TypeScript equivalent of these steps, see [`deploy/eks`](./deploy/eks).
+
 ## Prerequisites
 
 On top of the [common prerequisites](./INSTALL.md#prerequisites), you will need:

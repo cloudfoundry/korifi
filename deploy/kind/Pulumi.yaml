@@ -1,0 +1,10 @@
+name: korifi-kind
+description: "Install Korifi on kind (INSTALL.kind.md) via Pulumi"
+runtime:
+  name: nodejs
+  options:
+    packagemanager: bun
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: typescript

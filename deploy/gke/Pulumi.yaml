@@ -1,0 +1,10 @@
+name: korifi-gke
+description: "Install Korifi on GKE with Artifact Registry (INSTALL.md) via Pulumi"
+runtime:
+  name: nodejs
+  options:
+    packagemanager: bun
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: typescript

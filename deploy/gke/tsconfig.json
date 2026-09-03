@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"strict": true,
+		"skipLibCheck": true,
+		"types": ["node", "bun"],
+		"outDir": "bin",
+		"target": "es2020",
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"sourceMap": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitReturns": true,
+		"forceConsistentCasingInFileNames": true
+	},
+	"files": ["index.ts", "cluster.ts", "config.ts", "artifact-registry.ts"]
+}

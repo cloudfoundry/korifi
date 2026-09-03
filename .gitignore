@@ -7,3 +7,5 @@
 tests/assets/dorifi/dorifi
 tests/assets/multi-process/dorifi
 tests/assets/sample-broker/sample-broker
+deploy/**/node_modules/
+deploy/**/bin/

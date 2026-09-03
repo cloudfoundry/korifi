@@ -1,0 +1,10 @@
+name: korifi-eks
+description: "Install Korifi on Amazon EKS (INSTALL.EKS.md) via Pulumi"
+runtime:
+  name: nodejs
+  options:
+    packagemanager: bun
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: typescript

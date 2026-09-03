@@ -7,6 +7,8 @@ In order to install korifi on kind effortlessly we have prepared an installation
 
 The installer also provisions Knative Serving (Kourier as ClusterIP) and configures Korifi with `reconcilers.run=knative-runner`, so CF apps land on Knative Services without a separate Knative install step.
 
+For a Pulumi/TypeScript equivalent of these steps, see [`deploy/kind`](./deploy/kind).
+
 > **Warning**
 > The installer will deploy korifi with experimental features. To find out more please check out the `experimental` section of korifi's helm [values](./helm/korifi/values.yaml) file.
 
