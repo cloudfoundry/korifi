@@ -386,6 +386,65 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 			})
 		})
 
+		When("a Knative public Service exists for the destination", func() {
+			var knativePublicSvc *corev1.Service
+
+			JustBeforeEach(func() {
+				// Wait until the route has created the usual selector Service first.
+				Eventually(func(g Gomega) {
+					g.Expect(adminClient.Get(ctx, client.ObjectKeyFromObject(cfRoute), cfRoute)).To(Succeed())
+					g.Expect(cfRoute.Status.Destinations).NotTo(BeEmpty())
+				}).Should(Succeed())
+
+				knativePublicSvc = &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kw-test-revision-public",
+						Namespace: ns.Name,
+						Labels: map[string]string{
+							korifiv1alpha1.CFAppGUIDLabelKey:              cfApp.Name,
+							korifiv1alpha1.CFProcessTypeLabelKey:          "web",
+							"networking.internal.knative.dev/serviceType": "Public",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 80}},
+					},
+				}
+				Expect(adminClient.Create(ctx, knativePublicSvc)).To(Succeed())
+			})
+
+			It("points the HTTPRoute at the Knative public Service with a Host rewrite", func() {
+				Eventually(func(g Gomega) {
+					httpRoute := getHTTPRoute()
+					g.Expect(httpRoute.Spec.Rules).To(HaveLen(1))
+					g.Expect(httpRoute.Spec.Rules[0].BackendRefs).To(HaveLen(1))
+					ref := httpRoute.Spec.Rules[0].BackendRefs[0]
+					g.Expect(ref.BackendRef.BackendObjectReference).To(Equal(gatewayv1beta1.BackendObjectReference{
+						Group: tools.PtrTo(gatewayv1beta1.Group("")),
+						Kind:  tools.PtrTo(gatewayv1beta1.Kind("Service")),
+						Name:  gatewayv1beta1.ObjectName(knativePublicSvc.Name),
+						Port:  tools.PtrTo(gatewayv1beta1.PortNumber(80)),
+					}))
+					g.Expect(ref.Filters).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+						"Type": Equal(gatewayv1.HTTPRouteFilterURLRewrite),
+						"URLRewrite": PointTo(MatchFields(IgnoreExtras, Fields{
+							"Hostname": PointTo(Equal(gatewayv1beta1.PreciseHostname(
+								fmt.Sprintf("%s.%s.svc.cluster.local", knativePublicSvc.Name, ns.Name),
+							))),
+						})),
+					})))
+				}).Should(Succeed())
+			})
+
+			It("deletes the pod-selector Service", func() {
+				serviceName := fmt.Sprintf("s-%s", cfRoute.Spec.Destinations[0].GUID)
+				Eventually(func(g Gomega) {
+					err := adminClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: ns.Name}, &corev1.Service{})
+					g.Expect(errors.IsNotFound(err)).To(BeTrue())
+				}).Should(Succeed())
+			})
+		})
+
 		When("the destinations are deleted from the route", func() {
 			var (
 				httpRoute   *gatewayv1beta1.HTTPRoute

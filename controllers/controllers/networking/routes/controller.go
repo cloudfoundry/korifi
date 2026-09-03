@@ -19,6 +19,7 @@ package routes
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,6 +43,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+)
+
+// Knative ServerlessService public ClusterIP (activator when scaled to zero).
+// Labeled on the corev1.Service — no serving.knative.dev CRD dependency here.
+const (
+	knativeServiceTypeLabel  = "networking.internal.knative.dev/serviceType"
+	knativeServiceTypePublic = "Public"
 )
 
 type Reconciler struct {
@@ -66,23 +75,44 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) *builder.Builder {
 		Watches(
 			&korifiv1alpha1.CFApp{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueCFAppRequests),
+		).
+		Watches(
+			&corev1.Service{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueKnativePublicServiceRequests),
 		)
 }
 
 func (r *Reconciler) enqueueCFAppRequests(ctx context.Context, o client.Object) []reconcile.Request {
-	var requests []reconcile.Request
-
 	cfApp, ok := o.(*korifiv1alpha1.CFApp)
 	if !ok {
 		return []reconcile.Request{}
 	}
 
+	return r.requestsForAppGUID(ctx, cfApp.Namespace, cfApp.Name)
+}
+
+// enqueueKnativePublicServiceRequests re-binds CF routes when a Knative SKS
+// public Service appears or its revision name changes (scale-to-zero path).
+func (r *Reconciler) enqueueKnativePublicServiceRequests(ctx context.Context, o client.Object) []reconcile.Request {
+	if o.GetLabels()[knativeServiceTypeLabel] != knativeServiceTypePublic {
+		return nil
+	}
+	appGUID := o.GetLabels()[korifiv1alpha1.CFAppGUIDLabelKey]
+	if appGUID == "" {
+		return nil
+	}
+	return r.requestsForAppGUID(ctx, o.GetNamespace(), appGUID)
+}
+
+func (r *Reconciler) requestsForAppGUID(ctx context.Context, namespace, appGUID string) []reconcile.Request {
+	var requests []reconcile.Request
+
 	var appRoutes korifiv1alpha1.CFRouteList
 	err := r.client.List(
 		ctx,
 		&appRoutes,
-		client.InNamespace(cfApp.Namespace),
-		client.MatchingFields{shared.IndexRouteDestinationAppName: cfApp.Name},
+		client.InNamespace(namespace),
+		client.MatchingFields{shared.IndexRouteDestinationAppName: appGUID},
 	)
 	if err != nil {
 		return []reconcile.Request{}
@@ -182,6 +212,23 @@ func (r *Reconciler) createOrPatchServices(ctx context.Context, cfRoute *korifiv
 		loopLog := log.WithValues("processType", destination.ProcessType, "appRef", destination.AppRef.Name, "serviceName", serviceName)
 
 		if destination.Port == nil {
+			continue
+		}
+
+		// Knative apps: Contour must target the SKS public ClusterIP (activator),
+		// not a pod-selector Service. Drop any leftover selector Service.
+		knativeSvc, err := r.findKnativePublicService(ctx, cfRoute.Namespace, destination.AppRef.Name, destination.ProcessType)
+		if err != nil {
+			return err
+		}
+		if knativeSvc != nil {
+			existing := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: cfRoute.Namespace},
+			}
+			if delErr := r.client.Delete(ctx, existing); delErr != nil && !apierrors.IsNotFound(delErr) {
+				loopLog.Info("failed to delete pod-selector Service for knative destination", "reason", delErr)
+				return delErr
+			}
 			continue
 		}
 
@@ -307,6 +354,11 @@ func (r *Reconciler) reconcileHTTPRoute(ctx context.Context, cfRoute *korifiv1al
 		return nil
 	}
 
+	backendRefs, err := r.toBackendRefs(ctx, cfRoute)
+	if err != nil {
+		return err
+	}
+
 	result, err := controllerutil.CreateOrPatch(ctx, r.client, httpRoute, func() error {
 		httpRoute.Spec.ParentRefs = []gatewayv1beta1.ParentReference{{
 			Group:     tools.PtrTo(gatewayv1beta1.Group("gateway.networking.k8s.io")),
@@ -320,7 +372,7 @@ func (r *Reconciler) reconcileHTTPRoute(ctx context.Context, cfRoute *korifiv1al
 		}
 
 		httpRoute.Spec.Rules = []gatewayv1beta1.HTTPRouteRule{{
-			BackendRefs: toBackendRefs(cfRoute.Status.Destinations),
+			BackendRefs: backendRefs,
 		}}
 		if cfRoute.Spec.Path != "" {
 			httpRoute.Spec.Rules[0].Matches = []gatewayv1beta1.HTTPRouteMatch{{
@@ -405,10 +457,63 @@ func buildFQDN(cfRoute *korifiv1alpha1.CFRoute, cfDomain *korifiv1alpha1.CFDomai
 	return fmt.Sprintf("%s.%s", strings.ToLower(cfRoute.Spec.Host), cfDomain.Spec.Name)
 }
 
-func toBackendRefs(destinations []korifiv1alpha1.Destination) []gatewayv1beta1.HTTPBackendRef {
+func (r *Reconciler) findKnativePublicService(ctx context.Context, namespace, appGUID, processType string) (*corev1.Service, error) {
+	svcList := &corev1.ServiceList{}
+	err := r.client.List(ctx, svcList, client.InNamespace(namespace), client.MatchingLabels{
+		korifiv1alpha1.CFAppGUIDLabelKey:     appGUID,
+		korifiv1alpha1.CFProcessTypeLabelKey: processType,
+		knativeServiceTypeLabel:              knativeServiceTypePublic,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(svcList.Items) == 0 {
+		return nil, nil
+	}
+
+	// Prefer the newest public Service when a revision rolls.
+	services := svcList.Items
+	slices.SortFunc(services, func(a, b corev1.Service) int {
+		return b.CreationTimestamp.Compare(a.CreationTimestamp.Time)
+	})
+	return &services[0], nil
+}
+
+func (r *Reconciler) toBackendRefs(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) ([]gatewayv1beta1.HTTPBackendRef, error) {
 	backendRefs := []gatewayv1beta1.HTTPBackendRef{}
 
-	for _, destination := range destinations {
+	for _, destination := range cfRoute.Status.Destinations {
+		if destination.Port == nil {
+			continue
+		}
+
+		knativeSvc, err := r.findKnativePublicService(ctx, cfRoute.Namespace, destination.AppRef.Name, destination.ProcessType)
+		if err != nil {
+			return nil, err
+		}
+
+		if knativeSvc != nil {
+			// Activator selects the revision from Host; Contour must rewrite away
+			// from the CF route hostname to the revision ClusterIP DNS name.
+			hostRewrite := fmt.Sprintf("%s.%s.svc.cluster.local", knativeSvc.Name, knativeSvc.Namespace)
+			backendRefs = append(backendRefs, gatewayv1beta1.HTTPBackendRef{
+				BackendRef: gatewayv1beta1.BackendRef{
+					BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+						Kind: tools.PtrTo(gatewayv1beta1.Kind("Service")),
+						Name: gatewayv1beta1.ObjectName(knativeSvc.Name),
+						Port: tools.PtrTo(gatewayv1beta1.PortNumber(80)),
+					},
+				},
+				Filters: []gatewayv1beta1.HTTPRouteFilter{{
+					Type: gatewayv1.HTTPRouteFilterURLRewrite,
+					URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
+						Hostname: tools.PtrTo(gatewayv1beta1.PreciseHostname(hostRewrite)),
+					},
+				}},
+			})
+			continue
+		}
+
 		backendRefs = append(backendRefs, gatewayv1beta1.HTTPBackendRef{
 			BackendRef: gatewayv1beta1.BackendRef{
 				BackendObjectReference: gatewayv1beta1.BackendObjectReference{
@@ -420,5 +525,5 @@ func toBackendRefs(destinations []korifiv1alpha1.Destination) []gatewayv1beta1.H
 		})
 	}
 
-	return backendRefs
+	return backendRefs, nil
 }

@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -99,10 +100,28 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 		}
 	}
 
+	// Stable order so synthetic indexes for knative (no StatefulSet ordinals) are
+	// deterministic across calls.
+	sort.SliceStable(metrics, func(i, j int) bool {
+		ti := metrics[i].Pod.CreationTimestamp.Time
+		tj := metrics[j].Pod.CreationTimestamp.Time
+		if !ti.Equal(tj) {
+			return ti.Before(tj)
+		}
+		return metrics[i].Pod.Name < metrics[j].Pod.Name
+	})
+
+	assigned := map[int]bool{}
+	nextSynthetic := 0
 	for _, m := range metrics {
 		index, err := extractIndex(m.Pod)
-		if err != nil {
-			return nil, err
+		if err != nil || assigned[index] {
+			// Missing/duplicate indexes (typical for knative-runner): assign 0..n-1.
+			for assigned[nextSynthetic] {
+				nextSynthetic++
+			}
+			index = nextSynthetic
+			nextSynthetic++
 		}
 
 		podState := getPodState(m.Pod)
@@ -113,6 +132,7 @@ func (a *ProcessStats) FetchStats(ctx context.Context, authInfo authorization.In
 		if index >= len(records) {
 			continue
 		}
+		assigned[index] = true
 
 		records[index].State = podState
 

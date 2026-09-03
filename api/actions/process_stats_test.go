@@ -207,8 +207,12 @@ var _ = Describe("ProcessStats", func() {
 				delete(podMetrics[0].Pod.ObjectMeta.Labels, korifiv1alpha1.PodIndexLabelKey)
 			})
 
-			It("returns an error", func() {
-				Expect(responseErr).To(MatchError(ContainSubstring("label not found")))
+			It("assigns a synthetic index", func() {
+				Expect(responseErr).NotTo(HaveOccurred())
+				Expect(responseRecords).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"Index": Equal(0), "State": Equal("RUNNING")}),
+					MatchFields(IgnoreExtras, Fields{"Index": Equal(1), "State": Equal("RUNNING")}),
+				))
 			})
 		})
 
@@ -217,8 +221,12 @@ var _ = Describe("ProcessStats", func() {
 				podMetrics[0].Pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey] = "one"
 			})
 
-			It("returns an error", func() {
-				Expect(responseErr).To(MatchError(ContainSubstring(`parsing "one"`)))
+			It("assigns a synthetic index", func() {
+				Expect(responseErr).NotTo(HaveOccurred())
+				Expect(responseRecords).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"Index": Equal(0), "State": Equal("RUNNING")}),
+					MatchFields(IgnoreExtras, Fields{"Index": Equal(1), "State": Equal("RUNNING")}),
+				))
 			})
 		})
 
@@ -227,8 +235,29 @@ var _ = Describe("ProcessStats", func() {
 				podMetrics[0].Pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey] = "-1"
 			})
 
-			It("returns an error", func() {
-				Expect(responseErr).To(MatchError(ContainSubstring("indexes can't be negative")))
+			It("assigns a synthetic index", func() {
+				Expect(responseErr).NotTo(HaveOccurred())
+				Expect(responseRecords).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"Index": Equal(0), "State": Equal("RUNNING")}),
+					MatchFields(IgnoreExtras, Fields{"Index": Equal(1), "State": Equal("RUNNING")}),
+				))
+			})
+		})
+
+		When("multiple pods share the same pod-index (knative-runner)", func() {
+			BeforeEach(func() {
+				podMetrics[0].Pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey] = "0"
+				podMetrics[1].Pod.ObjectMeta.Labels[korifiv1alpha1.PodIndexLabelKey] = "0"
+				podMetrics[0].Pod.CreationTimestamp = metav1.NewTime(time.UnixMilli(1000).UTC())
+				podMetrics[1].Pod.CreationTimestamp = metav1.NewTime(time.UnixMilli(2000).UTC())
+			})
+
+			It("assigns distinct synthetic indexes in creation order", func() {
+				Expect(responseErr).NotTo(HaveOccurred())
+				Expect(responseRecords).To(ConsistOf(
+					MatchFields(IgnoreExtras, Fields{"Index": Equal(0), "State": Equal("RUNNING")}),
+					MatchFields(IgnoreExtras, Fields{"Index": Equal(1), "State": Equal("RUNNING")}),
+				))
 			})
 		})
 

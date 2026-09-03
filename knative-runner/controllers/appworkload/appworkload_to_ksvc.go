@@ -47,10 +47,10 @@ const (
 
 // Env vars Knative injects / reserves — must not appear in the container env.
 var knativeReservedEnv = map[string]struct{}{
-	"PORT":           {},
-	"K_REVISION":     {},
+	"PORT":            {},
+	"K_REVISION":      {},
 	"K_CONFIGURATION": {},
-	"K_SERVICE":      {},
+	"K_SERVICE":       {},
 }
 
 type AppWorkloadToKnativeServiceConverter struct {
@@ -122,25 +122,25 @@ func (r *AppWorkloadToKnativeServiceConverter) Convert(appWorkload *korifiv1alph
 	}
 
 	labels := map[string]string{
-		controllers.LabelGUID:            appWorkload.Spec.GUID,
-		LabelProcessType:                 appWorkload.Spec.ProcessType,
-		LabelVersion:                     appWorkload.Spec.Version,
-		LabelAppGUID:                     appWorkload.Spec.AppGUID,
-		LabelAppWorkloadGUID:             appWorkload.Name,
+		controllers.LabelGUID: appWorkload.Spec.GUID,
+		LabelProcessType:      appWorkload.Spec.ProcessType,
+		LabelVersion:          appWorkload.Spec.Version,
+		LabelAppGUID:          appWorkload.Spec.AppGUID,
+		LabelAppWorkloadGUID:  appWorkload.Name,
 		// Korifi's log-cache/process stats look up instance index via this
 		// StatefulSet-standard label. Knative pods don't get it automatically.
 		"apps.kubernetes.io/pod-index": "0",
 	}
 
 	instances := max(appWorkload.Spec.Instances, 0)
-	// Match CF desired instances for min-scale so Contour→pod routes stay up while
-	// the app is started. (Scale-from-zero via CF routes needs the route reconciler
-	// to target the Knative activator; Contour currently selects pods by label.)
+	// CF "instances" is max capacity on Knative. min-scale stays 0 so idle apps
+	// scale to zero; CF routes reach the activator via the Knative public Service
+	// (see routes reconciler), which wakes a revision on the next request.
 	templateAnnotations := map[string]string{
 		AnnotationAppID:       appWorkload.Spec.AppGUID,
 		AnnotationVersion:     appWorkload.Spec.Version,
 		AnnotationProcessGUID: fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, appWorkload.Spec.Version),
-		AnnotationMinScale:    strconv.FormatInt(int64(instances), 10),
+		AnnotationMinScale:    "0",
 		AnnotationMaxScale:    strconv.FormatInt(int64(max(instances, 1)), 10),
 	}
 
