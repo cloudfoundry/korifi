@@ -230,7 +230,7 @@ The droplets and package repositories will be created on demand by Korifi, on a 
 
 ## Dependencies
 
-Follow the [common instructions](./INSTALL.md#dependencies).
+Follow the [common instructions](./INSTALL.md#dependencies), including [Knative Serving](./INSTALL.md#knative-serving) (Operator + Kourier ClusterIP `KnativeServing` with domain `apps.${BASE_DOMAIN}`).
 
 After installing the [Kpack dependency](INSTALL.md#kpack), run the following commands to associate the controller service account with the ECR access role:
 
@@ -266,6 +266,8 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
   --set=eksContainerRegistryRoleARN="${ECR_ROLE_ARN}" \
   --set=kpackImageBuilder.builderRepository="${KPACK_BUILDER_REPO}" \
   --set=networking.gatewayClassName="${GATEWAY_CLASS_NAME}" \
+  --set=knativeRunner.include=true \
+  --set=reconcilers.run=knative-runner \
   --wait
 ```
 

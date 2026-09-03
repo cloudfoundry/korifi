@@ -1,5 +1,7 @@
 # Applied by scripts/install-dependencies.sh after the Knative Operator.
-# Kourier is ClusterIP so Contour keeps host :80/:443 on Kind.
+# Kourier is ClusterIP so Contour keeps host :80/:443 (and any cloud LB).
+# __KNATIVE_DOMAIN__ is replaced at apply time (default: apps-127-0-0-1.nip.io for Kind).
+# For EKS/GKE set KNATIVE_DOMAIN=apps.$BASE_DOMAIN to match defaultAppDomainName.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -20,4 +22,4 @@ spec:
     network:
       ingress-class: kourier.ingress.networking.knative.dev
     domain:
-      apps-127-0-0-1.nip.io: ""
+      __KNATIVE_DOMAIN__: ""

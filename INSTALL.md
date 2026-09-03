@@ -21,6 +21,7 @@ This document was tested on:
 -   [GKE](https://cloud.google.com/kubernetes-engine), using GCP's [Artifact Registry](https://cloud.google.com/artifact-registry);
 -   [kind](https://kind.sigs.k8s.io/): see [_Install Korifi on kind_](./INSTALL.kind.md).
 
+On EKS, GKE, and kind, Korifi expects [Knative Serving](#knative-serving) as a dependency and installs with `knativeRunner.include=true` / `reconcilers.run=knative-runner` so CF apps land on Knative Services.
 ## Initial setup
 
 The following environment variables will be needed throughout this guide:
@@ -100,6 +101,45 @@ Follow the dynamic provisioning [instructions](https://projectcontour.io/docs/1.
 
 We use the [Kubernetes Metrics Server](https://github.com/kubernetes-sigs/metrics-server) to implement [process stats](https://v3-apidocs.cloudfoundry.org/#get-stats-for-a-process).
 Most Kubernetes distributions will come with `metrics-server` already installed. If yours does not, you should follow the [instructions](https://github.com/kubernetes-sigs/metrics-server#installation) to install it.
+
+### Knative Serving
+
+Korifi runs CF apps on [Knative Services](https://knative.dev/docs/serving/) via the `knative-runner`. Contour remains the north-south ingress; Knative (with Kourier as ClusterIP) is the scale-to-zero runtime under CF routes.
+
+1. Install the [Knative Operator](https://knative.dev/docs/install/operator/knative-with-operators/) (for example the [`operator.yaml`](https://github.com/knative/operator/releases) from a Knative Operator release).
+2. Apply a `KnativeServing` CR that enables Kourier as ClusterIP and registers your app domain. Replace `apps.$BASE_DOMAIN` with the same value you will pass to `defaultAppDomainName` when installing Korifi:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: knative-serving
+---
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: knative-serving
+spec:
+  version: "1.23.0"
+  ingress:
+    kourier:
+      enabled: true
+      service-type: ClusterIP
+  config:
+    network:
+      ingress-class: kourier.ingress.networking.knative.dev
+    domain:
+      apps.$BASE_DOMAIN: ""
+EOF
+
+kubectl wait --for=condition=Ready knativeserving.operator.knative.dev/knative-serving \
+  -n knative-serving --timeout=15m
+```
+
+> **Note**
+> Kourier must be `ClusterIP` so it does not compete with Contour for host ports `:80`/`:443` (or for a cloud load balancer).
 
 ## Pre-install configuration
 
@@ -212,6 +252,8 @@ helm install korifi https://github.com/cloudfoundry/korifi/releases/download/v<V
     --set=kpackImageBuilder.builderRepository=europe-docker.pkg.dev/my-project/korifi/kpack-builder \
     --set=networking.gatewayClass=$GATEWAY_CLASS_NAME \
     --set=networking.gatewayNamespace=$KORIFI_GATEWAY_NAMESPACE \
+    --set=knativeRunner.include=true \
+    --set=reconcilers.run=knative-runner \
     --wait
 ```
 
