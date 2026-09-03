@@ -35,6 +35,8 @@ var knativeServiceGVK = schema.GroupVersionKind{
 	Kind:    "Service",
 }
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+//counterfeiter:generate -o ./fake -fake-name WorkloadToKnativeServiceConverter . WorkloadToKnativeServiceConverter
 type WorkloadToKnativeServiceConverter interface {
 	Convert(appWorkload *korifiv1alpha1.AppWorkload) (*unstructured.Unstructured, error)
 }
