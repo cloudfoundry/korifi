@@ -68,6 +68,8 @@ import (
 	jobtaskrunnercontrollers "code.cloudfoundry.org/korifi/job-task-runner/controllers"
 	"code.cloudfoundry.org/korifi/kpack-image-builder/controllers"
 	kpackimagebuilder_finalizer "code.cloudfoundry.org/korifi/kpack-image-builder/controllers/webhooks/finalizer"
+	knativeappworkload "code.cloudfoundry.org/korifi/knative-runner/controllers/appworkload"
+	knativerunnerinfo "code.cloudfoundry.org/korifi/knative-runner/controllers/runnerinfo"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/runnerinfo"
@@ -412,6 +414,27 @@ func main() {
 				controllersLog,
 			).SetupWithManager(mgr); err != nil {
 				setupLog.Error(err, "unable to create controller", "controller", "RunnerInfo")
+				os.Exit(1)
+			}
+
+			// Knative runner is compiled into the same binary and selected via
+			// reconcilers.run / AppWorkload.Spec.RunnerName == "knative-runner".
+			if err = knativeappworkload.NewAppWorkloadReconciler(
+				controllersClient,
+				mgr.GetScheme(),
+				knativeappworkload.NewAppWorkloadToKnativeServiceConverter(mgr.GetScheme()),
+				controllersLog.WithName("knative-runner").WithName("AppWorkload"),
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "KnativeAppWorkload")
+				os.Exit(1)
+			}
+
+			if err = knativerunnerinfo.NewRunnerInfoReconciler(
+				controllersClient,
+				mgr.GetScheme(),
+				controllersLog.WithName("knative-runner").WithName("RunnerInfo"),
+			).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "KnativeRunnerInfo")
 				os.Exit(1)
 			}
 		}

@@ -14,6 +14,7 @@ COPY controllers controllers
 COPY kpack-image-builder kpack-image-builder
 COPY job-task-runner job-task-runner
 COPY statefulset-runner statefulset-runner
+COPY knative-runner knative-runner
 COPY tools tools
 COPY version version
 

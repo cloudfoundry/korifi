@@ -159,6 +159,13 @@ func filterAppWorkloads(object client.Object) bool {
 func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorkload *korifiv1alpha1.AppWorkload) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
+	// Pod/StatefulSet watches bypass filterAppWorkloads (it only inspects AppWorkload
+	// objects). Without this guard, a knative-runner workload's pods re-enter this
+	// reconciler and it creates a competing StatefulSet.
+	if appWorkload.Spec.RunnerName != controllers.AppWorkloadReconcilerName {
+		return ctrl.Result{}, nil
+	}
+
 	appWorkload.Status.ObservedGeneration = appWorkload.Generation
 	log.V(1).Info("set observed generation", "generation", appWorkload.Status.ObservedGeneration)
 
