@@ -197,6 +197,8 @@ function deploy_korifi() {
       --set=networking.gatewayClass="contour" \
       --set=networking.gatewayPorts.http="32080" \
       --set=networking.gatewayPorts.https="32443" \
+      --set=knativeRunner.include="true" \
+      --set=reconcilers.run="knative-runner" \
       --set=experimental.managedServices.enabled="true" \
       --set=experimental.securityGroups.enabled="true" \
       --set=experimental.managedServices.trustInsecureBrokers="true" \

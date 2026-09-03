@@ -48,3 +48,9 @@ directories:
       latest: true
       disableAutoChecksumValidation: true
       assetNames: ["experimental-install.yaml"]
+  - path: knative
+    githubRelease:
+      slug: knative/operator
+      tag: knative-v1.23.1
+      disableAutoChecksumValidation: true
+      assetNames: ["operator.yaml"]

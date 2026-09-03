@@ -29,5 +29,9 @@ directories:
       tag: v1.5.1
       url: https://api.github.com/repos/kubernetes-sigs/gateway-api/releases/296866668
     path: gateway-api
+  - githubRelease:
+      tag: knative-v1.23.1
+      url: https://api.github.com/repos/knative/operator/releases/380397590
+    path: knative
   path: vendor
 kind: LockConfig

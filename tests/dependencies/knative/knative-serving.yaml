@@ -1,0 +1,23 @@
+# Applied by scripts/install-dependencies.sh after the Knative Operator.
+# Kourier is ClusterIP so Contour keeps host :80/:443 on Kind.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: knative-serving
+---
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: knative-serving
+spec:
+  version: "1.23.0"
+  ingress:
+    kourier:
+      enabled: true
+      service-type: ClusterIP
+  config:
+    network:
+      ingress-class: kourier.ingress.networking.knative.dev
+    domain:
+      apps-127-0-0-1.nip.io: ""
