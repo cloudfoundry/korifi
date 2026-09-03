@@ -3,6 +3,7 @@ package appworkload_test
 import (
 	"context"
 	"errors"
+	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/knative-runner/controllers"
@@ -311,7 +312,7 @@ var _ = Describe("AppWorkload Reconcile", func() {
 
 			It("deletes them and requeues as not ready", func() {
 				Expect(reconcileErr).NotTo(HaveOccurred())
-				Expect(reconcileResult.Requeue).To(BeTrue())
+				Expect(reconcileResult.RequeueAfter).To(Equal(time.Second))
 				Expect(fakeClient.DeleteCallCount()).To(Equal(1))
 			})
 		})
