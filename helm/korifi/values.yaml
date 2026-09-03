@@ -108,6 +108,11 @@ kpackImageBuilder:
 statefulsetRunner:
   include: true
 
+knativeRunner:
+  # Requires Knative Serving (and typically Kourier) installed separately.
+  # Set reconcilers.run to knative-runner to make it the default AppWorkload runner.
+  include: false
+
 jobTaskRunner:
   include: true
   jobTTL: 24h

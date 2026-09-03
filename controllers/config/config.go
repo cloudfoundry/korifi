@@ -13,6 +13,7 @@ type ControllerConfig struct {
 	IncludeKpackImageBuilder bool `yaml:"includeKpackImageBuilder"`
 	IncludeJobTaskRunner     bool `yaml:"includeJobTaskRunner"`
 	IncludeStatefulsetRunner bool `yaml:"includeStatefulsetRunner"`
+	IncludeKnativeRunner     bool `yaml:"includeKnativeRunner"`
 
 	// core controllers
 	CFProcessDefaults                CFProcessDefaults  `yaml:"cfProcessDefaults"`

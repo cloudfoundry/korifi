@@ -44,6 +44,13 @@
 {{- end }}
 {{- end }}
 
+{{- if .Values.knativeRunner.include }}
+{{- range $path, $_ := .Files.Glob "knative-runner/*.yaml" }}
+---
+{{ tpl ($.Files.Get $path) $ctx }}
+{{- end }}
+{{- end }}
+
 {{- if .Values.migration.include }}
 {{- range $path, $_ := .Files.Glob "migration/*.yaml" }}
 ---

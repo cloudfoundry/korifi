@@ -65,8 +65,8 @@
           "description": "ID of the image builder to set on all `BuildWorkload` objects. Defaults to `kpack-image-builder`.",
           "type": "string"
         },
-        "app": {
-          "description": "ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`.",
+        "run": {
+          "description": "ID of the workload runner to set on all `AppWorkload` objects. Defaults to `statefulset-runner`. Set to `knative-runner` when using the Knative runner.",
           "type": "string"
         }
       },
@@ -454,6 +454,16 @@
       "required": ["include"],
       "type": "object"
     },
+    "knativeRunner": {
+      "properties": {
+        "include": {
+          "description": "Enable the `knative-runner` component. Requires Knative Serving installed on the cluster. Does not install Knative itself.",
+          "type": "boolean"
+        }
+      },
+      "required": ["include"],
+      "type": "object"
+    },
     "jobTaskRunner": {
       "properties": {
         "include": {
@@ -623,6 +633,7 @@
     "controllers",
     "kpackImageBuilder",
     "statefulsetRunner",
+    "knativeRunner",
     "jobTaskRunner"
   ],
   "title": "Values",

@@ -416,9 +416,12 @@ func main() {
 				setupLog.Error(err, "unable to create controller", "controller", "RunnerInfo")
 				os.Exit(1)
 			}
+		}
 
-			// Knative runner is compiled into the same binary and selected via
-			// reconcilers.run / AppWorkload.Spec.RunnerName == "knative-runner".
+		// Knative runner is compiled into the same binary and selected via
+		// reconcilers.run / AppWorkload.Spec.RunnerName == "knative-runner".
+		// Requires Knative Serving CRDs on the cluster (chart does not install them).
+		if controllerConfig.IncludeKnativeRunner {
 			if err = knativeappworkload.NewAppWorkloadReconciler(
 				controllersClient,
 				mgr.GetScheme(),
@@ -571,7 +574,7 @@ func main() {
 		kpackimagebuilder_finalizer.NewKpackImageBuilderFinalizerWebhook().SetupWebhookWithManager(mgr)
 	}
 
-	if controllerConfig.IncludeStatefulsetRunner {
+	if controllerConfig.IncludeStatefulsetRunner || controllerConfig.IncludeKnativeRunner {
 		appworkload_finalizer.NewWebhook().SetupWebhookWithManager(mgr)
 	}
 

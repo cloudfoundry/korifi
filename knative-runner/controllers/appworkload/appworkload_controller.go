@@ -108,6 +108,15 @@ func filterAppWorkloads(object client.Object) bool {
 	return appWorkload.Spec.RunnerName == controllers.AppWorkloadReconcilerName
 }
 
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads,verbs=get;list;watch;create;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=appworkloads/status,verbs=get;patch
+
+//+kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=create;patch;update;get;list;watch;delete
+
+//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;delete
+
+//+kubebuilder:rbac:groups="",resources=pods,verbs=list;get;watch
+
 func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorkload *korifiv1alpha1.AppWorkload) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 

@@ -8,6 +8,7 @@ data:
     includeKpackImageBuilder: {{ .Values.kpackImageBuilder.include }}
     includeJobTaskRunner: {{ .Values.jobTaskRunner.include }}
     includeStatefulsetRunner: {{ .Values.statefulsetRunner.include }}
+    includeKnativeRunner: {{ .Values.knativeRunner.include }}
     builderName: {{ .Values.reconcilers.build }}
     runnerName: {{ .Values.reconcilers.run }}
     cfProcessDefaults:

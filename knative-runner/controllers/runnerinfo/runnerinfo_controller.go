@@ -45,6 +45,9 @@ func filterRunnerInfos(object client.Object) bool {
 	return runnerInfo.Name == controllers.AppWorkloadReconcilerName
 }
 
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runnerinfos,verbs=get;list;watch;create;patch;delete
+//+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=runnerinfos/status,verbs=get;patch
+
 func (r *RunnerInfoReconciler) ReconcileResource(ctx context.Context, runnerInfo *korifiv1alpha1.RunnerInfo) (ctrl.Result, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
