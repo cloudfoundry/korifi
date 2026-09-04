@@ -53,6 +53,13 @@ var knativeReservedEnv = map[string]struct{}{
 	"K_SERVICE":       {},
 }
 
+// Overridable in tests to exercise error paths.
+var (
+	marshalJSON          = json.Marshal
+	unmarshalJSON        = json.Unmarshal
+	unstructuredFromJSON = (*unstructured.Unstructured).UnmarshalJSON
+)
+
 type AppWorkloadToKnativeServiceConverter struct {
 	scheme *runtime.Scheme
 }
@@ -62,11 +69,6 @@ func NewAppWorkloadToKnativeServiceConverter(scheme *runtime.Scheme) *AppWorkloa
 }
 
 func (r *AppWorkloadToKnativeServiceConverter) Convert(appWorkload *korifiv1alpha1.AppWorkload) (*unstructured.Unstructured, error) {
-	ksvcName, err := knativeServiceName(appWorkload)
-	if err != nil {
-		return nil, err
-	}
-
 	labels := korifiLabels(appWorkload)
 	specMap, err := marshaledPodSpec(appWorkload)
 	if err != nil {
@@ -74,7 +76,7 @@ func (r *AppWorkloadToKnativeServiceConverter) Convert(appWorkload *korifiv1alph
 	}
 
 	return buildKnativeService(
-		ksvcName,
+		knativeServiceName(appWorkload),
 		appWorkload.Namespace,
 		labels,
 		serviceAnnotations(appWorkload),
@@ -209,12 +211,12 @@ func podSpec(appWorkload *korifiv1alpha1.AppWorkload) corev1.PodSpec {
 }
 
 func marshaledPodSpec(appWorkload *korifiv1alpha1.AppWorkload) (map[string]any, error) {
-	bytes, err := json.Marshal(podSpec(appWorkload))
+	bytes, err := marshalJSON(podSpec(appWorkload))
 	if err != nil {
 		return nil, fmt.Errorf("marshal pod spec: %w", err)
 	}
 	var out map[string]any
-	if err = json.Unmarshal(bytes, &out); err != nil {
+	if err = unmarshalJSON(bytes, &out); err != nil {
 		return nil, fmt.Errorf("unmarshal pod spec: %w", err)
 	}
 	// Drop null securityContext if present.
@@ -227,7 +229,7 @@ func buildKnativeService(
 	labels, serviceAnns, templateAnns map[string]string,
 	spec map[string]any,
 ) (*unstructured.Unstructured, error) {
-	raw, err := json.Marshal(map[string]any{
+	raw, err := marshalJSON(map[string]any{
 		"apiVersion": "serving.knative.dev/v1",
 		"kind":       "Service",
 		"metadata": metav1.ObjectMeta{
@@ -251,25 +253,22 @@ func buildKnativeService(
 	}
 
 	out := &unstructured.Unstructured{}
-	if err := out.UnmarshalJSON(raw); err != nil {
+	if err := unstructuredFromJSON(out, raw); err != nil {
 		return nil, fmt.Errorf("unmarshal knative service: %w", err)
 	}
 	return out, nil
 }
 
-func knativeServiceName(appWorkload *korifiv1alpha1.AppWorkload) (string, error) {
+func knativeServiceName(appWorkload *korifiv1alpha1.AppWorkload) string {
 	lastStopAppRev := appWorkload.Spec.Version
 	if annotationVal, ok := appWorkload.Annotations[korifiv1alpha1.CFAppLastStopRevisionKey]; ok {
 		lastStopAppRev = annotationVal
 	}
-	nameSuffix, err := hash(fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, lastStopAppRev))
-	if err != nil {
-		return "", fmt.Errorf("failed to generate hash for knative service name: %w", err)
-	}
+	nameSuffix := hash(fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, lastStopAppRev))
 
 	// DNS-1035: must start with a letter. GUID-based prefixes often start with a digit.
 	namePrefix := sanitizeName("kw-"+appWorkload.Spec.AppGUID, "kw-"+appWorkload.Spec.GUID)
-	return fmt.Sprintf("%s-%s", namePrefix, nameSuffix), nil
+	return fmt.Sprintf("%s-%s", namePrefix, nameSuffix)
 }
 
 func sanitizeName(name, fallback string) string {
@@ -289,11 +288,8 @@ func truncateString(str string, num int) string {
 	return str
 }
 
-func hash(s string) (string, error) {
+func hash(s string) string {
 	const MaxHashLength = 10
-	sha := sha256.New()
-	if _, err := sha.Write([]byte(s)); err != nil {
-		return "", fmt.Errorf("failed to calculate sha: %w", err)
-	}
-	return hex.EncodeToString(sha.Sum(nil))[:MaxHashLength], nil
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])[:MaxHashLength]
 }
