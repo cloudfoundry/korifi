@@ -448,9 +448,7 @@ func (r *RouteRepo) PatchRouteMetadata(ctx context.Context, authInfo authorizati
 	}
 
 	err := GetAndPatch(ctx, r.klient, route, func() error {
-		message.Apply(route)
-
-		return nil
+		return message.MetadataPatch.Apply(route)
 	})
 	if err != nil {
 		return RouteRecord{}, apierrors.FromK8sError(err, RouteResourceType)

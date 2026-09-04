@@ -1,4 +1,4 @@
-package label_indexer_test
+package label_validator_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/label_validator"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 
 	"github.com/google/uuid"
@@ -23,6 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+const testSigningSecret = "test-secret"
+
 var (
 	ctx             context.Context
 	stopManager     context.CancelFunc
@@ -32,12 +35,12 @@ var (
 	namespace       string
 )
 
-func TestWorkloadsWebhooks(t *testing.T) {
+func TestLabelValidatorWebhook(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
 	SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Label Indexer Webhook Integration Test Suite")
+	RunSpecs(t, "Label Validator Webhook Integration Test Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -45,10 +48,12 @@ var _ = BeforeSuite(func() {
 
 	webhookManifestsPath := helpers.GenerateWebhookManifest(
 		"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer",
+		"code.cloudfoundry.org/korifi/controllers/webhooks/label_validator",
 	)
 	DeferCleanup(func() {
 		Expect(os.RemoveAll(filepath.Dir(webhookManifestsPath))).To(Succeed())
 	})
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "helm", "korifi", "controllers", "crds"),
@@ -68,7 +73,8 @@ var _ = BeforeSuite(func() {
 
 	adminClient, stopClientCache = helpers.NewCachedClient(testEnv.Config)
 
-	label_indexer.NewWebhook([]byte("test-secret")).SetupWebhookWithManager(k8sManager)
+	label_indexer.NewWebhook([]byte(testSigningSecret)).SetupWebhookWithManager(k8sManager)
+	label_validator.NewWebhook([]byte(testSigningSecret)).SetupWebhookWithManager(k8sManager)
 
 	stopManager = helpers.StartK8sManager(k8sManager)
 

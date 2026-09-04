@@ -510,6 +510,21 @@ var _ = Describe("ServiceOfferingRepo", func() {
 				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
 			})
 
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					updateMessage.MetadataPatch.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(updateErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("invalid labels patch"),
+						ContainSubstring(`"foo.cloudfoundry.org/bar"`),
+					))
+				})
+			})
+
 			It("updates the service offering metadata", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 				Expect(updatedServiceOffering.Metadata.Labels).To(SatisfyAll(

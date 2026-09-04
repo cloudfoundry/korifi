@@ -165,20 +165,6 @@ var _ = Describe("DomainUpdate", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
 		Expect(decodedUpdatePayload).To(gstruct.PointTo(Equal(updatePayload)))
 	})
-
-	When("metadata is invalid", func() {
-		BeforeEach(func() {
-			updatePayload.Metadata = payloads.MetadataPatch{
-				Labels: map[string]*string{
-					"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
-				},
-			}
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot use the cloudfoundry.org domain")
-		})
-	})
 })
 
 var _ = Describe("DomainList", func() {

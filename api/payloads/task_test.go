@@ -216,20 +216,6 @@ var _ = Describe("TaskUpdate", func() {
 			Expect(validatorErr).NotTo(HaveOccurred())
 			Expect(decodedPayload).To(gstruct.PointTo(Equal(payload)))
 		})
-
-		When("metadata is invalid", func() {
-			BeforeEach(func() {
-				payload.Metadata = payloads.MetadataPatch{
-					Labels: map[string]*string{
-						"foo.cloudfoundry.org/bar": tools.PtrTo("jim"),
-					},
-				}
-			})
-
-			It("returns an appropriate error", func() {
-				expectUnprocessableEntityError(validatorErr, "label/annotation key cannot use the cloudfoundry.org domain")
-			})
-		})
 	})
 
 	Describe("ToMessage()", func() {

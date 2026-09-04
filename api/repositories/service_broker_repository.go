@@ -59,7 +59,7 @@ type UpdateServiceBrokerMessage struct {
 	MetadataPatch MetadataPatch
 }
 
-func (m UpdateServiceBrokerMessage) apply(broker *korifiv1alpha1.CFServiceBroker) {
+func (m UpdateServiceBrokerMessage) apply(broker *korifiv1alpha1.CFServiceBroker) error {
 	if m.Name != nil {
 		broker.Spec.Name = *m.Name
 	}
@@ -68,7 +68,7 @@ func (m UpdateServiceBrokerMessage) apply(broker *korifiv1alpha1.CFServiceBroker
 		broker.Spec.URL = *m.URL
 	}
 
-	m.MetadataPatch.Apply(broker)
+	return m.MetadataPatch.Apply(broker)
 }
 
 type ServiceBrokerRepo struct {
@@ -231,8 +231,7 @@ func (r *ServiceBrokerRepo) UpdateServiceBroker(ctx context.Context, authInfo au
 	}
 
 	if err := GetAndPatch(ctx, r.klient, cfServiceBroker, func() error {
-		message.apply(cfServiceBroker)
-		return nil
+		return message.apply(cfServiceBroker)
 	}); err != nil {
 		return ServiceBrokerRecord{}, apierrors.FromK8sError(err, ServiceBrokerResourceType)
 	}

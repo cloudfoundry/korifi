@@ -58,6 +58,9 @@ spec:
         - mountPath: /etc/korifi-controllers-config
           name: korifi-controllers-config
           readOnly: true
+        - mountPath: /etc/korifi-label-signing-secret
+          name: label-signing-secret
+          readOnly: true
       {{- include "korifi.podSecurityContext" . | indent 6 }}
       serviceAccountName: korifi-controllers-controller-manager
 {{- if .Values.controllers.nodeSelector }}
@@ -77,3 +80,7 @@ spec:
       - configMap:
           name: korifi-controllers-config
         name: korifi-controllers-config
+      - name: label-signing-secret
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.controllers.labelSigningSecret }}

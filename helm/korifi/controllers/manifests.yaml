@@ -309,6 +309,41 @@ webhooks:
       service:
         name: korifi-controllers-webhook-service
         namespace: '{{ .Release.Namespace }}'
+        path: /validate-korifi-cloudfoundry-org-v1alpha1-controllers-label-validator
+      caBundle: '{{ include "korifi.webhookCaBundle" . }}'
+    failurePolicy: Fail
+    name: vcflabelvalidator.korifi.cloudfoundry.org
+    rules:
+      - apiGroups:
+          - korifi.cloudfoundry.org
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - cfroutes
+          - cfapps
+          - cfbuilds
+          - cfdomains
+          - cfpackages
+          - cfprocesses
+          - cfservicebindings
+          - cfserviceinstances
+          - cftasks
+          - cforgs
+          - cfspaces
+          - cfserviceofferings
+          - cfserviceplans
+          - cfservicebrokers
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: korifi-controllers-webhook-service
+        namespace: '{{ .Release.Namespace }}'
         path: /validate-korifi-cloudfoundry-org-v1alpha1-cforg
       caBundle: '{{ include "korifi.webhookCaBundle" . }}'
     failurePolicy: Fail

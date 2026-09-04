@@ -63,11 +63,11 @@ type PatchSpaceMessage struct {
 	Name    *string
 }
 
-func (p *PatchSpaceMessage) Apply(space *korifiv1alpha1.CFSpace) {
+func (p *PatchSpaceMessage) Apply(space *korifiv1alpha1.CFSpace) error {
 	if p.Name != nil {
 		space.Spec.DisplayName = *p.Name
 	}
-	p.MetadataPatch.Apply(space)
+	return p.MetadataPatch.Apply(space)
 }
 
 type SpaceRecord struct {
@@ -233,8 +233,7 @@ func (r *SpaceRepo) PatchSpace(ctx context.Context, authInfo authorization.Info,
 	}
 
 	err = r.klient.Patch(ctx, cfSpace, func() error {
-		message.Apply(cfSpace)
-		return nil
+		return message.Apply(cfSpace)
 	})
 	if err != nil {
 		return SpaceRecord{}, apierrors.FromK8sError(err, SpaceResourceType)

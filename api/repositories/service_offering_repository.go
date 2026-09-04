@@ -77,8 +77,8 @@ type DeleteServiceOfferingMessage struct {
 	Purge bool
 }
 
-func (m UpdateServiceOfferingMessage) apply(offering *korifiv1alpha1.CFServiceOffering) {
-	m.MetadataPatch.Apply(offering)
+func (m UpdateServiceOfferingMessage) apply(offering *korifiv1alpha1.CFServiceOffering) error {
+	return m.MetadataPatch.Apply(offering)
 }
 
 func (m *ListServiceOfferingMessage) toListOptions() []ListOption {
@@ -289,8 +289,7 @@ func (r *ServiceOfferingRepo) UpdateServiceOffering(ctx context.Context, authInf
 		},
 	}
 	if err := GetAndPatch(ctx, r.rootNSKlient, offering, func() error {
-		message.apply(offering)
-		return nil
+		return message.apply(offering)
 	}); err != nil {
 		return ServiceOfferingRecord{}, fmt.Errorf("failed to patch service offering metadata: %w", apierrors.FromK8sError(err, ServiceOfferingResourceType))
 	}

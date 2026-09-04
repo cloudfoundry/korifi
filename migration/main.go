@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
@@ -31,9 +32,18 @@ func main() {
 		panic("KORIFI_VERSION must be set")
 	}
 
+	labelSigningSecretPath := os.Getenv("LABEL_SIGNING_SECRET_PATH")
+	if labelSigningSecretPath == "" {
+		labelSigningSecretPath = "/etc/korifi-label-signing-secret/key"
+	}
+	labelSigningSecret, err := os.ReadFile(filepath.Clean(labelSigningSecretPath))
+	if err != nil {
+		panic(fmt.Sprintf("could not read label signing secret: %v", err))
+	}
+
 	workersCount := tools.Max(1, runtime.NumCPU()/2)
 
-	migrator := migration.New(k8sClient, korifiVersion, workersCount)
+	migrator := migration.New(k8sClient, korifiVersion, labelSigningSecret, workersCount)
 	err = migrator.Run(context.Background())
 	if err != nil {
 		panic(err)

@@ -470,8 +470,7 @@ func (r *ServiceBindingRepo) UpdateServiceBinding(ctx context.Context, authInfo 
 	}
 
 	err = r.klient.Patch(ctx, serviceBinding, func() error {
-		updateMsg.MetadataPatch.Apply(serviceBinding)
-		return nil
+		return updateMsg.MetadataPatch.Apply(serviceBinding)
 	})
 	if err != nil {
 		return ServiceBindingRecord{}, fmt.Errorf("failed to patch service binding metadata: %w", apierrors.FromK8sError(err, ServiceBindingResourceType))

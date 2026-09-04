@@ -188,7 +188,6 @@ var _ = Describe("RoutePatch", func() {
 		patchPayload payloads.RoutePatch
 		routePatch   *payloads.RoutePatch
 		validatorErr error
-		apiError     errors.ApiError
 	)
 
 	BeforeEach(func() {
@@ -203,23 +202,11 @@ var _ = Describe("RoutePatch", func() {
 
 	JustBeforeEach(func() {
 		validatorErr = validator.DecodeAndValidateJSONPayload(createJSONRequest(patchPayload), routePatch)
-		apiError, _ = validatorErr.(errors.ApiError)
 	})
 
 	It("succeeds", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
 		Expect(routePatch).To(gstruct.PointTo(Equal(patchPayload)))
-	})
-
-	When("metadata uses the cloudfoundry domain", func() {
-		BeforeEach(func() {
-			patchPayload.Metadata.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
-		})
-
-		It("fails", func() {
-			Expect(apiError).To(HaveOccurred())
-			Expect(apiError.Detail()).To(ContainSubstring("cannot use the cloudfoundry.org domain"))
-		})
 	})
 })
 

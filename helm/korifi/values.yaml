@@ -76,6 +76,7 @@ api:
 controllers:
   image: cloudfoundry/korifi-controllers:latest
   webhookCertSecret: "korifi-controllers-webhook-cert"
+  labelSigningSecret: "korifi-controllers-label-signing-secret"
 
   nodeSelector: {}
   tolerations: []

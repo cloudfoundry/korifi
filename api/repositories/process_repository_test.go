@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -513,6 +514,22 @@ var _ = Describe("ProcessRepo", func() {
 		When("user has permission", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
+			})
+
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					message.MetadataPatch.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					_, err := processRepo.PatchProcess(ctx, authInfo, message)
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(err, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("invalid labels patch"),
+						ContainSubstring(`"foo.cloudfoundry.org/bar"`),
+					))
+				})
 			})
 
 			It("updates the process", func() {

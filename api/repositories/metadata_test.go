@@ -50,7 +50,7 @@ var _ = Describe("MetadataPatch", func() {
 		})
 
 		JustBeforeEach(func() {
-			metadataPatch.Apply(pod)
+			Expect(metadataPatch.Apply(pod)).To(Succeed())
 		})
 
 		It("updates labels and annotations correctly", func() {

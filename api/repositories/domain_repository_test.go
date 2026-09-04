@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -185,6 +186,21 @@ var _ = Describe("DomainRepository", func() {
 		When("the user is a CFAdmin", func() {
 			BeforeEach(func() {
 				createRoleBinding(ctx, userName, adminRole.Name, rootNamespace)
+			})
+
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					updatePayload.MetadataPatch.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(updateErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("invalid labels patch"),
+						ContainSubstring(`"foo.cloudfoundry.org/bar"`),
+					))
+				})
 			})
 
 			It("updates the domain metadata", func() {

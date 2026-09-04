@@ -1,6 +1,7 @@
 package repositories_test
 
 import (
+	"errors"
 	"time"
 
 	apierrors "code.cloudfoundry.org/korifi/api/errors"
@@ -318,6 +319,21 @@ var _ = Describe("DropletRepository", func() {
 						build.Status.State = korifiv1alpha1.BuildStateStaged
 						build.Status.Droplet = &korifiv1alpha1.BuildDropletStatus{}
 					})).To(Succeed())
+				})
+
+				When("a label is invalid", func() {
+					BeforeEach(func() {
+						dropletUpdateMsg.MetadataPatch.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
+					})
+
+					It("returns an UnprocessableEntityError", func() {
+						var unprocessableEntityError apierrors.UnprocessableEntityError
+						Expect(errors.As(updateError, &unprocessableEntityError)).To(BeTrue())
+						Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+							ContainSubstring("invalid labels patch"),
+							ContainSubstring(`"foo.cloudfoundry.org/bar"`),
+						))
+					})
 				})
 
 				It("updates the build metadata in kubernetes", func() {

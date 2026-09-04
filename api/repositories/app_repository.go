@@ -249,8 +249,7 @@ func (f *AppRepo) PatchApp(ctx context.Context, authInfo authorization.Info, app
 	}
 
 	err := GetAndPatch(ctx, f.klient, cfApp, func() error {
-		appPatchMessage.Apply(cfApp)
-		return nil
+		return appPatchMessage.Apply(cfApp)
 	})
 	if err != nil {
 		return AppRecord{}, apierrors.FromK8sError(err, AppResourceType)
@@ -554,7 +553,7 @@ func (m *CreateAppMessage) toCFApp() korifiv1alpha1.CFApp {
 	}
 }
 
-func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) {
+func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) error {
 	if m.Name != "" {
 		app.Spec.DisplayName = m.Name
 	}
@@ -573,7 +572,7 @@ func (m *PatchAppMessage) Apply(app *korifiv1alpha1.CFApp) {
 		}
 	}
 
-	m.MetadataPatch.Apply(app)
+	return m.MetadataPatch.Apply(app)
 }
 
 func cfAppToAppRecord(cfApp korifiv1alpha1.CFApp) (AppRecord, error) {

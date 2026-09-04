@@ -684,16 +684,37 @@ var _ = Describe("PackageRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, space.Name)
 			})
 
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					updateMessage.MetadataPatch.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(updateErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("invalid labels patch"),
+						ContainSubstring(`"foo.cloudfoundry.org/bar"`),
+					))
+				})
+			})
+
 			It("succeeds", func() {
 				Expect(updateErr).NotTo(HaveOccurred())
 				Expect(packageRecord.GUID).To(Equal(packageGUID))
 				Expect(packageRecord.Labels).To(HaveKeyWithValue("foo", "bar"))
-				Expect(packageRecord.Annotations).To(Equal(map[string]string{"bar": "baz"}))
+				Expect(packageRecord.Annotations).To(Equal(map[string]string{
+					"bar": "baz",
+					korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(packageRecord.Labels),
+				}))
 
 				Eventually(func(g Gomega) {
 					g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cfPackage), cfPackage)).To(Succeed())
 					g.Expect(cfPackage.Labels).To(HaveKeyWithValue("foo", "bar"))
-					g.Expect(cfPackage.Annotations).To(Equal(map[string]string{"bar": "baz"}))
+					g.Expect(cfPackage.Annotations).To(Equal(map[string]string{
+						"bar": "baz",
+						korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(cfPackage.Labels),
+					}))
 				}).Should(Succeed())
 			})
 

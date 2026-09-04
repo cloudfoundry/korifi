@@ -77,14 +77,14 @@ type PatchServiceInstanceMessage struct {
 	MetadataPatch
 }
 
-func (p PatchServiceInstanceMessage) Apply(cfServiceInstance *korifiv1alpha1.CFServiceInstance) {
+func (p PatchServiceInstanceMessage) Apply(cfServiceInstance *korifiv1alpha1.CFServiceInstance) error {
 	if p.Name != nil {
 		cfServiceInstance.Spec.DisplayName = *p.Name
 	}
 	if p.Tags != nil {
 		cfServiceInstance.Spec.Tags = *p.Tags
 	}
-	p.MetadataPatch.Apply(cfServiceInstance)
+	return p.MetadataPatch.Apply(cfServiceInstance)
 }
 
 type ListServiceInstanceMessage struct {
@@ -286,8 +286,7 @@ func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo
 	}
 
 	err := r.klient.Patch(ctx, cfServiceInstance, func() error {
-		message.Apply(cfServiceInstance)
-		return nil
+		return message.Apply(cfServiceInstance)
 	})
 	if err != nil {
 		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)

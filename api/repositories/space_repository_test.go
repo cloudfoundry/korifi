@@ -518,6 +518,7 @@ var _ = Describe("SpaceRepository", func() {
 						map[string]string{
 							"key-one": "value-one",
 							"key-two": "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(spaceRecord.Labels),
 						},
 					))
 					Expect(spaceRecord.Name).To(Equal(*spaceNewName))
@@ -535,6 +536,7 @@ var _ = Describe("SpaceRepository", func() {
 						map[string]string{
 							"key-one": "value-one",
 							"key-two": "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(updatedCFSpace.Labels),
 						},
 					))
 					Expect(updatedCFSpace.Spec.DisplayName).To(Equal(*spaceNewName))
@@ -582,6 +584,7 @@ var _ = Describe("SpaceRepository", func() {
 							"before-key-one": "value-one",
 							"key-one":        "value-one-updated",
 							"key-two":        "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(spaceRecord.Labels),
 						},
 					))
 					Expect(spaceRecord.Name).To(Equal(*spaceNewName))
@@ -601,6 +604,7 @@ var _ = Describe("SpaceRepository", func() {
 							"before-key-one": "value-one",
 							"key-one":        "value-one-updated",
 							"key-two":        "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(updatedCFSpace.Labels),
 						},
 					))
 					Expect(spaceRecord.Name).To(Equal(*spaceNewName))

@@ -203,8 +203,7 @@ func (r *TaskRepo) PatchTaskMetadata(ctx context.Context, authInfo authorization
 	}
 
 	err := GetAndPatch(ctx, r.klient, task, func() error {
-		message.Apply(task)
-		return nil
+		return message.MetadataPatch.Apply(task)
 	})
 	if err != nil {
 		return TaskRecord{}, apierrors.FromK8sError(err, TaskResourceType)

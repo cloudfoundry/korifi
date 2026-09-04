@@ -84,24 +84,4 @@ var _ = Describe("MetadataPatch", func() {
 		Expect(validatorErr).NotTo(HaveOccurred())
 		Expect(decodedMetadataPatchPayload).To(gstruct.PointTo(Equal(metadataPatchPayload)))
 	})
-
-	When("metadata.labels contains an invalid key", func() {
-		BeforeEach(func() {
-			metadataPatchPayload.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("jim")
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot use the cloudfoundry.org domain")
-		})
-	})
-
-	When("metadata.annotations contains an invalid key", func() {
-		BeforeEach(func() {
-			metadataPatchPayload.Annotations["foo.cloudfoundry.org/bar"] = tools.PtrTo("jim")
-		})
-
-		It("returns an appropriate error", func() {
-			expectUnprocessableEntityError(validatorErr, "cannot use the cloudfoundry.org domain")
-		})
-	})
 })

@@ -456,6 +456,21 @@ var _ = Describe("AppRepository", func() {
 				createRoleBinding(ctx, userName, spaceDeveloperRole.Name, cfSpace.Name)
 			})
 
+			When("a label is invalid", func() {
+				BeforeEach(func() {
+					appPatchMessage.MetadataPatch.Labels["foo.cloudfoundry.org/bar"] = tools.PtrTo("baz")
+				})
+
+				It("returns an UnprocessableEntityError", func() {
+					var unprocessableEntityError apierrors.UnprocessableEntityError
+					Expect(errors.As(patchErr, &unprocessableEntityError)).To(BeTrue())
+					Expect(unprocessableEntityError.Detail()).To(SatisfyAll(
+						ContainSubstring("invalid labels patch"),
+						ContainSubstring(`"foo.cloudfoundry.org/bar"`),
+					))
+				})
+			})
+
 			It("updates the app", func() {
 				Expect(patchErr).NotTo(HaveOccurred())
 

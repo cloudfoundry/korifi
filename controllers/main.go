@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/cleanup"
@@ -51,6 +52,7 @@ import (
 	"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels"
 	controllers_finalizer "code.cloudfoundry.org/korifi/controllers/webhooks/finalizer"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
+	label_validator "code.cloudfoundry.org/korifi/controllers/webhooks/label_validator"
 	domainswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/domains"
 	routeswebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes"
 	routesdestwebhook "code.cloudfoundry.org/korifi/controllers/webhooks/networking/routes/app_destinations"
@@ -149,6 +151,15 @@ func main() {
 	log.SetOutput(&tools.LogrWriter{Logger: ctrl.Log, Message: "HTTP server error"})
 
 	ctrl.Log.Info("starting Korifi controllers", "version", version.Version)
+
+	labelSigningSecretPath := os.Getenv("LABEL_SIGNING_SECRET_PATH")
+	if labelSigningSecretPath == "" {
+		labelSigningSecretPath = "/etc/korifi-label-signing-secret/key"
+	}
+	labelSigningSecret, err := os.ReadFile(filepath.Clean(labelSigningSecretPath))
+	if err != nil {
+		panic(fmt.Sprintf("could not read label signing secret: %v", err))
+	}
 
 	conf := ctrl.GetConfigOrDie()
 	k8sClient, err := k8sclient.NewForConfig(conf)
@@ -536,7 +547,8 @@ func main() {
 	versionwebhook.NewVersionWebhook(version.Version).SetupWebhookWithManager(mgr)
 	controllers_finalizer.NewControllersFinalizerWebhook().SetupWebhookWithManager(mgr)
 	common_labels.NewWebhook().SetupWebhookWithManager(mgr)
-	label_indexer.NewWebhook().SetupWebhookWithManager(mgr)
+	label_indexer.NewWebhook(labelSigningSecret).SetupWebhookWithManager(mgr)
+	label_validator.NewWebhook(labelSigningSecret).SetupWebhookWithManager(mgr)
 	routesdestwebhook.NewRouteAppDestinationsWebhook().SetupWebhookWithManager(mgr)
 
 	if err = packageswebhook.NewValidator().SetupWebhookWithManager(mgr); err != nil {

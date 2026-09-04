@@ -21,6 +21,21 @@ var _ = Describe("Orgs", func() {
 		)).To(Exit(0))
 	})
 
+	Describe("cf rename-org", func() {
+		It("renames the org", func() {
+			session := helpers.Cf("rename-org", orgName, "renamed-org")
+			Expect(session).To(Exit(0))
+
+			session = helpers.Cf("orgs")
+			Expect(session).To(Exit(0))
+
+			lines := it.MustCollect(it.LinesString(session.Out))
+			Expect(lines).To(ContainElement(
+				matchSubstrings("renamed-org"),
+			))
+		})
+	})
+
 	Describe("cf org", func() {
 		It("returns successful", func() {
 			session := helpers.Cf("org", orgName)

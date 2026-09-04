@@ -114,7 +114,7 @@ var _ = Describe("OrgRepository", func() {
 				Expect(orgRecord.UpdatedAt).To(PointTo(BeTemporally("~", time.Now(), timeCheckThreshold)))
 				Expect(orgRecord.DeletedAt).To(BeNil())
 				Expect(orgRecord.Labels).To(HaveKeyWithValue("test-label-key", "test-label-val"))
-				Expect(orgRecord.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
+				Expect(orgRecord.Annotations).To(HaveKeyWithValue("test-annotation-key", "test-annotation-val"))
 			})
 
 			It("creates a CFOrg resource in the root namespace", func() {
@@ -125,7 +125,10 @@ var _ = Describe("OrgRepository", func() {
 
 				Expect(cfOrg.Spec.DisplayName).To(Equal(orgGUID))
 				Expect(cfOrg.Labels).To(HaveKeyWithValue("test-label-key", "test-label-val"))
-				Expect(cfOrg.Annotations).To(Equal(map[string]string{"test-annotation-key": "test-annotation-val"}))
+				Expect(cfOrg.Annotations).To(Equal(map[string]string{
+					"test-annotation-key":                      "test-annotation-val",
+					korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(cfOrg.Labels),
+				}))
 			})
 
 			It("awaits the ready condition", func() {
@@ -506,6 +509,7 @@ var _ = Describe("OrgRepository", func() {
 						map[string]string{
 							"key-one": "value-one",
 							"key-two": "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(orgRecord.Labels),
 						},
 					))
 					Expect(orgRecord.Name).To(Equal(*orgNewName))
@@ -523,6 +527,7 @@ var _ = Describe("OrgRepository", func() {
 						map[string]string{
 							"key-one": "value-one",
 							"key-two": "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(updatedCFOrg.Labels),
 						},
 					))
 					Expect(updatedCFOrg.Spec.DisplayName).To(Equal(*orgNewName))
@@ -568,6 +573,7 @@ var _ = Describe("OrgRepository", func() {
 							"before-key-one": "value-one",
 							"key-one":        "value-one-updated",
 							"key-two":        "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(orgRecord.Labels),
 						},
 					))
 					Expect(orgRecord.Name).To(Equal(*orgNewName))
@@ -588,6 +594,7 @@ var _ = Describe("OrgRepository", func() {
 							"before-key-one": "value-one",
 							"key-one":        "value-one-updated",
 							"key-two":        "value-two",
+							korifiv1alpha1.LabelSignatureAnnotationKey: testLabelSig(updatedCFOrg.Labels),
 						},
 					))
 					Expect(orgRecord.Name).To(Equal(*orgNewName))

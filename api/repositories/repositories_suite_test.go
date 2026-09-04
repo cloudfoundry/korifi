@@ -16,6 +16,7 @@ import (
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/common_labels"
 	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer"
+	"code.cloudfoundry.org/korifi/controllers/webhooks/label_indexer/signer"
 	"code.cloudfoundry.org/korifi/tests/helpers"
 	"code.cloudfoundry.org/korifi/tools/k8s"
 	authv1 "k8s.io/api/authorization/v1"
@@ -116,7 +117,7 @@ var _ = BeforeSuite(func() {
 	k8sManager := helpers.NewK8sManager(testEnv, filepath.Join("helm", "korifi", "controllers", "role.yaml"))
 
 	common_labels.NewWebhook().SetupWebhookWithManager(k8sManager)
-	label_indexer.NewWebhook().SetupWebhookWithManager(k8sManager)
+	label_indexer.NewWebhook([]byte("test-secret")).SetupWebhookWithManager(k8sManager)
 	routesdestwebhook.NewRouteAppDestinationsWebhook().SetupWebhookWithManager(k8sManager)
 
 	stopManager = helpers.StartK8sManager(k8sManager)
@@ -216,6 +217,15 @@ var _ = BeforeEach(func() {
 var _ = AfterEach(func() {
 	Expect(k8sClient.Delete(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: rootNamespace}})).To(Succeed())
 })
+
+const testSigningSecret = "test-secret"
+
+// testLabelSig computes the expected label-signature annotation value for a
+// set of labels using the same secret that is configured in the test suite's
+// label indexer webhook.
+func testLabelSig(labels map[string]string) string {
+	return signer.Sign([]byte(testSigningSecret), labels)
+}
 
 func createOrgWithCleanup(ctx context.Context, displayName string) *korifiv1alpha1.CFOrg {
 	guid := uuid.NewString()
