@@ -44,6 +44,8 @@ jobs:
 
   api-tests:
     runs-on: ubuntu-latest
+    outputs:
+      coverage: ${{ steps.test.outputs.coverage }}
     steps:
     - uses: actions/checkout@v6
 
@@ -61,11 +63,13 @@ jobs:
         go-version: 'stable'
 
     - name: Run API unit tests
+      id: test
       run: make -C api test
 
   controllers-tests:
     runs-on: ubuntu-latest
-
+    outputs:
+      coverage: ${{ steps.test.outputs.coverage }}
     steps:
     - uses: actions/checkout@v6
 
@@ -83,11 +87,13 @@ jobs:
         go-version: 'stable'
 
     - name: Run Controllers tests
+      id: test
       run: make -C controllers test
 
   job-task-runner-tests:
     runs-on: ubuntu-latest
-
+    outputs:
+      coverage: ${{ steps.test.outputs.coverage }}
     steps:
       - uses: actions/checkout@v6
 
@@ -105,11 +111,13 @@ jobs:
           go-version: 'stable'
 
       - name: Run job-task-runner tests
+        id: test
         run: make -C job-task-runner test
 
   kpack-image-builder-tests:
     runs-on: ubuntu-latest
-
+    outputs:
+      coverage: ${{ steps.test.outputs.coverage }}
     steps:
       - uses: actions/checkout@v6
 
@@ -127,11 +135,13 @@ jobs:
           go-version: 'stable'
 
       - name: Run kpack-image-builder tests
+        id: test
         run: make -C kpack-image-builder test
 
   statefulset-runner-tests:
     runs-on: ubuntu-latest
-
+    outputs:
+      coverage: ${{ steps.test.outputs.coverage }}
     steps:
       - uses: actions/checkout@v6
 
@@ -149,11 +159,13 @@ jobs:
           go-version: 'stable'
 
       - name: Run statefulset-runner tests
+        id: test
         run: make -C statefulset-runner test
 
   knative-runner-tests:
     runs-on: ubuntu-latest
-
+    outputs:
+      coverage: ${{ steps.test.outputs.coverage || steps.knative.outputs.coverage }}
     steps:
       - uses: actions/checkout@v6
 
@@ -164,6 +176,7 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "coverage=skipped" >> "$GITHUB_OUTPUT"
             echo "No knative-runner on this branch; skipping."
           fi
 
@@ -183,12 +196,14 @@ jobs:
           go-version: 'stable'
 
       - name: Run knative-runner tests
+        id: test
         if: steps.knative.outputs.run == 'true'
         run: make -C knative-runner test
 
   tools-tests:
     runs-on: ubuntu-latest
-
+    outputs:
+      coverage: ${{ steps.test.outputs.coverage }}
     steps:
       - uses: actions/checkout@v6
 
@@ -206,11 +221,13 @@ jobs:
           go-version: 'stable'
 
       - name: Run tools tests
+        id: test
         run: make -C tools test
 
   migration-tests:
     runs-on: ubuntu-latest
-
+    outputs:
+      coverage: ${{ steps.test.outputs.coverage }}
     steps:
       - uses: actions/checkout@v6
 
@@ -228,12 +245,14 @@ jobs:
           go-version: 'stable'
 
       - name: Run migration tests
+        id: test
         run: make -C migration test
 
   deploy-tests:
     runs-on: ubuntu-latest
     # Present from the Pulumi deploy PR upward; skips cleanly on earlier stack PRs.
-
+    outputs:
+      coverage: ${{ steps.test.outputs.coverage || steps.deploy.outputs.coverage }}
     steps:
       - uses: actions/checkout@v6
 
@@ -244,6 +263,7 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "coverage=skipped" >> "$GITHUB_OUTPUT"
             echo "No deploy/ packages on this branch; skipping."
           fi
 
@@ -253,13 +273,111 @@ jobs:
           bun-version: latest
 
       - name: Install and test deploy packages
+        id: test
         if: steps.deploy.outputs.run == 'true'
         run: |
           set -euo pipefail
+          parts=()
           for pkg in lib kind eks gke; do
             if [ -f "deploy/${pkg}/package.json" ]; then
               echo "::group::deploy/${pkg}"
-              (cd "deploy/${pkg}" && bun install --frozen-lockfile && bun test && bun run typecheck)
+              (
+                cd "deploy/${pkg}"
+                bun install --frozen-lockfile
+                bun test --coverage 2>&1 | tee coverage.log
+                bun run typecheck
+                if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+                  {
+                    echo "### Coverage: \`deploy/${pkg}\`"
+                    echo ""
+                    echo "<details>"
+                    echo "<summary>Bun coverage report</summary>"
+                    echo ""
+                    echo '```'
+                    cat coverage.log
+                    echo '```'
+                    echo ""
+                    echo "</details>"
+                    echo ""
+                  } >>"${GITHUB_STEP_SUMMARY}"
+                fi
+              )
+              # Prefer Bun's "All files" lines column when present.
+              pct="$(awk -F'|' '/All files/ {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3)
+                if ($3 != "") { print $3 "%"; exit }
+              }' "deploy/${pkg}/coverage.log" || true)"
+              if [ -z "${pct}" ]; then
+                pct="reported"
+              fi
+              parts+=("${pkg} ${pct}")
               echo "::endgroup::"
             fi
           done
+          if [ "${#parts[@]}" -gt 0 ]; then
+            IFS=', '
+            echo "coverage=${parts[*]}" >>"${GITHUB_OUTPUT}"
+          else
+            echo "coverage=skipped" >>"${GITHUB_OUTPUT}"
+          fi
+
+  coverage-summary:
+    name: Coverage summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - api-tests
+      - controllers-tests
+      - job-task-runner-tests
+      - kpack-image-builder-tests
+      - statefulset-runner-tests
+      - knative-runner-tests
+      - tools-tests
+      - migration-tests
+      - deploy-tests
+    steps:
+      - name: Write coverage rollup
+        env:
+          API_RESULT: ${{ needs.api-tests.result }}
+          API_COV: ${{ needs.api-tests.outputs.coverage }}
+          CONTROLLERS_RESULT: ${{ needs.controllers-tests.result }}
+          CONTROLLERS_COV: ${{ needs.controllers-tests.outputs.coverage }}
+          JOB_TASK_RESULT: ${{ needs.job-task-runner-tests.result }}
+          JOB_TASK_COV: ${{ needs.job-task-runner-tests.outputs.coverage }}
+          KPACK_RESULT: ${{ needs.kpack-image-builder-tests.result }}
+          KPACK_COV: ${{ needs.kpack-image-builder-tests.outputs.coverage }}
+          STS_RESULT: ${{ needs.statefulset-runner-tests.result }}
+          STS_COV: ${{ needs.statefulset-runner-tests.outputs.coverage }}
+          KNATIVE_RESULT: ${{ needs.knative-runner-tests.result }}
+          KNATIVE_COV: ${{ needs.knative-runner-tests.outputs.coverage }}
+          TOOLS_RESULT: ${{ needs.tools-tests.result }}
+          TOOLS_COV: ${{ needs.tools-tests.outputs.coverage }}
+          MIGRATION_RESULT: ${{ needs.migration-tests.result }}
+          MIGRATION_COV: ${{ needs.migration-tests.outputs.coverage }}
+          DEPLOY_RESULT: ${{ needs.deploy-tests.result }}
+          DEPLOY_COV: ${{ needs.deploy-tests.outputs.coverage }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Test coverage"
+            echo ""
+            echo "| Job | Result | Coverage |"
+            echo "| --- | --- | --- |"
+            row() {
+              local name="$1" result="$2" cov="${3:-—}"
+              if [ -z "${cov}" ]; then
+                cov="—"
+              fi
+              echo "| \`${name}\` | ${result} | ${cov} |"
+            }
+            row "api-tests" "${API_RESULT}" "${API_COV}"
+            row "controllers-tests" "${CONTROLLERS_RESULT}" "${CONTROLLERS_COV}"
+            row "job-task-runner-tests" "${JOB_TASK_RESULT}" "${JOB_TASK_COV}"
+            row "kpack-image-builder-tests" "${KPACK_RESULT}" "${KPACK_COV}"
+            row "statefulset-runner-tests" "${STS_RESULT}" "${STS_COV}"
+            row "knative-runner-tests" "${KNATIVE_RESULT}" "${KNATIVE_COV}"
+            row "tools-tests" "${TOOLS_RESULT}" "${TOOLS_COV}"
+            row "migration-tests" "${MIGRATION_RESULT}" "${MIGRATION_COV}"
+            row "deploy-tests" "${DEPLOY_RESULT}" "${DEPLOY_COV}"
+            echo ""
+          } >>"${GITHUB_STEP_SUMMARY}"

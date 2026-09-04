@@ -48,6 +48,59 @@ function configure_non_e2e_tests() {
   extra_args+=("--poll-progress-after=60s" "--skip-package=e2e")
 }
 
+function cover_enabled() {
+  # Opt in with COVER=1 locally; CI enables by default (GitHub Actions sets CI=true).
+  # Opt out with NO_COVER=1.
+  if [[ -n "${NO_COVER:-}" ]]; then
+    return 1
+  fi
+  [[ -n "${COVER:-}" || -n "${CI:-}" ]]
+}
+
+function print_coverage() {
+  local profile="${1:-cover.out}"
+  if [[ ! -f "${profile}" ]]; then
+    echo "Coverage profile ${profile} not found; skipping summary."
+    return 0
+  fi
+
+  local summary total pct job_label
+  summary="$(go tool cover -func="${profile}")"
+  total="$(echo "${summary}" | tail -n1)"
+  pct="$(echo "${total}" | awk '{print $NF}')"
+  job_label="${GITHUB_JOB:-$(basename "$(pwd)")}"
+
+  # Full per-function table is collapsible in the job log; total stays visible.
+  echo "::group::Coverage summary"
+  echo "${summary}"
+  echo "::endgroup::"
+  echo "${total}"
+
+  # Exported for the workflow rollup job (needs.*.outputs.coverage).
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    echo "coverage=${pct}" >>"${GITHUB_OUTPUT}"
+  fi
+
+  # Per-job drill-down on the run Summary page (rollup table is separate).
+  if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    {
+      echo "### Coverage: \`${job_label}\`"
+      echo ""
+      echo "**${pct}** statement coverage"
+      echo ""
+      echo "<details>"
+      echo "<summary>Per-function coverage</summary>"
+      echo ""
+      echo '```'
+      echo "${summary}"
+      echo '```'
+      echo ""
+      echo "</details>"
+      echo ""
+    } >>"${GITHUB_STEP_SUMMARY}"
+  fi
+}
+
 function run_ginkgo() {
   if [[ -n "${GINKGO_NODES:-}" ]]; then
     extra_args+=("--procs=${GINKGO_NODES}")
@@ -77,7 +130,16 @@ function run_ginkgo() {
     extra_args+=("--keep-going")
   fi
 
+  if cover_enabled; then
+    # atomic is required when --race is enabled; safe without race too.
+    extra_args+=("--cover" "--covermode=atomic" "--coverprofile=cover.out")
+  fi
+
   go run github.com/onsi/ginkgo/v2/ginkgo --output-interceptor-mode=none --randomize-all --randomize-suites "${extra_args[@]}" $@
+
+  if cover_enabled; then
+    print_coverage cover.out
+  fi
 }
 
 function main() {
