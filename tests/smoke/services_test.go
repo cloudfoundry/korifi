@@ -71,4 +71,27 @@ var _ = Describe("Services", func() {
 			))
 		})
 	})
+
+	Describe("cf update-service", func() {
+		var serviceName string
+
+		BeforeEach(func() {
+			serviceName = uuid.NewString()
+			session := helpers.Cf("create-service", "sample-service", "sample", serviceName, "-b", brokerName)
+			Expect(session).To(Exit(0))
+		})
+
+		It("updates the managed service plan", func() {
+			session := helpers.Cf("update-service", serviceName, "-p", "sample-2")
+			Expect(session).To(Exit(0))
+
+			session = helpers.Cf("services")
+			Expect(session).To(Exit(0))
+
+			lines := it.MustCollect(it.LinesString(session.Out))
+			Expect(lines).To(ContainElement(
+				matchSubstrings(serviceName, "sample-service", "sample-2", brokerName),
+			))
+		})
+	})
 })

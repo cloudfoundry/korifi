@@ -115,6 +115,26 @@ func (r *Reconciler) isManaged(object client.Object) bool {
 	return serviceInstance.Spec.Type == korifiv1alpha1.ManagedType
 }
 
+func needsUpdate(instance *korifiv1alpha1.CFServiceInstance) bool {
+	return instance.Spec.PlanGUID != instance.Status.PlanGUID
+}
+
+func (r *Reconciler) ensurePlanVisible(ctx context.Context, serviceInstance *korifiv1alpha1.CFServiceInstance, servicePlan *korifiv1alpha1.CFServicePlan) error {
+	log := logr.FromContextOrDiscard(ctx)
+
+	planVisible, err := r.isServicePlanVisible(ctx, serviceInstance, servicePlan)
+	if err != nil {
+		log.Error(err, "failed to check service plan visibility")
+		return err
+	}
+
+	if !planVisible {
+		return k8s.NewNotReadyError().WithMessage("The service plan is disabled").WithReason("InvalidServicePlan").WithNoRequeue()
+	}
+
+	return nil
+}
+
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=korifi.cloudfoundry.org,resources=cfserviceinstances/finalizers,verbs=update
@@ -143,27 +163,46 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 
 	serviceInstance.Status.UpgradeAvailable = serviceInstance.Status.MaintenanceInfo.Version != serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo.Version
 
-	if isReady(serviceInstance) {
-		return ctrl.Result{}, nil
-	}
-
-	if isFailed(serviceInstance) {
-		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisioningFailed").WithNoRequeue()
-	}
-
-	planVisible, err := r.isServicePlanVisible(ctx, serviceInstance, serviceInstanceAssets.ServicePlan)
-	if err != nil {
-		log.Error(err, "failed to check service plan visibility")
-		return ctrl.Result{}, err
-	}
-
-	if !planVisible {
-		return ctrl.Result{},
-			k8s.NewNotReadyError().WithMessage("The service plan is disabled").WithReason("InvalidServicePlan").WithNoRequeue()
+	if isProvisioningFailed(serviceInstance) {
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ServiceInstanceFailed").WithNoRequeue()
 	}
 
 	if serviceInstance.Spec.ServiceLabel == nil {
 		serviceInstance.Spec.ServiceLabel = tools.PtrTo(serviceInstanceAssets.ServiceOffering.Spec.Name)
+		return ctrl.Result{}, nil
+	}
+
+	if !serviceInstance.Status.Provisioned {
+		return r.reconcileProvisionedServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+	}
+
+	// Backfill status.PlanGUID for legacy provisioned instances without it (one-time migration)
+	if serviceInstance.Status.PlanGUID == "" {
+		serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
+		return ctrl.Result{}, nil
+	}
+
+	if !needsUpdate(serviceInstance) {
+		return ctrl.Result{}, nil
+	}
+
+	if isUpdateFailed(serviceInstance) {
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UpdateFailed").WithNoRequeue()
+	}
+
+	return r.reconcileUpdatedServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+}
+
+func (r *Reconciler) reconcileProvisionedServiceInstance( //nolint:dupl
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	serviceInstanceAssets osbapi.ServiceInstanceAssets,
+	osbapiClient osbapi.BrokerClient,
+) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx)
+
+	if err := r.ensurePlanVisible(ctx, serviceInstance, serviceInstanceAssets.ServicePlan); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	provisionResponse, err := r.provisionServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
@@ -177,11 +216,47 @@ func (r *Reconciler) ReconcileResource(ctx context.Context, serviceInstance *kor
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		return r.processProvisionOperation(serviceInstance, lastOpResponse)
+		return r.processProvisionOperation(serviceInstance, lastOpResponse, serviceInstanceAssets)
 	}
 
+	serviceInstance.Status.Provisioned = true
+
+	serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
 	serviceInstance.Status.MaintenanceInfo = serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo
 	serviceInstance.Status.LastOperation.State = "succeeded"
+	return ctrl.Result{}, nil
+}
+
+func (r *Reconciler) reconcileUpdatedServiceInstance( //nolint:dupl
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	serviceInstanceAssets osbapi.ServiceInstanceAssets,
+	osbapiClient osbapi.BrokerClient,
+) (ctrl.Result, error) {
+	log := logr.FromContextOrDiscard(ctx)
+
+	if err := r.ensurePlanVisible(ctx, serviceInstance, serviceInstanceAssets.ServicePlan); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	updateResponse, err := r.updateServiceInstance(ctx, serviceInstance, serviceInstanceAssets, osbapiClient)
+	if err != nil {
+		log.Error(err, "failed to update service instance")
+		return ctrl.Result{}, fmt.Errorf("failed to update service instance: %w", err)
+	}
+	if updateResponse.IsAsync {
+		lastOpResponse, err := r.pollLastOperation(ctx, serviceInstance, serviceInstanceAssets, osbapiClient, updateResponse.Operation)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return r.processUpdateOperation(serviceInstance, lastOpResponse, serviceInstanceAssets)
+	}
+
+	serviceInstance.Status.LastOperation.State = "succeeded"
+	if serviceInstance.Spec.PlanGUID != serviceInstance.Status.PlanGUID {
+		serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
+		serviceInstance.Status.MaintenanceInfo = serviceInstanceAssets.ServicePlan.Spec.MaintenanceInfo
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -247,8 +322,12 @@ func (r *Reconciler) provisionServiceInstance(
 func (r *Reconciler) processProvisionOperation(
 	serviceInstance *korifiv1alpha1.CFServiceInstance,
 	lastOpResponse osbapi.LastOperationResponse,
+	assets osbapi.ServiceInstanceAssets,
 ) (ctrl.Result, error) {
 	if lastOpResponse.State == "succeeded" {
+		serviceInstance.Status.Provisioned = true
+		serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
+		serviceInstance.Status.MaintenanceInfo = assets.ServicePlan.Spec.MaintenanceInfo
 		return ctrl.Result{}, nil
 	}
 
@@ -265,6 +344,80 @@ func (r *Reconciler) processProvisionOperation(
 	}
 
 	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("ProvisionInProgress").WithRequeue()
+}
+
+func (r *Reconciler) updateServiceInstance(
+	ctx context.Context,
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	assets osbapi.ServiceInstanceAssets,
+	osbapiClient osbapi.BrokerClient,
+) (osbapi.UpdateResponse, error) {
+	log := logr.FromContextOrDiscard(ctx).WithName("update-service-instance")
+
+	serviceInstance.Status.LastOperation = korifiv1alpha1.LastOperation{
+		Type:  "update",
+		State: "in progress",
+	}
+
+	var updateResponse osbapi.UpdateResponse
+	var err error
+	updateResponse, err = osbapiClient.Update(ctx, osbapi.UpdatePayload{
+		InstanceID: serviceInstance.Name,
+		UpdateRequest: osbapi.UpdateRequest{
+			ServiceId: assets.ServiceOffering.Spec.BrokerCatalog.ID,
+			PlanID:    assets.ServicePlan.Spec.BrokerCatalog.ID,
+		},
+	})
+	if err != nil {
+		log.Error(err, "failed to update service")
+
+		if osbapi.IsUnrecoveralbeError(err) {
+			serviceInstance.Status.LastOperation.State = "failed"
+			meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+				Type:               korifiv1alpha1.UpdateFailedCondition,
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: serviceInstance.Generation,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Reason:             "UpdateFailed",
+				Message:            err.Error(),
+			})
+			return osbapi.UpdateResponse{},
+				k8s.NewNotReadyError().WithReason("UpdateFailed").WithNoRequeue()
+
+		}
+
+		return osbapi.UpdateResponse{}, err
+	}
+
+	return updateResponse, nil
+}
+
+func (r *Reconciler) processUpdateOperation(
+	serviceInstance *korifiv1alpha1.CFServiceInstance,
+	lastOpResponse osbapi.LastOperationResponse,
+	assets osbapi.ServiceInstanceAssets,
+) (ctrl.Result, error) {
+	if lastOpResponse.State == "succeeded" {
+		if serviceInstance.Spec.PlanGUID != serviceInstance.Status.PlanGUID {
+			serviceInstance.Status.PlanGUID = serviceInstance.Spec.PlanGUID
+			serviceInstance.Status.MaintenanceInfo = assets.ServicePlan.Spec.MaintenanceInfo
+		}
+		return ctrl.Result{}, nil
+	}
+
+	if lastOpResponse.State == "failed" {
+		meta.SetStatusCondition(&serviceInstance.Status.Conditions, metav1.Condition{
+			Type:               korifiv1alpha1.UpdateFailedCondition,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: serviceInstance.Generation,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			Reason:             "UpdateFailed",
+			Message:            lastOpResponse.Description,
+		})
+		return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UpdateFailed")
+	}
+
+	return ctrl.Result{}, k8s.NewNotReadyError().WithReason("UpdateInProgress").WithRequeue()
 }
 
 func (r *Reconciler) finalize(
@@ -471,10 +624,14 @@ func (r *Reconciler) getNamespace(ctx context.Context, namespaceName string) (*c
 	return namespace, nil
 }
 
-func isFailed(instance *korifiv1alpha1.CFServiceInstance) bool {
-	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.ProvisioningFailedCondition)
+func isUpdateFailed(instance *korifiv1alpha1.CFServiceInstance) bool {
+	cond := meta.FindStatusCondition(instance.Status.Conditions, korifiv1alpha1.UpdateFailedCondition)
+	if cond == nil {
+		return false
+	}
+	return cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == instance.Generation
 }
 
-func isReady(instance *korifiv1alpha1.CFServiceInstance) bool {
-	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.StatusConditionReady)
+func isProvisioningFailed(instance *korifiv1alpha1.CFServiceInstance) bool {
+	return meta.IsStatusConditionTrue(instance.Status.Conditions, korifiv1alpha1.ProvisioningFailedCondition)
 }

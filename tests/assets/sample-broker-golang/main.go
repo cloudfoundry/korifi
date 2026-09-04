@@ -27,6 +27,7 @@ func main() {
 	http.HandleFunc("GET /v2/catalog", getCatalogHandler)
 
 	http.HandleFunc("PUT /v2/service_instances/{id}", provisionServiceInstanceHandler)
+	http.HandleFunc("PATCH /v2/service_instances/{id}", updateServiceInstanceHandler)
 	http.HandleFunc("DELETE /v2/service_instances/{id}", deprovisionServiceInstanceHandler)
 	http.HandleFunc("GET /v2/service_instances/{id}/last_operation", getLastOperationHandler)
 
@@ -62,16 +63,28 @@ func getCatalogHandler(w http.ResponseWriter, r *http.Request) {
 			Name:        "sample-service",
 			Id:          "edfd6e50-aa59-4688-b5bf-b21e2ab27cdb",
 			Description: "A sample service that does nothing",
-			Plans: []osbapi.Plan{{
-				Id:          "ebf1c1df-fefb-479b-9231-ddf700a37b58",
-				Name:        "sample",
-				Description: "Sample plan",
-				Free:        true,
-				Bindable:    true,
-				MaintenanceInfo: osbapi.MaintenanceInfo{
-					Version: "1.2.3",
+			Plans: []osbapi.Plan{
+				{
+					Id:          "ebf1c1df-fefb-479b-9231-ddf700a37b58",
+					Name:        "sample",
+					Description: "Sample plan",
+					Free:        true,
+					Bindable:    true,
+					MaintenanceInfo: osbapi.MaintenanceInfo{
+						Version: "1.2.3",
+					},
 				},
-			}},
+				{
+					Id:          "003c9135-2d40-426d-9099-d4c1b807cec1",
+					Name:        "sample-2",
+					Description: "Sample plan 2",
+					Free:        true,
+					Bindable:    true,
+					MaintenanceInfo: osbapi.MaintenanceInfo{
+						Version: "1.2.3",
+					},
+				},
+			},
 		}},
 	}
 
@@ -94,6 +107,17 @@ func provisionServiceInstanceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	asyncOperation(w, fmt.Sprintf("provision-%s", r.PathValue("id")), "{}")
+}
+
+func updateServiceInstanceHandler(w http.ResponseWriter, r *http.Request) {
+	logRequest(r)
+
+	if status, err := checkCredentials(w, r); err != nil {
+		respond(w, status, fmt.Sprintf("Credentials check failed: %v", err))
+		return
+	}
+
+	asyncOperation(w, fmt.Sprintf("update-%s", r.PathValue("id")), "{}")
 }
 
 func deprovisionServiceInstanceHandler(w http.ResponseWriter, r *http.Request) {

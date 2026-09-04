@@ -366,7 +366,7 @@ func createAppCR(ctx context.Context, k8sClient client.Client, appName, appGUID,
 	return toReturn
 }
 
-func createServiceInstanceCR(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, secretName string) *korifiv1alpha1.CFServiceInstance {
+func createUserProvidedServiceInstanceCR(ctx context.Context, k8sClient client.Client, serviceInstanceGUID, spaceGUID, name, secretName string) *korifiv1alpha1.CFServiceInstance {
 	serviceInstance := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        serviceInstanceGUID,

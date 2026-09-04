@@ -68,7 +68,7 @@ type CreateManagedSIMessage struct {
 	Annotations map[string]string
 }
 
-type PatchServiceInstanceMessage struct {
+type PatchUPSIMessage struct {
 	GUID        string
 	SpaceGUID   string
 	Name        *string
@@ -77,12 +77,34 @@ type PatchServiceInstanceMessage struct {
 	MetadataPatch
 }
 
-func (p PatchServiceInstanceMessage) Apply(cfServiceInstance *korifiv1alpha1.CFServiceInstance) {
+type PatchManagedSIMessage struct {
+	GUID      string
+	SpaceGUID string
+	PlanGUID  *string
+	Name      *string
+	Tags      *[]string
+	MetadataPatch
+}
+
+func (p PatchUPSIMessage) Apply(cfServiceInstance *korifiv1alpha1.CFServiceInstance) {
 	if p.Name != nil {
 		cfServiceInstance.Spec.DisplayName = *p.Name
 	}
 	if p.Tags != nil {
 		cfServiceInstance.Spec.Tags = *p.Tags
+	}
+	p.MetadataPatch.Apply(cfServiceInstance)
+}
+
+func (p PatchManagedSIMessage) Apply(cfServiceInstance *korifiv1alpha1.CFServiceInstance) {
+	if p.Name != nil {
+		cfServiceInstance.Spec.DisplayName = *p.Name
+	}
+	if p.Tags != nil {
+		cfServiceInstance.Spec.Tags = *p.Tags
+	}
+	if p.PlanGUID != nil {
+		cfServiceInstance.Spec.PlanGUID = *p.PlanGUID
 	}
 	p.MetadataPatch.Apply(cfServiceInstance)
 }
@@ -274,7 +296,7 @@ func (r *ServiceInstanceRepo) servicePlanVisible(ctx context.Context, planGUID s
 	return slices.Contains(servicePlan.Spec.Visibility.Organizations, space.Namespace), nil
 }
 
-func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo authorization.Info, message PatchServiceInstanceMessage) (ServiceInstanceRecord, error) {
+func (r *ServiceInstanceRepo) PatchUserProvidedServiceInstance(ctx context.Context, authInfo authorization.Info, message PatchUPSIMessage) (ServiceInstanceRecord, error) {
 	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: message.SpaceGUID,
@@ -302,6 +324,28 @@ func (r *ServiceInstanceRepo) PatchServiceInstance(ctx context.Context, authInfo
 		if err != nil {
 			return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 		}
+	}
+
+	return cfServiceInstanceToRecord(*cfServiceInstance), nil
+}
+
+func (r *ServiceInstanceRepo) PatchManagedServiceInstance(ctx context.Context, authInfo authorization.Info, message PatchManagedSIMessage) (ServiceInstanceRecord, error) {
+	cfServiceInstance := &korifiv1alpha1.CFServiceInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: message.SpaceGUID,
+			Name:      message.GUID,
+		},
+	}
+	if err := r.klient.Get(ctx, cfServiceInstance); err != nil {
+		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
+	}
+
+	err := r.klient.Patch(ctx, cfServiceInstance, func() error {
+		message.Apply(cfServiceInstance)
+		return nil
+	})
+	if err != nil {
+		return ServiceInstanceRecord{}, apierrors.FromK8sError(err, ServiceInstanceResourceType)
 	}
 
 	return cfServiceInstanceToRecord(*cfServiceInstance), nil
