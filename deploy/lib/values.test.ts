@@ -38,6 +38,11 @@ describe("buildKorifiValues", () => {
 			gatewayPorts: { http: 32080, https: 32443 },
 		});
 		expect(values.containerRepositoryPrefix).toBe(kindRegistryPrefix());
+		expect(values.stagingRequirements).toEqual({
+			buildCacheMB: 1024,
+			memoryMB: 3072,
+			diskMB: 4096,
+		});
 		expect(values.experimental).toEqual({
 			managedServices: { enabled: true, trustInsecureBrokers: true },
 		});
@@ -122,6 +127,7 @@ describe("buildKorifiValues", () => {
 		expect(values.reconcilers).toEqual({ run: "knative-runner" });
 		expect(values.logLevel).toBeUndefined();
 		expect(values.experimental).toBeUndefined();
+		expect(values.stagingRequirements).toBeUndefined();
 	});
 
 	test("eks throws without role ARN", () => {

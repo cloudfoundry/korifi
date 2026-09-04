@@ -110,6 +110,8 @@ spec:
             --set=generateIngressCertificates="true" \
             --set=logLevel="debug" \
             --set=stagingRequirements.buildCacheMB="1024" \
+            --set=stagingRequirements.memoryMB="3072" \
+            --set=stagingRequirements.diskMB="4096" \
             --set=api.apiServer.url="localhost" \
             --set=controllers.taskTTL="5s" \
             --set=jobTaskRunner.jobTTL="5s" \

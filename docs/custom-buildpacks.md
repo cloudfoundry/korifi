@@ -10,16 +10,30 @@ You can see the available buildpacks via the CF CLI using the command
 cf buildpacks
 Getting buildpacks as cf-admin...
 
-position   name                            stack                        enabled   locked   filename
-1          paketo-buildpacks/java          io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/java@17.0.0
-2          paketo-buildpacks/go            io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/go@4.12.2
-3          paketo-buildpacks/nodejs        io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/nodejs@4.2.1
-4          paketo-buildpacks/ruby          io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/ruby@0.47.6
-5          paketo-buildpacks/procfile      io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/procfile@5.10.0
+position   name                                    stack                        enabled   locked   filename
+1          paketo-buildpacks/java-native-image     io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/java-native-image@14.11.0
+2          paketo-buildpacks/java                  io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/java@17.0.0
+3          paketo-buildpacks/go                    io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/go@4.12.2
+4          paketo-buildpacks/nodejs                io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/nodejs@4.2.1
+5          paketo-buildpacks/ruby                  io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/ruby@0.47.6
+6          paketo-buildpacks/procfile              io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/procfile@5.10.0
 ```
 
+`java-native-image` is listed first so Cloud Native Buildpacks can select it when `BP_NATIVE_IMAGE=true` (or when a Spring Boot 3 app already has native/AOT metadata). Other Java apps still match `paketo-buildpacks/java`. See [Java Native Image](#java-native-image) below.
+
 Those default buildpacks are configured within the `ClusterStore` and `ClusterBuilder` of the Helm Chart, which can be found [here](../helm/korifi/kpack-image-builder/cluster-builder.yaml)
- 
+
+## Java Native Image
+
+The default builder includes [Paketo Java Native Image](https://github.com/paketo-buildpacks/java-native-image) on the same jammy-full stack as the other language packs. Detection is opt-in: set `BP_NATIVE_IMAGE=true` at staging (for example `cf set-env APP BP_NATIVE_IMAGE true` then `cf restage`), or push with `-b paketo-buildpacks/java-native-image`.
+
+Paketo compiles with BellSoft Liberica Native Image Kit (GraalVM native-image). Spring Boot 3 apps with AOT are the supported path. Native-image is memory-heavy; raise `stagingRequirements.memoryMB` (kind Pulumi defaults to 3072 so it can schedule on an ~8Gi node) if the kpack build is OOMKilled. Increase kind/Docker memory if the node is too small.
+
+```bash
+cf set-env my-spring-app BP_NATIVE_IMAGE true
+cf restage my-spring-app
+```
+
 ## Custom Buildpacks
 
 If you want to make more buildpacks than the default ones available, you have two possibilities. You can either adjust the `ClusterStore` and `ClusterBuilder` within your cluster to include further buildpacks or you provide your own `ClusterBuilder` and use it instead.
@@ -50,6 +64,7 @@ metadata:
   uid: 374265ba-9dd8-4769-8363-76ab2b94d56e
 spec:
   sources:
+  - image: paketobuildpacks/java-native-image
   - image: paketobuildpacks/java
   - image: paketobuildpacks/nodejs
   - image: paketobuildpacks/ruby
@@ -68,6 +83,9 @@ Afterwards we can see that sources now includes web-servers as well
 ```yaml
 kubectl get ClusterStore cf-default-buildpacks -o jsonpath={".spec.sources"} | jq
 [
+  {
+    "image": "paketobuildpacks/java-native-image"
+  },
   {
     "image": "paketobuildpacks/java"
   },
@@ -112,6 +130,8 @@ metadata:
 spec:
   order:
   - group:
+    - id: paketo-buildpacks/java-native-image
+  - group:
     - id: paketo-buildpacks/java
   - group:
     - id: paketo-buildpacks/go
@@ -145,13 +165,14 @@ After that you can see the buildpack using the CF CLI.
 cf buildpacks
 Getting buildpacks as cf-admin...
 
-position   name                            stack                        enabled   locked   filename
-1          paketo-buildpacks/java          io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/java@17.0.0
-2          paketo-buildpacks/go            io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/go@4.12.2
-3          paketo-buildpacks/nodejs        io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/nodejs@4.2.1
-4          paketo-buildpacks/ruby          io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/ruby@0.47.6
-5          paketo-buildpacks/procfile      io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/procfile@5.10.0
-6          paketo-buildpacks/web-servers   io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/web-servers@0.27.1
+position   name                                    stack                        enabled   locked   filename
+1          paketo-buildpacks/java-native-image     io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/java-native-image@14.11.0
+2          paketo-buildpacks/java                  io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/java@17.0.0
+3          paketo-buildpacks/go                    io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/go@4.12.2
+4          paketo-buildpacks/nodejs                io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/nodejs@4.2.1
+5          paketo-buildpacks/ruby                  io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/ruby@0.47.6
+6          paketo-buildpacks/procfile              io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/procfile@5.10.0
+7          paketo-buildpacks/web-servers           io.buildpacks.stacks.jammy   true      false    paketo-buildpacks/web-servers@0.27.1
 ```
 
 ### Provide your own ClusterBuilder/ ClusterStore 

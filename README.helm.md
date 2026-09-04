@@ -127,7 +127,7 @@ Here are all the values that can be set for the chart:
 - `stagingRequirements`:
   - `buildCacheMB` (_Integer_): Persistent disk in MB for caching staging artifacts across builds.
   - `diskMB` (_Integer_): Ephemeral Disk request in MB for staging apps.
-  - `memoryMB` (_Integer_): Memory request in MB for staging.
+  - `memoryMB` (_Integer_): Memory request in MB for staging. GraalVM/Liberica native-image builds typically need several Gi; the kind installer sets `3072` so the build can schedule on an ~8Gi kind node.
 - `statefulsetRunner`:
   - `include` (_Boolean_): Enable the `statefulset-runner` component.
 - `systemImagePullSecrets` (_Array_): List of `Secret` names to be used when pulling Korifi system images from private registries

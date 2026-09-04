@@ -5,6 +5,7 @@ metadata:
   name: cf-default-buildpacks
 spec:
   sources:
+  - image: paketobuildpacks/java-native-image
   - image: paketobuildpacks/java
   - image: paketobuildpacks/nodejs
   - image: paketobuildpacks/ruby
@@ -38,6 +39,8 @@ spec:
     name: cf-default-buildpacks
     kind: ClusterStore
   order:
+  - group:
+    - id: paketo-buildpacks/java-native-image
   - group:
     - id: paketo-buildpacks/java
   - group:

@@ -81,7 +81,14 @@ export function buildKorifiValues(
 
 	if (input.platform === "kind") {
 		values.logLevel = input.logLevel ?? "debug";
-		values.stagingRequirements = { buildCacheMB: 1024 };
+		values.stagingRequirements = {
+			buildCacheMB: 1024,
+			// Request enough to schedule a native-image build on a typical ~8Gi
+			// kind node (this cluster has ~3.8Gi unreserved). No limit, so the
+			// pod can still burst. 6144+ requests stay Pending here.
+			memoryMB: 3072,
+			diskMB: 4096,
+		};
 		values.controllers = { taskTTL: "5s" };
 		values.jobTaskRunner = { jobTTL: "5s" };
 		const experimental: Record<string, unknown> = {};

@@ -61,6 +61,8 @@ DockerHub allows only one private repository per free account. In case the Docke
 
 The Helm chart will create an example Kpack `ClusterBuilder` (with the associated `ClusterStore` and `ClusterStack`) by default. To use your own `ClusterBuilder`, specify the `kpackImageBuilder.clusterBuilderName` value. See the [Kpack documentation](https://github.com/buildpacks-community/kpack/blob/main/docs/builders.md) for details on how to set up your own `ClusterBuilder`.
 
+The default builder includes Paketo `java-native-image` (Liberica NIK / GraalVM native-image) **before** `java`. It only detects when `BP_NATIVE_IMAGE=true` (or the app already has Spring Boot 3 native/AOT metadata); other Java apps still stage as a JVM. Native-image needs several Gi of staging RAM — see `stagingRequirements.memoryMB` (kind defaults to 3072) and [Java Native Image](docs/custom-buildpacks.md#java-native-image).
+
 ### Contour
 
 [Contour](https://projectcontour.io/) is our [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) controller. Contour implements the [Gateway API](https://gateway-api.sigs.k8s.io/). There are two ways to deploy Contour with Gateway API support: static provisioning and dynamic provisioning.
