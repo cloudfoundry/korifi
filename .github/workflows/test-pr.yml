@@ -9,13 +9,12 @@ on:
     - 'feat/**'
     types: [opened, synchronize, reopened, ready_for_review]
 
-  # Forks sometimes fail to emit pull_request workflow runs; also run on
-  # direct pushes to stacked feature branches and main.
+  # Trunk branches only. Feature work gets coverage from pull_request above;
+  # push on feat/** double-fires with synchronize and floods Actions.
   push:
     branches:
     - main
     - next
-    - 'feat/**'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
