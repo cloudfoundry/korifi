@@ -354,7 +354,7 @@ func (r *Reconciler) reconcileHTTPRoute(ctx context.Context, cfRoute *korifiv1al
 		return nil
 	}
 
-	backendRefs, err := r.toBackendRefs(ctx, cfRoute)
+	backendRefs, hostRewrite, err := r.toBackendRefs(ctx, cfRoute)
 	if err != nil {
 		return err
 	}
@@ -371,9 +371,21 @@ func (r *Reconciler) reconcileHTTPRoute(ctx context.Context, cfRoute *korifiv1al
 			gatewayv1beta1.Hostname(fqdn),
 		}
 
-		httpRoute.Spec.Rules = []gatewayv1beta1.HTTPRouteRule{{
+		rule := gatewayv1beta1.HTTPRouteRule{
 			BackendRefs: backendRefs,
-		}}
+		}
+		// Contour's Gateway controller rejects URLRewrite on BackendRef.Filters
+		// (only header modifiers). Rule-level URLRewrite is Accepted and still
+		// sets Host for the Knative activator.
+		if hostRewrite != nil {
+			rule.Filters = []gatewayv1beta1.HTTPRouteFilter{{
+				Type: gatewayv1.HTTPRouteFilterURLRewrite,
+				URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
+					Hostname: hostRewrite,
+				},
+			}}
+		}
+		httpRoute.Spec.Rules = []gatewayv1beta1.HTTPRouteRule{rule}
 		if cfRoute.Spec.Path != "" {
 			httpRoute.Spec.Rules[0].Matches = []gatewayv1beta1.HTTPRouteMatch{{
 				Path: &gatewayv1beta1.HTTPPathMatch{
@@ -479,8 +491,9 @@ func (r *Reconciler) findKnativePublicService(ctx context.Context, namespace, ap
 	return &services[0], nil
 }
 
-func (r *Reconciler) toBackendRefs(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) ([]gatewayv1beta1.HTTPBackendRef, error) {
+func (r *Reconciler) toBackendRefs(ctx context.Context, cfRoute *korifiv1alpha1.CFRoute) ([]gatewayv1beta1.HTTPBackendRef, *gatewayv1beta1.PreciseHostname, error) {
 	backendRefs := []gatewayv1beta1.HTTPBackendRef{}
+	var hostRewrite *gatewayv1beta1.PreciseHostname
 
 	for _, destination := range cfRoute.Status.Destinations {
 		if destination.Port == nil {
@@ -489,13 +502,16 @@ func (r *Reconciler) toBackendRefs(ctx context.Context, cfRoute *korifiv1alpha1.
 
 		knativeSvc, err := r.findKnativePublicService(ctx, cfRoute.Namespace, destination.AppRef.Name, destination.ProcessType)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if knativeSvc != nil {
 			// Activator selects the revision from Host; Contour must rewrite away
 			// from the CF route hostname to the revision ClusterIP DNS name.
-			hostRewrite := fmt.Sprintf("%s.%s.svc.cluster.local", knativeSvc.Name, knativeSvc.Namespace)
+			rewrite := gatewayv1beta1.PreciseHostname(fmt.Sprintf("%s.%s.svc.cluster.local", knativeSvc.Name, knativeSvc.Namespace))
+			if hostRewrite == nil {
+				hostRewrite = &rewrite
+			}
 			backendRefs = append(backendRefs, gatewayv1beta1.HTTPBackendRef{
 				BackendRef: gatewayv1beta1.BackendRef{
 					BackendObjectReference: gatewayv1beta1.BackendObjectReference{
@@ -504,12 +520,6 @@ func (r *Reconciler) toBackendRefs(ctx context.Context, cfRoute *korifiv1alpha1.
 						Port: tools.PtrTo(gatewayv1beta1.PortNumber(80)),
 					},
 				},
-				Filters: []gatewayv1beta1.HTTPRouteFilter{{
-					Type: gatewayv1.HTTPRouteFilterURLRewrite,
-					URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
-						Hostname: tools.PtrTo(gatewayv1beta1.PreciseHostname(hostRewrite)),
-					},
-				}},
 			})
 			continue
 		}
@@ -525,5 +535,5 @@ func (r *Reconciler) toBackendRefs(ctx context.Context, cfRoute *korifiv1alpha1.
 		})
 	}
 
-	return backendRefs, nil
+	return backendRefs, hostRewrite, nil
 }

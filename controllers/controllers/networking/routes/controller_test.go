@@ -425,7 +425,8 @@ var _ = Describe("CFRouteReconciler Integration Tests", func() {
 						Name:  gatewayv1beta1.ObjectName(knativePublicSvc.Name),
 						Port:  tools.PtrTo(gatewayv1beta1.PortNumber(80)),
 					}))
-					g.Expect(ref.Filters).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
+					g.Expect(ref.Filters).To(BeEmpty())
+					g.Expect(httpRoute.Spec.Rules[0].Filters).To(ConsistOf(MatchFields(IgnoreExtras, Fields{
 						"Type": Equal(gatewayv1.HTTPRouteFilterURLRewrite),
 						"URLRewrite": PointTo(MatchFields(IgnoreExtras, Fields{
 							"Hostname": PointTo(Equal(gatewayv1beta1.PreciseHostname(
