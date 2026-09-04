@@ -422,7 +422,7 @@ func startupProbe(cfProcess *korifiv1alpha1.CFProcess, ports []int32) *corev1.Pr
 		TimeoutSeconds: int32(cfProcess.Spec.HealthCheck.Data.InvocationTimeoutSeconds),
 		PeriodSeconds:  2,
 		FailureThreshold: int32(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds/2 +
-			(cfProcess.Spec.HealthCheck.Data.TimeoutSeconds)%2),
+			cfProcess.Spec.HealthCheck.Data.TimeoutSeconds%2),
 	}
 }
 

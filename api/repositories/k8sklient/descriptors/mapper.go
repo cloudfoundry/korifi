@@ -92,7 +92,7 @@ func getItemsIndex(listObj runtime.Object) (map[string]client.Object, error) {
 	result := map[string]client.Object{}
 
 	v := reflect.ValueOf(listObj)
-	if v.Kind() != reflect.Ptr || v.IsNil() {
+	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return nil, fmt.Errorf("listObj must be a non-nil pointer")
 	}
 
@@ -118,7 +118,7 @@ func getItemsIndex(listObj runtime.Object) (map[string]client.Object, error) {
 
 func appendToList(listObj runtime.Object, items []client.Object) error {
 	v := reflect.ValueOf(listObj)
-	if v.Kind() != reflect.Ptr || v.IsNil() {
+	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return fmt.Errorf("listObj must be a non-nil pointer")
 	}
 

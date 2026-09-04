@@ -100,13 +100,13 @@ var _ = BeforeEach(func() {
 
 	brokerClientFactory = new(fake.BrokerClientFactory)
 
-	err := (managed.NewReconciler(
+	err := managed.NewReconciler(
 		k8sManager.GetClient(),
 		brokerClientFactory,
 		k8sManager.GetScheme(),
 		rootNamespace,
 		ctrl.Log.WithName("controllers").WithName("ManagedCFServiceInstance"),
-	)).SetupWithManager(k8sManager)
+	).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 })
 

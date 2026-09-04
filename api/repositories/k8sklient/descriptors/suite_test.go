@@ -175,7 +175,7 @@ func createOrg(ctx context.Context, displayName string) *korifiv1alpha1.CFOrg {
 	}
 	Expect(k8sClient.Create(ctx, cfOrg)).To(Succeed())
 
-	meta.SetStatusCondition(&(cfOrg.Status.Conditions), metav1.Condition{
+	meta.SetStatusCondition(&cfOrg.Status.Conditions, metav1.Condition{
 		Type:    korifiv1alpha1.StatusConditionReady,
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",
@@ -210,7 +210,7 @@ func createSpace(ctx context.Context, orgGUID, name string) *korifiv1alpha1.CFSp
 	Expect(k8sClient.Create(ctx, cfSpace)).To(Succeed())
 
 	cfSpace.Status.GUID = cfSpace.Name
-	meta.SetStatusCondition(&(cfSpace.Status.Conditions), metav1.Condition{
+	meta.SetStatusCondition(&cfSpace.Status.Conditions, metav1.Condition{
 		Type:    korifiv1alpha1.StatusConditionReady,
 		Status:  metav1.ConditionTrue,
 		Reason:  "cus",

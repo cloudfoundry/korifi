@@ -151,7 +151,7 @@ func (k *K8sKlient) listViaUserClient(ctx context.Context, list client.ObjectLis
 
 func getObjectListItemsField(listObj client.ObjectList) (reflect.Value, error) {
 	v := reflect.ValueOf(listObj)
-	if v.Kind() != reflect.Ptr || v.IsNil() {
+	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return reflect.Value{}, fmt.Errorf("listObj must be a non-nil pointer")
 	}
 

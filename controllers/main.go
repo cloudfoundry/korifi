@@ -237,16 +237,16 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err = (upsi_instances.NewReconciler(
+		if err = upsi_instances.NewReconciler(
 			controllersClient,
 			mgr.GetScheme(),
 			controllersLog,
-		)).SetupWithManager(mgr); err != nil {
+		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "UPSICFServiceInstance")
 			os.Exit(1)
 		}
 
-		if err = (bindings.NewReconciler(
+		if err = bindings.NewReconciler(
 			controllersClient,
 			mgr.GetScheme(),
 			controllersLog,
@@ -257,7 +257,7 @@ func main() {
 				controllerConfig.CFRootNamespace,
 				mgr.GetScheme(),
 			),
-		)).SetupWithManager(mgr); err != nil {
+		).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CFServiceBinding")
 			os.Exit(1)
 		}

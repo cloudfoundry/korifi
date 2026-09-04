@@ -94,10 +94,12 @@ bin/gosec:
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
 
 bin/staticcheck:
-	go install honnef.co/go/tools/cmd/staticcheck@latest
+	# 2026.2+ required for Go 1.27 export data.
+	go install honnef.co/go/tools/cmd/staticcheck@2026.2.1
 
 bin/golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	# v2.13+ required for Go 1.27; the v1 module path tops out at v1.64.x.
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 
 bin/cf:
 	mkdir -p $(GOBIN)

@@ -80,7 +80,7 @@ var _ = BeforeSuite(func() {
 		controllerConfig,
 		env.NewAppEnvBuilder(k8sManager.GetClient()),
 	)
-	err = (cfBuildpackBuildReconciler).SetupWithManager(k8sManager)
+	err = cfBuildpackBuildReconciler.SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	stopManager = helpers.StartK8sManager(k8sManager)

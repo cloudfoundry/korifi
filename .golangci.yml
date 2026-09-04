@@ -1,47 +1,54 @@
+version: "2"
+
 run:
-  # increase timeout for cases when tests run in parallel with linters
-  timeout: 20m
   modules-download-mode: mod
 
-linters-settings:
-  govet:
-    # report about shadowed variables
-    enable:
-      - shadow
-
-
 linters:
-  # Maximum issues count per one linter. Set to 0 to disable.
-  max-per-linter: 0
-
-  # Maximum count of issues with the same text. Set to 0 to disable
-  max-same: 0
-
-  # Show only new issues
-  new: false
-
   enable:
     - dupl
     - ginkgolinter
-
   disable:
     - staticcheck # we run this separately
+  settings:
+    govet:
+      # report about shadowed variables
+      enable:
+        - shadow
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters:
+          - dupl
+      # False positives comparing cfserviceinstance and cfservicebinding reconcile loops.
+      - path: service\w+_controller\.go
+        linters:
+          - dupl
+      # False positives comparing validating webhooks for cforg and cfapp.
+      - path: workloads/cf\w+_validation\.go
+        linters:
+          - dupl
+    paths:
+      - vendor
+      - pkg
+      - third_party$
+      - builtin$
+      - examples$
 
 issues:
-  # which dirs to skip: they won't be analyzed;
-  exclude-dirs:
-    - vendor
-    - pkg
-  exclude-rules:
-    - path: _test\.go
-      linters:
-      - dupl
-    # We are getting false positives comparing the cfserviceinstance and cfservicebinding reconcile loops. This may
-    # become unnecessary later if the implementation diverges more.
-    - path: service\w+_controller\.go
-      linters:
-        - dupl
-    # Ignore false positive duplicate linter errors comparing validating webhooks for cforg and cfapp.
-    - path: workloads/cf\w+_validation\.go
-      linters:
-        - dupl
+  # 0 disables the limit (v1 max-per-linter / max-same).
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

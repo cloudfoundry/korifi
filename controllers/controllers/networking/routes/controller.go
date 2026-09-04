@@ -198,10 +198,9 @@ func (r *Reconciler) createOrPatchServices(ctx context.Context, cfRoute *korifiv
 				korifiv1alpha1.CFRouteGUIDLabelKey: cfRoute.Name,
 			}
 
-			err := controllerutil.SetControllerReference(cfRoute, service, r.scheme)
-			if err != nil {
-				loopLog.Info("failed to set OwnerRef on Service", "reason", err)
-				return err
+			if refErr := controllerutil.SetControllerReference(cfRoute, service, r.scheme); refErr != nil {
+				loopLog.Info("failed to set OwnerRef on Service", "reason", refErr)
+				return refErr
 			}
 
 			service.Spec.Ports = []corev1.ServicePort{{

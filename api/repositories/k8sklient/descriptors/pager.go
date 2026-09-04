@@ -1,9 +1,8 @@
 package descriptors
 
 import (
+	"cmp"
 	"errors"
-
-	"golang.org/x/exp/constraints"
 )
 
 type PageInfo struct {
@@ -81,7 +80,7 @@ func GetPage[T any](items []T, pageSize int, pageNumber int) (Page[T], error) {
 	}, nil
 }
 
-func min[T constraints.Ordered](a, b T) T {
+func min[T cmp.Ordered](a, b T) T {
 	if a < b {
 		return a
 	}

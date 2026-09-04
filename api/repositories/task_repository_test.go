@@ -315,7 +315,7 @@ var _ = Describe("TaskRepository", func() {
 								Reason:  "foo",
 								Message: "bar",
 							})
-							meta.SetStatusCondition(&(cfTask.Status.Conditions), metav1.Condition{
+							meta.SetStatusCondition(&cfTask.Status.Conditions, metav1.Condition{
 								Type:   korifiv1alpha1.TaskFailedConditionType,
 								Status: metav1.ConditionTrue,
 								Reason: "TaskCanceled",

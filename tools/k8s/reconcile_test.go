@@ -293,7 +293,7 @@ var _ = Describe("Reconcile", func() {
 					Expect(updatedOrg.Status.Conditions).To(ContainElement(SatisfyAll(
 						HasType(Equal(korifiv1alpha1.StatusConditionReady)),
 						HasStatus(Equal(metav1.ConditionFalse)),
-						HasMessage(ContainSubstring(("test-err"))),
+						HasMessage(ContainSubstring("test-err")),
 					)))
 				})
 			})
