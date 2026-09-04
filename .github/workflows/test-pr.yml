@@ -2,9 +2,10 @@ name: Run Tests on PR
 
 on:
   pull_request:
-    # Stacked feature PRs target feat/* bases, not only main.
+    # Stacked feature PRs target next / feat/* bases, not only main.
     branches:
     - main
+    - next
     - 'feat/**'
     types: [opened, synchronize, reopened, ready_for_review]
 
@@ -13,6 +14,7 @@ on:
   push:
     branches:
     - main
+    - next
     - 'feat/**'
 
   # Allows you to run this workflow manually from the Actions tab
