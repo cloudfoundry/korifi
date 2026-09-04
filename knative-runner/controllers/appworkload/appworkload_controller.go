@@ -139,7 +139,7 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 
 	specToApply := runtime.DeepCopyJSON(desiredSpec)
 	if revName := revisionName(desired.GetName(), desiredHash); revName != "" {
-		if err := unstructured.SetNestedField(specToApply, revName, "template", "metadata", "name"); err != nil {
+		if err = unstructured.SetNestedField(specToApply, revName, "template", "metadata", "name"); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -178,8 +178,8 @@ func (r *AppWorkloadReconciler) ReconcileResource(ctx context.Context, appWorklo
 		// Persist the desired-spec hash as a label (annotations can be stripped).
 		isCreate := created.GetUID() == ""
 		if isCreate || liveHash != desiredHash {
-			if err := unstructured.SetNestedMap(created.Object, specToApply, "spec"); err != nil {
-				return err
+			if setErr := unstructured.SetNestedMap(created.Object, specToApply, "spec"); setErr != nil {
+				return setErr
 			}
 		}
 		return controllerutil.SetControllerReference(appWorkload, created, r.scheme)

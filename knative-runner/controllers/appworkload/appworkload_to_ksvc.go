@@ -174,7 +174,7 @@ func (r *AppWorkloadToKnativeServiceConverter) Convert(appWorkload *korifiv1alph
 		return nil, fmt.Errorf("marshal pod spec: %w", err)
 	}
 	var podSpecMap map[string]any
-	if err := json.Unmarshal(podSpecBytes, &podSpecMap); err != nil {
+	if err = json.Unmarshal(podSpecBytes, &podSpecMap); err != nil {
 		return nil, fmt.Errorf("unmarshal pod spec: %w", err)
 	}
 	// Drop null securityContext if present.
