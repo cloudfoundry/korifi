@@ -36,6 +36,13 @@ export {
 	type KorifiNamespacesArgs,
 } from "./namespaces";
 export {
+	ServiceBrokerServices,
+	defaultServiceBrokerServiceEnable,
+	type PostgresServiceArgs,
+	type ServiceBrokerServiceConnection,
+	type ServiceBrokerServicesArgs,
+} from "./service-broker-services";
+export {
 	buildKorifiValues,
 	eksKpackBuilderRepository,
 	eksRepositoryPrefix,

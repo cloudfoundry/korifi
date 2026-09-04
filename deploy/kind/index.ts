@@ -3,13 +3,14 @@
  *
  * Layers:
  *
- *   cluster.ts          kind cluster + containerd registry trust
- *   LocalRegistry       in-cluster docker-registry NodePort 30050
- *   KindKorifiImages    docker build + kind load controllers/api/migration
- *   KorifiDependencies  cert-manager, kpack, contour, metrics-server
- *   KorifiRelease       in-tree Helm chart (knative-runner)
- *   KnativeServing      Operator Helm + KnativeServing CR (Kourier ClusterIP)
- *   ContourGateway      NodePort GatewayClass params
+ *   cluster.ts               kind cluster + containerd registry trust
+ *   LocalRegistry            in-cluster docker-registry NodePort 30050
+ *   KindKorifiImages         docker build + kind load controllers/api/migration
+ *   KorifiDependencies       cert-manager, kpack, contour, metrics-server
+ *   KorifiRelease            in-tree Helm chart (knative-runner)
+ *   KnativeServing           Operator Helm + KnativeServing CR (Kourier ClusterIP)
+ *   ContourGateway           NodePort GatewayClass params
+ *   ServiceBrokerServices    shared Postgres (broker-ready connection facts)
  *
  * Usage:
  *   cd deploy/kind && bun install
@@ -17,6 +18,7 @@
  *   pulumi up --stack dev
  */
 import * as path from "node:path";
+import * as pulumi from "@pulumi/pulumi";
 import {
 	ContourGateway,
 	KindKorifiImages,
@@ -25,6 +27,7 @@ import {
 	KorifiNamespaces,
 	KorifiRelease,
 	LocalRegistry,
+	ServiceBrokerServices,
 	kindGatewayPorts,
 	kindKpackBuilderRepository,
 	kindRegistryPrefix,
@@ -157,6 +160,18 @@ const gateway = new ContourGateway(
 	{ dependsOn: [korifi] },
 );
 
+// Broker backends. Postgres only for now; flip `enable` (and add installers
+// in deploy/lib/service-broker-services.ts) to grow the set.
+const brokerServices = new ServiceBrokerServices(
+	"broker-services",
+	{
+		provider: cluster.provider,
+		enable: { postgres: true },
+		dependsOn: [korifi.release],
+	},
+	{ dependsOn: [korifi] },
+);
+
 export const kubeconfig = kubeconfigPath;
 export const cfApiUrl = `https://${apiUrl}`;
 export const appsDomain = `*.${appDomain}`;
@@ -167,3 +182,14 @@ export const registryHost = registry.clusterHost;
 export const knativeServing = knative.serving.metadata.name;
 export const controllersImage = images.controllersImage;
 export const apiImage = images.apiImage;
+
+/** Broker-facing Postgres admin facts (password is a secret output). */
+export const postgres = brokerServices.postgres
+	? {
+			host: brokerServices.postgres.host,
+			port: brokerServices.postgres.port,
+			adminUser: brokerServices.postgres.adminUser,
+			adminPassword: pulumi.secret(brokerServices.postgres.adminPassword),
+			adminUrl: pulumi.secret(brokerServices.postgres.adminUrl!),
+		}
+	: undefined;

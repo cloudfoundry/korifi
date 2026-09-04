@@ -195,4 +195,8 @@ describe("versions", () => {
 		expect(versions.knativeServing).toMatch(/^\d+\.\d+\.\d+$/);
 		expect(versions.knativeOperatorChart).toMatch(/^v\d+\.\d+\.\d+$/);
 	});
+
+	test("pins a postgres image for ServiceBrokerServices", () => {
+		expect(versions.postgresImage).toMatch(/^postgres:/);
+	});
 });

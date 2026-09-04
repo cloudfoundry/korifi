@@ -16,6 +16,8 @@ export const versions = {
 	knativeOperatorChart: "v1.23.1",
 	/** KnativeServing CR spec.version — must stay in the Operator's support range. */
 	knativeServing: "1.23.0",
+	/** Shared Postgres image for ServiceBrokerServices (OSB broker backend). */
+	postgresImage: "postgres:16-alpine",
 } as const;
 
 /** Helm chart URL for a released Korifi version. */

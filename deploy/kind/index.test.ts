@@ -23,6 +23,7 @@ test("kind stack composes shared lib components", () => {
 	expect(all).toContain("KorifiRelease");
 	expect(all).toContain("LocalRegistry");
 	expect(all).toContain("ContourGateway");
+	expect(all).toContain("ServiceBrokerServices");
 	expect(all).toContain('platform: "kind"');
 	expect(all).toContain("insecureTlsMetricsServer: true");
 	expect(all).toContain("NodePortService");
