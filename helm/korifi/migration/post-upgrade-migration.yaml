@@ -32,6 +32,9 @@ spec:
         - name: KORIFI_VERSION
           value: "{{ .Chart.Version }}"
         image: {{ .Values.migration.image }}
+        {{- if .Values.migration.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.migration.imagePullPolicy }}
+        {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true

@@ -44,6 +44,38 @@ describe("buildKorifiValues", () => {
 		expect(values.eksContainerRegistryRoleARN).toBeUndefined();
 	});
 
+	test("kind pins locally built Korifi images over Hub latest", () => {
+		const values = buildKorifiValues({
+			platform: "kind",
+			adminUserName: "kubernetes-admin",
+			apiUrl: "localhost",
+			appDomain: "apps-127-0-0-1.nip.io",
+			containerRepositoryPrefix: kindRegistryPrefix(),
+			kpackBuilderRepository: kindKpackBuilderRepository(),
+			networking: { gatewayPorts: kindGatewayPorts },
+			images: {
+				controllers: "korifi-controllers:kind-abc",
+				api: "korifi-api:kind-abc",
+				migration: "korifi-migration:kind-abc",
+			},
+		});
+
+		expect(values.controllers).toEqual({
+			taskTTL: "5s",
+			image: "korifi-controllers:kind-abc",
+			imagePullPolicy: "IfNotPresent",
+		});
+		expect(values.api).toEqual({
+			apiServer: { url: "localhost" },
+			image: "korifi-api:kind-abc",
+			imagePullPolicy: "IfNotPresent",
+		});
+		expect(values.migration).toEqual({
+			image: "korifi-migration:kind-abc",
+			imagePullPolicy: "IfNotPresent",
+		});
+	});
+
 	test("eks clears registry secrets and requires IRSA role ARN", () => {
 		const values = buildKorifiValues({
 			platform: "eks",
@@ -161,5 +193,6 @@ describe("versions", () => {
 		);
 		expect(versions.korifiInstallerImage).toContain("korifi-installer");
 		expect(versions.knativeServing).toMatch(/^\d+\.\d+\.\d+$/);
+		expect(versions.knativeOperatorChart).toMatch(/^v\d+\.\d+\.\d+$/);
 	});
 });

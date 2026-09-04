@@ -1,12 +1,14 @@
 /**
  * deploy/kind — Korifi on kind in one `pulumi up`.
  *
- * Layers (each maps to INSTALL.kind.md / the kind installer job):
+ * Layers:
  *
  *   cluster.ts          kind cluster + containerd registry trust
  *   LocalRegistry       in-cluster docker-registry NodePort 30050
- *   KorifiDependencies  cert-manager, kpack, contour, knative, metrics-server
- *   KorifiRelease       Korifi Helm chart (knative-runner)
+ *   KindKorifiImages    docker build + kind load controllers/api/migration
+ *   KorifiDependencies  cert-manager, kpack, contour, metrics-server
+ *   KorifiRelease       in-tree Helm chart (knative-runner)
+ *   KnativeServing      Operator Helm + KnativeServing CR (Kourier ClusterIP)
  *   ContourGateway      NodePort GatewayClass params
  *
  * Usage:
@@ -14,8 +16,11 @@
  *   export PULUMI_CONFIG_PASSPHRASE=...
  *   pulumi up --stack dev
  */
+import * as path from "node:path";
 import {
 	ContourGateway,
+	KindKorifiImages,
+	KnativeServing,
 	KorifiDependencies,
 	KorifiNamespaces,
 	KorifiRelease,
@@ -62,6 +67,21 @@ const cfPullSecret = registry.pullSecret(
 	{ provider: cluster.provider, dependsOn: [registry.release, namespaces.root] },
 );
 
+// In-tree chart + images built from this checkout. Hub *:latest is the last
+// release (no knative-runner). The local registry is for apps/kpack only.
+const repoRoot = path.join(__dirname, "..", "..");
+const localChart = path.join(repoRoot, "helm", "korifi");
+
+const images = new KindKorifiImages(
+	"images",
+	{
+		clusterName,
+		repoRoot,
+		dependsOn: [cluster],
+	},
+	{ dependsOn: [cluster] },
+);
+
 const dependencies = new KorifiDependencies(
 	"deps",
 	{
@@ -81,7 +101,7 @@ const korifi = new KorifiRelease(
 	{
 		provider: cluster.provider,
 		namespace: namespaces.korifi.metadata.name,
-		chartVersion: pinned.korifi,
+		chart: localChart,
 		values: {
 			platform: "kind",
 			adminUserName,
@@ -94,15 +114,37 @@ const korifi = new KorifiRelease(
 				gatewayNamespace: namespaces.gatewayName,
 				gatewayPorts: kindGatewayPorts,
 			},
+			images: {
+				controllers: images.controllersImage,
+				api: images.apiImage,
+				migration: images.migrationImage,
+			},
+			extraValues: {
+				helm: { hooksImage: "alpine/k8s:1.36.4" },
+			},
 		},
 		dependsOn: [
 			dependencies.job,
 			registry.release,
 			cfPullSecret,
 			namespaces.gateway,
+			images.loaded,
 		],
 	},
-	{ dependsOn: [dependencies, registry] },
+	{ dependsOn: [dependencies, registry, images] },
+);
+
+const knative = new KnativeServing(
+	"knative",
+	{
+		provider: cluster.provider,
+		domain: appDomain,
+		korifiNamespace: namespaces.korifiName,
+		rootNamespace: namespaces.rootName,
+		installRunnerSupport: false,
+		dependsOn: [korifi.release, dependencies.job],
+	},
+	{ dependsOn: [korifi] },
 );
 
 const gateway = new ContourGateway(
@@ -122,3 +164,6 @@ export const orgHint = "cf create-org org && cf create-space -o org space";
 export const authHint = `cf api ${cfApiUrl} --skip-ssl-validation && cf auth ${adminUserName}`;
 export const gatewayClass = gateway.gatewayClass.metadata.name;
 export const registryHost = registry.clusterHost;
+export const knativeServing = knative.serving.metadata.name;
+export const controllersImage = images.controllersImage;
+export const apiImage = images.apiImage;

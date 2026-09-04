@@ -2,8 +2,15 @@
 
 One `pulumi up` applies [INSTALL.kind.md](../../INSTALL.kind.md): a kind
 cluster with ingress NodePorts, an in-cluster registry, Korifi dependencies
-(including Knative Serving), and the Korifi Helm release with
+(cert-manager, kpack, Contour), the **Knative Operator** (Helm) plus a
+`KnativeServing` CR (Kourier ClusterIP), and the Korifi Helm release with
 `reconcilers.run=knative-runner`.
+
+Korifi **controllers**, **api**, and **migration** images are built from this
+checkout and `kind load`ed. Helm is pinned to those tags (not Docker Hub
+`*:latest`, which does not include knative-runner). Changing those sources
+rebuilds and reloads on the next `pulumi up`. The in-cluster registry is for
+apps/kpack only.
 
 Reusable pieces live in [`../lib`](../lib) (`KorifiDependencies`,
 `LocalRegistry`, `KorifiRelease`, `ContourGateway`, …) and are unit-tested
@@ -20,7 +27,7 @@ pulumi up --stack dev
 ```
 
 Prerequisites: Docker, [kind](https://kind.sigs.k8s.io/), `pulumi`, `kubectl`,
-`cf` CLI v8+.
+`cf` CLI v8+. First `pulumi up` compiles the Korifi Go images (a few minutes).
 
 Afterwards:
 

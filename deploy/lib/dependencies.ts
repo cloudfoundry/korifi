@@ -3,8 +3,9 @@
  *
  * Replaces running `scripts/install-dependencies.sh` by hand (INSTALL.md
  * § Dependencies). The Job installs cert-manager, kpack, Contour (Gateway
- * provisioner), Knative Operator + Serving (Kourier ClusterIP), and
- * metrics-server when missing — versions pinned inside the installer image.
+ * provisioner), and metrics-server when missing — versions pinned inside the
+ * installer image. Knative Operator + Serving are owned by `KnativeServing`
+ * (first-class Pulumi resources), not this Job.
  */
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
@@ -87,6 +88,9 @@ export class KorifiDependencies extends pulumi.ComponentResource {
 
 		const env: k8s.types.input.core.v1.EnvVar[] = [
 			{ name: "KNATIVE_DOMAIN", value: args.knativeDomain },
+			// Pulumi's KnativeServing component owns the operator; skip it in
+			// the Job even when a newer installer image would apply it.
+			{ name: "SKIP_KNATIVE", value: "true" },
 		];
 		// create-new-user.sh only mutates the in-pod kubeconfig; skip it when the
 		// platform provisions admin identity outside the Job (EKS IAM / GKE IAM).

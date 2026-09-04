@@ -41,4 +41,8 @@ test("kind-config.yaml matches INSTALL.kind.md port mappings", () => {
 test("knative-runner is the default run reconciler", () => {
 	expect(all).toContain("knative-runner");
 	expect(all).toContain("kindRegistryPrefix");
+	expect(all).toContain("KnativeServing");
+	expect(all).toContain("KindKorifiImages");
+	expect(all).toContain("localChart");
+	expect(all).not.toContain("cloudfoundry/korifi-controllers:latest");
 });

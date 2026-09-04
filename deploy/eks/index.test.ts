@@ -28,6 +28,7 @@ test("eks stack wires ECR IRSA and clears registry secrets via lib", () => {
 test("eks stack installs knative-runner Korifi and LoadBalancer Contour", () => {
 	expect(all).toContain("KorifiRelease");
 	expect(all).toContain("KorifiDependencies");
+	expect(all).toContain("KnativeServing");
 	expect(all).toContain("LoadBalancerService");
 	expect(all).not.toContain("LocalRegistry");
 	expect(all).not.toContain("kind create");

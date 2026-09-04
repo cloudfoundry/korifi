@@ -26,6 +26,9 @@ spec:
         - name: INTERNAL_CERT_PATH
           value: /etc/korifi-tls-internal
         image: {{ .Values.api.image }}
+        {{- if .Values.api.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.api.imagePullPolicy }}
+        {{- end }}
         name: korifi-api
         ports:
         - containerPort: {{ .Values.api.apiServer.internalPort }}

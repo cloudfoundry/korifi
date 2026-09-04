@@ -27,6 +27,9 @@ spec:
         - name: CONTROLLERSCONFIG
           value: /etc/korifi-controllers-config
         image: {{ .Values.controllers.image }}
+        {{- if .Values.controllers.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.controllers.imagePullPolicy }}
+        {{- end }}
         args:
         - --health-probe-bind-address=:8081
         - --leader-elect

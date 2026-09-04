@@ -7,6 +7,7 @@
 import * as k8s from "@pulumi/kubernetes";
 import {
 	ContourGateway,
+	KnativeServing,
 	KorifiDependencies,
 	KorifiNamespaces,
 	KorifiRelease,
@@ -137,6 +138,18 @@ const korifi = new KorifiRelease(
 		],
 	},
 	{ dependsOn: [dependencies, registry] },
+);
+
+new KnativeServing(
+	"knative",
+	{
+		provider: cluster.provider,
+		domain: appDomain,
+		korifiNamespace: namespaces.korifiName,
+		rootNamespace: namespaces.rootName,
+		dependsOn: [korifi.release, dependencies.job],
+	},
+	{ dependsOn: [korifi] },
 );
 
 new ContourGateway(

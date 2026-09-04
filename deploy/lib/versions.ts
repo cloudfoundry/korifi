@@ -12,7 +12,9 @@ export const versions = {
 		"index.docker.io/cloudfoundry/korifi-installer@sha256:dfe1680d13550dfd5ff2abefbe778c180cafa07ff055a5a82802df0f2551aa30",
 	/** twuni/docker-registry chart (kind local registry). */
 	registryChart: "3.0.0",
-	/** Knative Serving version applied by install-dependencies.sh. */
+	/** Knative Operator Helm chart (https://knative.github.io/operator). */
+	knativeOperatorChart: "v1.23.1",
+	/** KnativeServing CR spec.version — must stay in the Operator's support range. */
 	knativeServing: "1.23.0",
 } as const;
 

@@ -29,6 +29,15 @@ export interface KorifiValuesInput {
 	/** When true (kind installer defaults), enable experimental managed services. */
 	managedServices?: boolean;
 	logLevel?: string;
+	/**
+	 * Override Korifi component images. Kind builds these from the checkout
+	 * and `kind load`s them — Hub `*:latest` does not include knative-runner.
+	 */
+	images?: {
+		controllers?: string;
+		api?: string;
+		migration?: string;
+	};
 	extraValues?: Record<string, unknown>;
 }
 
@@ -95,7 +104,32 @@ export function buildKorifiValues(
 		deepMerge(values, input.extraValues);
 	}
 
+	if (input.images?.controllers) {
+		setImage(values, "controllers", input.images.controllers);
+	}
+	if (input.images?.api) {
+		setImage(values, "api", input.images.api);
+	}
+	if (input.images?.migration) {
+		setImage(values, "migration", input.images.migration);
+	}
+
 	return values;
+}
+
+function setImage(
+	values: Record<string, unknown>,
+	key: string,
+	image: string,
+): void {
+	const current = values[key];
+	const obj =
+		current !== null &&
+		typeof current === "object" &&
+		!Array.isArray(current)
+			? (current as Record<string, unknown>)
+			: {};
+	values[key] = { ...obj, image, imagePullPolicy: "IfNotPresent" };
 }
 
 /** Kind NodePort mappings from INSTALL.kind.md / kind-config.yaml. */

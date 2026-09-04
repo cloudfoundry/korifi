@@ -10,6 +10,7 @@ import * as pulumi from "@pulumi/pulumi";
 import {
 	ContourGateway,
 	EcrKpackIrsa,
+	KnativeServing,
 	KorifiDependencies,
 	KorifiNamespaces,
 	KorifiRelease,
@@ -123,6 +124,18 @@ const korifi = new KorifiRelease(
 		],
 	},
 	{ dependsOn: [dependencies, kpackIrsa, registry] },
+);
+
+new KnativeServing(
+	"knative",
+	{
+		provider: cluster.provider,
+		domain: appDomain,
+		korifiNamespace: namespaces.korifiName,
+		rootNamespace: namespaces.rootName,
+		dependsOn: [korifi.release, dependencies.job],
+	},
+	{ dependsOn: [korifi] },
 );
 
 new ContourGateway(

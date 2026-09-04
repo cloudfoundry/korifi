@@ -94,23 +94,29 @@ spec:
   controllerName: projectcontour.io/gateway-controller
 EOF
 
-echo "********************"
-echo " Installing Knative"
-echo "********************"
+if [[ "${SKIP_KNATIVE:-}" == "true" ]]; then
+  echo "********************"
+  echo " Skipping Knative (SKIP_KNATIVE=true; installed by Pulumi)"
+  echo "********************"
+else
+  echo "********************"
+  echo " Installing Knative"
+  echo "********************"
 
-# Operator + Serving (Kourier ClusterIP). Contour remains the north-south
-# ingress on :80/:443; Knative is the scale-to-zero runtime under CF routes.
-# Override KNATIVE_DOMAIN for EKS/GKE (must match defaultAppDomainName).
-KNATIVE_DOMAIN="${KNATIVE_DOMAIN:-apps-127-0-0-1.nip.io}"
-retry kubectl apply -f "$VENDOR_DIR/knative"
-kubectl -n knative-operator rollout status deployment/knative-operator --watch=true --timeout=5m
+  # Operator + Serving (Kourier ClusterIP). Contour remains the north-south
+  # ingress on :80/:443; Knative is the scale-to-zero runtime under CF routes.
+  # Override KNATIVE_DOMAIN for EKS/GKE (must match defaultAppDomainName).
+  KNATIVE_DOMAIN="${KNATIVE_DOMAIN:-apps-127-0-0-1.nip.io}"
+  retry kubectl apply -f "$VENDOR_DIR/knative"
+  kubectl -n knative-operator rollout status deployment/knative-operator --watch=true --timeout=5m
 
-TEMP_FILES+=("$DEP_DIR/knative/knative-serving.rendered.yaml")
-sed "s/__KNATIVE_DOMAIN__/${KNATIVE_DOMAIN}/g" \
-  "$DEP_DIR/knative/knative-serving.yaml" >"$DEP_DIR/knative/knative-serving.rendered.yaml"
-kubectl apply -f "$DEP_DIR/knative/knative-serving.rendered.yaml"
-kubectl wait --for=condition=Ready knativeserving.operator.knative.dev/knative-serving \
-  -n knative-serving --timeout=15m
+  TEMP_FILES+=("$DEP_DIR/knative/knative-serving.rendered.yaml")
+  sed "s/__KNATIVE_DOMAIN__/${KNATIVE_DOMAIN}/g" \
+    "$DEP_DIR/knative/knative-serving.yaml" >"$DEP_DIR/knative/knative-serving.rendered.yaml"
+  kubectl apply -f "$DEP_DIR/knative/knative-serving.rendered.yaml"
+  kubectl wait --for=condition=Ready knativeserving.operator.knative.dev/knative-serving \
+    -n knative-serving --timeout=15m
+fi
 
 if ! kubectl get apiservice v1beta1.metrics.k8s.io >/dev/null 2>&1; then
   if [[ "${INSECURE_TLS_METRICS_SERVER:-}" == "true" ]]; then

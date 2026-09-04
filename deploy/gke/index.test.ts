@@ -28,6 +28,7 @@ test("gke stack uses Artifact Registry with _json_key pull secret", () => {
 test("gke stack composes shared lib and LoadBalancer Contour", () => {
 	expect(all).toContain("KorifiDependencies");
 	expect(all).toContain("KorifiRelease");
+	expect(all).toContain("KnativeServing");
 	expect(all).toContain("LoadBalancerService");
 	expect(all).toContain('clusterType: "GKE"');
 	expect(all).not.toContain("LocalRegistry");

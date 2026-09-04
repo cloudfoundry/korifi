@@ -9,6 +9,18 @@ export {
 	KorifiDependencies,
 	type KorifiDependenciesArgs,
 } from "./dependencies";
+export {
+	hashKorifiImageSources,
+	korifiImageSourceEntries,
+} from "./image-source-hash";
+export {
+	KindKorifiImages,
+	type KindKorifiImagesArgs,
+} from "./kind-images";
+export {
+	KnativeServing,
+	type KnativeServingArgs,
+} from "./knative";
 export { EcrKpackIrsa, type EcrKpackIrsaArgs } from "./ecr-kpack-irsa";
 export {
 	KorifiRelease,
