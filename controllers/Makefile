@@ -5,6 +5,22 @@ ifdef GINKGO_NODES
 CONTROLLERS_GINKGO_NODES = $(GINKGO_NODES)
 endif
 
+# Optional CI shard (workloads|services|webhooks|other). Empty runs everything.
+# Paths are relative to this Makefile's directory.
+SHARD ?=
+ifeq ($(SHARD),workloads)
+TEST_PATHS = ./controllers/workloads
+else ifeq ($(SHARD),services)
+TEST_PATHS = ./controllers/services
+else ifeq ($(SHARD),webhooks)
+TEST_PATHS = ./webhooks
+else ifeq ($(SHARD),other)
+TEST_PATHS = ./controllers/networking ./api ./cleanup ./config ./coordination ./k8s
+else ifneq ($(SHARD),)
+$(error Unknown SHARD '$(SHARD)'; expected workloads, services, webhooks, other, or empty)
+endif
+TEST_PATHS ?=
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -52,7 +68,7 @@ generate: bin/controller-gen
 	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 test: manifests generate
-	GINKGO_NODES=$(CONTROLLERS_GINKGO_NODES) ../scripts/run-tests.sh
+	GINKGO_NODES=$(CONTROLLERS_GINKGO_NODES) ../scripts/run-tests.sh $(TEST_PATHS)
 
 bin:
 	mkdir -p bin

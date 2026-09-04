@@ -67,8 +67,15 @@ jobs:
       id: test
       run: make -C api test
 
+  # Controllers envtest suites are slow; shard by package tree so wall clock
+  # is roughly max(shard) instead of sum(all).
   controllers-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [workloads, services, webhooks, other]
+    name: controllers-tests (${{ matrix.shard }})
     outputs:
       coverage: ${{ steps.test.outputs.coverage }}
     steps:
@@ -87,9 +94,9 @@ jobs:
       with:
         go-version: 'stable'
 
-    - name: Run Controllers tests
+    - name: Run Controllers tests (${{ matrix.shard }})
       id: test
-      run: make -C controllers test
+      run: make -C controllers test SHARD=${{ matrix.shard }}
 
   job-task-runner-tests:
     runs-on: ubuntu-latest
@@ -342,7 +349,6 @@ jobs:
           API_RESULT: ${{ needs.api-tests.result }}
           API_COV: ${{ needs.api-tests.outputs.coverage }}
           CONTROLLERS_RESULT: ${{ needs.controllers-tests.result }}
-          CONTROLLERS_COV: ${{ needs.controllers-tests.outputs.coverage }}
           JOB_TASK_RESULT: ${{ needs.job-task-runner-tests.result }}
           JOB_TASK_COV: ${{ needs.job-task-runner-tests.outputs.coverage }}
           KPACK_RESULT: ${{ needs.kpack-image-builder-tests.result }}
@@ -372,7 +378,8 @@ jobs:
               echo "| \`${name}\` | ${result} | ${cov} |"
             }
             row "api-tests" "${API_RESULT}" "${API_COV}"
-            row "controllers-tests" "${CONTROLLERS_RESULT}" "${CONTROLLERS_COV}"
+            # Matrix job outputs are not aggregateable; per-shard coverage is in each job log.
+            row "controllers-tests" "${CONTROLLERS_RESULT}" "sharded"
             row "job-task-runner-tests" "${JOB_TASK_RESULT}" "${JOB_TASK_COV}"
             row "kpack-image-builder-tests" "${KPACK_RESULT}" "${KPACK_COV}"
             row "statefulset-runner-tests" "${STS_RESULT}" "${STS_COV}"
