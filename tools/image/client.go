@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/netip"
 	"os"
 	"strings"
 
@@ -72,7 +73,7 @@ func (c Client) Push(ctx context.Context, creds Creds, repoRef string, zipReader
 		return "", fmt.Errorf("failed to append layer: %w", err)
 	}
 
-	ref, err := name.ParseReference(repoRef)
+	ref, err := parseReference(repoRef)
 	if err != nil {
 		return "", fmt.Errorf("error parsing repository reference %s: %w", repoRef, err)
 	}
@@ -107,7 +108,7 @@ func (c Client) Push(ctx context.Context, creds Creds, repoRef string, zipReader
 }
 
 func (c Client) Config(ctx context.Context, creds Creds, imageRef string) (Config, error) {
-	ref, err := name.ParseReference(imageRef)
+	ref, err := parseReference(imageRef)
 	if err != nil {
 		return Config{}, fmt.Errorf("error parsing repository reference %s: %w", imageRef, err)
 	}
@@ -152,9 +153,42 @@ func parseExposedPorts(ports map[string]struct{}) []string {
 	return result
 }
 
+// parseReference uses HTTP for loopback, RFC1918, and the kind in-cluster
+// registry hostname. Those registries are plain HTTP; go-containerregistry
+// otherwise defaults to HTTPS and staging fails with
+// "http: server gave HTTP response to HTTPS client".
+func parseReference(imageRef string) (name.Reference, error) {
+	ref, err := name.ParseReference(imageRef)
+	if err != nil {
+		return nil, err
+	}
+	if registryUsesHTTP(ref.Context().RegistryStr()) {
+		return name.ParseReference(imageRef, name.Insecure)
+	}
+	return ref, nil
+}
+
+func registryUsesHTTP(registry string) bool {
+	host := registry
+	if h, _, ok := strings.Cut(registry, ":"); ok {
+		host = h
+	}
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		return true
+	}
+	if strings.HasPrefix(host, "localregistry-docker-registry") {
+		return true
+	}
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return false
+	}
+	return addr.IsLoopback() || addr.IsPrivate()
+}
+
 func (c Client) Delete(ctx context.Context, creds Creds, imageRef string, tagsToDelete ...string) error {
 	c.logger.V(1).Info("deleting", "ref", imageRef)
-	ref, err := name.ParseReference(imageRef)
+	ref, err := parseReference(imageRef)
 	if err != nil {
 		return err
 	}
@@ -216,7 +250,7 @@ func (c Client) getTagSet(ref name.Reference, authOpt remote.Option) (map[string
 	allTagSet := map[string]bool{}
 	for _, t := range allTags {
 		var tagRef name.Reference
-		tagRef, err = name.ParseReference(ref.Context().String() + ":" + t)
+		tagRef, err = parseReference(ref.Context().String() + ":" + t)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't create a tag ref: %w", err)
 		}
@@ -236,7 +270,7 @@ func (c Client) getTagSet(ref name.Reference, authOpt remote.Option) (map[string
 }
 
 func (c Client) deleteTag(ref name.Reference, tag string, authOpt remote.Option) error {
-	tagRef, err := name.ParseReference(ref.Context().String() + ":" + tag)
+	tagRef, err := parseReference(ref.Context().String() + ":" + tag)
 	if err != nil {
 		return fmt.Errorf("couldn't create a tag ref: %w", err)
 	}
