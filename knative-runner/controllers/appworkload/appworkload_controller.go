@@ -303,7 +303,7 @@ func (r *AppWorkloadReconciler) finalize(ctx context.Context, appWorkload *korif
 		return ctrl.Result{}, nil
 	}
 
-	appWorkload.Status.ActualInstances = int32(len(ksvcList.Items))
+	appWorkload.Status.ActualInstances = int32(len(ksvcList.Items)) // #nosec G115 -- instance count fits int32
 	return ctrl.Result{}, k8s.NewNotReadyError().
 		WithMessage(fmt.Sprintf("%d knative services still present", len(ksvcList.Items))).
 		WithReason("StillRunning").

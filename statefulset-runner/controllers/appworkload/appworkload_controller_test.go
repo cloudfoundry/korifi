@@ -6,6 +6,7 @@ import (
 	"time"
 
 	korifiv1alpha1 "code.cloudfoundry.org/korifi/controllers/api/v1alpha1"
+	"code.cloudfoundry.org/korifi/statefulset-runner/controllers"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/fake"
 	"code.cloudfoundry.org/korifi/statefulset-runner/controllers/appworkload/state"
@@ -47,6 +48,9 @@ var _ = Describe("AppWorkload Reconcile", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      uuid.NewString(),
 				Namespace: uuid.NewString(),
+			},
+			Spec: korifiv1alpha1.AppWorkloadSpec{
+				RunnerName: controllers.AppWorkloadReconcilerName,
 			},
 		}
 
