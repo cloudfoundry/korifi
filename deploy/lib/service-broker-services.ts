@@ -6,7 +6,8 @@
  * copied by hand between YAML files.
  *
  * Postgres ships first (hand-rolled StatefulSet; no dependable upstream
- * chart since the Bitnami catalog lock-down). To add another service:
+ * chart since the Bitnami catalog lock-down). To add another service, follow
+ * the worked template in `custom-broker-service.example.ts`:
  *
  *   1. Write `installFoo(...)` returning a `ServiceBrokerServiceConnection`
  *   2. Add `enable.foo?: boolean` (+ optional `foo?: FooArgs`) on Args

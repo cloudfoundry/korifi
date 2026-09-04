@@ -17,6 +17,7 @@ Reusable Pulumi components and pure helpers for installing Korifi.
 | `kind-images.ts` | Build Korifi images from the checkout and `kind load` them |
 | `ecr-kpack-irsa.ts` | Annotate kpack controller SA for ECR |
 | `service-broker-services.ts` | Shared Postgres (etc.) for OSB brokers — enable flags per service |
+| `custom-broker-service.example.ts` | Copy-paste template for adding a custom broker backend |
 
 Stacks under `deploy/{kind,eks,gke}` compose these components; they do not
 duplicate Helm value logic.
