@@ -18,7 +18,14 @@ export const versions = {
 	knativeServing: "1.23.0",
 	/** Shared Postgres image for ServiceBrokerServices (OSB broker backend). */
 	postgresImage: "postgres:16-alpine",
+	/** loft-sh/vcluster chart (UAA isolation on kind). */
+	vclusterChart: "0.36.1",
+	/** Official UAA image (cfidentity/uaa). */
+	uaaImage: "docker.io/cfidentity/uaa:v79.7.0",
 } as const;
+
+/** Cert CN / SAN hostname for the UAA TLS proxy (IP SANs include 127.0.0.1). */
+export const kindUaaHostname = "uaa.127.0.0.1.nip.io" as const;
 
 /** Helm chart URL for a released Korifi version. */
 export function korifiChartUrl(version: string = versions.korifi): string {

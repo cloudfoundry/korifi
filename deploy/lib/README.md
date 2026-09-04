@@ -12,11 +12,13 @@ Reusable Pulumi components and pure helpers for installing Korifi.
 | `dependencies.ts` | Job running release-tested `install-dependencies.sh` |
 | `local-registry.ts` | kind in-cluster registry + pull-secret helper |
 | `korifi-release.ts` | Helm `Release` wrapper |
+| `kind-images.ts` | Build Korifi images from the checkout and `kind load` them |
 | `contour-gateway.ts` | GatewayClass (+ NodePort params on kind) |
 | `knative.ts` | Knative Operator Helm + `KnativeServing` CR (Kourier ClusterIP) |
-| `kind-images.ts` | Build Korifi images from the checkout and `kind load` them |
 | `ecr-kpack-irsa.ts` | Annotate kpack controller SA for ECR |
 | `service-broker-services.ts` | Shared Postgres (etc.) for OSB brokers — enable flags per service |
+| `uaa-certs.ts` | TLS CA + server PEMs for kind OIDC mount and UAA proxy |
+| `uaa-vcluster.ts` | vcluster + UAA + TLS NodePort proxy (kind UAA) |
 | `custom-broker-service.example.ts` | Copy-paste template for adding a custom broker backend |
 
 Stacks under `deploy/{kind,eks,gke}` compose these components; they do not

@@ -10,6 +10,7 @@
         "@pulumi/kubernetes": "^4.34.0",
         "@pulumi/pulumi": "^3.113.0",
         "@pulumi/random": "^4.21.1",
+        "@pulumi/tls": "^5.6.0",
       },
       "devDependencies": {
         "@types/bun": "^1.4.0",
@@ -126,6 +127,8 @@
     "@pulumi/pulumi": ["@pulumi/pulumi@3.261.0", "", { "dependencies": { "@grpc/grpc-js": "^1.10.1", "@logdna/tail-file": "^2.0.6", "@npmcli/arborist": "^9.0.0", "@opentelemetry/api": "^1.9", "@opentelemetry/core": "^2.9", "@opentelemetry/exporter-trace-otlp-grpc": "^0.220", "@opentelemetry/exporter-zipkin": "^2.9", "@opentelemetry/instrumentation": "^0.220", "@opentelemetry/instrumentation-grpc": "^0.220", "@opentelemetry/resources": "^2.9", "@opentelemetry/sdk-trace-base": "^2.9", "@opentelemetry/sdk-trace-node": "^2.9", "@opentelemetry/semantic-conventions": "^1.42", "@types/google-protobuf": "^3.15.5", "@types/semver": "^7.5.6", "execa": "^5.1.0", "google-protobuf": "^3.21.4", "ini": "^2.0.0", "js-yaml": "^4.0.0", "minimist": "^1.2.6", "normalize-package-data": "^6.0.0", "require-from-string": "^2.0.1", "semver": "^7.5.2", "source-map-support": "^0.5.6", "upath": "^1.1.0" }, "peerDependencies": { "ts-node": ">= 7.0.1 < 12", "typescript": ">= 3.8.3 < 7" }, "optionalPeers": ["ts-node", "typescript"] }, "sha512-gZDiCmaBKxXpIagOytLTOc/GOWYMj/8OgW/X78RN7ngv7+N550+tWIu9dETPrz7NmWVWfeXdjGeRmH+GxuaPxg=="],
 
     "@pulumi/random": ["@pulumi/random@4.21.1", "", { "dependencies": { "@pulumi/pulumi": "^3.142.0" } }, "sha512-2wD0UJTsoyj+MyBOa60E2FyrqyIaspTCz1qBG+mj34xQUk/u568s4925oWpGEeY3Z3wV7BbRpiEnnztnDb1xOA=="],
+
+    "@pulumi/tls": ["@pulumi/tls@5.6.0", "", { "dependencies": { "@pulumi/pulumi": "^3.142.0" } }, "sha512-PEeCR0Zy7xD3aFUwPzL+xzMbCEN0B8Fo/SExx4Lmf9nTlDZTzRKUnrNc5OncS8ysoGdXBLwv3FqSJ3dWQB+OuA=="],
 
     "@sigstore/bundle": ["@sigstore/bundle@4.0.0", "", { "dependencies": { "@sigstore/protobuf-specs": "^0.5.0" } }, "sha512-NwCl5Y0V6Di0NexvkTqdoVfmjTaQwoLM236r89KEojGmq/jMls8S+zb7yOwAPdXvbwfKDlP+lmXgAL4vKSQT+A=="],
 

@@ -3,8 +3,9 @@
 One `pulumi up` applies [INSTALL.kind.md](../../INSTALL.kind.md): a kind
 cluster with ingress NodePorts, an in-cluster registry, Korifi dependencies
 (cert-manager, kpack, Contour), the **Knative Operator** (Helm) plus a
-`KnativeServing` CR (Kourier ClusterIP), and the Korifi Helm release with
-`reconcilers.run=knative-runner`.
+`KnativeServing` CR (Kourier ClusterIP), **UAA in a vcluster** (OIDC for
+`cf login`), and the Korifi Helm release with `reconcilers.run=knative-runner`
+plus `experimental.uaa`.
 
 Korifi **controllers**, **api**, and **migration** images are built from this
 checkout and `kind load`ed. Helm is pinned to those tags (not Docker Hub
@@ -12,10 +13,8 @@ checkout and `kind load`ed. Helm is pinned to those tags (not Docker Hub
 rebuilds and reloads on the next `pulumi up`. The in-cluster registry is for
 apps/kpack only.
 
-Reusable pieces live in [`../lib`](../lib) (`KorifiDependencies`,
-`LocalRegistry`, `KorifiRelease`, `ContourGateway`, `ServiceBrokerServices`,
-…) and are unit-tested there. After `pulumi up`, stack outputs include
-`postgres` admin connection facts for a follow-on OSB broker.
+Reusable pieces live in [`../lib`](../lib). After `pulumi up`, stack outputs
+include `postgres` admin connection facts and UAA admin credentials.
 
 ## Quick start
 
@@ -35,8 +34,18 @@ Afterwards:
 ```sh
 pulumi stack output
 cf api https://localhost --skip-ssl-validation
-cf auth kubernetes-admin   # or the username from stack config adminUserName
+cf login -u "$(pulumi stack output uaaAdminEmail)" \
+  -p "$(pulumi stack output uaaAdminPassword --show-secrets)"
 ```
+
+UAA is published at `https://127.0.0.1:30443/uaa` (NodePort). The kind
+kube-apiserver is configured with that issuer for OIDC. Authorization remains
+Kubernetes RBAC (`adminUserName` is `uaa:<email>`).
+
+When granting CF roles to other users, pass `--origin uaa`.
+
+**Existing clusters:** if a kind cluster already exists without the UAA OIDC
+flags, the stack deletes and recreates it on the next `pulumi up`.
 
 ## Configuration
 
@@ -45,7 +54,8 @@ cf auth kubernetes-admin   # or the username from stack config adminUserName
 | `clusterName` | `korifi` | kind cluster name |
 | `appDomain` | `apps-127-0-0-1.nip.io` | CF apps wildcard domain |
 | `apiUrl` | `localhost` | Korifi API host |
-| `adminUserName` | `kubernetes-admin` | CF admin (must match kubeconfig user CN) |
+| `adminEmail` | `admin@korifi.local` | UAA admin / `cf login` user |
+| `oidcPrefix` | `uaa` | OIDC username prefix |
 | `registryUser` | `user` | In-cluster registry username |
 | `kubeconfigPath` | `~/.kube/kind-<clusterName>.config` | Written by the stack |
 | `korifiVersion` | pinned in `../lib/versions.ts` | Helm chart release |

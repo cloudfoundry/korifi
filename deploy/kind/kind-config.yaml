@@ -16,3 +16,6 @@ nodes:
   - containerPort: 30050
     hostPort: 30050
     protocol: TCP
+  - containerPort: 30443
+    hostPort: 30443
+    protocol: TCP

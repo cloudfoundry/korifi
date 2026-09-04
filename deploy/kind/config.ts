@@ -11,7 +11,10 @@ const cfg = new pulumi.Config();
 export const clusterName = cfg.get("clusterName") ?? "korifi";
 export const appDomain = cfg.get("appDomain") ?? "apps-127-0-0-1.nip.io";
 export const apiUrl = cfg.get("apiUrl") ?? "localhost";
-export const adminUserName = cfg.get("adminUserName") ?? "kubernetes-admin";
+/** UAA admin email (OIDC user_name / CF login username). */
+export const adminEmail = cfg.get("adminEmail") ?? "admin@korifi.local";
+/** OIDC username prefix baked into kind apiserver + Korifi adminUserName. */
+export const oidcPrefix = cfg.get("oidcPrefix") ?? "uaa";
 export const registryUser = cfg.get("registryUser") ?? "user";
 
 export const kubeconfigPath =

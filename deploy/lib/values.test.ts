@@ -47,7 +47,7 @@ describe("buildKorifiValues", () => {
 	test("kind pins locally built Korifi images over Hub latest", () => {
 		const values = buildKorifiValues({
 			platform: "kind",
-			adminUserName: "kubernetes-admin",
+			adminUserName: "uaa:admin@korifi.local",
 			apiUrl: "localhost",
 			appDomain: "apps-127-0-0-1.nip.io",
 			containerRepositoryPrefix: kindRegistryPrefix(),
@@ -73,6 +73,24 @@ describe("buildKorifiValues", () => {
 		expect(values.migration).toEqual({
 			image: "korifi-migration:kind-abc",
 			imagePullPolicy: "IfNotPresent",
+		});
+	});
+
+	test("kind enables experimental.uaa when uaaUrl is set", () => {
+		const values = buildKorifiValues({
+			platform: "kind",
+			adminUserName: "uaa:admin@korifi.local",
+			apiUrl: "localhost",
+			appDomain: "apps-127-0-0-1.nip.io",
+			containerRepositoryPrefix: kindRegistryPrefix(),
+			kpackBuilderRepository: kindKpackBuilderRepository(),
+			networking: { gatewayPorts: kindGatewayPorts },
+			uaaUrl: "https://127.0.0.1:30443/uaa",
+		});
+
+		expect(values.experimental).toEqual({
+			managedServices: { enabled: true, trustInsecureBrokers: true },
+			uaa: { enabled: true, url: "https://127.0.0.1:30443/uaa" },
 		});
 	});
 
@@ -196,7 +214,9 @@ describe("versions", () => {
 		expect(versions.knativeOperatorChart).toMatch(/^v\d+\.\d+\.\d+$/);
 	});
 
-	test("pins a postgres image for ServiceBrokerServices", () => {
+	test("pins postgres, vcluster, and uaa images", () => {
 		expect(versions.postgresImage).toMatch(/^postgres:/);
+		expect(versions.vclusterChart).toMatch(/^\d+\.\d+\.\d+$/);
+		expect(versions.uaaImage).toContain("cfidentity/uaa");
 	});
 });
