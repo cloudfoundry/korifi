@@ -337,7 +337,7 @@ var _ = Describe("Reconcile", func() {
 				})
 
 				It("requeues the reconcile event", func() {
-					Expect(result).To(Equal(ctrl.Result{Requeue: true}))
+					Expect(result).To(Equal(ctrl.Result{RequeueAfter: time.Second}))
 					Expect(err).NotTo(HaveOccurred())
 				})
 			})

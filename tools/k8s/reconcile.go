@@ -84,11 +84,6 @@ func (r *PatchingReconciler[T]) Reconcile(ctx context.Context, req ctrl.Request)
 				result = ctrl.Result{RequeueAfter: *notReadyErr.requeueAfter}
 				delegateErr = nil
 			}
-
-			if notReadyErr.requeue {
-				result = ctrl.Result{Requeue: true}
-				delegateErr = nil
-			}
 		}
 	})
 	if err != nil {
@@ -108,7 +103,6 @@ type NotReadyError struct {
 	reason       string
 	message      string
 	requeueAfter *time.Duration
-	requeue      bool
 	noRequeue    bool
 }
 
@@ -140,8 +134,7 @@ func (e NotReadyError) WithCause(cause error) NotReadyError {
 }
 
 func (e NotReadyError) WithRequeue() NotReadyError {
-	e.requeue = true
-	return e
+	return e.WithRequeueAfter(time.Second)
 }
 
 func (e NotReadyError) WithRequeueAfter(duration time.Duration) NotReadyError {

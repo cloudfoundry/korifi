@@ -175,7 +175,7 @@ func (r *ManagedBindingsReconciler) processBindOperation(
 	lastOperation osbapi.LastOperationResponse,
 ) (ctrl.Result, error) {
 	if lastOperation.State == "succeeded" {
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
 	if lastOperation.State == "failed" {

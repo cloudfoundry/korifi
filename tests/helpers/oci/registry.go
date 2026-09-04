@@ -76,7 +76,9 @@ func NewContainerRegistry(username, password string) *Registry {
 				"inmemory": configuration.Parameters{},
 				"delete":   configuration.Parameters{"enabled": true},
 			},
-			Loglevel: "debug",
+			Log: configuration.Log{
+				Level: "debug",
+			},
 		})),
 		username: username,
 		password: password,
@@ -97,7 +99,9 @@ func NewNoAuthContainerRegistry() *Registry {
 				"inmemory": configuration.Parameters{},
 				"delete":   configuration.Parameters{"enabled": true},
 			},
-			Loglevel: "debug",
+			Log: configuration.Log{
+				Level: "debug",
+			},
 		})),
 	}
 
