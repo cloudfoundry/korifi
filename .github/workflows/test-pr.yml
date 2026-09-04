@@ -18,6 +18,11 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+# One run per branch: push + pull_request often fire together on stacked PRs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   linter:
     runs-on: ubuntu-latest
