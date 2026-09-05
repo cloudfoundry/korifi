@@ -133,14 +133,12 @@ func (r *AppWorkloadToKnativeServiceConverter) Convert(appWorkload *korifiv1alph
 	}
 
 	instances := max(appWorkload.Spec.Instances, 0)
-	// CF "instances" is max capacity on Knative. min-scale stays 0 so idle apps
-	// scale to zero; CF routes reach the activator via the Knative public Service
-	// (see routes reconciler), which wakes a revision on the next request.
+	// Desired count: min=max=N. Stopped (N=0): min 0, max 1 so the Service remains.
 	templateAnnotations := map[string]string{
 		AnnotationAppID:       appWorkload.Spec.AppGUID,
 		AnnotationVersion:     appWorkload.Spec.Version,
 		AnnotationProcessGUID: fmt.Sprintf("%s-%s", appWorkload.Spec.GUID, appWorkload.Spec.Version),
-		AnnotationMinScale:    "0",
+		AnnotationMinScale:    strconv.FormatInt(int64(instances), 10),
 		AnnotationMaxScale:    strconv.FormatInt(int64(max(instances, 1)), 10),
 	}
 
