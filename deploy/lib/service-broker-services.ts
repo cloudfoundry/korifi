@@ -12,7 +12,7 @@
  *   1. Write `installFoo(...)` returning a `ServiceBrokerServiceConnection`
  *   2. Add `enable.foo?: boolean` (+ optional `foo?: FooArgs`) on Args
  *   3. Assign `this.foo` when enabled
- *   4. Wire the export into stacks / brokers the same way as postgres
+ *   4. Pass the connection on `OsbServiceBroker` `backends` like postgres
  */
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
@@ -28,6 +28,11 @@ export interface ServiceBrokerServiceConnection {
 	adminPassword: pulumi.Output<string>;
 	/** URI form when the service has one (postgres://…). */
 	adminUrl?: pulumi.Output<string>;
+	/**
+	 * libpq sslmode for the broker's admin connection. Default `require`.
+	 * Postgres from this module always serves TLS.
+	 */
+	sslMode?: string;
 	/** Resources brokers / stacks should `dependsOn`. */
 	resources: pulumi.Resource[];
 }
@@ -83,8 +88,8 @@ function serviceNamespace(
 }
 
 /**
- * Shared single-node Postgres. A postgres OSB broker creates a database +
- * role per service instance using the admin credentials exported here.
+ * Shared single-node Postgres. The osb-service postgres offering creates a
+ * database + role per service instance using the admin credentials here.
  */
 function installPostgres(
 	name: string,
@@ -114,7 +119,50 @@ function installPostgres(
 		args.parent,
 		args.dependsOn,
 	);
+	const host = `postgres.${nsName}.svc.cluster.local`;
+	const port = 5432;
+	const tlsSecretName = "postgres-tls";
 	const password = randomPassword(`${name}-admin-password`, args.parent);
+
+	const issuer = new k8s.apiextensions.CustomResource(
+		`${name}-issuer`,
+		{
+			apiVersion: "cert-manager.io/v1",
+			kind: "Issuer",
+			metadata: {
+				name: "postgres-selfsigned",
+				namespace: ns.metadata.name,
+			},
+			spec: { selfSigned: {} },
+		},
+		{ ...child, dependsOn: [ns] },
+	);
+	const certificate = new k8s.apiextensions.CustomResource(
+		`${name}-certificate`,
+		{
+			apiVersion: "cert-manager.io/v1",
+			kind: "Certificate",
+			metadata: {
+				name: "postgres",
+				namespace: ns.metadata.name,
+			},
+			spec: {
+				secretName: tlsSecretName,
+				commonName: host,
+				dnsNames: [
+					"postgres",
+					`postgres.${nsName}`,
+					`postgres.${nsName}.svc`,
+					host,
+				],
+				issuerRef: {
+					name: "postgres-selfsigned",
+					kind: "Issuer",
+				},
+			},
+		},
+		{ ...child, dependsOn: [ns, issuer] },
+	);
 
 	const secret = new k8s.core.v1.Secret(
 		`${name}-credentials`,
@@ -152,10 +200,40 @@ function installPostgres(
 				template: {
 					metadata: { labels: { app: "postgres" } },
 					spec: {
+						initContainers: [
+							{
+								name: "tls-setup",
+								image,
+								command: [
+									"sh",
+									"-c",
+									"cp /tls-src/tls.crt /tls/server.crt && cp /tls-src/tls.key /tls/server.key && chown postgres:postgres /tls/server.crt /tls/server.key && chmod 644 /tls/server.crt && chmod 600 /tls/server.key",
+								],
+								volumeMounts: [
+									{
+										name: "tls-src",
+										mountPath: "/tls-src",
+										readOnly: true,
+									},
+									{
+										name: "tls",
+										mountPath: "/tls",
+									},
+								],
+							},
+						],
 						containers: [
 							{
 								name: "postgres",
 								image,
+								args: [
+									"-c",
+									"ssl=on",
+									"-c",
+									"ssl_cert_file=/var/lib/postgresql/tls/server.crt",
+									"-c",
+									"ssl_key_file=/var/lib/postgresql/tls/server.key",
+								],
 								ports: [{ containerPort: 5432, name: "postgres" }],
 								envFrom: [{ secretRef: { name: secret.metadata.name } }],
 								env: [
@@ -168,6 +246,11 @@ function installPostgres(
 									{
 										name: "data",
 										mountPath: "/var/lib/postgresql/data",
+									},
+									{
+										name: "tls",
+										mountPath: "/var/lib/postgresql/tls",
+										readOnly: true,
 									},
 								],
 								readinessProbe: {
@@ -188,12 +271,20 @@ function installPostgres(
 								name: "data",
 								persistentVolumeClaim: { claimName: pvc.metadata.name },
 							},
+							{
+								name: "tls-src",
+								secret: { secretName: tlsSecretName },
+							},
+							{
+								name: "tls",
+								emptyDir: {},
+							},
 						],
 					},
 				},
 			},
 		},
-		{ ...child, dependsOn: [ns, secret, pvc] },
+		{ ...child, dependsOn: [ns, secret, pvc, certificate] },
 	);
 
 	const service = new k8s.core.v1.Service(
@@ -209,15 +300,13 @@ function installPostgres(
 		{ ...child, dependsOn: [ns] },
 	);
 
-	const host = `postgres.${nsName}.svc.cluster.local`;
-	const port = 5432;
-
 	return {
 		host,
 		port,
 		adminUser,
 		adminPassword: password.result,
-		adminUrl: pulumi.interpolate`postgres://${adminUser}:${password.result}@${host}:${port}/${database}`,
+		adminUrl: pulumi.interpolate`postgres://${adminUser}:${password.result}@${host}:${port}/${database}?sslmode=require`,
+		sslMode: "require",
 		resources: [sts, service],
 	};
 }

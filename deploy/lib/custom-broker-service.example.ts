@@ -11,8 +11,8 @@
  *   3. In `service-broker-services.ts`:
  *        - add `enable.example?: boolean` (+ `example?: ExampleServiceArgs`)
  *        - call `installExampleService` when enabled and assign `this.example`
- *   4. In each stack: `enable: { postgres: true, example: true }` and export
- *      the connection facts for the broker the same way as `postgres`
+ *   4. In each stack: `enable: { postgres: true, example: true }` and pass
+ *      the connection on `OsbServiceBroker` `backends` (same as `postgres`)
  *
  * Prefer a Helm `Release` when an upstream chart exists; use a Deployment /
  * StatefulSet (like Postgres) when it does not.

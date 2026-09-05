@@ -11,12 +11,25 @@ export {
 } from "./dependencies";
 export {
 	hashKorifiImageSources,
+	hashOsbBrokerImageSources,
+	hashSourceTree,
 	korifiImageSourceEntries,
+	osbBrokerImageSourceEntries,
 } from "./image-source-hash";
 export {
 	KindKorifiImages,
 	type KindKorifiImagesArgs,
 } from "./kind-images";
+export {
+	KindOsbBrokerImage,
+	type KindOsbBrokerImageArgs,
+} from "./kind-osb-broker-image";
+export {
+	OsbServiceBroker,
+	osbServiceBrokerGuid,
+	osbServicePath,
+	type OsbServiceBrokerArgs,
+} from "./osb-service-broker";
 export {
 	KnativeServing,
 	type KnativeServingArgs,

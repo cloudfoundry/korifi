@@ -13,8 +13,15 @@ checkout and `kind load`ed. Helm is pinned to those tags (not Docker Hub
 rebuilds and reloads on the next `pulumi up`. The in-cluster registry is for
 apps/kpack only.
 
-Reusable pieces live in [`../lib`](../lib). After `pulumi up`, stack outputs
-include `postgres` admin connection facts and UAA admin credentials.
+Reusable pieces live in [`../lib`](../lib) (`KorifiDependencies`,
+`LocalRegistry`, `KorifiRelease`, `ContourGateway`, `ServiceBrokerServices`,
+`KindOsbBrokerImage`, `OsbServiceBroker`, …) and are unit-tested there.
+
+After `pulumi up` the stack builds [`osb-service/`](../../osb-service),
+`kind load`s it, deploys it over HTTPS (cert-manager self-signed; Korifi
+`trustInsecureBrokers` skips verify), and registers a `CFServiceBroker`.
+Postgres also serves TLS (`sslmode=require`). Stack outputs include
+`postgres` admin facts, `osbBrokerUrl`, and `marketplaceHint`.
 
 ## Quick start
 
@@ -36,6 +43,8 @@ pulumi stack output
 cf api https://localhost --skip-ssl-validation
 cf login -u "$(pulumi stack output uaaAdminEmail)" \
   -p "$(pulumi stack output uaaAdminPassword --show-secrets)"
+cf enable-service-access postgres
+cf marketplace
 ```
 
 UAA is published at `https://127.0.0.1:30443/uaa` (NodePort). The kind

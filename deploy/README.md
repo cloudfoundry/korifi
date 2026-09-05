@@ -12,7 +12,8 @@ Shared, unit-tested building blocks live in [`lib/`](./lib):
 
 - **Pure helpers** — `buildKorifiValues`, repository prefix builders, pinned versions
 - **ComponentResources** — `KorifiNamespaces`, `KorifiDependencies`, `LocalRegistry`,
-  `KorifiRelease`, `ContourGateway`, `EcrKpackIrsa`, `ServiceBrokerServices`
+  `KorifiRelease`, `ContourGateway`, `EcrKpackIrsa`, `ServiceBrokerServices`,
+  `KindOsbBrokerImage`, `OsbServiceBroker`
 
 ```sh
 cd deploy/lib && bun install && bun test

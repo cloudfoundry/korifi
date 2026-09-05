@@ -24,9 +24,28 @@ export const korifiImageSourceEntries = [
 ] as const;
 
 export function hashKorifiImageSources(repoRoot: string): string {
+	return hashSourceTree(repoRoot, korifiImageSourceEntries);
+}
+
+export const osbBrokerImageSourceEntries = [
+	"go.mod",
+	"go.sum",
+	"cmd",
+	"pkg",
+	"image/Dockerfile",
+] as const;
+
+export function hashOsbBrokerImageSources(repoRoot: string): string {
+	return hashSourceTree(repoRoot, osbBrokerImageSourceEntries);
+}
+
+export function hashSourceTree(
+	repoRoot: string,
+	entries: readonly string[],
+): string {
 	const hash = crypto.createHash("sha256");
 	const files: string[] = [];
-	for (const entry of korifiImageSourceEntries) {
+	for (const entry of entries) {
 		collectFiles(path.join(repoRoot, entry), repoRoot, files);
 	}
 	files.sort();
