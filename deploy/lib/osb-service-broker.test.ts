@@ -21,7 +21,8 @@ test("osb-service broker serves HTTPS and registers CFServiceBroker", () => {
 	expect(text).toContain(osbServiceBrokerGuid);
 	expect(text).not.toContain("--insecure");
 	expect(text).not.toContain("port: 8080");
-	expect(text).toContain('postgres.sslMode ?? "require"');
+	expect(text).toContain("EVEREST_KUBECONFIG");
+	expect(text).toContain("everest-kubeconfig");
 });
 
 test("image pull policy defaults to IfNotPresent, not Never", () => {

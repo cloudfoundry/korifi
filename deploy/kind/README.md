@@ -20,7 +20,8 @@ Reusable pieces live in [`../lib`](../lib) (`KorifiDependencies`,
 After `pulumi up` the stack builds [`osb-service/`](../../osb-service),
 `kind load`s it, deploys it over HTTPS (cert-manager self-signed; Korifi
 `trustInsecureBrokers` skips verify), and registers a `CFServiceBroker`.
-Postgres also serves TLS (`sslmode=require`). Stack outputs include
+OpenEverest runs in a vcluster; `cf create-service postgres dedicated`
+creates one DatabaseCluster per instance. Stack outputs include
 `postgres` admin facts, `osbBrokerUrl`, and `marketplaceHint`.
 
 ## Quick start

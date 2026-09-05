@@ -18,7 +18,8 @@ Reusable Pulumi components and pure helpers for installing Korifi.
 | `kind-images.ts` | Build Korifi images from the checkout and `kind load` them |
 | `kind-osb-broker-image.ts` | Build the in-tree `osb-service` image and `kind load` it |
 | `ecr-kpack-irsa.ts` | Annotate kpack controller SA for ECR |
-| `service-broker-services.ts` | Shared Postgres StatefulSet (and later backends); not the OSB process |
+| `everest-vcluster.ts` | OpenEverest in a vcluster (operators only; OSB creates clusters) |
+| `service-broker-services.ts` | Everest kubeconfig/namespace facts the OSB broker consumes |
 | `osb-service-broker.ts` | Deploy `osb-service` over HTTPS and register `CFServiceBroker` |
 | `uaa-certs.ts` | TLS CA + server PEMs for kind OIDC mount and UAA proxy |
 | `uaa-vcluster.ts` | vcluster + UAA + TLS NodePort proxy (kind UAA) |

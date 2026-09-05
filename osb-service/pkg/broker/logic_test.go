@@ -33,7 +33,7 @@ func TestCatalogIsPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := b.Catalog()
-	if len(c.Services) != 1 || c.Services[0].Name != "postgres" || c.Services[0].Plans[0].Name != "shared" {
+	if len(c.Services) != 1 || c.Services[0].Name != "postgres" || c.Services[0].Plans[0].Name != "dedicated" {
 		t.Fatalf("unexpected catalog: %#v", c)
 	}
 }

@@ -14,8 +14,9 @@
  *   4. In each stack: `enable: { postgres: true, example: true }` and pass
  *      the connection on `OsbServiceBroker` `backends` (same as `postgres`)
  *
- * Prefer a Helm `Release` when an upstream chart exists; use a Deployment /
- * StatefulSet (like Postgres) when it does not.
+ * Prefer a Helm `Release` when an upstream chart exists (Postgres is an
+ * OpenEverest `DatabaseCluster` in a vcluster); use a Deployment /
+ * StatefulSet when it does not.
  */
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";

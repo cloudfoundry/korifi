@@ -16,5 +16,7 @@ go run ./cmd/servicebroker --insecure --port 8080 \
   --username broker --password change-me
 ```
 
-Deploy stacks pass backing-store env from `ServiceBrokerServices` and mount
-a TLS secret (cert-manager self-signed unless `tlsSecretName` is set).
+Deploy stacks give the broker a kubeconfig for the OpenEverest vcluster.
+Each `cf create-service postgres dedicated` creates a DatabaseCluster.
+The broker mounts a TLS secret (cert-manager self-signed unless
+`tlsSecretName` is set).

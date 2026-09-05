@@ -12,7 +12,7 @@
  *   KorifiRelease            Korifi Helm chart (knative-runner, experimental.uaa)
  *   KnativeServing           Operator Helm + KnativeServing CR (Kourier ClusterIP)
  *   ContourGateway           NodePort GatewayClass params
- *   ServiceBrokerServices    shared backing stores (postgres, …)
+ *   ServiceBrokerServices    OpenEverest (vcluster) + shared Postgres
  *   KindOsbBrokerImage       docker build + kind load osb-service
  *   OsbServiceBroker         HTTPS OSB broker + CFServiceBroker registration
  *
@@ -241,6 +241,7 @@ const brokerServices = new ServiceBrokerServices(
 	"broker-services",
 	{
 		provider: cluster.provider,
+		kindClusterName: clusterName,
 		enable: { postgres: true },
 		dependsOn: [korifi.release],
 	},
@@ -264,7 +265,7 @@ const osbBroker = new OsbServiceBroker(
 		image: osbImage.image,
 		imagePullPolicy: "Never",
 		backends: {
-			postgres: brokerServices.postgres,
+			everest: brokerServices.everest,
 		},
 		rootNamespace: namespaces.rootName,
 		dependsOn: [korifi.release, osbImage.loaded],
@@ -287,17 +288,15 @@ export const knativeServing = knative.serving.metadata.name;
 export const controllersImage = images.controllersImage;
 export const apiImage = images.apiImage;
 
-export const postgres = brokerServices.postgres
+export const everest = brokerServices.everest
 	? {
-			host: brokerServices.postgres.host,
-			port: brokerServices.postgres.port,
-			adminUser: brokerServices.postgres.adminUser,
-			adminPassword: pulumi.secret(brokerServices.postgres.adminPassword),
-			adminUrl: pulumi.secret(brokerServices.postgres.adminUrl!),
+			namespace: brokerServices.everest.namespace,
+			hostNamespace: brokerServices.everest.hostNamespace,
+			vclusterName: brokerServices.everest.vclusterName,
 		}
 	: undefined;
 
 export const osbBrokerUrl = osbBroker.url;
 export const osbServiceImage = osbImage.image;
 export const marketplaceHint =
-	"cf enable-service-access postgres && cf marketplace && cf create-service postgres shared mydb";
+	"cf enable-service-access postgres && cf marketplace && cf create-service postgres dedicated mydb";

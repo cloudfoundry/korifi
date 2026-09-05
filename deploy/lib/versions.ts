@@ -16,8 +16,8 @@ export const versions = {
 	knativeOperatorChart: "v1.23.1",
 	/** KnativeServing CR spec.version — must stay in the Operator's support range. */
 	knativeServing: "1.23.0",
-	/** Shared Postgres image for ServiceBrokerServices (OSB broker backend). */
-	postgresImage: "postgres:16-alpine",
+	/** OpenEverest Helm chart (v1 line; operators isolated in a vcluster). */
+	openeverestChart: "1.16.2",
 	/** loft-sh/vcluster chart (UAA isolation on kind). */
 	vclusterChart: "0.36.1",
 	/** Official UAA image (cfidentity/uaa). */

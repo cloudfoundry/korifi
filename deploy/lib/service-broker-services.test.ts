@@ -7,12 +7,10 @@ const text = fs.readFileSync(
 	"utf8",
 );
 
-test("postgres backend serves TLS; broker admin uses sslmode=require", () => {
-	expect(text).toContain("ssl=on");
-	expect(text).toContain("ssl_cert_file=");
-	expect(text).toContain("ssl_key_file=");
-	expect(text).toContain("cert-manager.io/v1");
-	expect(text).toContain('sslMode: "require"');
-	expect(text).toContain("sslmode=require");
-	expect(text).not.toContain('sslMode: "disable"');
+test("postgres backend is OpenEverest in a vcluster", () => {
+	expect(text).toContain("EverestVcluster");
+	expect(text).toContain("kindClusterName");
+	expect(text).toContain("inClusterKubeconfig");
+	expect(text).not.toContain('chart: "pg-operator"');
+	expect(text).not.toContain("apps.v1.StatefulSet");
 });

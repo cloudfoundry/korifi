@@ -49,9 +49,14 @@ export {
 	type KorifiNamespacesArgs,
 } from "./namespaces";
 export {
+	EverestVcluster,
+	kindEverestVclusterLocalApiPort,
+	type EverestVclusterArgs,
+} from "./everest-vcluster";
+export {
 	ServiceBrokerServices,
 	defaultServiceBrokerServiceEnable,
-	type PostgresServiceArgs,
+	type EverestConnection,
 	type ServiceBrokerServiceConnection,
 	type ServiceBrokerServicesArgs,
 } from "./service-broker-services";

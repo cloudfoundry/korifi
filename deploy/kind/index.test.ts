@@ -31,6 +31,8 @@ test("kind stack composes shared lib components", () => {
 	expect(all).toContain("OsbServiceBroker");
 	expect(all).toContain("osbServicePath");
 	expect(all).toContain("osb-service");
+	expect(all).toContain("everest: brokerServices.everest");
+	expect(all).toContain("postgres dedicated");
 	expect(all).not.toContain("PostgresServiceBroker");
 	expect(all).not.toContain("--insecure");
 	expect(all).not.toContain('sslMode: "disable"');

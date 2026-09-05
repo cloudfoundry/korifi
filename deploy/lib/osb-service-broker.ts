@@ -14,7 +14,7 @@ import * as path from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import * as random from "@pulumi/random";
-import type { ServiceBrokerServiceConnection } from "./service-broker-services";
+import type { EverestConnection } from "./service-broker-services";
 
 export const osbServiceBrokerGuid = "11111111-1111-4111-8111-111111111111";
 
@@ -28,7 +28,7 @@ export interface OsbServiceBrokerArgs {
 	/** Default IfNotPresent. Kind load uses Never. */
 	imagePullPolicy?: string;
 	backends: {
-		postgres?: ServiceBrokerServiceConnection;
+		everest?: EverestConnection;
 	};
 	/**
 	 * Existing kubernetes.io/tls secret in the broker namespace.
@@ -132,15 +132,43 @@ export class OsbServiceBroker extends pulumi.ComponentResource {
 			BROKER_PASSWORD: password.result,
 		};
 		const backendResources: pulumi.Resource[] = [];
-		const postgres = args.backends.postgres;
-		if (postgres) {
-			stringData.POSTGRES_HOST = postgres.host;
-			stringData.POSTGRES_PORT = String(postgres.port);
-			stringData.POSTGRES_USER = postgres.adminUser;
-			stringData.POSTGRES_PASSWORD = postgres.adminPassword;
-			stringData.POSTGRES_DB = "postgres";
-			stringData.POSTGRES_SSLMODE = postgres.sslMode ?? "require";
-			backendResources.push(...postgres.resources);
+		const everest = args.backends.everest;
+		const extraVolumeMounts: k8s.types.input.core.v1.VolumeMount[] = [];
+		const extraVolumes: k8s.types.input.core.v1.Volume[] = [];
+		if (everest) {
+			stringData.EVEREST_NAMESPACE = everest.namespace;
+			stringData.EVEREST_HOST_NAMESPACE = everest.hostNamespace;
+			stringData.EVEREST_VCLUSTER_NAME = everest.vclusterName;
+			stringData.EVEREST_KUBECONFIG = "/var/run/everest/kubeconfig";
+			backendResources.push(...everest.resources);
+			extraVolumeMounts.push({
+				name: "everest-kubeconfig",
+				mountPath: "/var/run/everest",
+				readOnly: true,
+			});
+			extraVolumes.push({
+				name: "everest-kubeconfig",
+				secret: {
+					secretName: "everest-kubeconfig",
+					items: [{ key: "kubeconfig", path: "kubeconfig" }],
+				},
+			});
+		}
+
+		if (everest) {
+			backendResources.push(
+				new k8s.core.v1.Secret(
+					`${name}-everest-kubeconfig`,
+					{
+						metadata: {
+							name: "everest-kubeconfig",
+							namespace: this.namespace.metadata.name,
+						},
+						stringData: { kubeconfig: everest.kubeconfig },
+					},
+					{ ...child, dependsOn: [this.namespace] },
+				),
+			);
 		}
 
 		const secret = new k8s.core.v1.Secret(
@@ -211,6 +239,7 @@ export class OsbServiceBroker extends pulumi.ComponentResource {
 											mountPath: "/var/run/osb-service",
 											readOnly: true,
 										},
+										...extraVolumeMounts,
 									],
 								},
 							],
@@ -225,6 +254,7 @@ export class OsbServiceBroker extends pulumi.ComponentResource {
 										],
 									},
 								},
+								...extraVolumes,
 							],
 						},
 					},
