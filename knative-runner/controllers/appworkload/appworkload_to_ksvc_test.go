@@ -148,19 +148,20 @@ var _ = Describe("AppWorkload to Knative Service Converter", func() {
 	})
 
 	Describe("Scale annotations", func() {
-		It("sets scale-to-zero min-scale and CF instances as max-scale", func() {
+		It("pins min-scale and max-scale to CF instances", func() {
 			anns, _, err := unstructured.NestedStringMap(ksvc.Object, "spec", "template", "metadata", "annotations")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(anns).To(HaveKeyWithValue(appworkload.AnnotationMinScale, "0"))
+			Expect(anns).To(HaveKeyWithValue(appworkload.AnnotationMinScale, "2"))
 			Expect(anns).To(HaveKeyWithValue(appworkload.AnnotationMaxScale, "2"))
 		})
 
-		It("clamps max-scale to at least 1 when instances is 0", func() {
+		It("keeps min-scale 0 and max-scale 1 when instances is 0", func() {
 			appWorkload.Spec.Instances = 0
 			zeroed, err := converter.Convert(appWorkload)
 			Expect(err).NotTo(HaveOccurred())
 			anns, _, err := unstructured.NestedStringMap(zeroed.Object, "spec", "template", "metadata", "annotations")
 			Expect(err).NotTo(HaveOccurred())
+			Expect(anns).To(HaveKeyWithValue(appworkload.AnnotationMinScale, "0"))
 			Expect(anns).To(HaveKeyWithValue(appworkload.AnnotationMaxScale, "1"))
 		})
 	})
